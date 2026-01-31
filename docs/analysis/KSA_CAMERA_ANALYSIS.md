@@ -40,13 +40,13 @@ The OrbitController implements an orbiting camera that maintains focus on a targ
 ```csharp
 public double Azimuth = 0.0;      // Horizontal rotation angle (radians)
 public double Elevation = 0.0;     // Vertical rotation angle (radians)
-public double DistancePower = 3.0; // Logarithmic distance from target
+public double DistancePower = 3.0; // Dimensionless distance multiplier (scaled by scroll)
 ```
 
 The camera position is determined by:
 1. **Azimuth** - Horizontal angle around the target (unlimited rotation)
 2. **Elevation** - Vertical angle, clamped to [-π/2, π/2] to prevent gimbal lock
-3. **Distance** - Calculated as `pow(base, DistancePower)` for smooth zoom
+3. **Distance** - Calculated per-frame as `distanceMeters = focusedRadius * DistancePower`
 
 ### Reference Frame System
 
@@ -106,38 +106,47 @@ private doubleQuat GetCarousel2Cce(IOrbiting celestial)
 
 ### Camera Targeting - How It Works
 
-**The Camera Look-At Implementation:**
+OrbitController computes a *look direction* and *up vector* in ECL/CCE, then derives camera rotation with `Camera.LookAtRotation(dir, up)`. The camera is placed behind the target along the camera's forward axis (KSA appears to use local forward = `-Z`).
 
-While not fully visible in the decompiled code (due to omitted lines), the system works as follows:
+High-level steps in `OnFrame()`:
 
-1. **Target Position**: Get `focused.GetPositionEcl()` - target's position in ecliptic coordinates
-2. **Reference Frame**: Apply `GetFrame2Ecl()` to get the rotation basis
-3. **Spherical to Cartesian**: Convert (Azimuth, Elevation, Distance) to offset vector
-4. **Camera Position**: `cameraPos = targetPos + rotatedOffset`
-5. **Camera Orientation**: Point camera at target using look-at transformation
+1. **Target position (ECL)**: `positionEcl = focused.GetPositionEcl()`
+2. **Choose a reference frame**: usually `orbitView.ReferenceFrame` (but when `Program.Editor != null`, it forces `CameraReferenceFrame.Chase`).
+3. **Compute frame axes in ECL**:
+    - `xAxis = UnitX.Transform(frame2Ecl)`
+    - `zAxis = UnitZ.Transform(frame2Ecl)` (used as the polar axis for azimuth rotation)
+4. **Compute look direction** using axis-angle rotations:
+    - `dir0 = RotateAroundAxis(xAxis, zAxis, Azimuth)`
+    - `elevAxis = Normalize(Cross(dir0, zAxis))`
+    - `dir = RotateAroundAxis(dir0, elevAxis, Elevation)`
+    - `up = Normalize(Cross(elevAxis, dir))`
+5. **Compute camera rotation**: `rotation = Camera.LookAtRotation(dir, up)`
+6. **Compute camera distance**: `distanceMeters = DistancePower * focusedRadius`
+7. **Compute camera position**:
+    - `forward = (-UnitZ).Transform(rotation)` (direction from camera toward the target)
+    - `cameraPosEcl = positionEcl + offsetEcl + editorOffset - forward * distanceMeters`
 
-**Pseudo-code reconstruction:**
+Pseudo-code (close to the decompiled logic):
+
 ```csharp
-// Get target position in ecliptic space
-double3 targetPosEcl = focused.GetPositionEcl();
+double3 positionEcl = focused.GetPositionEcl();
 
-// Get reference frame rotation
 doubleQuat frame2Ecl = GetFrame2Ecl(focused, referenceFrame);
+double3 xAxis = double3.UnitX.Transform(frame2Ecl);
+double3 zAxis = double3.UnitZ.Transform(frame2Ecl);
 
-// Convert spherical coordinates to cartesian offset in reference frame
-double distance = Math.Pow(someBase, DistancePower);
-double3 offsetInFrame = new double3(
-    distance * cos(Elevation) * cos(Azimuth),
-    distance * cos(Elevation) * sin(Azimuth),
-    distance * sin(Elevation)
-);
+double3 dir0 = xAxis.Transform(QuaternionEx.AngleAxis(Azimuth, zAxis));
+double3 elevAxis = double3.Cross(dir0, zAxis).Normalized();
+double3 dir = dir0.Transform(QuaternionEx.AngleAxis(Elevation, elevAxis));
+double3 up = double3.Cross(elevAxis, dir).Normalized();
 
-// Transform offset to ecliptic space
-double3 offsetEcl = offsetInFrame.Transform(frame2Ecl);
+doubleQuat rotation = Camera.LookAtRotation(dir, up);
 
-// Calculate camera position and orientation
-camera.Position = targetPosEcl + offsetEcl;
-camera.LookAt(targetPosEcl);  // Orient to look at target
+double distanceMeters = DistancePower * focusedRadius;
+double3 forward = (-double3.UnitZ).Transform(rotation);
+
+Transform.LocalRotation = rotation;
+Transform.PositionEcl = positionEcl + offsetEcl + editorOffset - forward * distanceMeters;
 ```
 
 ### Input Handling
@@ -164,7 +173,9 @@ public override bool OnScroll(GlfwWindow window, double2 offset)
     else
         orbitView.DistancePower *= (SprintFlag ? 2.2 : 1.1);
     
-    // Clamp to minimum distance
+    // Clamp to minimum distance:
+    // - Non-Sol targets: at least 0.5
+    // - Sol: at least SunRenderer.OrbitCamDistPow
     orbitView.DistancePower = Max(orbitView.DistancePower, minDistancePower);
 }
 ```
@@ -188,7 +199,14 @@ When the focused object changes:
 4. Interpolate between start and target state using _animProgress
 5. When _animProgress >= 1.0, animation complete
 
-**This provides smooth camera transitions between targets.**
+More specifically in the decompiled code:
+
+- `_animProgress` advances by `deltaTime / GameSettings.Current.Interface.CameraJumpTime`.
+- It clamps to `1.0 + 0.2`, then uses `t = _animProgress - 0.2`.
+- Rotation uses `doubleQuat.Lerp(startRotation, targetRotation, Smootherstep(t))`.
+- Position / distance / offsets use `Smootherstep(_animProgress)`.
+
+This delays rotation slightly relative to translation, which tends to feel smoother.
 
 ### State Tracking
 
@@ -262,11 +280,35 @@ public override bool OnCursorPos(GlfwWindow window, double2 pos)
 }
 ```
 
-The camera smoothly interpolates toward `lookTgt` using `lookSharpness` as the lerp factor.
+Mouse deltas accumulate into `lookTgt` (pitch/yaw), then `lookTgt` is damped back toward zero each frame:
+
+```csharp
+lookTgt = float3.Lerp(lookTgt, float3.Zero, lookSharpness * (float)deltaTime);
+```
+
+That impulse is integrated into `_offsetEcl` as incremental rotations (roll, yaw, pitch) scaled by `0.01`, then applied on top of `_frame2Ecl`:
+
+```csharp
+_offsetEcl *= AngleAxis( lookTgt.Z * 0.01, Forward)
+           * AngleAxis(-lookTgt.Y * 0.01, Up)
+           * AngleAxis(-lookTgt.X * 0.01, Right);
+
+Transform.LocalRotation = _frame2Ecl * _offsetEcl;
+```
 
 ### Reference Frame System
 
-FlyController also uses `GetFrame2Ecl()` similar to OrbitController, supporting the same reference frames. This keeps the camera's movement relative to the selected frame.
+FlyController supports a narrower set of reference frames than OrbitController:
+
+- For **Vehicles**:
+    - `Surface`, `Orbit`, `Stars`, `Chase` supported.
+    - `Parent` throws `NotImplementedException`.
+    - `Poles` throws `InvalidOperationException`.
+- For **Celestials**:
+    - `Surface`, `Poles`, `Stars` supported.
+    - `Orbit` and `Chase` throw `InvalidOperationException`.
+
+In practice, `OnFrame()` sets `_frame2Ecl` to **Surface** when `Camera.Following is Celestial`, otherwise identity.
 
 ### Camera Clamping
 
@@ -291,8 +333,11 @@ private Celestial? _trackedCelestial;
 
 public void CacheOffset()
 {
-    // Store camera's offset from tracked celestial
-    // Maintains relative position when switching modes
+    // Store the camera rotation offset relative to the tracked frame.
+    if (Camera.Following is Celestial following)
+        _offsetEcl = GetFrame2Ecl((Astronomical)following, CameraReferenceFrame.Surface).Inverse() * Transform.LocalRotation;
+    else
+        _offsetEcl = Transform.LocalRotation;
 }
 ```
 
@@ -317,13 +362,13 @@ public void CacheOffset()
 **doubleQuat** is used throughout for:
 - Rotation representation (avoids gimbal lock)
 - Coordinate frame transformations
-- Smooth interpolation (slerp)
+- Smooth interpolation (lerp/slerp depending on controller)
 
 **Key operations:**
 - `doubleQuat.Concatenate(q1, q2)` - Combine rotations
 - `vector.Transform(quat)` - Rotate vector by quaternion
 - `doubleQuat.CreateFromAxisAngle(axis, angle)` - Create rotation
-- Interpolation: `doubleQuat.Slerp(start, end, t)`
+- Interpolation: `doubleQuat.Lerp(start, end, t)` (OrbitController) and/or `doubleQuat.Slerp(start, end, t)`
 
 ### 3. Spherical Coordinates
 
@@ -338,6 +383,8 @@ x = r * cos(φ) * cos(θ)
 y = r * cos(φ) * sin(θ)
 z = r * sin(φ)
 ```
+
+Note: OrbitController doesn’t explicitly compute this with trig; it constructs the equivalent direction using axis-angle rotations (see the earlier `OnFrame()` breakdown).
 
 ### 4. Camera Look-At
 
@@ -373,7 +420,7 @@ public class CameraKeyframe
     public double TimeStamp;              // When this keyframe occurs
     public double Azimuth;                // Horizontal angle around target
     public double Elevation;              // Vertical angle
-    public double DistancePower;          // Zoom level
+    public double DistancePower;          // Distance multiplier (distanceMeters = focusedRadius * DistancePower)
     public CameraReferenceFrame Frame;    // Reference frame for this keyframe
     public EasingFunction Easing;         // Interpolation curve
 }
@@ -383,7 +430,7 @@ public class CameraKeyframe
 
 Between keyframes, interpolate:
 1. **Azimuth/Elevation**: Linear or spherical interpolation
-2. **Distance**: Linear interpolation of DistancePower (logarithmic zoom)
+2. **Distance**: Linear interpolation of DistancePower (it behaves like a scale factor)
 3. **Reference Frame**: Either snap at keyframe or use quaternion slerp between frame rotations
 
 ### Animation Sequences
@@ -392,7 +439,7 @@ Define common animation patterns:
 
 **Orbit Around Target:**
 ```csharp
-void CreateOrbitSequence(double duration, double radius, double startAngle)
+void CreateOrbitSequence(double duration, double distanceMeters, double startAngle)
 {
     int steps = 60;
     for (int i = 0; i <= steps; i++)
@@ -402,7 +449,9 @@ void CreateOrbitSequence(double duration, double radius, double startAngle)
             TimeStamp = duration * t,
             Azimuth = startAngle + (2 * Math.PI * t),
             Elevation = 0,
-            DistancePower = Math.Log(radius) / Math.Log(BASE),
+            // OrbitController uses: distanceMeters = focusedRadiusMeters * DistancePower
+            // so DistancePower is best thought of as a scale factor.
+            DistancePower = distanceMeters / currentFocusedRadiusMeters,
             Frame = CameraReferenceFrame.Stars
         });
     }
@@ -411,10 +460,10 @@ void CreateOrbitSequence(double duration, double radius, double startAngle)
 
 **Zoom In/Out:**
 ```csharp
-void CreateZoomSequence(double duration, double startDist, double endDist)
+void CreateZoomSequence(double duration, double startDistMeters, double endDistMeters)
 {
-    AddKeyframe(TimeStamp: 0, DistancePower: Log(startDist));
-    AddKeyframe(TimeStamp: duration, DistancePower: Log(endDist));
+    AddKeyframe(TimeStamp: 0, DistancePower: startDistMeters / currentFocusedRadiusMeters);
+    AddKeyframe(TimeStamp: duration, DistancePower: endDistMeters / currentFocusedRadiusMeters);
 }
 ```
 
@@ -461,15 +510,20 @@ public override void OnFrame(Viewport viewport, double deltaTime)
     // Get target position and reference frame
     double3 targetPos = Camera.Following.GetPositionEcl();
     doubleQuat frame2Ecl = GetFrame2Ecl(Camera.Following, kf1.Frame);
+    double focusedRadiusMeters = Camera.Following.MeanRadius; // vehicles use BoundingSphereRadius in OrbitController
     
-    // Calculate camera offset in spherical coordinates
-    double distance = Math.Pow(BASE, distPower);
-    double3 offsetInFrame = SphericalToCartesian(azimuth, elevation, distance);
-    double3 offsetEcl = offsetInFrame.Transform(frame2Ecl);
+    // OrbitController-style distance conversion
+    double distanceMeters = distPower * focusedRadiusMeters;
     
-    // Position and orient camera
-    Camera.Position = targetPos + offsetEcl;
-    Camera.LookAt(targetPos);
+    // Position and orient camera (OrbitController pattern)
+    // 1) compute dir/up in the chosen frame
+    // 2) rotation = Camera.LookAtRotation(dir, up)
+    // 3) forward = (-UnitZ).Transform(rotation)
+    // 4) position = targetPos - forward * distanceMeters
+    var rotation = Camera.LookAtRotation(dir, up);
+    var forward = (-double3.UnitZ).Transform(rotation);
+    Transform.LocalRotation = rotation;
+    Transform.PositionEcl = targetPos - forward * distanceMeters;
 }
 ```
 
@@ -523,9 +577,9 @@ const double MINIMUM_ALTITUDE_METERS = 2.0;     // Surface clearance
 
 ### Performance Considerations
 
-1. **Quaternion Slerp**: More expensive than lerp, use sparingly
-2. **GetFrame2Ecl()**: Caches `_lastFrame2Ecl`, only recalculates when needed
-3. **Animation State**: Uses `_animProgress` to track completion, avoids recalculation
+1. **GetFrame2Ecl()**: OrbitController caches `_lastFrame2Ecl` and reuses it as a default
+2. **Animation State**: Transition path lerps position/rotation/distance/offsets using cached “last” values
+3. **Interpolation Choice**: OrbitController uses `doubleQuat.Lerp` (not slerp) plus `Smootherstep`
 4. **Input Handling**: Early returns prevent unnecessary processing
 
 ---
@@ -533,11 +587,11 @@ const double MINIMUM_ALTITUDE_METERS = 2.0;     // Surface clearance
 ## Summary
 
 The KSA camera system uses:
-1. **Spherical coordinates** (Azimuth, Elevation, Distance) for intuitive orbiting
+1. **Orbit angles** (Azimuth, Elevation) to build a look direction via axis-angle rotations
 2. **Reference frames** via quaternion transformations to provide context-aware camera behavior
-3. **Look-at targeting** to keep camera pointed at the focused object
-4. **Smooth interpolation** for transitions between states
-5. **Coordinate transformations** between reference frames and ecliptic space
+3. **Look-at rotation** (`Camera.LookAtRotation(dir, up)`) to keep the camera pointed at the target
+4. **Distance scaling** as `distanceMeters = focusedRadius * DistancePower`
+5. **Smooth interpolation** (lerps + `Smootherstep`) for transitions between focus/reference/editing states
 
 For a custom keyframe animation controller:
 - Inherit from `Controller`
