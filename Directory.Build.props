@@ -1,0 +1,33 @@
+<Project>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>13.0</LangVersion>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <!-- <ImplicitUsings>enable</ImplicitUsings> -->
+        <ImplicitUsings>disable</ImplicitUsings>
+        <WarningsAsErrors/>
+        <WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <DefineConstants>DEBUG;TRACE</DefineConstants>
+        <DebugType>full</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DefineConstants>TRACE</DefineConstants>
+        <DebugType>pdbonly</DebugType>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <!-- KSA Game Installation Path -->
+    <PropertyGroup>
+        <KSAFolder Condition="'$(KSAFolder)' == ''">C:\Program Files\Kitten Space Agency\</KSAFolder>
+    </PropertyGroup>
+</Project>
