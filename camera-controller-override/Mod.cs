@@ -2,6 +2,7 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
+using KSA;
 
 namespace mod;
 
@@ -59,7 +60,7 @@ public class Mod
       {
         Console.WriteLine("camera-controller-override: F11 pressed, toggling window.");
         _windowVisible = !_windowVisible;
-        var controller = KSA.Program.GetController();
+        var controller = Program.OnFrameViewport.GetActiveController();
       }
 
       // Render window if visible
