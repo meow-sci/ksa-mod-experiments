@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using Brutal.Numerics;
 
 namespace mod;
 
@@ -7,6 +8,16 @@ namespace mod;
 internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("camera-controller-override");
+
+    // Animation state
+#pragma warning disable CS0169, CS0414 // Field is never used / assigned but never used (will be used in future tasks)
+    private static bool _isAnimationEnabled = false;
+    private static bool _isAnimationActive = false;
+    private static double _animationElapsedTime = 0.0;
+    private static double3 _animationStartPosition;
+    private static double3 _animationDirection;
+    private static double _animationSpeedMetersPerSecond = 1.0;
+#pragma warning restore CS0169, CS0414
 
     public static void Patch()
     {
@@ -33,6 +44,12 @@ internal static class Patcher
         {
             Console.WriteLine($"camera-controller-override: Error removing Harmony patches: {ex}");
         }
+    }
+
+    public static bool IsAnimationEnabled
+    {
+        get => _isAnimationEnabled;
+        set => _isAnimationEnabled = value;
     }
 
     // Example patch (commented out):
