@@ -104,6 +104,43 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "camera-controller-override");
       ImGui.Separator();
 
+      if (ImGui.CollapsingHeader("Simple Movement"))
+      {
+        ImGui.Indent();
+        
+        // Status display
+        string status = Patcher.IsAnimationEnabled 
+          ? (Patcher.IsAnimationActive ? "Animation Running" : "Animation Starting...") 
+          : "Inactive";
+        ImGui.Text($"Status: {status}");
+        
+        if (Patcher.IsAnimationActive)
+        {
+          ImGui.Text($"Elapsed: {Patcher.AnimationElapsedTime:F2}s / 5.00s");
+          ImGui.ProgressBar((float)(Patcher.AnimationElapsedTime / 5.0), new float2(200, 0));
+        }
+        
+        ImGui.Spacing();
+        
+        // Speed configuration
+        float speed = (float)Patcher.AnimationSpeedMetersPerSecond;
+        if (ImGui.SliderFloat("Speed (m/s)", ref speed, 0.5f, 50.0f))
+        {
+          Patcher.AnimationSpeedMetersPerSecond = speed;
+        }
+        
+        ImGui.Spacing();
+        
+        // Toggle button
+        string buttonLabel = Patcher.IsAnimationEnabled ? "Stop Patching" : "Start Patching";
+        if (ImGui.Button(buttonLabel))
+        {
+          Patcher.IsAnimationEnabled = !Patcher.IsAnimationEnabled;
+          Console.WriteLine($"camera-controller-override: Animation {(Patcher.IsAnimationEnabled ? "enabled" : "disabled")}");
+        }
+        
+        ImGui.Unindent();
+      }
 
       ImGui.Spacing();
       ImGui.Separator();

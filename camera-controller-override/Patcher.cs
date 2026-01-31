@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using Brutal.Numerics;
+using KSA;
 
 namespace mod;
 
@@ -10,14 +11,12 @@ internal static class Patcher
     private static Harmony? _harmony = new Harmony("camera-controller-override");
 
     // Animation state
-#pragma warning disable CS0169, CS0414 // Field is never used / assigned but never used (will be used in future tasks)
     private static bool _isAnimationEnabled = false;
     private static bool _isAnimationActive = false;
     private static double _animationElapsedTime = 0.0;
     private static double3 _animationStartPosition;
     private static double3 _animationDirection;
     private static double _animationSpeedMetersPerSecond = 1.0;
-#pragma warning restore CS0169, CS0414
 
     public static void Patch()
     {
@@ -50,6 +49,16 @@ internal static class Patcher
     {
         get => _isAnimationEnabled;
         set => _isAnimationEnabled = value;
+    }
+
+    public static bool IsAnimationActive => _isAnimationActive;
+
+    public static double AnimationElapsedTime => _animationElapsedTime;
+
+    public static double AnimationSpeedMetersPerSecond
+    {
+        get => _animationSpeedMetersPerSecond;
+        set => _animationSpeedMetersPerSecond = Math.Max(0.5, value);
     }
 
     // Example patch (commented out):
@@ -89,4 +98,64 @@ internal static class Patcher
         }
     }
     */
+
+    [HarmonyPatch(typeof(Controller), "OnFrame")]
+    [HarmonyPrefix]
+    private static bool Controller_OnFrame_Prefix(Controller __instance, Viewport inViewport, double inDeltaTime)
+    {
+        try
+        {
+            // If animation not enabled, run original method
+            if (!_isAnimationEnabled)
+            {
+                return true;
+            }
+
+            // Access protected Transform field using Traverse
+            var transformTraverse = Traverse.Create(__instance).Field<Transform3D>("Transform");
+            Transform3D transform = transformTraverse.Value;
+
+            // First frame of animation
+            if (!_isAnimationActive)
+            {
+                _isAnimationActive = true;
+                _animationStartPosition = transform.PositionEcl;
+                
+                // Get camera rotation and calculate backward direction
+                doubleQuat rotation = transform.LocalRotation;
+                double3 forward = (-double3.UnitZ).Transform(rotation);
+                _animationDirection = double3.Normalize(-forward);
+                
+                _animationElapsedTime = 0.0;
+                
+                Console.WriteLine($"camera-controller-override: Animation started at position {_animationStartPosition}, direction {_animationDirection}, speed {_animationSpeedMetersPerSecond} m/s");
+            }
+            
+            // Update animation on each frame
+            _animationElapsedTime += inDeltaTime;
+            
+            // Calculate and apply new position
+            double3 newPos = transform.PositionEcl + (_animationDirection * _animationSpeedMetersPerSecond * inDeltaTime);
+            transform.PositionEcl = newPos;
+            
+            // Check if animation is complete
+            if (_animationElapsedTime >= 5.0)
+            {
+                _isAnimationEnabled = false;
+                _isAnimationActive = false;
+                
+                double3 finalPosition = transform.PositionEcl;
+                double distanceTraveled = (finalPosition - _animationStartPosition).Length();
+                Console.WriteLine($"camera-controller-override: Animation completed. Final position: {finalPosition}, Distance traveled: {distanceTraveled:F2} meters");
+            }
+            
+            // Skip original OnFrame method
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"camera-controller-override: Error in Controller_OnFrame_Prefix: {ex}");
+            return true;
+        }
+    }
 }
