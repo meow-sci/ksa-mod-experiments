@@ -19,6 +19,7 @@ internal static class Patcher
     private static double3 _animationStartPosition;
     private static double3 _animationDirection;
     private static double _animationSpeedMetersPerSecond = 1.0;
+    private static double _animationDurationSeconds = 5.0;
 
     // Debug tracking
     private static int _frameCounter = 0;
@@ -139,7 +140,13 @@ internal static class Patcher
     public static double AnimationSpeedMetersPerSecond
     {
         get => _animationSpeedMetersPerSecond;
-        set => _animationSpeedMetersPerSecond = Math.Max(0.5, value);
+        set => _animationSpeedMetersPerSecond = Math.Max(1.0, value);
+    }
+
+    public static double AnimationDurationSeconds
+    {
+        get => _animationDurationSeconds;
+        set => _animationDurationSeconds = Math.Max(1.0, Math.Min(30.0, value));
     }
 
     // CRITICAL: Controller.OnFrame is virtual and overridden by OrbitController and FlyController
@@ -227,8 +234,8 @@ internal static class Patcher
                 }
                 
                 _animationElapsedTime = 0.0;
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Speed: {_animationSpeedMetersPerSecond} m/s, Duration: 5.0s");
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Expected total distance: {_animationSpeedMetersPerSecond * 5.0:F2} meters");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Speed: {_animationSpeedMetersPerSecond} m/s, Duration: {_animationDurationSeconds:F2}s");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Expected total distance: {_animationSpeedMetersPerSecond * _animationDurationSeconds:F2} meters");
             }
             
             // Update animation on each frame
@@ -269,7 +276,7 @@ internal static class Patcher
             }
             
             // Check if animation is complete
-            if (_animationElapsedTime >= 5.0)
+            if (_animationElapsedTime >= _animationDurationSeconds)
             {
                 _animationCompleteCount++;
                 Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] === ANIMATION COMPLETE (complete count: {_animationCompleteCount}) ===");
@@ -283,7 +290,7 @@ internal static class Patcher
                 Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Start position: {_animationStartPosition}");
                 Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Final position: {finalPosition}");
                 Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Distance traveled: {distanceTraveled:F2} meters");
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Expected distance: {_animationSpeedMetersPerSecond * 5.0:F2} meters");
+                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Expected distance: {_animationSpeedMetersPerSecond * _animationDurationSeconds:F2} meters");
             }
             
             // Skip original OnFrame method

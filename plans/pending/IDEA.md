@@ -38,6 +38,9 @@ References for `Controller` are found at:
   5 second animation where it moves the camera away from the target linearlly at a configurable speed (default to 1 meter per second)
 - when the animation is done the runtime patching should be disabled
 - the animation completion and toggle button should share the same enablement boolean so the toggle button can cancel the patching at any time
+- the animation length can be changed via an ImGui slider in seconds with min = 1s and max = 30s
+- the camera move speed should be changed by a ImGui slider in m/s with min = 1 and max = 250
+- animation progress bar always visible so the UI doesnt change heght when starting
 
 ### simple movement (via custom Controller)
 

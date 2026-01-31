@@ -104,7 +104,7 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "camera-controller-override");
       ImGui.Separator();
 
-      if (ImGui.CollapsingHeader("Simple Movement"))
+      if (ImGui.CollapsingHeader("Simple Movement", ImGuiTreeNodeFlags.DefaultOpen))
       {
         ImGui.Indent();
         
@@ -114,19 +114,31 @@ public class Mod
           : "Inactive";
         ImGui.Text($"Status: {status}");
         
-        if (Patcher.IsAnimationActive)
-        {
-          ImGui.Text($"Elapsed: {Patcher.AnimationElapsedTime:F2}s / 5.00s");
-          ImGui.ProgressBar((float)(Patcher.AnimationElapsedTime / 5.0), new float2(200, 0));
-        }
+        // Progress display (always visible)
+        string elapsedText = Patcher.IsAnimationActive 
+            ? $"Elapsed: {Patcher.AnimationElapsedTime:F2}s / {Patcher.AnimationDurationSeconds:F2}s"
+            : $"Elapsed: 0.00s / {Patcher.AnimationDurationSeconds:F2}s";
+        ImGui.Text(elapsedText);
+        
+        float progress = Patcher.IsAnimationActive 
+            ? (float)(Patcher.AnimationElapsedTime / Patcher.AnimationDurationSeconds)
+            : 0.0f;
+        ImGui.ProgressBar(progress, new float2(-1, 0));
         
         ImGui.Spacing();
         
         // Speed configuration
         float speed = (float)Patcher.AnimationSpeedMetersPerSecond;
-        if (ImGui.SliderFloat("Speed (m/s)", ref speed, 0.5f, 50.0f))
+        if (ImGui.SliderFloat("Speed (m/s)", ref speed, 1.0f, 250.0f))
         {
           Patcher.AnimationSpeedMetersPerSecond = speed;
+        }
+        
+        // Animation duration configuration
+        float duration = (float)Patcher.AnimationDurationSeconds;
+        if (ImGui.SliderFloat("Duration (s)", ref duration, 1.0f, 30.0f))
+        {
+          Patcher.AnimationDurationSeconds = duration;
         }
         
         ImGui.Spacing();
