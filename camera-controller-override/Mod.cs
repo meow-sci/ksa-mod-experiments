@@ -59,6 +59,7 @@ public class Mod
       {
         Console.WriteLine("camera-controller-override: F11 pressed, toggling window.");
         _windowVisible = !_windowVisible;
+        var controller = KSA.Program.GetController();
       }
 
       // Render window if visible
