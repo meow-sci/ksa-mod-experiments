@@ -3,6 +3,8 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using mod.UI;
+using mod.Animation.Animations;
 
 namespace mod;
 
@@ -14,6 +16,11 @@ public class Mod
   private bool _isInitialized = false;
   private bool _isDisposed = false;
   private bool _windowVisible = false;
+  
+  // Include Transition checkbox states
+  private bool _zoomIncludeTransition = false;
+  private bool _orbitIncludeTransition = false;
+  private bool _loopyIncludeTransition = false;
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -70,8 +77,8 @@ public class Mod
 
   private void RenderWindow()
   {
-    // Set initial window size (larger for camera controls with orbit animation)
-    ImGui.SetNextWindowSize(new float2(600, 950), ImGuiCond.FirstUseEver);
+    // Set initial window size (larger for camera controls with orbit animation and keyframe sequence)
+    ImGui.SetNextWindowSize(new float2(600, 1200), ImGuiCond.FirstUseEver);
 
     // Begin window
     if (ImGui.Begin("camera-controller-override Mod", ref _windowVisible))
@@ -166,6 +173,19 @@ public class Mod
         if (ImGui.Button(buttonLabel))
           Patcher.IsAnimationEnabled = !Patcher.IsAnimationEnabled;
         
+        ImGui.SameLine();
+        if (ImGui.Button("Add to Sequence"))
+        {
+          var animation = new ZoomOutAnimation(
+            speedMetersPerSecond: Patcher.AnimationSpeedMetersPerSecond,
+            durationSeconds: Patcher.AnimationDurationSeconds,
+            easing: (Animation.EasingType)Patcher.MainAnimationEasingType);
+          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _zoomIncludeTransition);
+        }
+        
+        ImGui.Spacing();
+        ImGui.Checkbox("Include Transition", ref _zoomIncludeTransition);
+        
         ImGui.Unindent();
       }
 
@@ -257,6 +277,19 @@ public class Mod
         string orbitButtonLabel = Patcher.IsOrbitAnimationEnabled ? "Stop Animation" : "Run Animation";
         if (ImGui.Button(orbitButtonLabel))
           Patcher.IsOrbitAnimationEnabled = !Patcher.IsOrbitAnimationEnabled;
+        
+        ImGui.SameLine();
+        if (ImGui.Button("Add to Sequence##Orbit"))
+        {
+          var animation = new OrbitAnimation(
+            degrees: Patcher.OrbitDegrees,
+            durationSeconds: Patcher.OrbitDurationSeconds,
+            easing: (Animation.EasingType)Patcher.OrbitEasingType);
+          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _orbitIncludeTransition);
+        }
+        
+        ImGui.Spacing();
+        ImGui.Checkbox("Include Transition##Orbit", ref _orbitIncludeTransition);
         
         ImGui.Unindent();
       }
@@ -364,6 +397,32 @@ public class Mod
         if (ImGui.Button(loopyButtonLabel + "##Loopy"))
           Patcher.IsLoopyOrbitEnabled = !Patcher.IsLoopyOrbitEnabled;
         
+        ImGui.SameLine();
+        if (ImGui.Button("Add to Sequence##Loopy"))
+        {
+          var animation = new LoopyOrbitAnimation(
+            degrees: Patcher.LoopyOrbitDegrees,
+            loopIntervalDegrees: Patcher.LoopyLoopIntervalDegrees,
+            amplitudeMeters: Patcher.LoopyAmplitudeMeters,
+            durationSeconds: Patcher.LoopyOrbitDurationSeconds,
+            easing: (Animation.EasingType)Patcher.LoopyOrbitEasingType);
+          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _loopyIncludeTransition);
+        }
+        
+        ImGui.Spacing();
+        ImGui.Checkbox("Include Transition##Loopy", ref _loopyIncludeTransition);
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      
+      // Keyframe Sequence Panel
+      if (ImGui.CollapsingHeader("Keyframe Sequence"))
+      {
+        ImGui.Indent();
+        KeyframeSequencePanel.Render(Patcher.SequencePlayer);
         ImGui.Unindent();
       }
 
