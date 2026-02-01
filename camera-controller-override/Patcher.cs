@@ -46,7 +46,11 @@ internal static class Patcher
     private static double3 _orbitAxis;
     private static bool _isOrbitLerpingBack = false;
     private static double _orbitLerpBackElapsedTime = 0.0;
-    private static double3 _orbitEndPosition;  // Position at end of orbit, used for lerp-back
+    
+    // Orbit lerp back: store OFFSETS from target (not absolute positions)
+    // This ensures lerp back works correctly even if target is moving
+    private static double3 _orbitLerpStartOffset;  // Offset from target to camera at START of orbit
+    private static double3 _orbitLerpEndOffset;    // Offset from target to camera at END of orbit
     
     // Lerp back state
     private static bool _lerpBackEnabled = true;  // Default enabled
@@ -359,17 +363,7 @@ internal static class Patcher
             // Check if orbit lerping back
             if (_isOrbitLerpingBack)
             {
-                // Calculate time progress (0 to 1)
-                double t = _orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds;
-                
-                // Apply easing
-                double easedT = ApplyEasing(t, _orbitLerpBackEasingType);
-                
-                // Interpolate position from orbit end position back to start position
-                double3 newPos = double3.Lerp(_orbitEndPosition, _orbitStartPosition, easedT);
-                transform.PositionEcl = newPos;
-                
-                // Get CURRENT target position (vessel may be moving during lerp-back)
+                // Get CURRENT target position (vessel may be moving)
                 double3 currentTargetPos = _orbitTargetPosition;
                 if (__instance != null)
                 {
@@ -379,12 +373,20 @@ internal static class Patcher
                         currentTargetPos = orbitCamera.Following.GetPositionEcl();
                     }
                 }
-
-                // Make camera look at target during lerp-back (same as orbit animation)
+                
+                // Calculate time progress (0 to 1)
+                double t = _orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds;
+                double easedT = ApplyEasing(t, _orbitLerpBackEasingType);
+                
+                // Lerp between end offset and start offset, apply to current target
+                double3 currentOffset = double3.Lerp(_orbitLerpEndOffset, _orbitLerpStartOffset, easedT);
+                double3 newPos = currentTargetPos + currentOffset;
+                transform.PositionEcl = newPos;
+                
+                // Make camera look at target
                 double3 lookDirection = currentTargetPos - newPos;
                 if (lookDirection.LengthSquared() > 0.0001)
                 {
-                    // Use camera's current up vector to prevent flipping
                     double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
                     doubleQuat lookAtRotation = Camera.LookAtRotation(lookDirection, currentUp);
                     transform.LocalRotation = lookAtRotation;
@@ -402,7 +404,7 @@ internal static class Patcher
                 }
                 else if (shouldLog || _frameCounter % 30 == 0)
                 {
-                    double progressPercent = (_orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds) * 100.0;
+                    double progressPercent = easedT * 100.0;
                     Console.WriteLine($"camera-controller-override: [ORBIT-LERP-PROGRESS] elapsed={_orbitLerpBackElapsedTime:F2}s/{_orbitLerpBackDurationSeconds:F1}s ({progressPercent:F1}%)");
                 }
                 
@@ -437,6 +439,9 @@ internal static class Patcher
                             _orbitTargetPosition = camera.Following.GetPositionEcl();
                         }
                     }
+                    
+                    // Save start offset for lerp back (camera position relative to target)
+                    _orbitLerpStartOffset = _orbitStartPosition - _orbitTargetPosition;
                     
                     // Calculate orbit parameters
                     double3 cameraToTarget = _orbitTargetPosition - _orbitStartPosition;
@@ -543,8 +548,13 @@ internal static class Patcher
                     // Check if lerp back is enabled
                     if (_orbitLerpBackEnabled)
                     {
+                        // Save end offset for lerp back (camera position relative to current target)
+                        _orbitLerpEndOffset = transform.PositionEcl - currentTargetPos;
+                        
                         Console.WriteLine($"camera-controller-override: [ORBIT-COMPLETE] Starting orbit lerp back phase");
-                        _orbitEndPosition = transform.PositionEcl;  // Save current position as orbit end
+                        Console.WriteLine($"camera-controller-override: [ORBIT-LERP-START] Start offset: {_orbitLerpStartOffset}");
+                        Console.WriteLine($"camera-controller-override: [ORBIT-LERP-START] End offset: {_orbitLerpEndOffset}");
+                        
                         _isOrbitLerpingBack = true;
                         _isOrbitAnimationActive = false;
                         _orbitLerpBackElapsedTime = 0.0;
