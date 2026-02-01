@@ -18,6 +18,23 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
+  // Zoom Out configuration
+  private float _zoomOutSpeed = 25.0f;
+  private float _zoomOutDuration = 5.0f;
+  private int _zoomOutEasing = (int)Animation.EasingType.EaseOut;
+
+  // Orbit configuration  
+  private float _orbitDegrees = 270.0f;
+  private float _orbitDuration = 5.0f;
+  private int _orbitEasing = (int)Animation.EasingType.EaseOut;
+
+  // Loopy Orbit configuration
+  private float _loopyOrbitDegrees = 270.0f;
+  private float _loopyLoopInterval = 90.0f;
+  private float _loopyAmplitude = 50.0f;
+  private float _loopyDuration = 8.0f;
+  private int _loopyEasing = (int)Animation.EasingType.EaseOut;
+
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
 
@@ -73,8 +90,8 @@ public class Mod
 
   private void RenderWindow()
   {
-    // Set initial window size (larger for camera controls with orbit animation and keyframe sequence)
-    ImGui.SetNextWindowSize(new float2(600, 1200), ImGuiCond.FirstUseEver);
+    // Set initial window size
+    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
 
     // Begin window
     if (ImGui.Begin("camera-controller-override Mod", ref _windowVisible))
@@ -83,12 +100,150 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "camera-controller-override");
       ImGui.Separator();
 
-      // TODO: UI will be rebuilt in Task 5 to work with sequence player only
-      ImGui.Text("Standalone animation UI removed - will be rebuilt in Task 5");
+      // Zoom Out Animation Configuration
+      if (ImGui.CollapsingHeader("Zoom Out Animation"))
+      {
+        ImGui.Indent();
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed (m/s)", ref _zoomOutSpeed, 1.0f, 250.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)", ref _zoomOutDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing", ref _zoomOutEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence"))
+        {
+          var animation = new ZoomOutAnimation(
+            speedMetersPerSecond: _zoomOutSpeed,
+            durationSeconds: _zoomOutDuration,
+            easing: (Animation.EasingType)_zoomOutEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Orbit Animation Configuration
+      if (ImGui.CollapsingHeader("Orbit Animation"))
+      {
+        ImGui.Indent();
+        
+        // Degrees slider
+        if (ImGui.SliderFloat("Degrees", ref _orbitDegrees, 0.0f, 360.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)", ref _orbitDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing", ref _orbitEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##Orbit"))
+        {
+          var animation = new OrbitAnimation(
+            degrees: _orbitDegrees,
+            durationSeconds: _orbitDuration,
+            easing: (Animation.EasingType)_orbitEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Loopy Orbit Animation Configuration
+      if (ImGui.CollapsingHeader("Loopy Orbit Animation"))
+      {
+        ImGui.Indent();
+        
+        // Degrees slider
+        if (ImGui.SliderFloat("Degrees", ref _loopyOrbitDegrees, 0.0f, 360.0f))
+        {
+          // Value updated
+        }
+        
+        // Loop Interval slider
+        if (ImGui.SliderFloat("Loop Interval", ref _loopyLoopInterval, 10.0f, 180.0f))
+        {
+          // Value updated
+        }
+        
+        // Amplitude slider
+        if (ImGui.SliderFloat("Amplitude", ref _loopyAmplitude, 10.0f, 200.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)", ref _loopyDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing", ref _loopyEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##Loopy"))
+        {
+          var animation = new LoopyOrbitAnimation(
+            degrees: _loopyOrbitDegrees,
+            loopIntervalDegrees: _loopyLoopInterval,
+            amplitudeMeters: _loopyAmplitude,
+            durationSeconds: _loopyDuration,
+            easing: (Animation.EasingType)_loopyEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
       ImGui.Spacing();
       ImGui.Separator();
       
-      // Keyframe Sequence Panel (this still works)
+      // Keyframe Sequence Panel
       if (ImGui.CollapsingHeader("Keyframe Sequence"))
       {
         ImGui.Indent();
@@ -107,13 +262,5 @@ public class Mod
     }
     ImGui.End();
   }
-
-      /* TEMPORARILY COMMENTED OUT - WILL BE REBUILT IN TASK 5
-      ============================================================
-       All standalone animation UI code has been removed because
-       Patcher no longer has those properties. This will be rebuilt
-       in Task 5 to work with the sequence player.
-      ============================================================
-      */
 }
 
