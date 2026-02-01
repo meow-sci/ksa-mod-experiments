@@ -15,64 +15,42 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
-
   [StarMapImmediateLoad]
-  public void OnImmediateLoad()
-  {
-    Console.WriteLine("camera-controller-override OnImmediateLoad");
-  }
+  public void OnImmediateLoad() { }
 
   [StarMapAllModsLoaded]
   public void OnFullyLoaded()
   {
     try
     {
-      Console.WriteLine("camera-controller-override OnFullyLoaded");
       Patcher.Patch();
-
       _isInitialized = true;
-
-
-      Console.WriteLine("camera-controller-override: Initialized successfully.");
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"camera-controller-override: Error during initialization: {ex}");
+      Console.WriteLine($"camera-controller-override: Error during initialization: {ex.Message}");
     }
   }
 
   [StarMapBeforeGui]
-  public void OnBeforeUi(double dt)
-  {
-    // No pre-UI logic needed
-  }
+  public void OnBeforeUi(double dt) { }
 
   [StarMapAfterGui]
   public void OnAfterUi(double dt)
   {
     try
     {
-      if (!_isInitialized || _isDisposed)
-        return;
+      if (!_isInitialized || _isDisposed) return;
 
-      // Check F11 key press
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
-      {
-        Console.WriteLine("camera-controller-override: F11 pressed, toggling window.");
         _windowVisible = !_windowVisible;
-        var controller = Program.OnFrameViewport.GetActiveController();
-      }
 
-      // Render window if visible
       if (_windowVisible)
-      {
         RenderWindow();
-      }
-
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"camera-controller-override: Error in OnAfterUi: {ex}");
+      Console.WriteLine($"camera-controller-override: Error in OnAfterUi: {ex.Message}");
     }
   }
 
@@ -81,14 +59,12 @@ public class Mod
   {
     try
     {
-      Console.WriteLine("camera-controller-override Unload");
       Patcher.Unload();
       _isDisposed = true;
-      Console.WriteLine("camera-controller-override: Unloaded successfully");
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"camera-controller-override: Error during unload: {ex}");
+      Console.WriteLine($"camera-controller-override: Error during unload: {ex.Message}");
     }
   }
 
@@ -192,10 +168,7 @@ public class Mod
         // Toggle button
         string buttonLabel = Patcher.IsAnimationEnabled ? "Stop Patching" : "Start Patching";
         if (ImGui.Button(buttonLabel))
-        {
           Patcher.IsAnimationEnabled = !Patcher.IsAnimationEnabled;
-          Console.WriteLine($"camera-controller-override: Animation {(Patcher.IsAnimationEnabled ? "enabled" : "disabled")}");
-        }
         
         ImGui.Unindent();
       }
@@ -291,10 +264,7 @@ public class Mod
         // Toggle button
         string orbitButtonLabel = Patcher.IsOrbitAnimationEnabled ? "Stop Orbit" : "Start Orbit";
         if (ImGui.Button(orbitButtonLabel))
-        {
           Patcher.IsOrbitAnimationEnabled = !Patcher.IsOrbitAnimationEnabled;
-          Console.WriteLine($"camera-controller-override: Orbit animation {(Patcher.IsOrbitAnimationEnabled ? "enabled" : "disabled")}");
-        }
         
         ImGui.Unindent();
       }
