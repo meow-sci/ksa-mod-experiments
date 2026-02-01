@@ -121,6 +121,16 @@ public class Mod
           Patcher.LerpBackEnabled = lerpBack;
         }
         
+        // Easing function dropdown
+        ImGui.Text("Lerp Easing:");
+        ImGui.SameLine();
+        int currentEasing = (int)Patcher.LerpBackEasingType;
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("##LerpEasing", ref currentEasing, easingNames, easingNames.Length))
+        {
+          Patcher.LerpBackEasingType = (EasingType)currentEasing;
+        }
+        
         // Progress display (always visible)
         string elapsedText;
         float progress;
@@ -158,6 +168,13 @@ public class Mod
         if (ImGui.SliderFloat("Duration (s)", ref duration, 1.0f, 30.0f))
         {
           Patcher.AnimationDurationSeconds = duration;
+        }
+        
+        // Lerp back duration configuration
+        float lerpDuration = (float)Patcher.LerpBackDurationSeconds;
+        if (ImGui.SliderFloat("Lerp Duration (s)", ref lerpDuration, 1.0f, 10.0f))
+        {
+          Patcher.LerpBackDurationSeconds = lerpDuration;
         }
         
         ImGui.Spacing();

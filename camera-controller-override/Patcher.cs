@@ -7,6 +7,14 @@ using KSA;
 
 namespace mod;
 
+public enum EasingType
+{
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseInOut
+}
+
 [HarmonyPatch]
 internal static class Patcher
 {
@@ -26,6 +34,7 @@ internal static class Patcher
     private static bool _isLerpingBack = false;
     private static double _lerpBackElapsedTime = 0.0;
     private static double _lerpBackDurationSeconds = 3.0;
+    private static EasingType _lerpBackEasingType = EasingType.Linear;
     
     // Distance tracking (replaces absolute position tracking)
     private static double _distanceTraveledForward = 0.0;  // How far we moved during forward animation
@@ -124,6 +133,34 @@ internal static class Patcher
             Console.WriteLine($"camera-controller-override: [UNPATCH] Stack trace: {ex.StackTrace}");
         }
     }
+    
+    // Apply easing function to normalized time t (0.0 to 1.0)
+    private static double ApplyEasing(double t, EasingType easingType)
+    {
+        t = Math.Max(0.0, Math.Min(1.0, t)); // Clamp
+        
+        switch (easingType)
+        {
+            case EasingType.Linear:
+                return t;
+                
+            case EasingType.EaseIn:
+                // Cubic ease-in: t^3
+                return t * t * t;
+                
+            case EasingType.EaseOut:
+                // Cubic ease-out: 1 - (1-t)^3
+                double f = 1.0 - t;
+                return 1.0 - (f * f * f);
+                
+            case EasingType.EaseInOut:
+                // Smoothstep: 3t^2 - 2t^3
+                return t * t * (3.0 - 2.0 * t);
+                
+            default:
+                return t;
+        }
+    }
 
     public static bool IsAnimationEnabled
     {
@@ -177,6 +214,18 @@ internal static class Patcher
     
     public static double LerpBackProgress => _distanceTraveledForward > 0 ? Math.Min(1.0, _distanceTraveledReturn / _distanceTraveledForward) : 0.0;
     
+    public static double LerpBackDurationSeconds
+    {
+        get => _lerpBackDurationSeconds;
+        set => _lerpBackDurationSeconds = Math.Max(1.0, Math.Min(10.0, value));
+    }
+    
+    public static EasingType LerpBackEasingType
+    {
+        get => _lerpBackEasingType;
+        set => _lerpBackEasingType = value;
+    }
+    
     // CRITICAL: Controller.OnFrame is virtual and overridden by OrbitController and FlyController
     // Patches on the base Controller class won't execute for the overrides
     // We must patch the concrete implementations instead
@@ -222,11 +271,18 @@ internal static class Patcher
                 // Calculate return direction (toward target = opposite of animation direction)
                 double3 returnDirection = -_animationDirection;
                 
-                // Calculate speed to cover the distance in the duration
-                double returnSpeed = _distanceTraveledForward / _lerpBackDurationSeconds;
+                // Calculate time progress (0 to 1)
+                double t = _lerpBackElapsedTime / _lerpBackDurationSeconds;
+                double lastT = Math.Max(0.0, (_lerpBackElapsedTime - inDeltaTime) / _lerpBackDurationSeconds);
                 
-                // Calculate displacement this frame
-                double3 returnDisplacement = returnDirection * returnSpeed * inDeltaTime;
+                // Apply easing to get progress through the total distance
+                double easedT = ApplyEasing(t, _lerpBackEasingType);
+                double lastEasedT = ApplyEasing(lastT, _lerpBackEasingType);
+                double easedFrameProgress = easedT - lastEasedT;
+                
+                // Calculate displacement for this frame based on eased progress
+                double frameDistance = _distanceTraveledForward * easedFrameProgress;
+                double3 returnDisplacement = returnDirection * frameDistance;
                 
                 // Add to current position
                 double3 newPos = transform.PositionEcl + returnDisplacement;
