@@ -83,21 +83,6 @@ public class KeyframeSequencePlayer
     /// </summary>
     private bool _currentKeyframeInitialized;
     
-    /// <summary>
-    /// Active transition animation between keyframes (if any).
-    /// </summary>
-    private IKeyframeAnimation? _activeTransition;
-    
-    /// <summary>
-    /// Time elapsed in the current transition.
-    /// </summary>
-    private double _transitionElapsedTime;
-    
-    /// <summary>
-    /// Flag to track if the current transition has been initialized.
-    /// </summary>
-    private bool _transitionInitialized;
-    
     // Public methods
     
     /// <summary>
@@ -147,8 +132,6 @@ public class KeyframeSequencePlayer
         CurrentKeyframeIndex = 0;
         CurrentKeyframeElapsedTime = 0.0;
         TotalElapsedTime = 0.0;
-        _activeTransition = null;
-        _transitionElapsedTime = 0.0;
         _currentKeyframeInitialized = false;
         foreach (var keyframe in Keyframes)
         {
@@ -288,14 +271,8 @@ public class KeyframeSequencePlayer
     /// <returns>True if the sequence is controlling the camera, false to allow normal camera control.</returns>
     public bool Update(Controller controller, Transform3D transform, double deltaTime)
     {
-        // Don't control camera if stopped or paused
-        if (State == PlaybackState.Stopped || State == PlaybackState.Paused)
-        {
-            return false;
-        }
-        
-        // No keyframes to play
-        if (Keyframes.Count == 0)
+        // Don't control camera if stopped, paused, or no keyframes
+        if (State != PlaybackState.Playing || Keyframes.Count == 0)
         {
             return false;
         }
@@ -307,70 +284,36 @@ public class KeyframeSequencePlayer
             return false;
         }
         
-        // Handle active transition between keyframes
-        if (_activeTransition != null)
-        {
-            // Initialize transition on first update
-            if (!_transitionInitialized)
-            {
-                _activeTransition.Initialize(controller, transform);
-                _transitionInitialized = true;
-                Console.WriteLine($"[KeyframeSequencePlayer] Starting transition to keyframe {CurrentKeyframeIndex + 1}");
-            }
-            
-            // Update transition
-            bool transitionComplete = _activeTransition.Update(controller, transform, deltaTime, _transitionElapsedTime);
-            _transitionElapsedTime += deltaTime;
-            TotalElapsedTime += deltaTime;
-            
-            // Transition finished, move to keyframe
-            if (transitionComplete)
-            {
-                Console.WriteLine($"[KeyframeSequencePlayer] Transition complete");
-                _activeTransition = null;
-                _transitionElapsedTime = 0.0;
-                _transitionInitialized = false;
-            }
-            
-            return true; // Skip normal controller while in transition
-        }
-        
-        // Update current keyframe animation
-        var currentKeyframe = Keyframes[CurrentKeyframeIndex];
-        var animation = currentKeyframe.Animation;
+        // Get current keyframe
+        var keyframe = Keyframes[CurrentKeyframeIndex];
         
         // Initialize keyframe animation on first update
         if (!_currentKeyframeInitialized)
         {
-            animation.Initialize(controller, transform);
+            keyframe.Animation.Initialize(controller, transform);
             _currentKeyframeInitialized = true;
-            Console.WriteLine($"[KeyframeSequencePlayer] Starting keyframe {CurrentKeyframeIndex + 1}: {animation.Name}");
+            CurrentKeyframeElapsedTime = 0.0;
+            Console.WriteLine($"[KeyframeSequencePlayer] Starting keyframe {CurrentKeyframeIndex + 1}: {keyframe.Animation.Name}");
         }
         
         // Update keyframe animation
-        bool animationComplete = animation.Update(controller, transform, deltaTime, CurrentKeyframeElapsedTime);
+        bool complete = keyframe.Animation.Update(controller, transform, deltaTime, CurrentKeyframeElapsedTime);
         CurrentKeyframeElapsedTime += deltaTime;
         TotalElapsedTime += deltaTime;
         
         // Keyframe animation finished
-        if (animationComplete)
+        if (complete)
         {
             Console.WriteLine($"[KeyframeSequencePlayer] Keyframe {CurrentKeyframeIndex + 1} complete");
             
-            // Check if there's a next keyframe
-            int nextIndex = CurrentKeyframeIndex + 1;
-            if (nextIndex < Keyframes.Count)
+            // Move to next keyframe
+            CurrentKeyframeIndex++;
+            _currentKeyframeInitialized = false;
+            
+            // Check if sequence is complete
+            if (CurrentKeyframeIndex >= Keyframes.Count)
             {
-                // Move directly to next keyframe
-                CurrentKeyframeIndex++;
-                CurrentKeyframeElapsedTime = 0.0;
-                _currentKeyframeInitialized = false;
-            }
-            else
-            {
-                // No more keyframes, sequence complete
-                Stop();
-                return false;
+                // Sequence complete (Task 3 will add return-to-start here)
             }
         }
         
