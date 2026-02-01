@@ -262,6 +262,112 @@ public class Mod
       }
 
       ImGui.Spacing();
+      
+      // Loopy Orbit Animation Panel
+      if (ImGui.CollapsingHeader("Loopy Orbit Animation"))
+      {
+        ImGui.Indent();
+        
+        // Status display
+        string loopyStatus = Patcher.IsLoopyOrbitEnabled 
+          ? (Patcher.IsLoopyLerpingBack ? "Lerping Back..." : (Patcher.IsLoopyOrbitActive ? "Loopy Orbiting..." : "Animation Starting...")) 
+          : "Inactive";
+        ImGui.Text($"Status: {loopyStatus}");
+        
+        ImGui.Spacing();
+        
+        // Orbit degrees slider
+        float loopyOrbitDegrees = (float)Patcher.LoopyOrbitDegrees;
+        if (ImGui.SliderFloat("Orbit Degrees##Loopy", ref loopyOrbitDegrees, 90.0f, 1080.0f))
+        {
+          Patcher.LoopyOrbitDegrees = loopyOrbitDegrees;
+        }
+        
+        // Loop interval slider
+        float loopInterval = (float)Patcher.LoopyLoopIntervalDegrees;
+        if (ImGui.SliderFloat("Loop Interval (deg)", ref loopInterval, 30.0f, 180.0f))
+        {
+          Patcher.LoopyLoopIntervalDegrees = loopInterval;
+        }
+        
+        // Amplitude slider
+        float amplitude = (float)Patcher.LoopyAmplitudeMeters;
+        if (ImGui.SliderFloat("Amplitude (m)", ref amplitude, 1.0f, 500.0f))
+        {
+          Patcher.LoopyAmplitudeMeters = amplitude;
+        }
+        
+        // Duration slider
+        float loopyDuration = (float)Patcher.LoopyOrbitDurationSeconds;
+        if (ImGui.SliderFloat("Duration (s)##Loopy", ref loopyDuration, 1.0f, 60.0f))
+        {
+          Patcher.LoopyOrbitDurationSeconds = loopyDuration;
+        }
+        
+        // Animation easing dropdown
+        int loopyEasing = (int)Patcher.LoopyOrbitEasingType;
+        string[] loopyEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Animation Easing##Loopy", ref loopyEasing, loopyEasingNames, loopyEasingNames.Length))
+        {
+          Patcher.LoopyOrbitEasingType = (EasingType)loopyEasing;
+        }
+        
+        // Lerp back toggle
+        bool loopyLerpBack = Patcher.LoopyLerpBackEnabled;
+        if (ImGui.Checkbox("Lerp Back to Start##Loopy", ref loopyLerpBack))
+        {
+          Patcher.LoopyLerpBackEnabled = loopyLerpBack;
+        }
+        
+        // Lerp duration slider
+        float loopyLerpDuration = (float)Patcher.LoopyLerpBackDurationSeconds;
+        if (ImGui.SliderFloat("Lerp Duration (s)##Loopy", ref loopyLerpDuration, 1.0f, 10.0f))
+        {
+          Patcher.LoopyLerpBackDurationSeconds = loopyLerpDuration;
+        }
+        
+        // Lerp easing dropdown
+        int loopyLerpEasing = (int)Patcher.LoopyLerpBackEasingType;
+        string[] loopyLerpEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Lerp Easing##Loopy", ref loopyLerpEasing, loopyLerpEasingNames, loopyLerpEasingNames.Length))
+        {
+          Patcher.LoopyLerpBackEasingType = (EasingType)loopyLerpEasing;
+        }
+        
+        // Progress display
+        string loopyElapsedText;
+        float loopyProgress;
+        
+        if (Patcher.IsLoopyLerpingBack)
+        {
+          loopyElapsedText = $"Lerp Back: {Patcher.LoopyLerpBackElapsedTime:F2}s / {Patcher.LoopyLerpBackDurationSeconds:F2}s";
+          loopyProgress = (float)(Patcher.LoopyLerpBackElapsedTime / Patcher.LoopyLerpBackDurationSeconds);
+        }
+        else if (Patcher.IsLoopyOrbitActive)
+        {
+          loopyElapsedText = $"Elapsed: {Patcher.LoopyOrbitElapsedTime:F2}s / {Patcher.LoopyOrbitDurationSeconds:F2}s";
+          loopyProgress = (float)(Patcher.LoopyOrbitElapsedTime / Patcher.LoopyOrbitDurationSeconds);
+        }
+        else
+        {
+          loopyElapsedText = $"Elapsed: 0.00s / {Patcher.LoopyOrbitDurationSeconds:F2}s";
+          loopyProgress = 0.0f;
+        }
+        
+        ImGui.Text(loopyElapsedText);
+        ImGui.ProgressBar(loopyProgress, new float2(-1, 0));
+        
+        ImGui.Spacing();
+        
+        // Toggle button
+        string loopyButtonLabel = Patcher.IsLoopyOrbitEnabled ? "Stop Animation" : "Run Animation";
+        if (ImGui.Button(loopyButtonLabel + "##Loopy"))
+          Patcher.IsLoopyOrbitEnabled = !Patcher.IsLoopyOrbitEnabled;
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
       ImGui.Separator();
 
       // Close button

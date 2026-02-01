@@ -56,6 +56,30 @@ internal static class Patcher
     private static EasingType _orbitLerpBackEasingType = EasingType.EaseInOut;
     private static double3 _orbitLerpStartOffset;
     private static double3 _orbitLerpEndOffset;
+    
+    // Loopy orbit animation state
+    private static bool _isLoopyOrbitEnabled = false;
+    private static bool _isLoopyOrbitActive = false;
+    private static double _loopyOrbitElapsedTime = 0.0;
+    private static double _loopyOrbitDegrees = 270.0;           // Total orbit angle
+    private static double _loopyOrbitDurationSeconds = 8.0;      // Longer default for complex motion
+    private static EasingType _loopyOrbitEasingType = EasingType.EaseOut;
+    private static double3 _loopyOrbitStartPosition;
+    private static doubleQuat _loopyOrbitStartRotation;
+    private static double3 _loopyOrbitTargetPosition;
+    private static double3 _loopyOrbitAxis;                      // Main orbit axis
+    private static double3 _loopyOrbitVerticalAxis;              // Perpendicular oscillation axis
+    private static double _loopyLoopIntervalDegrees = 90.0;      // How often to complete one up-down cycle
+    private static double _loopyAmplitudeMeters = 50.0;          // How far up/down to oscillate
+    
+    // Loopy orbit lerp back state
+    private static bool _loopyLerpBackEnabled = true;
+    private static bool _isLoopyLerpingBack = false;
+    private static double _loopyLerpBackElapsedTime = 0.0;
+    private static double _loopyLerpBackDurationSeconds = 3.0;
+    private static EasingType _loopyLerpBackEasingType = EasingType.EaseInOut;
+    private static double3 _loopyLerpStartOffset;
+    private static double3 _loopyLerpEndOffset;
 
     public static void Patch()
     {
@@ -127,6 +151,24 @@ internal static class Patcher
             right = double3.Cross(fallback, startOffset);
         }
         return double3.Normalize(double3.Cross(startOffset, right));
+    }
+    
+    private static double3 CalculateLoopyVerticalAxis(double3 orbitAxis, double3 currentOffset)
+    {
+        // The vertical axis should be perpendicular to both:
+        // 1. The main orbit axis (so oscillation is out of the orbit plane)
+        // 2. The current camera-to-target direction (so it's "up" relative to camera view)
+        
+        double3 offsetDir = double3.Normalize(currentOffset);
+        double3 vertical = double3.Cross(orbitAxis, offsetDir);
+        
+        if (vertical.LengthSquared() < 0.0001)
+        {
+            // Fallback if parallel
+            vertical = double3.UnitY;
+        }
+        
+        return double3.Normalize(vertical);
     }
 
     public static bool IsAnimationEnabled
@@ -210,6 +252,55 @@ internal static class Patcher
         set => _orbitLerpBackDurationSeconds = Math.Clamp(value, 1.0, 10.0);
     }
     public static EasingType OrbitLerpBackEasingType { get => _orbitLerpBackEasingType; set => _orbitLerpBackEasingType = value; }
+    
+    public static bool IsLoopyOrbitEnabled
+    {
+        get => _isLoopyOrbitEnabled;
+        set
+        {
+            _isLoopyOrbitEnabled = value;
+            if (!value && (_isLoopyOrbitActive || _isLoopyLerpingBack))
+            {
+                _isLoopyOrbitActive = false;
+                _isLoopyLerpingBack = false;
+                _loopyOrbitElapsedTime = 0.0;
+                _loopyLerpBackElapsedTime = 0.0;
+            }
+        }
+    }
+    
+    public static bool IsLoopyOrbitActive => _isLoopyOrbitActive;
+    public static double LoopyOrbitElapsedTime => _loopyOrbitElapsedTime;
+    public static bool IsLoopyLerpingBack => _isLoopyLerpingBack;
+    public static double LoopyLerpBackElapsedTime => _loopyLerpBackElapsedTime;
+    public static double LoopyOrbitDegrees
+    {
+        get => _loopyOrbitDegrees;
+        set => _loopyOrbitDegrees = Math.Clamp(value, 90.0, 1080.0);
+    }
+    public static double LoopyOrbitDurationSeconds
+    {
+        get => _loopyOrbitDurationSeconds;
+        set => _loopyOrbitDurationSeconds = Math.Clamp(value, 1.0, 60.0);
+    }
+    public static EasingType LoopyOrbitEasingType { get => _loopyOrbitEasingType; set => _loopyOrbitEasingType = value; }
+    public static bool LoopyLerpBackEnabled { get => _loopyLerpBackEnabled; set => _loopyLerpBackEnabled = value; }
+    public static double LoopyLerpBackDurationSeconds
+    {
+        get => _loopyLerpBackDurationSeconds;
+        set => _loopyLerpBackDurationSeconds = Math.Clamp(value, 1.0, 10.0);
+    }
+    public static EasingType LoopyLerpBackEasingType { get => _loopyLerpBackEasingType; set => _loopyLerpBackEasingType = value; }
+    public static double LoopyLoopIntervalDegrees
+    {
+        get => _loopyLoopIntervalDegrees;
+        set => _loopyLoopIntervalDegrees = Math.Clamp(value, 30.0, 180.0);
+    }
+    public static double LoopyAmplitudeMeters
+    {
+        get => _loopyAmplitudeMeters;
+        set => _loopyAmplitudeMeters = Math.Clamp(value, 1.0, 500.0);
+    }
 
     [HarmonyPatch(typeof(OrbitController), "OnFrame")]
     [HarmonyPrefix]
@@ -242,6 +333,97 @@ internal static class Patcher
                     _isOrbitAnimationEnabled = false;
                     _isOrbitAnimationActive = false;
                     _isOrbitLerpingBack = false;
+                }
+                return false;
+            }
+            
+            // Handle loopy orbit lerp back
+            if (_isLoopyLerpingBack)
+            {
+                double3 currentTargetPos = GetTargetPosition(controller, _loopyOrbitTargetPosition);
+                double t = _loopyLerpBackElapsedTime / _loopyLerpBackDurationSeconds;
+                double easedT = ApplyEasing(t, _loopyLerpBackEasingType);
+                
+                double3 currentOffset = double3.Lerp(_loopyLerpEndOffset, _loopyLerpStartOffset, easedT);
+                transform.PositionEcl = currentTargetPos + currentOffset;
+                LookAtTarget(transform, currentTargetPos);
+                
+                _loopyLerpBackElapsedTime += deltaTime;
+                if (_loopyLerpBackElapsedTime >= _loopyLerpBackDurationSeconds)
+                {
+                    _isLoopyOrbitEnabled = false;
+                    _isLoopyOrbitActive = false;
+                    _isLoopyLerpingBack = false;
+                }
+                return false;
+            }
+            
+            // Handle loopy orbit animation
+            if (_isLoopyOrbitEnabled)
+            {
+                if (transform == null) return true;
+                
+                // Initialize on first frame
+                if (!_isLoopyOrbitActive)
+                {
+                    _isLoopyOrbitActive = true;
+                    _loopyOrbitStartPosition = transform.PositionEcl;
+                    _loopyOrbitStartRotation = transform.LocalRotation;
+                    _loopyOrbitElapsedTime = 0.0;
+                    _loopyOrbitTargetPosition = GetTargetPosition(controller);
+                    _loopyLerpStartOffset = _loopyOrbitStartPosition - _loopyOrbitTargetPosition;
+                    
+                    double radius = _loopyLerpStartOffset.Length();
+                    if (radius < 0.01)
+                    {
+                        Console.WriteLine("camera-controller-override: Loopy orbit radius too small, cancelling.");
+                        _isLoopyOrbitEnabled = false;
+                        _isLoopyOrbitActive = false;
+                        return true;
+                    }
+                    
+                    _loopyOrbitAxis = CalculateOrbitAxis(_loopyLerpStartOffset, _loopyOrbitStartRotation);
+                    _loopyOrbitVerticalAxis = CalculateLoopyVerticalAxis(_loopyOrbitAxis, _loopyLerpStartOffset);
+                }
+                
+                _loopyOrbitElapsedTime += deltaTime;
+                double t = Math.Min(1.0, _loopyOrbitElapsedTime / _loopyOrbitDurationSeconds);
+                double easedT = ApplyEasing(t, _loopyOrbitEasingType);
+                double angleDegrees = _loopyOrbitDegrees * easedT;
+                double angleRadians = angleDegrees * Math.PI / 180.0;
+                
+                // Base orbit using Rodrigues' rotation formula
+                double3 startOffset = _loopyOrbitStartPosition - _loopyOrbitTargetPosition;
+                double3 k = _loopyOrbitAxis;
+                double cos = Math.Cos(angleRadians);
+                double sin = Math.Sin(angleRadians);
+                double3 baseOrbitOffset = startOffset * cos + double3.Cross(k, startOffset) * sin + k * double3.Dot(k, startOffset) * (1.0 - cos);
+                
+                // Vertical oscillation: sin wave based on current angle
+                double loopsPerRevolution = 360.0 / _loopyLoopIntervalDegrees;
+                double oscillationPhase = angleDegrees * loopsPerRevolution * Math.PI / 180.0;
+                double oscillationAmount = Math.Sin(oscillationPhase) * _loopyAmplitudeMeters;
+                double3 verticalOscillation = _loopyOrbitVerticalAxis * oscillationAmount;
+                
+                // Combined position
+                double3 currentTargetPos = GetTargetPosition(controller, _loopyOrbitTargetPosition);
+                transform.PositionEcl = currentTargetPos + baseOrbitOffset + verticalOscillation;
+                LookAtTarget(transform, currentTargetPos);
+                
+                if (_loopyOrbitElapsedTime >= _loopyOrbitDurationSeconds)
+                {
+                    if (_loopyLerpBackEnabled)
+                    {
+                        _loopyLerpEndOffset = transform.PositionEcl - currentTargetPos;
+                        _isLoopyLerpingBack = true;
+                        _isLoopyOrbitActive = false;
+                        _loopyLerpBackElapsedTime = 0.0;
+                    }
+                    else
+                    {
+                        _isLoopyOrbitEnabled = false;
+                        _isLoopyOrbitActive = false;
+                    }
                 }
                 return false;
             }
