@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using mod.Animation;
 
 namespace mod;
 
@@ -17,6 +18,9 @@ public enum EasingType
 internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("camera-controller-override");
+
+    // Keyframe sequence player
+    private static KeyframeSequencePlayer _sequencePlayer = new KeyframeSequencePlayer();
 
     // Linear animation state
     private static bool _isAnimationEnabled = false;
@@ -154,6 +158,7 @@ internal static class Patcher
     }
     
 
+    public static KeyframeSequencePlayer SequencePlayer => _sequencePlayer;
 
     public static bool IsAnimationEnabled
     {
@@ -161,6 +166,10 @@ internal static class Patcher
         set
         {
             _isAnimationEnabled = value;
+            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            {
+                _sequencePlayer.Stop();
+            }
             if (!value && (_isAnimationActive || _isLerpingBack))
             {
                 _isAnimationActive = false;
@@ -204,6 +213,10 @@ internal static class Patcher
         set
         {
             _isOrbitAnimationEnabled = value;
+            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            {
+                _sequencePlayer.Stop();
+            }
             if (!value && (_isOrbitAnimationActive || _isOrbitLerpingBack))
             {
                 _isOrbitAnimationActive = false;
@@ -243,6 +256,10 @@ internal static class Patcher
         set
         {
             _isLoopyOrbitEnabled = value;
+            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            {
+                _sequencePlayer.Stop();
+            }
             if (!value && (_isLoopyOrbitActive || _isLoopyLerpingBack))
             {
                 _isLoopyOrbitActive = false;
@@ -300,6 +317,13 @@ internal static class Patcher
     {
         try
         {
+            // Check sequence player first - takes precedence over standalone animations
+            if (_sequencePlayer.State == PlaybackState.Playing)
+            {
+                bool shouldSkip = _sequencePlayer.Update(controller, transform, deltaTime);
+                return !shouldSkip;
+            }
+            
             // Handle orbit lerp back
             if (_isOrbitLerpingBack)
             {
