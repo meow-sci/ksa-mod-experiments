@@ -20,6 +20,16 @@ internal static class Patcher
     private static double3 _animationDirection;
     private static double _animationSpeedMetersPerSecond = 1.0;
     private static double _animationDurationSeconds = 5.0;
+    
+    // Lerp back state
+    private static bool _lerpBackEnabled = true;  // Default enabled
+    private static bool _isLerpingBack = false;
+    private static double _lerpBackElapsedTime = 0.0;
+    private static double _lerpBackDurationSeconds = 3.0;
+    
+    // Distance tracking (replaces absolute position tracking)
+    private static double _distanceTraveledForward = 0.0;  // How far we moved during forward animation
+    private static double _distanceTraveledReturn = 0.0;   // How far we've moved during return
 
     // Debug tracking
     private static int _frameCounter = 0;
@@ -124,11 +134,13 @@ internal static class Patcher
             _isAnimationEnabled = value;
             
             // Reset animation state when disabled
-            if (!value && _isAnimationActive)
+            if (!value && (_isAnimationActive || _isLerpingBack))
             {
                 Console.WriteLine("camera-controller-override: [STATE] Animation disabled while active - resetting animation state");
                 _isAnimationActive = false;
+                _isLerpingBack = false;
                 _animationElapsedTime = 0.0;
+                _lerpBackElapsedTime = 0.0;
             }
         }
     }
@@ -148,7 +160,23 @@ internal static class Patcher
         get => _animationDurationSeconds;
         set => _animationDurationSeconds = Math.Max(1.0, Math.Min(30.0, value));
     }
-
+    
+    public static bool LerpBackEnabled
+    {
+        get => _lerpBackEnabled;
+        set => _lerpBackEnabled = value;
+    }
+    
+    public static bool IsLerpingBack => _isLerpingBack;
+    
+    public static double LerpBackElapsedTime => _lerpBackElapsedTime;
+    
+    public static double DistanceTraveledForward => _distanceTraveledForward;
+    
+    public static double DistanceTraveledReturn => _distanceTraveledReturn;
+    
+    public static double LerpBackProgress => _distanceTraveledForward > 0 ? Math.Min(1.0, _distanceTraveledReturn / _distanceTraveledForward) : 0.0;
+    
     // CRITICAL: Controller.OnFrame is virtual and overridden by OrbitController and FlyController
     // Patches on the base Controller class won't execute for the overrides
     // We must patch the concrete implementations instead
@@ -183,8 +211,51 @@ internal static class Patcher
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] {controllerType} Call #{_prefixCallCount}, Frame #{_frameCounter}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] __instance type: {__instance?.GetType().Name ?? "NULL"}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Animation enabled: {_isAnimationEnabled}, active: {_isAnimationActive}");
+                Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Lerp back: {_isLerpingBack}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] deltaTime: {inDeltaTime:F6}s");
                 _lastLogTime = DateTime.Now;
+            }
+            
+            // Check if lerping back
+            if (_isLerpingBack)
+            {
+                // Calculate return direction (toward target = opposite of animation direction)
+                double3 returnDirection = -_animationDirection;
+                
+                // Calculate speed to cover the distance in the duration
+                double returnSpeed = _distanceTraveledForward / _lerpBackDurationSeconds;
+                
+                // Calculate displacement this frame
+                double3 returnDisplacement = returnDirection * returnSpeed * inDeltaTime;
+                
+                // Add to current position
+                double3 newPos = transform.PositionEcl + returnDisplacement;
+                transform.PositionEcl = newPos;
+                
+                // Track distance and time
+                _distanceTraveledReturn += returnDisplacement.Length();
+                _lerpBackElapsedTime += inDeltaTime;
+                
+                // Complete when we've traveled far enough OR time is up
+                if (_distanceTraveledReturn >= _distanceTraveledForward || _lerpBackElapsedTime >= _lerpBackDurationSeconds)
+                {
+                    _isAnimationEnabled = false;
+                    _isAnimationActive = false;
+                    _isLerpingBack = false;
+                    Console.WriteLine($"camera-controller-override: [LERP-COMPLETE] Return animation complete. Distance: {_distanceTraveledReturn:F2}m / {_distanceTraveledForward:F2}m");
+                }
+                else
+                {
+                    // Log progress occasionally
+                    if (_frameCounter <= 5 || _frameCounter % 30 == 0 || (DateTime.Now - _lastLogTime).TotalSeconds >= 1.0)
+                    {
+                        double progressPercent = (_distanceTraveledReturn / _distanceTraveledForward) * 100.0;
+                        Console.WriteLine($"camera-controller-override: [LERP-PROGRESS] distance={_distanceTraveledReturn:F2}m/{_distanceTraveledForward:F2}m ({progressPercent:F1}%), elapsed={_lerpBackElapsedTime:F2}s/{_lerpBackDurationSeconds:F1}s");
+                        _lastLogTime = DateTime.Now;
+                    }
+                }
+                
+                return false; // Skip original to prevent interference
             }
             
             // If animation not enabled, run original method
@@ -210,91 +281,75 @@ internal static class Patcher
             if (!_isAnimationActive)
             {
                 _animationStartCount++;
-                Console.WriteLine($"camera-controller-override: [ANIM-START] === STARTING ANIMATION (start count: {_animationStartCount}) ===");
                 
                 _isAnimationActive = true;
                 _animationStartPosition = transform.PositionEcl;
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Start position: {_animationStartPosition}");
+                _distanceTraveledForward = 0.0;  // Reset distance tracking
                 
                 // Get camera rotation and calculate backward direction
                 doubleQuat rotation = transform.LocalRotation;
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Camera rotation: {rotation}");
-                
                 double3 forward = (-double3.UnitZ).Transform(rotation);
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Forward vector: {forward}");
-                
                 _animationDirection = double3.Normalize(-forward);
-                double directionLength = _animationDirection.Length();
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Backward direction (normalized): {_animationDirection}");
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Direction length (should be ~1.0): {directionLength:F6}");
-                
-                if (directionLength < 0.001)
-                {
-                    Console.WriteLine($"camera-controller-override: [ANIM-START] WARNING: Direction vector is near-zero! Animation may not work!");
-                }
-                
                 _animationElapsedTime = 0.0;
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Speed: {_animationSpeedMetersPerSecond} m/s, Duration: {_animationDurationSeconds:F2}s");
-                Console.WriteLine($"camera-controller-override: [ANIM-START] Expected total distance: {_animationSpeedMetersPerSecond * _animationDurationSeconds:F2} meters");
+                
+                double expectedDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Animation started (speed: {_animationSpeedMetersPerSecond}m/s, duration: {_animationDurationSeconds:F1}s, expected distance: {expectedDistance:F2}m)");
             }
             
             // Update animation on each frame
-            double oldElapsed = _animationElapsedTime;
             _animationElapsedTime += inDeltaTime;
             
-            // Rate-limited progress logging
-            if (shouldLog || _frameCounter % 10 == 0)
-            {
-                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] Frame #{_frameCounter}: Elapsed {_animationElapsedTime:F3}s (delta: {inDeltaTime:F6}s)");
-            }
-            
             // Calculate and apply new position
-            double3 oldPos = transform.PositionEcl;
             double3 displacement = _animationDirection * _animationSpeedMetersPerSecond * inDeltaTime;
-            double3 newPos = oldPos + displacement;
+            transform.PositionEcl = transform.PositionEcl + displacement;
             
-            if (shouldLog || _frameCounter % 10 == 0)
+            // Track distance traveled for return animation
+            _distanceTraveledForward += displacement.Length();
+            
+            // Log progress occasionally
+            if (shouldLog || _frameCounter % 30 == 0)
             {
-                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] Old pos: {oldPos}");
-                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] Displacement: {displacement} (length: {displacement.Length():F6})");
-                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] New pos: {newPos}");
-            }
-            
-            transform.PositionEcl = newPos;
-            
-            // Verify the position was actually set
-            double3 verifyPos = transform.PositionEcl;
-            if (shouldLog || _frameCounter % 10 == 0)
-            {
-                double positionChange = (verifyPos - oldPos).Length();
-                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] Position change verified: {positionChange:F6} meters");
-                
-                if (positionChange < 0.0001)
-                {
-                    Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] WARNING: Position barely changed! Position may not be writable!");
-                }
+                double progressPercent = (_animationElapsedTime / _animationDurationSeconds) * 100.0;
+                Console.WriteLine($"camera-controller-override: [ANIM-PROGRESS] Elapsed {_animationElapsedTime:F2}s/{_animationDurationSeconds:F1}s ({progressPercent:F1}%)");
             }
             
             // Check if animation is complete
             if (_animationElapsedTime >= _animationDurationSeconds)
             {
                 _animationCompleteCount++;
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] === ANIMATION COMPLETE (complete count: {_animationCompleteCount}) ===");
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Total elapsed time: {_animationElapsedTime:F3}s");
-                
-                _isAnimationEnabled = false;
-                _isAnimationActive = false;
                 
                 double3 finalPosition = transform.PositionEcl;
                 double distanceTraveled = (finalPosition - _animationStartPosition).Length();
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Start position: {_animationStartPosition}");
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Final position: {finalPosition}");
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Distance traveled: {distanceTraveled:F2} meters");
-                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Expected distance: {_animationSpeedMetersPerSecond * _animationDurationSeconds:F2} meters");
+                double expectedDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
+                Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Forward animation complete (elapsed: {_animationElapsedTime:F2}s, distance: {distanceTraveled:F2}m, expected: {expectedDistance:F2}m)");
+                
+                // Check if lerp back is enabled
+                if (_lerpBackEnabled)
+                {
+                    Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Starting lerp back phase");
+                    
+                    // Start lerp back phase
+                    _isLerpingBack = true;
+                    _isAnimationActive = false; // Forward phase done
+                    _lerpBackElapsedTime = 0.0;
+                    _distanceTraveledReturn = 0.0;  // Reset return distance tracking
+                    
+                    double returnSpeed = _distanceTraveledForward / _lerpBackDurationSeconds;
+                    Console.WriteLine($"camera-controller-override: [LERP-START] Distance to travel back: {_distanceTraveledForward:F2}m");
+                    Console.WriteLine($"camera-controller-override: [LERP-START] Return speed: {returnSpeed:F2}m/s over {_lerpBackDurationSeconds:F1}s");
+                    Console.WriteLine($"camera-controller-override: [LERP-START] Direction: toward target (opposite of forward)");
+                }
+                else
+                {
+                    // Complete without lerp back
+                    _isAnimationEnabled = false;
+                    _isAnimationActive = false;
+                    
+                    Console.WriteLine($"camera-controller-override: [ANIM-COMPLETE] Animation complete (lerp back disabled)");
+                }
             }
             
-            // Skip original OnFrame method
-            Console.WriteLine($"camera-controller-override: [PREFIX-RETURN] Returning false to skip original OnFrame (frame #{_frameCounter})");
+            // Skip original OnFrame method to prevent interference
             return false;
         }
         catch (Exception ex)

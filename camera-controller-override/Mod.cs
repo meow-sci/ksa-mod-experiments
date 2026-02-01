@@ -110,19 +110,38 @@ public class Mod
         
         // Status display
         string status = Patcher.IsAnimationEnabled 
-          ? (Patcher.IsAnimationActive ? "Animation Running" : "Animation Starting...") 
+          ? (Patcher.IsLerpingBack ? "Lerping Back..." : (Patcher.IsAnimationActive ? "Animation Running" : "Animation Starting...")) 
           : "Inactive";
         ImGui.Text($"Status: {status}");
         
-        // Progress display (always visible)
-        string elapsedText = Patcher.IsAnimationActive 
-            ? $"Elapsed: {Patcher.AnimationElapsedTime:F2}s / {Patcher.AnimationDurationSeconds:F2}s"
-            : $"Elapsed: 0.00s / {Patcher.AnimationDurationSeconds:F2}s";
-        ImGui.Text(elapsedText);
+        // Lerp back toggle
+        bool lerpBack = Patcher.LerpBackEnabled;
+        if (ImGui.Checkbox("Lerp Back to Start", ref lerpBack))
+        {
+          Patcher.LerpBackEnabled = lerpBack;
+        }
         
-        float progress = Patcher.IsAnimationActive 
-            ? (float)(Patcher.AnimationElapsedTime / Patcher.AnimationDurationSeconds)
-            : 0.0f;
+        // Progress display (always visible)
+        string elapsedText;
+        float progress;
+        
+        if (Patcher.IsLerpingBack)
+        {
+          elapsedText = $"Lerp Back: {Patcher.DistanceTraveledReturn:F1}m / {Patcher.DistanceTraveledForward:F1}m";
+          progress = (float)Patcher.LerpBackProgress;
+        }
+        else if (Patcher.IsAnimationActive)
+        {
+          elapsedText = $"Elapsed: {Patcher.AnimationElapsedTime:F2}s / {Patcher.AnimationDurationSeconds:F2}s";
+          progress = (float)(Patcher.AnimationElapsedTime / Patcher.AnimationDurationSeconds);
+        }
+        else
+        {
+          elapsedText = $"Elapsed: 0.00s / {Patcher.AnimationDurationSeconds:F2}s";
+          progress = 0.0f;
+        }
+        
+        ImGui.Text(elapsedText);
         ImGui.ProgressBar(progress, new float2(-1, 0));
         
         ImGui.Spacing();

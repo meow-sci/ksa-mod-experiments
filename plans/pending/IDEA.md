@@ -41,6 +41,11 @@ References for `Controller` are found at:
 - the animation length can be changed via an ImGui slider in seconds with min = 1s and max = 30s
 - the camera move speed should be changed by a ImGui slider in m/s with min = 1 and max = 250
 - animation progress bar always visible so the UI doesnt change heght when starting
+- add a boolean UI toggle/checkbox (enabled by default) for "lerp back to start"
+    - remember the starting camera position before changing any animation
+    - after animation is done, lerp back to the original position from the current
+    - use an ease-in-out to make the lerp smooth
+    - lerp for 3 seconds
 
 ### simple movement (via custom Controller)
 
