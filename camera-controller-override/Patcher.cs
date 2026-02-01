@@ -3,16 +3,9 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 using mod.Animation;
+using mod.Animation.Animations;
 
 namespace mod;
-
-public enum EasingType
-{
-    Linear,
-    EaseIn,
-    EaseOut,
-    EaseInOut
-}
 
 [HarmonyPatch]
 internal static class Patcher
@@ -21,6 +14,11 @@ internal static class Patcher
 
     // Keyframe sequence player
     private static KeyframeSequencePlayer _sequencePlayer = new KeyframeSequencePlayer();
+
+    // Standalone animation instances
+    private static ZoomOutAnimation? _standaloneZoomOut = null;
+    private static OrbitAnimation? _standaloneOrbit = null;
+    private static LoopyOrbitAnimation? _standaloneLoopyOrbit = null;
 
     // Linear animation state
     private static bool _isAnimationEnabled = false;
@@ -47,10 +45,7 @@ internal static class Patcher
     private static double _orbitDegrees = 270.0;
     private static double _orbitDurationSeconds = 5.0;
     private static EasingType _orbitEasingType = EasingType.EaseOut;
-    private static double3 _orbitStartPosition;
-    private static doubleQuat _orbitStartRotation;
     private static double3 _orbitTargetPosition;
-    private static double3 _orbitAxis;
     
     // Orbit lerp back state
     private static bool _orbitLerpBackEnabled = true;
@@ -68,11 +63,7 @@ internal static class Patcher
     private static double _loopyOrbitDegrees = 270.0;           // Total orbit angle
     private static double _loopyOrbitDurationSeconds = 8.0;      // Longer default for complex motion
     private static EasingType _loopyOrbitEasingType = EasingType.EaseOut;
-    private static double3 _loopyOrbitStartPosition;
-    private static doubleQuat _loopyOrbitStartRotation;
     private static double3 _loopyOrbitTargetPosition;
-    private static double3 _loopyOrbitAxis;                      // Main orbit axis
-    private static double3 _loopyOrbitVerticalAxis;              // Perpendicular oscillation axis
     private static double _loopyLoopIntervalDegrees = 90.0;      // How often to complete one up-down cycle
     private static double _loopyAmplitudeMeters = 50.0;          // How far up/down to oscillate
     
@@ -110,54 +101,6 @@ internal static class Patcher
         }
     }
     
-    private static double ApplyEasing(double t, EasingType easingType)
-    {
-        t = Math.Clamp(t, 0.0, 1.0);
-        return easingType switch
-        {
-            EasingType.EaseIn => t * t * t,
-            EasingType.EaseOut => 1.0 - Math.Pow(1.0 - t, 3),
-            EasingType.EaseInOut => t * t * (3.0 - 2.0 * t),
-            _ => t
-        };
-    }
-    
-    private static double3 GetTargetPosition(Controller controller, double3 fallback = default)
-        => controller?.Camera?.Following?.GetPositionEcl() ?? fallback;
-    
-    private static void LookAtTarget(Transform3D transform, double3 targetPos)
-    {
-        double3 lookDirection = targetPos - transform.PositionEcl;
-        if (lookDirection.LengthSquared() > 0.0001)
-        {
-            double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
-            transform.LocalRotation = Camera.LookAtRotation(lookDirection, currentUp);
-        }
-    }
-    
-    private static double GetEasedFrameProgress(double elapsed, double duration, double deltaTime, EasingType easingType)
-    {
-        double t = Math.Min(1.0, elapsed / duration);
-        double lastT = Math.Max(0.0, (elapsed - deltaTime) / duration);
-        return ApplyEasing(t, easingType) - ApplyEasing(lastT, easingType);
-    }
-    
-    private static double3 CalculateOrbitAxis(double3 startOffset, doubleQuat startRotation)
-    {
-        double3 startUp = double3.UnitY.Transform(startRotation);
-        if (startUp.LengthSquared() < 0.00000001) startUp = double3.UnitY;
-        
-        double3 right = double3.Cross(startUp, startOffset);
-        if (right.LengthSquared() < 0.0001)
-        {
-            double3 offsetDir = double3.Normalize(startOffset);
-            double3 fallback = Math.Abs(double3.Dot(offsetDir, double3.UnitY)) < 0.99 ? double3.UnitY : double3.UnitX;
-            right = double3.Cross(fallback, startOffset);
-        }
-        return double3.Normalize(double3.Cross(startOffset, right));
-    }
-    
-
     public static KeyframeSequencePlayer SequencePlayer => _sequencePlayer;
 
     public static bool IsAnimationEnabled
@@ -166,9 +109,17 @@ internal static class Patcher
         set
         {
             _isAnimationEnabled = value;
-            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            if (value)
             {
-                _sequencePlayer.Stop();
+                if (_sequencePlayer.State == PlaybackState.Playing)
+                {
+                    _sequencePlayer.Stop();
+                }
+                // Create new animation instance with current settings
+                _standaloneZoomOut = new ZoomOutAnimation(
+                    _animationSpeedMetersPerSecond,
+                    _animationDurationSeconds,
+                    _mainAnimationEasingType);
             }
             if (!value && (_isAnimationActive || _isLerpingBack))
             {
@@ -176,6 +127,7 @@ internal static class Patcher
                 _isLerpingBack = false;
                 _animationElapsedTime = 0.0;
                 _lerpBackElapsedTime = 0.0;
+                _standaloneZoomOut = null;
             }
         }
     }
@@ -213,9 +165,17 @@ internal static class Patcher
         set
         {
             _isOrbitAnimationEnabled = value;
-            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            if (value)
             {
-                _sequencePlayer.Stop();
+                if (_sequencePlayer.State == PlaybackState.Playing)
+                {
+                    _sequencePlayer.Stop();
+                }
+                // Create new animation instance with current settings
+                _standaloneOrbit = new OrbitAnimation(
+                    _orbitDegrees,
+                    _orbitDurationSeconds,
+                    _orbitEasingType);
             }
             if (!value && (_isOrbitAnimationActive || _isOrbitLerpingBack))
             {
@@ -223,6 +183,7 @@ internal static class Patcher
                 _isOrbitLerpingBack = false;
                 _orbitAnimationElapsedTime = 0.0;
                 _orbitLerpBackElapsedTime = 0.0;
+                _standaloneOrbit = null;
             }
         }
     }
@@ -256,9 +217,19 @@ internal static class Patcher
         set
         {
             _isLoopyOrbitEnabled = value;
-            if (value && _sequencePlayer.State == PlaybackState.Playing)
+            if (value)
             {
-                _sequencePlayer.Stop();
+                if (_sequencePlayer.State == PlaybackState.Playing)
+                {
+                    _sequencePlayer.Stop();
+                }
+                // Create new animation instance with current settings
+                _standaloneLoopyOrbit = new LoopyOrbitAnimation(
+                    _loopyOrbitDegrees,
+                    _loopyLoopIntervalDegrees,
+                    _loopyAmplitudeMeters,
+                    _loopyOrbitDurationSeconds,
+                    _loopyOrbitEasingType);
             }
             if (!value && (_isLoopyOrbitActive || _isLoopyLerpingBack))
             {
@@ -266,6 +237,7 @@ internal static class Patcher
                 _isLoopyLerpingBack = false;
                 _loopyOrbitElapsedTime = 0.0;
                 _loopyLerpBackElapsedTime = 0.0;
+                _standaloneLoopyOrbit = null;
             }
         }
     }
@@ -327,13 +299,13 @@ internal static class Patcher
             // Handle orbit lerp back
             if (_isOrbitLerpingBack)
             {
-                double3 currentTargetPos = GetTargetPosition(controller, _orbitTargetPosition);
+                double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller, _orbitTargetPosition);
                 double t = _orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds;
-                double easedT = ApplyEasing(t, _orbitLerpBackEasingType);
+                double easedT = AnimationHelpers.ApplyEasing(t, _orbitLerpBackEasingType);
                 
                 double3 currentOffset = double3.Lerp(_orbitLerpEndOffset, _orbitLerpStartOffset, easedT);
                 transform.PositionEcl = currentTargetPos + currentOffset;
-                LookAtTarget(transform, currentTargetPos);
+                AnimationHelpers.LookAtTarget(transform, currentTargetPos);
                 
                 _orbitLerpBackElapsedTime += deltaTime;
                 if (_orbitLerpBackElapsedTime >= _orbitLerpBackDurationSeconds)
@@ -348,13 +320,13 @@ internal static class Patcher
             // Handle loopy orbit lerp back
             if (_isLoopyLerpingBack)
             {
-                double3 currentTargetPos = GetTargetPosition(controller, _loopyOrbitTargetPosition);
+                double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller, _loopyOrbitTargetPosition);
                 double t = _loopyLerpBackElapsedTime / _loopyLerpBackDurationSeconds;
-                double easedT = ApplyEasing(t, _loopyLerpBackEasingType);
+                double easedT = AnimationHelpers.ApplyEasing(t, _loopyLerpBackEasingType);
                 
                 double3 currentOffset = double3.Lerp(_loopyLerpEndOffset, _loopyLerpStartOffset, easedT);
                 transform.PositionEcl = currentTargetPos + currentOffset;
-                LookAtTarget(transform, currentTargetPos);
+                AnimationHelpers.LookAtTarget(transform, currentTargetPos);
                 
                 _loopyLerpBackElapsedTime += deltaTime;
                 if (_loopyLerpBackElapsedTime >= _loopyLerpBackDurationSeconds)
@@ -367,61 +339,28 @@ internal static class Patcher
             }
             
             // Handle loopy orbit animation
-            if (_isLoopyOrbitEnabled)
+            if (_isLoopyOrbitEnabled && _standaloneLoopyOrbit != null)
             {
                 if (transform == null) return true;
                 
                 // Initialize on first frame
                 if (!_isLoopyOrbitActive)
                 {
+                    _standaloneLoopyOrbit.Initialize(controller, transform);
                     _isLoopyOrbitActive = true;
-                    _loopyOrbitStartPosition = transform.PositionEcl;
-                    _loopyOrbitStartRotation = transform.LocalRotation;
                     _loopyOrbitElapsedTime = 0.0;
-                    _loopyOrbitTargetPosition = GetTargetPosition(controller);
-                    _loopyLerpStartOffset = _loopyOrbitStartPosition - _loopyOrbitTargetPosition;
-                    
-                    double radius = _loopyLerpStartOffset.Length();
-                    if (radius < 0.01)
-                    {
-                        Console.WriteLine("camera-controller-override: Loopy orbit radius too small, cancelling.");
-                        _isLoopyOrbitEnabled = false;
-                        _isLoopyOrbitActive = false;
-                        return true;
-                    }
-                    
-                    _loopyOrbitAxis = CalculateOrbitAxis(_loopyLerpStartOffset, _loopyOrbitStartRotation);
-                    _loopyOrbitVerticalAxis = _loopyOrbitAxis;
+                    _loopyOrbitTargetPosition = AnimationHelpers.GetTargetPosition(controller);
+                    _loopyLerpStartOffset = transform.PositionEcl - _loopyOrbitTargetPosition;
                 }
                 
+                bool complete = _standaloneLoopyOrbit.Update(controller, transform, deltaTime, _loopyOrbitElapsedTime);
                 _loopyOrbitElapsedTime += deltaTime;
-                double t = Math.Min(1.0, _loopyOrbitElapsedTime / _loopyOrbitDurationSeconds);
-                double easedT = ApplyEasing(t, _loopyOrbitEasingType);
-                double angleDegrees = _loopyOrbitDegrees * easedT;
-                double angleRadians = angleDegrees * Math.PI / 180.0;
                 
-                // Base orbit using Rodrigues' rotation formula
-                double3 startOffset = _loopyOrbitStartPosition - _loopyOrbitTargetPosition;
-                double3 k = _loopyOrbitAxis;
-                double cos = Math.Cos(angleRadians);
-                double sin = Math.Sin(angleRadians);
-                double3 baseOrbitOffset = startOffset * cos + double3.Cross(k, startOffset) * sin + k * double3.Dot(k, startOffset) * (1.0 - cos);
-                
-                // Vertical oscillation: sin wave based on current angle
-                double loopsPerRevolution = 360.0 / _loopyLoopIntervalDegrees;
-                double oscillationPhase = angleDegrees * loopsPerRevolution * Math.PI / 180.0;
-                double oscillationAmount = Math.Sin(oscillationPhase) * _loopyAmplitudeMeters;
-                double3 verticalOscillation = _loopyOrbitVerticalAxis * oscillationAmount;
-                
-                // Combined position
-                double3 currentTargetPos = GetTargetPosition(controller, _loopyOrbitTargetPosition);
-                transform.PositionEcl = currentTargetPos + baseOrbitOffset + verticalOscillation;
-                LookAtTarget(transform, currentTargetPos);
-                
-                if (_loopyOrbitElapsedTime >= _loopyOrbitDurationSeconds)
+                if (complete)
                 {
                     if (_loopyLerpBackEnabled)
                     {
+                        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller, _loopyOrbitTargetPosition);
                         _loopyLerpEndOffset = transform.PositionEcl - currentTargetPos;
                         _isLoopyLerpingBack = true;
                         _isLoopyOrbitActive = false;
@@ -437,51 +376,28 @@ internal static class Patcher
             }
             
             // Handle orbit animation
-            if (_isOrbitAnimationEnabled)
+            if (_isOrbitAnimationEnabled && _standaloneOrbit != null)
             {
                 if (transform == null) return true;
                 
                 // Initialize on first frame
                 if (!_isOrbitAnimationActive)
                 {
+                    _standaloneOrbit.Initialize(controller, transform);
                     _isOrbitAnimationActive = true;
-                    _orbitStartPosition = transform.PositionEcl;
-                    _orbitStartRotation = transform.LocalRotation;
                     _orbitAnimationElapsedTime = 0.0;
-                    _orbitTargetPosition = GetTargetPosition(controller);
-                    _orbitLerpStartOffset = _orbitStartPosition - _orbitTargetPosition;
-                    
-                    double radius = (_orbitTargetPosition - _orbitStartPosition).Length();
-                    if (radius < 0.01)
-                    {
-                        Console.WriteLine("camera-controller-override: Orbit radius too small, cancelling.");
-                        _isOrbitAnimationEnabled = false;
-                        _isOrbitAnimationActive = false;
-                        return true;
-                    }
-                    _orbitAxis = CalculateOrbitAxis(_orbitLerpStartOffset, _orbitStartRotation);
+                    _orbitTargetPosition = AnimationHelpers.GetTargetPosition(controller);
+                    _orbitLerpStartOffset = transform.PositionEcl - _orbitTargetPosition;
                 }
                 
+                bool complete = _standaloneOrbit.Update(controller, transform, deltaTime, _orbitAnimationElapsedTime);
                 _orbitAnimationElapsedTime += deltaTime;
-                double t = Math.Min(1.0, _orbitAnimationElapsedTime / _orbitDurationSeconds);
-                double easedT = ApplyEasing(t, _orbitEasingType);
-                double angleRadians = _orbitDegrees * easedT * Math.PI / 180.0;
                 
-                // Rodrigues' rotation formula
-                double3 startOffset = _orbitStartPosition - _orbitTargetPosition;
-                double3 k = _orbitAxis;
-                double cos = Math.Cos(angleRadians);
-                double sin = Math.Sin(angleRadians);
-                double3 rotatedOffset = startOffset * cos + double3.Cross(k, startOffset) * sin + k * double3.Dot(k, startOffset) * (1.0 - cos);
-                
-                double3 currentTargetPos = GetTargetPosition(controller, _orbitTargetPosition);
-                transform.PositionEcl = currentTargetPos + rotatedOffset;
-                LookAtTarget(transform, currentTargetPos);
-                
-                if (_orbitAnimationElapsedTime >= _orbitDurationSeconds)
+                if (complete)
                 {
                     if (_orbitLerpBackEnabled)
                     {
+                        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller, _orbitTargetPosition);
                         _orbitLerpEndOffset = transform.PositionEcl - currentTargetPos;
                         _isOrbitLerpingBack = true;
                         _isOrbitAnimationActive = false;
@@ -499,10 +415,10 @@ internal static class Patcher
             // Handle linear lerp back
             if (_isLerpingBack)
             {
-                double easedFrameProgress = GetEasedFrameProgress(_lerpBackElapsedTime, _lerpBackDurationSeconds, deltaTime, _lerpBackEasingType);
+                double easedFrameProgress = AnimationHelpers.GetEasedFrameProgress(_lerpBackElapsedTime, _lerpBackDurationSeconds, deltaTime, _lerpBackEasingType);
                 double3 returnDisplacement = -_animationDirection * (_distanceTraveledForward * easedFrameProgress);
                 transform.PositionEcl += returnDisplacement;
-                LookAtTarget(transform, GetTargetPosition(controller));
+                AnimationHelpers.LookAtTarget(transform, AnimationHelpers.GetTargetPosition(controller));
                 
                 _distanceTraveledReturn += returnDisplacement.Length();
                 _lerpBackElapsedTime += deltaTime;
@@ -516,46 +432,52 @@ internal static class Patcher
                 return false;
             }
             
-            // If no animation enabled, run original
-            if (!_isAnimationEnabled) return true;
-            if (transform == null) return true;
-            
-            // Initialize linear animation on first frame
-            if (!_isAnimationActive)
+            // Handle linear animation
+            if (_isAnimationEnabled && _standaloneZoomOut != null)
             {
-                _isAnimationActive = true;
-                _distanceTraveledForward = 0.0;
-                _animationElapsedTime = 0.0;
+                if (transform == null) return true;
                 
-                double3 targetPos = GetTargetPosition(controller);
-                double3 towardTarget = targetPos - transform.PositionEcl;
-                _animationDirection = double3.Normalize(-towardTarget);
+                // Initialize on first frame
+                if (!_isAnimationActive)
+                {
+                    _standaloneZoomOut.Initialize(controller, transform);
+                    _isAnimationActive = true;
+                    _distanceTraveledForward = 0.0;
+                    _animationElapsedTime = 0.0;
+                    
+                    double3 targetPos = AnimationHelpers.GetTargetPosition(controller);
+                    double3 towardTarget = targetPos - transform.PositionEcl;
+                    _animationDirection = double3.Normalize(-towardTarget);
+                }
+                
+                bool complete = _standaloneZoomOut.Update(controller, transform, deltaTime, _animationElapsedTime);
+                _animationElapsedTime += deltaTime;
+                
+                // Track distance traveled for lerp back (legacy behavior)
+                double totalDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
+                double t = Math.Min(1.0, _animationElapsedTime / _animationDurationSeconds);
+                _distanceTraveledForward = totalDistance * AnimationHelpers.ApplyEasing(t, _mainAnimationEasingType);
+                
+                if (complete)
+                {
+                    if (_lerpBackEnabled)
+                    {
+                        _isLerpingBack = true;
+                        _isAnimationActive = false;
+                        _lerpBackElapsedTime = 0.0;
+                        _distanceTraveledReturn = 0.0;
+                    }
+                    else
+                    {
+                        _isAnimationEnabled = false;
+                        _isAnimationActive = false;
+                    }
+                }
+                return false;
             }
             
-            _animationElapsedTime += deltaTime;
-            double totalDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
-            double frameProgress = GetEasedFrameProgress(_animationElapsedTime, _animationDurationSeconds, deltaTime, _mainAnimationEasingType);
-            double3 displacement = _animationDirection * (totalDistance * frameProgress);
-            transform.PositionEcl += displacement;
-            LookAtTarget(transform, GetTargetPosition(controller));
-            _distanceTraveledForward += displacement.Length();
-            
-            if (_animationElapsedTime >= _animationDurationSeconds)
-            {
-                if (_lerpBackEnabled)
-                {
-                    _isLerpingBack = true;
-                    _isAnimationActive = false;
-                    _lerpBackElapsedTime = 0.0;
-                    _distanceTraveledReturn = 0.0;
-                }
-                else
-                {
-                    _isAnimationEnabled = false;
-                    _isAnimationActive = false;
-                }
-            }
-            return false;
+            // If no animation enabled, run original
+            return true;
         }
         catch (Exception ex)
         {

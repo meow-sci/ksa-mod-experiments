@@ -4,6 +4,7 @@ using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
 using mod.UI;
+using mod.Animation;
 using mod.Animation.Animations;
 
 namespace mod;
