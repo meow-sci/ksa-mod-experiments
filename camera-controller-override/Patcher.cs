@@ -23,16 +23,16 @@ internal static class Patcher
     private static bool _isAnimationActive = false;
     private static double _animationElapsedTime = 0.0;
     private static double3 _animationDirection;
-    private static double _animationSpeedMetersPerSecond = 1.0;
+    private static double _animationSpeedMetersPerSecond = 25.0;
     private static double _animationDurationSeconds = 5.0;
-    private static EasingType _mainAnimationEasingType = EasingType.Linear;
+    private static EasingType _mainAnimationEasingType = EasingType.EaseOut;
     
     // Linear lerp back state
     private static bool _lerpBackEnabled = true;
     private static bool _isLerpingBack = false;
     private static double _lerpBackElapsedTime = 0.0;
     private static double _lerpBackDurationSeconds = 3.0;
-    private static EasingType _lerpBackEasingType = EasingType.Linear;
+    private static EasingType _lerpBackEasingType = EasingType.EaseInOut;
     private static double _distanceTraveledForward = 0.0;
     private static double _distanceTraveledReturn = 0.0;
     
@@ -40,9 +40,9 @@ internal static class Patcher
     private static bool _isOrbitAnimationEnabled = false;
     private static bool _isOrbitAnimationActive = false;
     private static double _orbitAnimationElapsedTime = 0.0;
-    private static double _orbitDegrees = 360.0;
+    private static double _orbitDegrees = 270.0;
     private static double _orbitDurationSeconds = 5.0;
-    private static EasingType _orbitEasingType = EasingType.Linear;
+    private static EasingType _orbitEasingType = EasingType.EaseOut;
     private static double3 _orbitStartPosition;
     private static doubleQuat _orbitStartRotation;
     private static double3 _orbitTargetPosition;
@@ -53,7 +53,7 @@ internal static class Patcher
     private static bool _isOrbitLerpingBack = false;
     private static double _orbitLerpBackElapsedTime = 0.0;
     private static double _orbitLerpBackDurationSeconds = 3.0;
-    private static EasingType _orbitLerpBackEasingType = EasingType.Linear;
+    private static EasingType _orbitLerpBackEasingType = EasingType.EaseInOut;
     private static double3 _orbitLerpStartOffset;
     private static double3 _orbitLerpEndOffset;
 
@@ -195,7 +195,7 @@ internal static class Patcher
     public static double OrbitDegrees
     {
         get => _orbitDegrees;
-        set => _orbitDegrees = Math.Clamp(value, 90.0, 720.0);
+        set => _orbitDegrees = Math.Clamp(value, 90.0, 1080.0);
     }
     public static double OrbitDurationSeconds
     {

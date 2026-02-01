@@ -80,7 +80,7 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "camera-controller-override");
       ImGui.Separator();
 
-      if (ImGui.CollapsingHeader("Simple Movement", ImGuiTreeNodeFlags.DefaultOpen))
+      if (ImGui.CollapsingHeader("Zoom Out Animation"))
       {
         ImGui.Indent();
         
@@ -90,6 +90,30 @@ public class Mod
           : "Inactive";
         ImGui.Text($"Status: {status}");
         
+        ImGui.Spacing();
+        
+        // Speed configuration
+        float speed = (float)Patcher.AnimationSpeedMetersPerSecond;
+        if (ImGui.SliderFloat("Speed (m/s)", ref speed, 1.0f, 250.0f))
+        {
+          Patcher.AnimationSpeedMetersPerSecond = speed;
+        }
+        
+        // Animation duration configuration
+        float duration = (float)Patcher.AnimationDurationSeconds;
+        if (ImGui.SliderFloat("Duration (s)", ref duration, 1.0f, 30.0f))
+        {
+          Patcher.AnimationDurationSeconds = duration;
+        }
+        
+        // Animation easing dropdown
+        int currentMainEasing = (int)Patcher.MainAnimationEasingType;
+        string[] mainEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Animation Easing", ref currentMainEasing, mainEasingNames, mainEasingNames.Length))
+        {
+          Patcher.MainAnimationEasingType = (EasingType)currentMainEasing;
+        }
+        
         // Lerp back toggle
         bool lerpBack = Patcher.LerpBackEnabled;
         if (ImGui.Checkbox("Lerp Back to Start", ref lerpBack))
@@ -97,12 +121,17 @@ public class Mod
           Patcher.LerpBackEnabled = lerpBack;
         }
         
+        // Lerp back duration configuration
+        float lerpDuration = (float)Patcher.LerpBackDurationSeconds;
+        if (ImGui.SliderFloat("Lerp Duration (s)", ref lerpDuration, 1.0f, 10.0f))
+        {
+          Patcher.LerpBackDurationSeconds = lerpDuration;
+        }
+        
         // Easing function dropdown
-        ImGui.Text("Lerp Easing:");
-        ImGui.SameLine();
         int currentEasing = (int)Patcher.LerpBackEasingType;
         string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("##LerpEasing", ref currentEasing, easingNames, easingNames.Length))
+        if (ImGui.Combo("Lerp Easing", ref currentEasing, easingNames, easingNames.Length))
         {
           Patcher.LerpBackEasingType = (EasingType)currentEasing;
         }
@@ -132,41 +161,8 @@ public class Mod
         
         ImGui.Spacing();
         
-        // Speed configuration
-        float speed = (float)Patcher.AnimationSpeedMetersPerSecond;
-        if (ImGui.SliderFloat("Speed (m/s)", ref speed, 1.0f, 250.0f))
-        {
-          Patcher.AnimationSpeedMetersPerSecond = speed;
-        }
-        
-        // Animation duration configuration
-        float duration = (float)Patcher.AnimationDurationSeconds;
-        if (ImGui.SliderFloat("Duration (s)", ref duration, 1.0f, 30.0f))
-        {
-          Patcher.AnimationDurationSeconds = duration;
-        }
-        
-        // Animation easing dropdown
-        ImGui.Text("Animation Easing:");
-        ImGui.SameLine();
-        int currentMainEasing = (int)Patcher.MainAnimationEasingType;
-        string[] mainEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("##MainEasing", ref currentMainEasing, mainEasingNames, mainEasingNames.Length))
-        {
-          Patcher.MainAnimationEasingType = (EasingType)currentMainEasing;
-        }
-        
-        // Lerp back duration configuration
-        float lerpDuration = (float)Patcher.LerpBackDurationSeconds;
-        if (ImGui.SliderFloat("Lerp Duration (s)", ref lerpDuration, 1.0f, 10.0f))
-        {
-          Patcher.LerpBackDurationSeconds = lerpDuration;
-        }
-        
-        ImGui.Spacing();
-        
         // Toggle button
-        string buttonLabel = Patcher.IsAnimationEnabled ? "Stop Patching" : "Start Patching";
+        string buttonLabel = Patcher.IsAnimationEnabled ? "Stop Animation" : "Run Animation";
         if (ImGui.Button(buttonLabel))
           Patcher.IsAnimationEnabled = !Patcher.IsAnimationEnabled;
         
@@ -176,7 +172,7 @@ public class Mod
       ImGui.Spacing();
       
       // Orbit Animation Panel
-      if (ImGui.CollapsingHeader("Orbit Animation", ImGuiTreeNodeFlags.DefaultOpen))
+      if (ImGui.CollapsingHeader("Orbit Animation"))
       {
         ImGui.Indent();
         
@@ -186,19 +182,48 @@ public class Mod
           : "Inactive";
         ImGui.Text($"Status: {orbitStatus}");
         
+        ImGui.Spacing();
+        
+        // Orbit degrees slider
+        float orbitDegrees = (float)Patcher.OrbitDegrees;
+        if (ImGui.SliderFloat("Orbit Degrees", ref orbitDegrees, 90.0f, 1080.0f))
+        {
+          Patcher.OrbitDegrees = orbitDegrees;
+        }
+        
+        // Orbit duration slider
+        float orbitDuration = (float)Patcher.OrbitDurationSeconds;
+        if (ImGui.SliderFloat("Duration (s)", ref orbitDuration, 1.0f, 30.0f))
+        {
+          Patcher.OrbitDurationSeconds = orbitDuration;
+        }
+        
+        // Orbit easing dropdown
+        int orbitEasing = (int)Patcher.OrbitEasingType;
+        string[] orbitEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Animation Easing", ref orbitEasing, orbitEasingNames, orbitEasingNames.Length))
+        {
+          Patcher.OrbitEasingType = (EasingType)orbitEasing;
+        }
+        
         // Lerp back toggle
         bool orbitLerpBack = Patcher.OrbitLerpBackEnabled;
-        if (ImGui.Checkbox("Lerp Back to Start##Orbit", ref orbitLerpBack))
+        if (ImGui.Checkbox("Lerp Back to Start", ref orbitLerpBack))
         {
           Patcher.OrbitLerpBackEnabled = orbitLerpBack;
         }
         
+        // Lerp duration slider
+        float orbitLerpDuration = (float)Patcher.OrbitLerpBackDurationSeconds;
+        if (ImGui.SliderFloat("Lerp Duration (s)", ref orbitLerpDuration, 1.0f, 10.0f))
+        {
+          Patcher.OrbitLerpBackDurationSeconds = orbitLerpDuration;
+        }
+        
         // Lerp back easing dropdown
-        ImGui.Text("Lerp Back Easing:");
-        ImGui.SameLine();
         int orbitLerpEasing = (int)Patcher.OrbitLerpBackEasingType;
         string[] orbitLerpEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("##OrbitLerpEasing", ref orbitLerpEasing, orbitLerpEasingNames, orbitLerpEasingNames.Length))
+        if (ImGui.Combo("Lerp Easing", ref orbitLerpEasing, orbitLerpEasingNames, orbitLerpEasingNames.Length))
         {
           Patcher.OrbitLerpBackEasingType = (EasingType)orbitLerpEasing;
         }
@@ -228,41 +253,8 @@ public class Mod
         
         ImGui.Spacing();
         
-        // Orbit degrees slider
-        float orbitDegrees = (float)Patcher.OrbitDegrees;
-        if (ImGui.SliderFloat("Orbit Degrees", ref orbitDegrees, 90.0f, 720.0f))
-        {
-          Patcher.OrbitDegrees = orbitDegrees;
-        }
-        
-        // Orbit duration slider
-        float orbitDuration = (float)Patcher.OrbitDurationSeconds;
-        if (ImGui.SliderFloat("Orbit Duration (s)", ref orbitDuration, 1.0f, 30.0f))
-        {
-          Patcher.OrbitDurationSeconds = orbitDuration;
-        }
-        
-        // Orbit easing dropdown
-        ImGui.Text("Orbit Easing:");
-        ImGui.SameLine();
-        int orbitEasing = (int)Patcher.OrbitEasingType;
-        string[] orbitEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("##OrbitEasing", ref orbitEasing, orbitEasingNames, orbitEasingNames.Length))
-        {
-          Patcher.OrbitEasingType = (EasingType)orbitEasing;
-        }
-        
-        // Lerp duration slider
-        float orbitLerpDuration = (float)Patcher.OrbitLerpBackDurationSeconds;
-        if (ImGui.SliderFloat("Lerp Duration (s)##Orbit", ref orbitLerpDuration, 1.0f, 10.0f))
-        {
-          Patcher.OrbitLerpBackDurationSeconds = orbitLerpDuration;
-        }
-        
-        ImGui.Spacing();
-        
         // Toggle button
-        string orbitButtonLabel = Patcher.IsOrbitAnimationEnabled ? "Stop Orbit" : "Start Orbit";
+        string orbitButtonLabel = Patcher.IsOrbitAnimationEnabled ? "Stop Animation" : "Run Animation";
         if (ImGui.Button(orbitButtonLabel))
           Patcher.IsOrbitAnimationEnabled = !Patcher.IsOrbitAnimationEnabled;
         
