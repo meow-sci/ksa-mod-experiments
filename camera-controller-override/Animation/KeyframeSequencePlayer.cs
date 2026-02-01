@@ -76,12 +76,94 @@ public class KeyframeSequencePlayer
         }
     }
     
+    /// <summary>
+    /// Gets or sets whether to return to start position after the sequence completes.
+    /// </summary>
+    public bool ReturnToStartEnabled
+    {
+        get => _returnToStartEnabled;
+        set => _returnToStartEnabled = value;
+    }
+    
+    /// <summary>
+    /// Gets or sets the duration of the return-to-start animation in seconds (clamped to 1.0-10.0).
+    /// </summary>
+    public double ReturnToStartDuration
+    {
+        get => _returnToStartDuration;
+        set => _returnToStartDuration = Math.Clamp(value, 1.0, 10.0);
+    }
+    
+    /// <summary>
+    /// Gets or sets the easing type for the return-to-start animation.
+    /// </summary>
+    public EasingType ReturnToStartEasing
+    {
+        get => _returnToStartEasing;
+        set => _returnToStartEasing = value;
+    }
+    
+    /// <summary>
+    /// Gets whether the player is currently returning to start position.
+    /// </summary>
+    public bool IsReturningToStart => _isReturningToStart;
+    
     // Private state
     
     /// <summary>
     /// Flag to track if the current keyframe animation has been initialized.
     /// </summary>
     private bool _currentKeyframeInitialized;
+    
+    /// <summary>
+    /// Position captured at the start of the sequence.
+    /// </summary>
+    private double3 _sequenceStartPosition;
+    
+    /// <summary>
+    /// Rotation captured at the start of the sequence.
+    /// </summary>
+    private doubleQuat _sequenceStartRotation;
+    
+    /// <summary>
+    /// Flag to track if the sequence has started (and captured start position).
+    /// </summary>
+    private bool _hasStartedSequence = false;
+    
+    /// <summary>
+    /// Whether to return to start position after sequence completes.
+    /// </summary>
+    private bool _returnToStartEnabled = true;
+    
+    /// <summary>
+    /// Duration of the return-to-start animation in seconds.
+    /// </summary>
+    private double _returnToStartDuration = 3.0;
+    
+    /// <summary>
+    /// Easing type for the return-to-start animation.
+    /// </summary>
+    private EasingType _returnToStartEasing = EasingType.EaseInOut;
+    
+    /// <summary>
+    /// Flag indicating if currently returning to start position.
+    /// </summary>
+    private bool _isReturningToStart = false;
+    
+    /// <summary>
+    /// Time elapsed during return-to-start animation.
+    /// </summary>
+    private double _returnElapsedTime = 0.0;
+    
+    /// <summary>
+    /// Position to lerp from when returning to start.
+    /// </summary>
+    private double3 _returnFromPosition;
+    
+    /// <summary>
+    /// Rotation to lerp from when returning to start.
+    /// </summary>
+    private doubleQuat _returnFromRotation;
     
     // Public methods
     
@@ -133,6 +215,9 @@ public class KeyframeSequencePlayer
         CurrentKeyframeElapsedTime = 0.0;
         TotalElapsedTime = 0.0;
         _currentKeyframeInitialized = false;
+        _isReturningToStart = false;
+        _returnElapsedTime = 0.0;
+        _hasStartedSequence = false;
         foreach (var keyframe in Keyframes)
         {
             keyframe.Animation.Reset();
@@ -277,6 +362,35 @@ public class KeyframeSequencePlayer
             return false;
         }
         
+        // Capture start position on first frame of playback
+        if (!_hasStartedSequence)
+        {
+            _sequenceStartPosition = transform.PositionEcl;
+            _sequenceStartRotation = transform.LocalRotation;
+            _hasStartedSequence = true;
+            Console.WriteLine($"[KeyframeSequencePlayer] Captured start position: {_sequenceStartPosition}");
+        }
+        
+        // Handle return-to-start animation
+        if (_isReturningToStart)
+        {
+            double t = Math.Min(1.0, _returnElapsedTime / _returnToStartDuration);
+            double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing);
+            
+            transform.PositionEcl = double3.Lerp(_returnFromPosition, _sequenceStartPosition, easedT);
+            transform.LocalRotation = doubleQuat.Slerp(_returnFromRotation, _sequenceStartRotation, easedT);
+            
+            _returnElapsedTime += deltaTime;
+            
+            if (_returnElapsedTime >= _returnToStartDuration)
+            {
+                Console.WriteLine("[KeyframeSequencePlayer] Return to start complete");
+                Stop();
+            }
+            
+            return true; // Skip normal controller
+        }
+        
         // Sequence complete
         if (CurrentKeyframeIndex >= Keyframes.Count)
         {
@@ -313,7 +427,22 @@ public class KeyframeSequencePlayer
             // Check if sequence is complete
             if (CurrentKeyframeIndex >= Keyframes.Count)
             {
-                // Sequence complete (Task 3 will add return-to-start here)
+                Console.WriteLine("[KeyframeSequencePlayer] Sequence complete");
+                
+                if (_returnToStartEnabled)
+                {
+                    // Capture current position and start return-to-start animation
+                    _returnFromPosition = transform.PositionEcl;
+                    _returnFromRotation = transform.LocalRotation;
+                    _isReturningToStart = true;
+                    _returnElapsedTime = 0.0;
+                    Console.WriteLine("[KeyframeSequencePlayer] Starting return to start");
+                }
+                else
+                {
+                    // No return-to-start, just stop
+                    Stop();
+                }
             }
         }
         
