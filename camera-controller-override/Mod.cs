@@ -94,8 +94,8 @@ public class Mod
 
   private void RenderWindow()
   {
-    // Set initial window size (larger for camera controls)
-    ImGui.SetNextWindowSize(new float2(600, 700), ImGuiCond.FirstUseEver);
+    // Set initial window size (larger for camera controls with orbit animation)
+    ImGui.SetNextWindowSize(new float2(600, 950), ImGuiCond.FirstUseEver);
 
     // Begin window
     if (ImGui.Begin("camera-controller-override Mod", ref _windowVisible))
@@ -195,6 +195,105 @@ public class Mod
         {
           Patcher.IsAnimationEnabled = !Patcher.IsAnimationEnabled;
           Console.WriteLine($"camera-controller-override: Animation {(Patcher.IsAnimationEnabled ? "enabled" : "disabled")}");
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      
+      // Orbit Animation Panel
+      if (ImGui.CollapsingHeader("Orbit Animation", ImGuiTreeNodeFlags.DefaultOpen))
+      {
+        ImGui.Indent();
+        
+        // Status display
+        string orbitStatus = Patcher.IsOrbitAnimationEnabled 
+          ? (Patcher.IsOrbitLerpingBack ? "Lerping Back..." : (Patcher.IsOrbitAnimationActive ? "Orbiting..." : "Animation Starting...")) 
+          : "Inactive";
+        ImGui.Text($"Status: {orbitStatus}");
+        
+        // Lerp back toggle
+        bool orbitLerpBack = Patcher.OrbitLerpBackEnabled;
+        if (ImGui.Checkbox("Lerp Back to Start##Orbit", ref orbitLerpBack))
+        {
+          Patcher.OrbitLerpBackEnabled = orbitLerpBack;
+        }
+        
+        // Lerp back easing dropdown
+        ImGui.Text("Lerp Back Easing:");
+        ImGui.SameLine();
+        int orbitLerpEasing = (int)Patcher.OrbitLerpBackEasingType;
+        string[] orbitLerpEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("##OrbitLerpEasing", ref orbitLerpEasing, orbitLerpEasingNames, orbitLerpEasingNames.Length))
+        {
+          Patcher.OrbitLerpBackEasingType = (EasingType)orbitLerpEasing;
+        }
+        
+        // Progress display
+        string orbitElapsedText;
+        float orbitProgress;
+        
+        if (Patcher.IsOrbitLerpingBack)
+        {
+          orbitElapsedText = $"Lerp Back: {Patcher.OrbitLerpBackElapsedTime:F2}s / {Patcher.OrbitLerpBackDurationSeconds:F2}s";
+          orbitProgress = (float)(Patcher.OrbitLerpBackElapsedTime / Patcher.OrbitLerpBackDurationSeconds);
+        }
+        else if (Patcher.IsOrbitAnimationActive)
+        {
+          orbitElapsedText = $"Elapsed: {Patcher.OrbitAnimationElapsedTime:F2}s / {Patcher.OrbitDurationSeconds:F2}s";
+          orbitProgress = (float)(Patcher.OrbitAnimationElapsedTime / Patcher.OrbitDurationSeconds);
+        }
+        else
+        {
+          orbitElapsedText = $"Elapsed: 0.00s / {Patcher.OrbitDurationSeconds:F2}s";
+          orbitProgress = 0.0f;
+        }
+        
+        ImGui.Text(orbitElapsedText);
+        ImGui.ProgressBar(orbitProgress, new float2(-1, 0));
+        
+        ImGui.Spacing();
+        
+        // Orbit degrees slider
+        float orbitDegrees = (float)Patcher.OrbitDegrees;
+        if (ImGui.SliderFloat("Orbit Degrees", ref orbitDegrees, 90.0f, 720.0f))
+        {
+          Patcher.OrbitDegrees = orbitDegrees;
+        }
+        
+        // Orbit duration slider
+        float orbitDuration = (float)Patcher.OrbitDurationSeconds;
+        if (ImGui.SliderFloat("Orbit Duration (s)", ref orbitDuration, 1.0f, 30.0f))
+        {
+          Patcher.OrbitDurationSeconds = orbitDuration;
+        }
+        
+        // Orbit easing dropdown
+        ImGui.Text("Orbit Easing:");
+        ImGui.SameLine();
+        int orbitEasing = (int)Patcher.OrbitEasingType;
+        string[] orbitEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("##OrbitEasing", ref orbitEasing, orbitEasingNames, orbitEasingNames.Length))
+        {
+          Patcher.OrbitEasingType = (EasingType)orbitEasing;
+        }
+        
+        // Lerp duration slider
+        float orbitLerpDuration = (float)Patcher.OrbitLerpBackDurationSeconds;
+        if (ImGui.SliderFloat("Lerp Duration (s)##Orbit", ref orbitLerpDuration, 1.0f, 10.0f))
+        {
+          Patcher.OrbitLerpBackDurationSeconds = orbitLerpDuration;
+        }
+        
+        ImGui.Spacing();
+        
+        // Toggle button
+        string orbitButtonLabel = Patcher.IsOrbitAnimationEnabled ? "Stop Orbit" : "Start Orbit";
+        if (ImGui.Button(orbitButtonLabel))
+        {
+          Patcher.IsOrbitAnimationEnabled = !Patcher.IsOrbitAnimationEnabled;
+          Console.WriteLine($"camera-controller-override: Orbit animation {(Patcher.IsOrbitAnimationEnabled ? "enabled" : "disabled")}");
         }
         
         ImGui.Unindent();

@@ -29,6 +29,25 @@ internal static class Patcher
     private static double _animationSpeedMetersPerSecond = 1.0;
     private static double _animationDurationSeconds = 5.0;
     
+    // Orbit animation state
+    private static bool _isOrbitAnimationEnabled = false;
+    private static bool _isOrbitAnimationActive = false;
+    private static double _orbitAnimationElapsedTime = 0.0;
+    private static double _orbitDegrees = 360.0;
+    private static double _orbitDurationSeconds = 5.0;
+    private static EasingType _orbitEasingType = EasingType.Linear;
+    private static bool _orbitLerpBackEnabled = true;
+    private static double _orbitLerpBackDurationSeconds = 3.0;
+    private static EasingType _orbitLerpBackEasingType = EasingType.Linear;
+    private static double3 _orbitStartPosition;
+    private static doubleQuat _orbitStartRotation;
+    private static double3 _orbitTargetPosition;
+    private static double _orbitRadius;
+    private static double3 _orbitAxis;
+    private static bool _isOrbitLerpingBack = false;
+    private static double _orbitLerpBackElapsedTime = 0.0;
+    private static double3 _orbitEndPosition;  // Position at end of orbit, used for lerp-back
+    
     // Lerp back state
     private static bool _lerpBackEnabled = true;  // Default enabled
     private static bool _isLerpingBack = false;
@@ -235,6 +254,68 @@ internal static class Patcher
         set => _mainAnimationEasingType = value;
     }
     
+    // Orbit animation properties
+    public static bool IsOrbitAnimationEnabled
+    {
+        get => _isOrbitAnimationEnabled;
+        set
+        {
+            Console.WriteLine($"camera-controller-override: [ORBIT-STATE] IsOrbitAnimationEnabled changing from {_isOrbitAnimationEnabled} to {value}");
+            _isOrbitAnimationEnabled = value;
+            
+            // Reset orbit state when disabled
+            if (!value && (_isOrbitAnimationActive || _isOrbitLerpingBack))
+            {
+                Console.WriteLine("camera-controller-override: [ORBIT-STATE] Orbit animation disabled while active - resetting state");
+                _isOrbitAnimationActive = false;
+                _isOrbitLerpingBack = false;
+                _orbitAnimationElapsedTime = 0.0;
+                _orbitLerpBackElapsedTime = 0.0;
+            }
+        }
+    }
+    
+    public static bool IsOrbitAnimationActive => _isOrbitAnimationActive;
+    public static double OrbitAnimationElapsedTime => _orbitAnimationElapsedTime;
+    public static bool IsOrbitLerpingBack => _isOrbitLerpingBack;
+    public static double OrbitLerpBackElapsedTime => _orbitLerpBackElapsedTime;
+    
+    public static double OrbitDegrees
+    {
+        get => _orbitDegrees;
+        set => _orbitDegrees = Math.Max(90.0, Math.Min(720.0, value));
+    }
+    
+    public static double OrbitDurationSeconds
+    {
+        get => _orbitDurationSeconds;
+        set => _orbitDurationSeconds = Math.Max(1.0, Math.Min(30.0, value));
+    }
+    
+    public static EasingType OrbitEasingType
+    {
+        get => _orbitEasingType;
+        set => _orbitEasingType = value;
+    }
+    
+    public static bool OrbitLerpBackEnabled
+    {
+        get => _orbitLerpBackEnabled;
+        set => _orbitLerpBackEnabled = value;
+    }
+    
+    public static double OrbitLerpBackDurationSeconds
+    {
+        get => _orbitLerpBackDurationSeconds;
+        set => _orbitLerpBackDurationSeconds = Math.Max(1.0, Math.Min(10.0, value));
+    }
+    
+    public static EasingType OrbitLerpBackEasingType
+    {
+        get => _orbitLerpBackEasingType;
+        set => _orbitLerpBackEasingType = value;
+    }
+    
     // CRITICAL: Controller.OnFrame is virtual and overridden by OrbitController and FlyController
     // Patches on the base Controller class won't execute for the overrides
     // We must patch the concrete implementations instead
@@ -269,9 +350,215 @@ internal static class Patcher
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] {controllerType} Call #{_prefixCallCount}, Frame #{_frameCounter}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] __instance type: {__instance?.GetType().Name ?? "NULL"}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Animation enabled: {_isAnimationEnabled}, active: {_isAnimationActive}");
-                Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Lerp back: {_isLerpingBack}");
+                Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Orbit enabled: {_isOrbitAnimationEnabled}, active: {_isOrbitAnimationActive}");
+                Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] Lerp back: {_isLerpingBack}, Orbit lerp back: {_isOrbitLerpingBack}");
                 Console.WriteLine($"camera-controller-override: [PREFIX-ENTRY] deltaTime: {inDeltaTime:F6}s");
                 _lastLogTime = DateTime.Now;
+            }
+            
+            // Check if orbit lerping back
+            if (_isOrbitLerpingBack)
+            {
+                // Calculate time progress (0 to 1)
+                double t = _orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds;
+                
+                // Apply easing
+                double easedT = ApplyEasing(t, _orbitLerpBackEasingType);
+                
+                // Interpolate position from orbit end position back to start position
+                double3 newPos = double3.Lerp(_orbitEndPosition, _orbitStartPosition, easedT);
+                transform.PositionEcl = newPos;
+                
+                // Get CURRENT target position (vessel may be moving during lerp-back)
+                double3 currentTargetPos = _orbitTargetPosition;
+                if (__instance != null)
+                {
+                    var orbitCamera = __instance.Camera;
+                    if (orbitCamera != null && orbitCamera.Following != null)
+                    {
+                        currentTargetPos = orbitCamera.Following.GetPositionEcl();
+                    }
+                }
+
+                // Make camera look at target during lerp-back (same as orbit animation)
+                double3 lookDirection = currentTargetPos - newPos;
+                if (lookDirection.LengthSquared() > 0.0001)
+                {
+                    // Use camera's current up vector to prevent flipping
+                    double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+                    doubleQuat lookAtRotation = Camera.LookAtRotation(lookDirection, currentUp);
+                    transform.LocalRotation = lookAtRotation;
+                }
+                
+                _orbitLerpBackElapsedTime += inDeltaTime;
+                
+                // Complete when time is up
+                if (_orbitLerpBackElapsedTime >= _orbitLerpBackDurationSeconds)
+                {
+                    _isOrbitAnimationEnabled = false;
+                    _isOrbitAnimationActive = false;
+                    _isOrbitLerpingBack = false;
+                    Console.WriteLine($"camera-controller-override: [ORBIT-LERP-COMPLETE] Orbit lerp back complete.");
+                }
+                else if (shouldLog || _frameCounter % 30 == 0)
+                {
+                    double progressPercent = (_orbitLerpBackElapsedTime / _orbitLerpBackDurationSeconds) * 100.0;
+                    Console.WriteLine($"camera-controller-override: [ORBIT-LERP-PROGRESS] elapsed={_orbitLerpBackElapsedTime:F2}s/{_orbitLerpBackDurationSeconds:F1}s ({progressPercent:F1}%)");
+                }
+                
+                return false; // Skip original
+            }
+            
+            // Check if orbit animation is active
+            if (_isOrbitAnimationEnabled)
+            {
+                // Validate injected Transform field
+                if (transform == null)
+                {
+                    Console.WriteLine($"camera-controller-override: [ORBIT-ERROR] Injected Transform field is null on {__instance?.GetType().Name ?? "NULL"}!");
+                    return true;
+                }
+                
+                // First frame of orbit animation
+                if (!_isOrbitAnimationActive)
+                {
+                    _isOrbitAnimationActive = true;
+                    _orbitStartPosition = transform.PositionEcl;
+                    _orbitStartRotation = transform.LocalRotation;
+                    _orbitAnimationElapsedTime = 0.0;
+                    
+                    // Get target position
+                    _orbitTargetPosition = double3.Zero;
+                    if (__instance != null)
+                    {
+                        var camera = __instance.Camera;
+                        if (camera != null && camera.Following != null)
+                        {
+                            _orbitTargetPosition = camera.Following.GetPositionEcl();
+                        }
+                    }
+                    
+                    // Calculate orbit parameters
+                    double3 cameraToTarget = _orbitTargetPosition - _orbitStartPosition;
+                    _orbitRadius = cameraToTarget.Length();
+
+                    // Guard: can't orbit with (near) zero radius
+                    if (_orbitRadius < 0.01)
+                    {
+                        Console.WriteLine($"camera-controller-override: [ORBIT-ERROR] Orbit radius too small ({_orbitRadius:F6}m) - cancelling orbit.");
+                        _isOrbitAnimationEnabled = false;
+                        _isOrbitAnimationActive = false;
+                        return true;
+                    }
+
+                    // Prefer camera's start up vector for the orbit plane, but avoid degeneracy when it is
+                    // (nearly) parallel to the camera-to-target offset.
+                    double3 startUp = double3.UnitY.Transform(_orbitStartRotation);
+                    if (startUp.LengthSquared() < 0.00000001)
+                    {
+                        startUp = double3.UnitY;
+                    }
+
+                    double3 startOffset0 = _orbitStartPosition - _orbitTargetPosition;
+                    double3 right = double3.Cross(startUp, startOffset0);
+                    if (right.LengthSquared() < 0.0001)
+                    {
+                        // Pick a fallback reference axis that isn't parallel to the start offset
+                        double3 startOffsetDir = double3.Normalize(startOffset0);
+                        double3 fallbackRef = Math.Abs(double3.Dot(startOffsetDir, double3.UnitY)) < 0.99 ? double3.UnitY : double3.UnitX;
+                        right = double3.Cross(fallbackRef, startOffset0);
+                    }
+
+                    _orbitAxis = double3.Normalize(double3.Cross(startOffset0, right));
+                    
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Orbit animation started");
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Degrees: {_orbitDegrees}, Duration: {_orbitDurationSeconds:F1}s");
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Target: {_orbitTargetPosition}");
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Camera: {_orbitStartPosition}");
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Radius: {_orbitRadius:F2}m");
+                    Console.WriteLine($"camera-controller-override: [ORBIT-START] Orbit axis: {_orbitAxis}");
+                }
+                
+                // Update orbit animation
+                _orbitAnimationElapsedTime += inDeltaTime;
+                
+                // Calculate angle progress (0 to 1)
+                double t = Math.Min(1.0, _orbitAnimationElapsedTime / _orbitDurationSeconds);
+                double easedT = ApplyEasing(t, _orbitEasingType);
+                
+                // Calculate current angle in radians
+                double targetAngleDegrees = _orbitDegrees * easedT;
+                double currentAngleRadians = targetAngleDegrees * Math.PI / 180.0;
+                
+                // Calculate position on orbit
+                // Start with vector from target to camera start position
+                double3 startOffset = _orbitStartPosition - _orbitTargetPosition;
+                
+                // Rotate around orbit axis
+                // Using Rodrigues' rotation formula: v' = v*cos(θ) + (k×v)*sin(θ) + k*(k·v)*(1-cos(θ))
+                double3 k = _orbitAxis;
+                double cosTheta = Math.Cos(currentAngleRadians);
+                double sinTheta = Math.Sin(currentAngleRadians);
+                double3 kCrossV = double3.Cross(k, startOffset);
+                double kDotV = double3.Dot(k, startOffset);
+                double3 rotatedOffset = startOffset * cosTheta + kCrossV * sinTheta + k * kDotV * (1.0 - cosTheta);
+
+                // Get CURRENT target position (vessel may be moving during orbit)
+                double3 currentTargetPos = _orbitTargetPosition;
+                if (__instance != null)
+                {
+                    var orbitCamera = __instance.Camera;
+                    if (orbitCamera != null && orbitCamera.Following != null)
+                    {
+                        currentTargetPos = orbitCamera.Following.GetPositionEcl();
+                    }
+                }
+
+                // Set new camera position (orbit around the CURRENT target)
+                double3 newPosition = currentTargetPos + rotatedOffset;
+                transform.PositionEcl = newPosition;
+                
+                // Make camera look at target
+                double3 lookDirection = currentTargetPos - newPosition;
+                if (lookDirection.LengthSquared() > 0.0001)
+                {
+                    // Use camera's current up vector to prevent flipping (consistent with other animations)
+                    double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+                    doubleQuat lookAtRotation = Camera.LookAtRotation(lookDirection, currentUp);
+                    transform.LocalRotation = lookAtRotation;
+                }
+                
+                // Log progress
+                if (shouldLog || _frameCounter % 30 == 0)
+                {
+                    double progressPercent = t * 100.0;
+                    Console.WriteLine($"camera-controller-override: [ORBIT-PROGRESS] Elapsed {_orbitAnimationElapsedTime:F2}s/{_orbitDurationSeconds:F1}s ({progressPercent:F1}%), Angle: {targetAngleDegrees:F1}°");
+                }
+                
+                // Check if orbit is complete
+                if (_orbitAnimationElapsedTime >= _orbitDurationSeconds)
+                {
+                    Console.WriteLine($"camera-controller-override: [ORBIT-COMPLETE] Orbit animation complete (elapsed: {_orbitAnimationElapsedTime:F2}s)");
+                    
+                    // Check if lerp back is enabled
+                    if (_orbitLerpBackEnabled)
+                    {
+                        Console.WriteLine($"camera-controller-override: [ORBIT-COMPLETE] Starting orbit lerp back phase");
+                        _orbitEndPosition = transform.PositionEcl;  // Save current position as orbit end
+                        _isOrbitLerpingBack = true;
+                        _isOrbitAnimationActive = false;
+                        _orbitLerpBackElapsedTime = 0.0;
+                    }
+                    else
+                    {
+                        // Complete without lerp back
+                        _isOrbitAnimationEnabled = false;
+                        _isOrbitAnimationActive = false;
+                        Console.WriteLine($"camera-controller-override: [ORBIT-COMPLETE] Orbit complete (lerp back disabled)");
+                    }
+                }
+                
+                return false; // Skip original
             }
             
             // Check if lerping back
