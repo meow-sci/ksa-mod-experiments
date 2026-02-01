@@ -60,7 +60,7 @@ public class KeyframeSequencePlayer
     public double TotalElapsedTime { get; private set; }
     
     /// <summary>
-    /// Total duration of the entire sequence including all keyframes and transitions.
+    /// Total duration of the entire sequence including all keyframes.
     /// </summary>
     public double TotalDuration
     {
@@ -70,14 +70,6 @@ public class KeyframeSequencePlayer
             for (int i = 0; i < Keyframes.Count; i++)
             {
                 var keyframe = Keyframes[i];
-                
-                // Add transition duration if this keyframe has transition-in enabled
-                if (keyframe.IncludeTransitionIn && i > 0)
-                {
-                    total += keyframe.TransitionInDurationSeconds;
-                }
-                
-                // Add the keyframe animation duration
                 total += keyframe.Animation.DurationSeconds;
             }
             return total;
@@ -87,19 +79,19 @@ public class KeyframeSequencePlayer
     // Private state
     
     /// <summary>
-    /// Active transition animation between keyframes, if any.
-    /// </summary>
-    private TransitionAnimation? _activeTransition;
-    
-    /// <summary>
-    /// Time elapsed within the current transition in seconds.
-    /// </summary>
-    private double _transitionElapsedTime;
-    
-    /// <summary>
     /// Flag to track if the current keyframe animation has been initialized.
     /// </summary>
     private bool _currentKeyframeInitialized;
+    
+    /// <summary>
+    /// Active transition animation between keyframes (if any).
+    /// </summary>
+    private IKeyframeAnimation? _activeTransition;
+    
+    /// <summary>
+    /// Time elapsed in the current transition.
+    /// </summary>
+    private double _transitionElapsedTime;
     
     /// <summary>
     /// Flag to track if the current transition has been initialized.
@@ -117,10 +109,7 @@ public class KeyframeSequencePlayer
         CurrentKeyframeIndex = 0;
         CurrentKeyframeElapsedTime = 0.0;
         TotalElapsedTime = 0.0;
-        _activeTransition = null;
-        _transitionElapsedTime = 0.0;
         _currentKeyframeInitialized = false;
-        _transitionInitialized = false;
         
         Console.WriteLine($"[KeyframeSequencePlayer] Playing sequence with {Keyframes.Count} keyframes");
     }
@@ -161,9 +150,6 @@ public class KeyframeSequencePlayer
         _activeTransition = null;
         _transitionElapsedTime = 0.0;
         _currentKeyframeInitialized = false;
-        _transitionInitialized = false;
-        
-        // Reset all keyframe animations
         foreach (var keyframe in Keyframes)
         {
             keyframe.Animation.Reset();
@@ -179,20 +165,12 @@ public class KeyframeSequencePlayer
     /// <param name="includeTransitionIn">Whether to include a smooth transition from the previous keyframe.</param>
     /// <param name="transitionDuration">Duration of the transition-in animation in seconds.</param>
     /// <param name="transitionEasing">Easing function for the transition-in animation.</param>
-    public void AddKeyframe(
-        IKeyframeAnimation animation,
-        bool includeTransitionIn = false,
-        double transitionDuration = 1.0,
-        EasingType transitionEasing = EasingType.EaseInOut)
+    public void AddKeyframe(IKeyframeAnimation animation)
     {
         var keyframe = new Keyframe(animation)
         {
-            Id = Keyframes.Count + 1,
-            IncludeTransitionIn = includeTransitionIn,
-            TransitionInDurationSeconds = transitionDuration,
-            TransitionInEasing = transitionEasing
+            Id = Keyframes.Count + 1
         };
-        
         Keyframes.Add(keyframe);
         Console.WriteLine($"[KeyframeSequencePlayer] Added keyframe {keyframe.Id}: {animation.Name}");
     }
@@ -340,34 +318,24 @@ public class KeyframeSequencePlayer
                 Console.WriteLine($"[KeyframeSequencePlayer] Starting transition to keyframe {CurrentKeyframeIndex + 1}");
             }
             
-            // Update transition animation
+            // Update transition
             bool transitionComplete = _activeTransition.Update(controller, transform, deltaTime, _transitionElapsedTime);
             _transitionElapsedTime += deltaTime;
             TotalElapsedTime += deltaTime;
             
-            // Transition finished, move to next keyframe
+            // Transition finished, move to keyframe
             if (transitionComplete)
             {
-                Console.WriteLine($"[KeyframeSequencePlayer] Transition complete, starting keyframe {CurrentKeyframeIndex + 1}");
+                Console.WriteLine($"[KeyframeSequencePlayer] Transition complete");
                 _activeTransition = null;
                 _transitionElapsedTime = 0.0;
                 _transitionInitialized = false;
-                CurrentKeyframeIndex++;
-                CurrentKeyframeElapsedTime = 0.0;
-                _currentKeyframeInitialized = false;
-                
-                // Check if sequence is complete
-                if (CurrentKeyframeIndex >= Keyframes.Count)
-                {
-                    Stop();
-                    return false;
-                }
             }
             
-            return true; // Skip normal controller while transitioning
+            return true; // Skip normal controller while in transition
         }
         
-        // Handle current keyframe animation
+        // Update current keyframe animation
         var currentKeyframe = Keyframes[CurrentKeyframeIndex];
         var animation = currentKeyframe.Animation;
         
@@ -393,45 +361,10 @@ public class KeyframeSequencePlayer
             int nextIndex = CurrentKeyframeIndex + 1;
             if (nextIndex < Keyframes.Count)
             {
-                var nextKeyframe = Keyframes[nextIndex];
-                
-                // If next keyframe has transition enabled, create transition animation
-                if (nextKeyframe.IncludeTransitionIn)
-                {
-                    // Capture current camera state as transition start
-                    double3 startPosition = transform.PositionEcl;
-                    doubleQuat startRotation = transform.LocalRotation;
-                    
-                    // Initialize next keyframe to get its starting state
-                    nextKeyframe.Animation.Initialize(controller, transform);
-                    double3 endPosition = transform.PositionEcl;
-                    doubleQuat endRotation = transform.LocalRotation;
-                    
-                    // Reset transform to current position (initialization may have moved it)
-                    transform.PositionEcl = startPosition;
-                    transform.LocalRotation = startRotation;
-                    
-                    // Create and configure transition
-                    _activeTransition = new TransitionAnimation(
-                        nextKeyframe.TransitionInDurationSeconds,
-                        nextKeyframe.TransitionInEasing
-                    );
-                    _activeTransition.StartPosition = startPosition;
-                    _activeTransition.StartRotation = startRotation;
-                    _activeTransition.SetEndState(endPosition, endRotation);
-                    
-                    _transitionElapsedTime = 0.0;
-                    _transitionInitialized = false;
-                    
-                    Console.WriteLine($"[KeyframeSequencePlayer] Creating transition to keyframe {nextIndex + 1}");
-                }
-                else
-                {
-                    // No transition, move directly to next keyframe
-                    CurrentKeyframeIndex++;
-                    CurrentKeyframeElapsedTime = 0.0;
-                    _currentKeyframeInitialized = false;
-                }
+                // Move directly to next keyframe
+                CurrentKeyframeIndex++;
+                CurrentKeyframeElapsedTime = 0.0;
+                _currentKeyframeInitialized = false;
             }
             else
             {

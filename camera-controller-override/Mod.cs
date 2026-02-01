@@ -17,11 +17,6 @@ public class Mod
   private bool _isInitialized = false;
   private bool _isDisposed = false;
   private bool _windowVisible = false;
-  
-  // Include Transition checkbox states
-  private bool _zoomIncludeTransition = false;
-  private bool _orbitIncludeTransition = false;
-  private bool _loopyIncludeTransition = false;
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -181,11 +176,8 @@ public class Mod
             speedMetersPerSecond: Patcher.AnimationSpeedMetersPerSecond,
             durationSeconds: Patcher.AnimationDurationSeconds,
             easing: (Animation.EasingType)Patcher.MainAnimationEasingType);
-          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _zoomIncludeTransition);
+          Patcher.SequencePlayer.AddKeyframe(animation);
         }
-        
-        ImGui.Spacing();
-        ImGui.Checkbox("Include Transition", ref _zoomIncludeTransition);
         
         ImGui.Unindent();
       }
@@ -286,13 +278,10 @@ public class Mod
             degrees: Patcher.OrbitDegrees,
             durationSeconds: Patcher.OrbitDurationSeconds,
             easing: (Animation.EasingType)Patcher.OrbitEasingType);
-          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _orbitIncludeTransition);
+          Patcher.SequencePlayer.AddKeyframe(animation);
         }
         
         ImGui.Spacing();
-        ImGui.Checkbox("Include Transition##Orbit", ref _orbitIncludeTransition);
-        
-        ImGui.Unindent();
       }
 
       ImGui.Spacing();
@@ -407,13 +396,10 @@ public class Mod
             amplitudeMeters: Patcher.LoopyAmplitudeMeters,
             durationSeconds: Patcher.LoopyOrbitDurationSeconds,
             easing: (Animation.EasingType)Patcher.LoopyOrbitEasingType);
-          Patcher.SequencePlayer.AddKeyframe(animation, includeTransitionIn: _loopyIncludeTransition);
+          Patcher.SequencePlayer.AddKeyframe(animation);
         }
         
         ImGui.Spacing();
-        ImGui.Checkbox("Include Transition##Loopy", ref _loopyIncludeTransition);
-        
-        ImGui.Unindent();
       }
 
       ImGui.Spacing();

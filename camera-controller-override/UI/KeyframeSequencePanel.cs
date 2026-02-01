@@ -250,15 +250,6 @@ public static class KeyframeSequencePanel
         
         ImGui.Indent();
         
-        // Show transition info if enabled
-        if (keyframe.IncludeTransitionIn && index > 0)
-        {
-            ImGui.TextColored(
-                new float4(0.6f, 0.8f, 1.0f, 1.0f), 
-                $"↕ Transition: {keyframe.TransitionInDurationSeconds:F1}s {keyframe.TransitionInEasing}"
-            );
-        }
-        
         // Show animation properties
         var properties = animation.GetDisplayProperties();
         if (properties != null && properties.Count > 0)
