@@ -288,6 +288,34 @@ internal static class Patcher
                 double3 newPos = transform.PositionEcl + returnDisplacement;
                 transform.PositionEcl = newPos;
                 
+                // MAKE CAMERA LOOK AT TARGET during return animation
+                // Use camera's current up vector (not world Y-up) to prevent flipping
+                if (__instance != null)
+                {
+                    var lerpCamera = __instance.Camera;
+                    if (lerpCamera != null && lerpCamera.Following != null)
+                    {
+                        var lerpFollowing = lerpCamera.Following;
+                        double3 targetPos = lerpFollowing.GetPositionEcl();
+                        double3 cameraPos = transform.PositionEcl;
+                        double3 lookDirection = targetPos - cameraPos;
+                        
+                        if (lookDirection.LengthSquared() > 0.0001)
+                        {
+                            // Extract current camera up vector from existing rotation
+                            // Camera up is typically +Y in local space, transformed by current rotation
+                            double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+                            doubleQuat lookAtRotation = Camera.LookAtRotation(lookDirection, currentUp);
+                            transform.LocalRotation = lookAtRotation;
+                            
+                            if (shouldLog)
+                            {
+                                Console.WriteLine($"camera-controller-override: [LERP-LOOKAT] Updated camera rotation to look at target (preserved up vector)");
+                            }
+                        }
+                    }
+                }
+                
                 // Track distance and time
                 _distanceTraveledReturn += returnDisplacement.Length();
                 _lerpBackElapsedTime += inDeltaTime;
@@ -342,14 +370,29 @@ internal static class Patcher
                 _animationStartPosition = transform.PositionEcl;
                 _distanceTraveledForward = 0.0;  // Reset distance tracking
                 
-                // Get camera rotation and calculate backward direction
-                doubleQuat rotation = transform.LocalRotation;
-                double3 forward = (-double3.UnitZ).Transform(rotation);
-                _animationDirection = double3.Normalize(-forward);
+                // Get target position
+                double3 targetPos = double3.Zero;
+                if (__instance != null)
+                {
+                    var camera = __instance.Camera;
+                    if (camera != null && camera.Following != null)
+                    {
+                        targetPos = camera.Following.GetPositionEcl();
+                    }
+                }
+                
+                // Calculate direction AWAY from target (not based on camera rotation)
+                double3 cameraPos = transform.PositionEcl;
+                double3 towardTarget = targetPos - cameraPos;  // Forward direction
+                _animationDirection = double3.Normalize(-towardTarget);  // Backward = away from target
                 _animationElapsedTime = 0.0;
                 
                 double expectedDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
                 Console.WriteLine($"camera-controller-override: [ANIM-START] Animation started (speed: {_animationSpeedMetersPerSecond}m/s, duration: {_animationDurationSeconds:F1}s, expected distance: {expectedDistance:F2}m)");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Target position: {targetPos}");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Camera position: {cameraPos}");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Toward target (forward): {double3.Normalize(towardTarget)}");
+                Console.WriteLine($"camera-controller-override: [ANIM-START] Animation direction (backward): {_animationDirection}");
             }
             
             // Update animation on each frame
@@ -358,6 +401,34 @@ internal static class Patcher
             // Calculate and apply new position
             double3 displacement = _animationDirection * _animationSpeedMetersPerSecond * inDeltaTime;
             transform.PositionEcl = transform.PositionEcl + displacement;
+            
+            // MAKE CAMERA LOOK AT TARGET during forward animation
+            // Use camera's current up vector (not world Y-up) to prevent flipping
+            if (__instance != null)
+            {
+                var animCamera = __instance.Camera;
+                if (animCamera != null && animCamera.Following != null)
+                {
+                    var animFollowing = animCamera.Following;
+                    double3 targetPos = animFollowing.GetPositionEcl();
+                    double3 cameraPos = transform.PositionEcl;
+                    double3 lookDirection = targetPos - cameraPos;
+                    
+                    if (lookDirection.LengthSquared() > 0.0001)
+                    {
+                        // Extract current camera up vector from existing rotation
+                        // Camera up is typically +Y in local space, transformed by current rotation
+                        double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+                        doubleQuat lookAtRotation = Camera.LookAtRotation(lookDirection, currentUp);
+                        transform.LocalRotation = lookAtRotation;
+                        
+                        if (shouldLog)
+                        {
+                            Console.WriteLine($"camera-controller-override: [ANIM-LOOKAT] Updated camera rotation to look at target (preserved up vector)");
+                        }
+                    }
+                }
+            }
             
             // Track distance traveled for return animation
             _distanceTraveledForward += displacement.Length();
