@@ -108,6 +108,11 @@ public class KeyframeSequencePlayer
     /// </summary>
     public bool IsReturningToStart => _isReturningToStart;
     
+    /// <summary>
+    /// Gets the time elapsed during the return-to-start animation in seconds.
+    /// </summary>
+    public double ReturnElapsedTime => _returnElapsedTime;
+    
     // Private state
     
     /// <summary>

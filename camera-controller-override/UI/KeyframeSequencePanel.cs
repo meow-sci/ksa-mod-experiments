@@ -40,6 +40,11 @@ public static class KeyframeSequencePanel
             ImGui.Separator();
             ImGui.Spacing();
             
+            RenderReturnToStartControls(player);
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
+            
             RenderKeyframesList(player);
             
             ImGui.Unindent();
@@ -52,13 +57,21 @@ public static class KeyframeSequencePanel
     private static void RenderStatusDisplay(KeyframeSequencePlayer player)
     {
         // State text with color coding
-        string stateText = player.State switch
+        string stateText;
+        if (player.IsReturningToStart)
         {
-            PlaybackState.Playing => $"Playing [{player.CurrentKeyframeIndex + 1}/{player.Keyframes.Count}]",
-            PlaybackState.Paused => $"Paused [{player.CurrentKeyframeIndex + 1}/{player.Keyframes.Count}]",
-            PlaybackState.Stopped => "Stopped",
-            _ => "Unknown"
-        };
+            stateText = "Returning to start...";
+        }
+        else
+        {
+            stateText = player.State switch
+            {
+                PlaybackState.Playing => $"Playing [{player.CurrentKeyframeIndex + 1}/{player.Keyframes.Count}]",
+                PlaybackState.Paused => $"Paused [{player.CurrentKeyframeIndex + 1}/{player.Keyframes.Count}]",
+                PlaybackState.Stopped => "Stopped",
+                _ => "Unknown"
+            };
+        }
         
         float4 stateColor = player.State switch
         {
@@ -80,9 +93,21 @@ public static class KeyframeSequencePanel
         ImGui.Text($"Elapsed: {timeText}");
         
         // Progress bar
-        float progress = totalDuration > 0 
-            ? (float)(player.TotalElapsedTime / totalDuration)
-            : 0.0f;
+        float progress;
+        if (player.IsReturningToStart)
+        {
+            // Show return progress based on return elapsed time / duration
+            progress = player.ReturnToStartDuration > 0
+                ? (float)(player.ReturnElapsedTime / player.ReturnToStartDuration)
+                : 0.0f;
+        }
+        else
+        {
+            // Show keyframe sequence progress
+            progress = totalDuration > 0 
+                ? (float)(player.TotalElapsedTime / totalDuration)
+                : 0.0f;
+        }
         progress = Math.Clamp(progress, 0.0f, 1.0f);
         ImGui.ProgressBar(progress, new float2(-1, 0));
     }
@@ -277,6 +302,39 @@ public static class KeyframeSequencePanel
             {
                 _selectedKeyframeIndex--;
             }
+        }
+        
+        ImGui.Unindent();
+    }
+    
+    /// <summary>
+    /// Render return-to-start configuration controls.
+    /// </summary>
+    private static void RenderReturnToStartControls(KeyframeSequencePlayer player)
+    {
+        ImGui.Text("Return to Start Settings:");
+        ImGui.Indent();
+        
+        // Return to start enabled checkbox
+        bool returnEnabled = player.ReturnToStartEnabled;
+        if (ImGui.Checkbox("Return to Start After Sequence", ref returnEnabled))
+        {
+            player.ReturnToStartEnabled = returnEnabled;
+        }
+        
+        // Return duration slider
+        float returnDuration = (float)player.ReturnToStartDuration;
+        if (ImGui.SliderFloat("Return Duration (s)", ref returnDuration, 1.0f, 10.0f))
+        {
+            player.ReturnToStartDuration = returnDuration;
+        }
+        
+        // Return easing dropdown
+        int returnEasing = (int)player.ReturnToStartEasing;
+        string[] returnEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Return Easing", ref returnEasing, returnEasingNames, returnEasingNames.Length))
+        {
+            player.ReturnToStartEasing = (Animation.EasingType)returnEasing;
         }
         
         ImGui.Unindent();
