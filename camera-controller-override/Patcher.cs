@@ -36,6 +36,9 @@ internal static class Patcher
     private static double _lerpBackDurationSeconds = 3.0;
     private static EasingType _lerpBackEasingType = EasingType.Linear;
     
+    // Main animation easing
+    private static EasingType _mainAnimationEasingType = EasingType.Linear;
+    
     // Distance tracking (replaces absolute position tracking)
     private static double _distanceTraveledForward = 0.0;  // How far we moved during forward animation
     private static double _distanceTraveledReturn = 0.0;   // How far we've moved during return
@@ -226,6 +229,12 @@ internal static class Patcher
         set => _lerpBackEasingType = value;
     }
     
+    public static EasingType MainAnimationEasingType
+    {
+        get => _mainAnimationEasingType;
+        set => _mainAnimationEasingType = value;
+    }
+    
     // CRITICAL: Controller.OnFrame is virtual and overridden by OrbitController and FlyController
     // Patches on the base Controller class won't execute for the overrides
     // We must patch the concrete implementations instead
@@ -398,8 +407,20 @@ internal static class Patcher
             // Update animation on each frame
             _animationElapsedTime += inDeltaTime;
             
-            // Calculate and apply new position
-            double3 displacement = _animationDirection * _animationSpeedMetersPerSecond * inDeltaTime;
+            // Calculate time progress (0 to 1)
+            double mainT = _animationElapsedTime / _animationDurationSeconds;
+            double mainLastT = Math.Max(0.0, (_animationElapsedTime - inDeltaTime) / _animationDurationSeconds);
+            
+            // Apply easing to get progress
+            double mainEasedT = ApplyEasing(mainT, _mainAnimationEasingType);
+            double mainLastEasedT = ApplyEasing(mainLastT, _mainAnimationEasingType);
+            double mainEasedFrameProgress = mainEasedT - mainLastEasedT;
+            
+            // Calculate displacement based on eased progress
+            // Total distance = speed * duration, frame distance = total * eased progress delta
+            double totalDistance = _animationSpeedMetersPerSecond * _animationDurationSeconds;
+            double mainFrameDistance = totalDistance * mainEasedFrameProgress;
+            double3 displacement = _animationDirection * mainFrameDistance;
             transform.PositionEcl = transform.PositionEcl + displacement;
             
             // MAKE CAMERA LOOK AT TARGET during forward animation

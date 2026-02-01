@@ -170,6 +170,16 @@ public class Mod
           Patcher.AnimationDurationSeconds = duration;
         }
         
+        // Animation easing dropdown
+        ImGui.Text("Animation Easing:");
+        ImGui.SameLine();
+        int currentMainEasing = (int)Patcher.MainAnimationEasingType;
+        string[] mainEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("##MainEasing", ref currentMainEasing, mainEasingNames, mainEasingNames.Length))
+        {
+          Patcher.MainAnimationEasingType = (EasingType)currentMainEasing;
+        }
+        
         // Lerp back duration configuration
         float lerpDuration = (float)Patcher.LerpBackDurationSeconds;
         if (ImGui.SliderFloat("Lerp Duration (s)", ref lerpDuration, 1.0f, 10.0f))
