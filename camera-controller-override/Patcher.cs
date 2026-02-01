@@ -153,23 +153,7 @@ internal static class Patcher
         return double3.Normalize(double3.Cross(startOffset, right));
     }
     
-    private static double3 CalculateLoopyVerticalAxis(double3 orbitAxis, double3 currentOffset)
-    {
-        // The vertical axis should be perpendicular to both:
-        // 1. The main orbit axis (so oscillation is out of the orbit plane)
-        // 2. The current camera-to-target direction (so it's "up" relative to camera view)
-        
-        double3 offsetDir = double3.Normalize(currentOffset);
-        double3 vertical = double3.Cross(orbitAxis, offsetDir);
-        
-        if (vertical.LengthSquared() < 0.0001)
-        {
-            // Fallback if parallel
-            vertical = double3.UnitY;
-        }
-        
-        return double3.Normalize(vertical);
-    }
+
 
     public static bool IsAnimationEnabled
     {
@@ -383,7 +367,7 @@ internal static class Patcher
                     }
                     
                     _loopyOrbitAxis = CalculateOrbitAxis(_loopyLerpStartOffset, _loopyOrbitStartRotation);
-                    _loopyOrbitVerticalAxis = CalculateLoopyVerticalAxis(_loopyOrbitAxis, _loopyLerpStartOffset);
+                    _loopyOrbitVerticalAxis = _loopyOrbitAxis;
                 }
                 
                 _loopyOrbitElapsedTime += deltaTime;
