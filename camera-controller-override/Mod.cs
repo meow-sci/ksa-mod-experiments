@@ -48,6 +48,13 @@ public class Mod
   private float _loopyDuration = 8.0f;
   private int _loopyEasing = (int)Animation.EasingType.EaseOut;
 
+  // Shake configuration
+  private float _shakeDuration = 2.0f;
+  private int _shakeCount = 4;
+  private float _shakeAmplitude = 5.0f;  // degrees
+  private float _shakeSpeed = 1.0f;       // speed modifier
+  private int _shakeEasing = (int)Animation.EasingType.EaseInOut;
+
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
 
@@ -253,6 +260,63 @@ public class Mod
             offsetX: _zoomInOffsetX,
             offsetY: _zoomInOffsetY,
             offsetZ: _zoomInOffsetZ
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Shake Animation Configuration
+      if (ImGui.CollapsingHeader("Shake Animation"))
+      {
+        ImGui.Indent();
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)##Shake", ref _shakeDuration, 1.0f, 10.0f))
+        {
+          // Value updated
+        }
+        
+        // Shake Count slider
+        if (ImGui.SliderInt("Shake Count##Shake", ref _shakeCount, 1, 20))
+        {
+          // Value updated
+        }
+        
+        // Amplitude slider
+        if (ImGui.SliderFloat("Amplitude (degrees)##Shake", ref _shakeAmplitude, 1.0f, 45.0f))
+        {
+          // Value updated
+        }
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed Modifier##Shake", ref _shakeSpeed, 0.5f, 3.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing##Shake", ref _shakeEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##Shake"))
+        {
+          var animation = new ShakeAnimation(
+            durationSeconds: _shakeDuration,
+            shakeCount: _shakeCount,
+            amplitudeDegrees: _shakeAmplitude,
+            shakeSpeed: _shakeSpeed,
+            easing: (Animation.EasingType)_shakeEasing
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
