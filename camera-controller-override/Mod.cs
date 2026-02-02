@@ -28,6 +28,14 @@ public class Mod
   private float _zoomInDuration = 5.0f;
   private int _zoomInEasing = (int)Animation.EasingType.EaseOut;
 
+  // Zoom In To Offset configuration
+  private float _zoomInOffsetSpeed = 25.0f;
+  private float _zoomInOffsetDuration = 5.0f;
+  private int _zoomInOffsetEasing = (int)Animation.EasingType.EaseOut;
+  private float _zoomInOffsetX = 0.0f;   // meters
+  private float _zoomInOffsetY = 0.5f;   // meters (default: slightly above center)
+  private float _zoomInOffsetZ = 0.0f;   // meters
+
   // Orbit configuration  
   private float _orbitDegrees = 360.0f;
   private float _orbitDuration = 5.0f;
@@ -181,6 +189,70 @@ public class Mod
             speedMetersPerSecond: _zoomInSpeed,
             durationSeconds: _zoomInDuration,
             easing: (Animation.EasingType)_zoomInEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Zoom In To Offset Animation Configuration
+      if (ImGui.CollapsingHeader("Zoom In To Offset Animation"))
+      {
+        ImGui.Indent();
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed (m/s)##ZoomInOffset", ref _zoomInOffsetSpeed, 1.0f, 250.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)##ZoomInOffset", ref _zoomInOffsetDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing##ZoomInOffset", ref _zoomInOffsetEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Offset sliders
+        if (ImGui.SliderFloat("X Offset (m)##ZoomInOffset", ref _zoomInOffsetX, -20.0f, 20.0f))
+        {
+          // Value updated
+        }
+        
+        if (ImGui.SliderFloat("Y Offset (m)##ZoomInOffset", ref _zoomInOffsetY, -20.0f, 20.0f))
+        {
+          // Value updated
+        }
+        
+        if (ImGui.SliderFloat("Z Offset (m)##ZoomInOffset", ref _zoomInOffsetZ, -20.0f, 20.0f))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##ZoomInOffset"))
+        {
+          var animation = new ZoomInToOffsetAnimation(
+            speedMetersPerSecond: _zoomInOffsetSpeed,
+            durationSeconds: _zoomInOffsetDuration,
+            easing: (Animation.EasingType)_zoomInOffsetEasing,
+            offsetX: _zoomInOffsetX,
+            offsetY: _zoomInOffsetY,
+            offsetZ: _zoomInOffsetZ
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
