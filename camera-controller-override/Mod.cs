@@ -23,6 +23,11 @@ public class Mod
   private float _zoomOutDuration = 5.0f;
   private int _zoomOutEasing = (int)Animation.EasingType.EaseOut;
 
+  // Zoom In configuration
+  private float _zoomInSpeed = 25.0f;
+  private float _zoomInDuration = 5.0f;
+  private int _zoomInEasing = (int)Animation.EasingType.EaseOut;
+
   // Orbit configuration  
   private float _orbitDegrees = 360.0f;
   private float _orbitDuration = 5.0f;
@@ -133,6 +138,49 @@ public class Mod
             speedMetersPerSecond: _zoomOutSpeed,
             durationSeconds: _zoomOutDuration,
             easing: (Animation.EasingType)_zoomOutEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Zoom In Animation Configuration
+      if (ImGui.CollapsingHeader("Zoom In Animation"))
+      {
+        ImGui.Indent();
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed (m/s)##ZoomIn", ref _zoomInSpeed, 1.0f, 250.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)##ZoomIn", ref _zoomInDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing##ZoomIn", ref _zoomInEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##ZoomIn"))
+        {
+          var animation = new ZoomInAnimation(
+            speedMetersPerSecond: _zoomInSpeed,
+            durationSeconds: _zoomInDuration,
+            easing: (Animation.EasingType)_zoomInEasing
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
