@@ -24,12 +24,12 @@ public class Mod
   private int _zoomOutEasing = (int)Animation.EasingType.EaseOut;
 
   // Orbit configuration  
-  private float _orbitDegrees = 270.0f;
+  private float _orbitDegrees = 360.0f;
   private float _orbitDuration = 5.0f;
   private int _orbitEasing = (int)Animation.EasingType.EaseOut;
 
   // Loopy Orbit configuration
-  private float _loopyOrbitDegrees = 270.0f;
+  private float _loopyOrbitDegrees = 720.0f;
   private float _loopyLoopInterval = 90.0f;
   private float _loopyAmplitude = 50.0f;
   private float _loopyDuration = 8.0f;
@@ -112,14 +112,14 @@ public class Mod
         }
         
         // Duration slider
-        if (ImGui.SliderFloat("Duration (s)", ref _zoomOutDuration, 1.0f, 30.0f))
+        if (ImGui.SliderFloat("Duration (s)##ZoomOut", ref _zoomOutDuration, 1.0f, 30.0f))
         {
           // Value updated
         }
         
         // Easing dropdown
         string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("Easing", ref _zoomOutEasing, easingNames, easingNames.Length))
+        if (ImGui.Combo("Easing##ZoomOut", ref _zoomOutEasing, easingNames, easingNames.Length))
         {
           // Value updated
         }
@@ -149,20 +149,20 @@ public class Mod
         ImGui.Indent();
         
         // Degrees slider
-        if (ImGui.SliderFloat("Degrees", ref _orbitDegrees, 0.0f, 360.0f))
+        if (ImGui.SliderFloat("Degrees##Orbit", ref _orbitDegrees, 90.0f, 1080.0f))
         {
           // Value updated
         }
         
         // Duration slider
-        if (ImGui.SliderFloat("Duration (s)", ref _orbitDuration, 1.0f, 30.0f))
+        if (ImGui.SliderFloat("Duration (s)##Orbit", ref _orbitDuration, 1.0f, 30.0f))
         {
           // Value updated
         }
         
         // Easing dropdown
         string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("Easing", ref _orbitEasing, easingNames, easingNames.Length))
+        if (ImGui.Combo("Easing##Orbit", ref _orbitEasing, easingNames, easingNames.Length))
         {
           // Value updated
         }
@@ -192,32 +192,32 @@ public class Mod
         ImGui.Indent();
         
         // Degrees slider
-        if (ImGui.SliderFloat("Degrees", ref _loopyOrbitDegrees, 0.0f, 360.0f))
+        if (ImGui.SliderFloat("Degrees##Loopy", ref _loopyOrbitDegrees, 90.0f, 1080.0f))
         {
           // Value updated
         }
         
         // Loop Interval slider
-        if (ImGui.SliderFloat("Loop Interval", ref _loopyLoopInterval, 10.0f, 180.0f))
+        if (ImGui.SliderFloat("Loop Interval##Loopy", ref _loopyLoopInterval, 10.0f, 180.0f))
         {
           // Value updated
         }
         
         // Amplitude slider
-        if (ImGui.SliderFloat("Amplitude", ref _loopyAmplitude, 10.0f, 200.0f))
+        if (ImGui.SliderFloat("Amplitude##Loopy", ref _loopyAmplitude, 10.0f, 200.0f))
         {
           // Value updated
         }
         
         // Duration slider
-        if (ImGui.SliderFloat("Duration (s)", ref _loopyDuration, 1.0f, 30.0f))
+        if (ImGui.SliderFloat("Duration (s)##Loopy", ref _loopyDuration, 1.0f, 30.0f))
         {
           // Value updated
         }
         
         // Easing dropdown
         string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("Easing", ref _loopyEasing, easingNames, easingNames.Length))
+        if (ImGui.Combo("Easing##Loopy", ref _loopyEasing, easingNames, easingNames.Length))
         {
           // Value updated
         }

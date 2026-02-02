@@ -7,7 +7,8 @@ namespace mod.Animation.Animations;
 
 /// <summary>
 /// Linear animation that moves the camera away from the target at a constant speed.
-/// Extracted from Patcher.cs linear animation logic.
+/// Each frame, calculates direction from CURRENT camera position to CURRENT target position.
+/// This ensures the animation always moves directly away from the target, even if the target moves.
 /// </summary>
 public class ZoomOutAnimation : IKeyframeAnimation
 {
@@ -16,9 +17,9 @@ public class ZoomOutAnimation : IKeyframeAnimation
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
     
-    // Runtime state
-    private double3 _direction;
+    // Runtime state - only track progress, not positions
     private double _distanceTraveled;
+    private double _lastEasedProgress;
     
     // Interface properties
     public string Name => "Zoom Out";
@@ -40,40 +41,73 @@ public class ZoomOutAnimation : IKeyframeAnimation
     
     public void Initialize(Controller controller, Transform3D transform)
     {
-        // Capture direction away from target (same logic as Patcher.cs)
-        double3 targetPos = AnimationHelpers.GetTargetPosition(controller);
-        double3 towardTarget = targetPos - transform.PositionEcl;
-        _direction = double3.Normalize(-towardTarget);
+        // Only reset progress tracking - no position capture needed
+        // Direction will be calculated each frame from current positions
         _distanceTraveled = 0.0;
+        _lastEasedProgress = 0.0;
+        
+        Console.WriteLine($"[ZoomOutAnimation] Initialize: pos={transform.PositionEcl}");
     }
     
     public bool Update(Controller controller, Transform3D transform, double deltaTime, double elapsedTime)
     {
-        // Calculate total movement distance
+        // Calculate total movement distance for the entire animation
         double totalDistance = SpeedMetersPerSecond * DurationSeconds;
         
-        // Get eased frame-by-frame progress
-        double frameProgress = AnimationHelpers.GetEasedFrameProgress(elapsedTime, DurationSeconds, deltaTime, Easing);
+        // Get current eased progress (0.0 to 1.0)
+        double t = Math.Min(1.0, elapsedTime / DurationSeconds);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing);
+        
+        // Calculate how much progress we should make THIS frame
+        double frameProgress = currentEasedProgress - _lastEasedProgress;
+        _lastEasedProgress = currentEasedProgress;
+        
+        // Get CURRENT target position and calculate direction away from it
+        double3 targetPos = AnimationHelpers.GetTargetPosition(controller);
+        double3 towardTarget = targetPos - transform.PositionEcl;
+        
+        // Handle edge case: camera is at target position
+        if (towardTarget.LengthSquared() < 0.0001)
+        {
+            // Use a default direction (away from origin, or up if at origin)
+            towardTarget = transform.PositionEcl.LengthSquared() > 0.0001 
+                ? -transform.PositionEcl 
+                : new double3(0, 1, 0);
+        }
+        
+        double3 direction = double3.Normalize(-towardTarget);
         
         // Apply displacement for this frame
-        double3 displacement = _direction * (totalDistance * frameProgress);
+        double3 displacement = direction * (totalDistance * frameProgress);
         transform.PositionEcl += displacement;
         
-        // Maintain look-at behavior
-        double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? AnimationHelpers.GetTargetPosition(controller);
+        // Log on first frame to verify correct initialization
+        if (elapsedTime < deltaTime * 1.5)
+        {
+            Console.WriteLine($"[ZoomOutAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, displacement={displacement.Length():F4}");
+        }
+        
+        // Maintain look-at behavior - use current target
+        double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? targetPos;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
         // Track distance traveled
         _distanceTraveled += displacement.Length();
         
-        // Animation complete when elapsed time reaches duration
-        return elapsedTime >= DurationSeconds;
+        // Log on completion
+        bool isComplete = elapsedTime >= DurationSeconds;
+        if (isComplete)
+        {
+            Console.WriteLine($"[ZoomOutAnimation] Complete: totalDistanceTraveled={_distanceTraveled:F2}, finalPos={transform.PositionEcl}");
+        }
+        
+        return isComplete;
     }
     
     public void Reset()
     {
-        _direction = double3.Zero;
         _distanceTraveled = 0.0;
+        _lastEasedProgress = 0.0;
     }
     
     public Dictionary<string, string> GetDisplayProperties()

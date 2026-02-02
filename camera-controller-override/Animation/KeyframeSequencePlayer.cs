@@ -409,10 +409,11 @@ public class KeyframeSequencePlayer
         // Initialize keyframe animation on first update
         if (!_currentKeyframeInitialized)
         {
+            Console.WriteLine($"[KeyframeSequencePlayer] Initializing keyframe {CurrentKeyframeIndex + 1}: camera pos = {transform.PositionEcl}");
             keyframe.Animation.Initialize(controller, transform);
             _currentKeyframeInitialized = true;
             CurrentKeyframeElapsedTime = 0.0;
-            Console.WriteLine($"[KeyframeSequencePlayer] Starting keyframe {CurrentKeyframeIndex + 1}: {keyframe.Animation.Name}");
+            Console.WriteLine($"[KeyframeSequencePlayer] Started keyframe {CurrentKeyframeIndex + 1}: {keyframe.Animation.Name}");
         }
         
         // Update keyframe animation
@@ -423,7 +424,7 @@ public class KeyframeSequencePlayer
         // Keyframe animation finished
         if (complete)
         {
-            Console.WriteLine($"[KeyframeSequencePlayer] Keyframe {CurrentKeyframeIndex + 1} complete");
+            Console.WriteLine($"[KeyframeSequencePlayer] Keyframe {CurrentKeyframeIndex + 1} complete, camera pos = {transform.PositionEcl}");
             
             // Move to next keyframe
             CurrentKeyframeIndex++;

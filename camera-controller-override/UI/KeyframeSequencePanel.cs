@@ -26,29 +26,22 @@ public static class KeyframeSequencePanel
             return;
         }
         
-        if (ImGui.CollapsingHeader("Keyframe Sequence"))
-        {
-            ImGui.Indent();
-            
-            RenderStatusDisplay(player);
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
-            
-            RenderControlButtons(player);
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
-            
-            RenderReturnToStartControls(player);
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
-            
-            RenderKeyframesList(player);
-            
-            ImGui.Unindent();
-        }
+        RenderStatusDisplay(player);
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        
+        RenderControlButtons(player);
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        
+        RenderReturnToStartControls(player);
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        
+        RenderKeyframesList(player);
     }
     
     /// <summary>
