@@ -26,7 +26,6 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     // Runtime state - only track progress, not positions
     private double _distanceTraveled;
     private double _lastEasedProgress;
-    private double3 _initialLookAtPosition;
     
     // Interface properties
     public string Name => "Zoom In To Offset";
@@ -66,9 +65,6 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
         // Direction will be calculated each frame from current positions
         _distanceTraveled = 0.0;
         _lastEasedProgress = 0.0;
-        
-        // Capture initial look-at position
-        _initialLookAtPosition = AnimationHelpers.GetTargetPosition(controller);
         
         Console.WriteLine($"[ZoomInToOffsetAnimation] Initialize: pos={transform.PositionEcl}, offset=({OffsetX:F2}, {OffsetY:F2}, {OffsetZ:F2})");
     }
@@ -119,8 +115,12 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
             Console.WriteLine($"[ZoomInToOffsetAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, displacement={displacement.Length():F4}");
         }
         
-        // Smoothly transition look-at from initial position to offset destination
-        double3 currentLookAt = _initialLookAtPosition + (offsetDestination - _initialLookAtPosition) * currentEasedProgress;
+        // Smoothly transition look-at from target center to offset destination
+        // At progress 0: look at targetPos (current target, no offset)
+        // At progress 1: look at targetPos + offset (current target with full offset)
+        // This correctly tracks moving targets throughout the animation
+        double3 offset = new double3(OffsetX, OffsetY, OffsetZ);
+        double3 currentLookAt = targetPos + offset * currentEasedProgress;
         double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? currentLookAt;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
@@ -141,7 +141,6 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     {
         _distanceTraveled = 0.0;
         _lastEasedProgress = 0.0;
-        _initialLookAtPosition = double3.Zero;
     }
     
     public Dictionary<string, string> GetDisplayProperties()
