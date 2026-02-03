@@ -129,7 +129,12 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
         // Calculate new vertical oscillation based on total rotation
         double loopsPerRevolution = 360.0 / LoopIntervalDegrees;
         double oscillationPhase = totalAngleDegrees * loopsPerRevolution * Math.PI / 180.0;
-        double currentOscillationOffset = Math.Sin(oscillationPhase) * AmplitudeMeters;
+        
+        // Apply amplitude envelope: 0 → 1 → 0 to match rotation energy profile
+        // This makes oscillation grow in with rotation acceleration and fade out with deceleration
+        double amplitudeEnvelope = Math.Sin(t * Math.PI);
+        
+        double currentOscillationOffset = Math.Sin(oscillationPhase) * AmplitudeMeters * amplitudeEnvelope;
         _lastOscillationOffset = currentOscillationOffset;
         
         // Apply oscillation to the rotated offset
