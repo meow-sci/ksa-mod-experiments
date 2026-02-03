@@ -26,6 +26,7 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     // Runtime state - only track progress, not positions
     private double _distanceTraveled;
     private double _lastEasedProgress;
+    private double3 _initialLookAtPosition;
     
     // Interface properties
     public string Name => "Zoom In To Offset";
@@ -65,6 +66,9 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
         // Direction will be calculated each frame from current positions
         _distanceTraveled = 0.0;
         _lastEasedProgress = 0.0;
+        
+        // Capture initial look-at position
+        _initialLookAtPosition = AnimationHelpers.GetTargetPosition(controller);
         
         Console.WriteLine($"[ZoomInToOffsetAnimation] Initialize: pos={transform.PositionEcl}, offset=({OffsetX:F2}, {OffsetY:F2}, {OffsetZ:F2})");
     }
@@ -115,8 +119,9 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
             Console.WriteLine($"[ZoomInToOffsetAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, displacement={displacement.Length():F4}");
         }
         
-        // Maintain look-at behavior - look at the offset destination point
-        double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? offsetDestination;
+        // Smoothly transition look-at from initial position to offset destination
+        double3 currentLookAt = _initialLookAtPosition + (offsetDestination - _initialLookAtPosition) * currentEasedProgress;
+        double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? currentLookAt;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
         // Track distance traveled
@@ -136,6 +141,7 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     {
         _distanceTraveled = 0.0;
         _lastEasedProgress = 0.0;
+        _initialLookAtPosition = double3.Zero;
     }
     
     public Dictionary<string, string> GetDisplayProperties()
