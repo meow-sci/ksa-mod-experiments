@@ -442,6 +442,9 @@ public class KeyframeSequencePlayer
         // 4. Apply both to transform
         if (_isReturningToStart)
         {
+            // Accumulate return time BEFORE using it
+            _returnElapsedTime += deltaTime;
+            
             double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
             double t = _returnElapsedTime / _returnToStartDuration;
             double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing, _returnToStartEasingPowerStart, _returnToStartEasingPowerEnd);
@@ -454,7 +457,6 @@ public class KeyframeSequencePlayer
             doubleQuat currentRotation = doubleQuat.Slerp(_returnFromRotation, _sequenceStartRotation, easedT);
             transform.LocalRotation = currentRotation;
             
-            _returnElapsedTime += deltaTime;
             if (_returnElapsedTime >= _returnToStartDuration)
             {
                 _isReturningToStart = false;
@@ -485,10 +487,12 @@ public class KeyframeSequencePlayer
             Console.WriteLine($"[KeyframeSequencePlayer] Started keyframe {CurrentKeyframeIndex + 1}: {keyframe.Animation.Name}");
         }
         
-        // Update keyframe animation
-        bool complete = keyframe.Animation.Update(controller, transform, deltaTime, CurrentKeyframeElapsedTime);
+        // Accumulate time BEFORE Update so animations know time at END of frame
         CurrentKeyframeElapsedTime += deltaTime;
         TotalElapsedTime += deltaTime;
+        
+        // Update keyframe animation
+        bool complete = keyframe.Animation.Update(controller, transform, deltaTime, CurrentKeyframeElapsedTime);
         
         // Keyframe animation finished
         if (complete)

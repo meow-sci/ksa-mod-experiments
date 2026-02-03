@@ -103,6 +103,12 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
         double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPowerStart, EasingPowerEnd);
         
+        // Snap to exactly 1.0 on completion to eliminate floating-point drift
+        if (elapsedTime >= DurationSeconds)
+        {
+            currentEasedProgress = 1.0;
+        }
+        
         // Calculate how much rotation we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;
         _lastEasedProgress = currentEasedProgress;
