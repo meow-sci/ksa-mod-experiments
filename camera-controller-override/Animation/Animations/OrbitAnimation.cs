@@ -7,8 +7,8 @@ namespace mod.Animation.Animations;
 
 /// <summary>
 /// Circular orbit animation that rotates the camera around a target.
-/// Applies total rotation to the original starting offset each frame to avoid cumulative error.
-/// The orbit axis and starting position are captured at initialization.
+/// Uses absolute rotation of the original starting offset to avoid cumulative error.
+/// Tracks the CURRENT target position so orbit follows moving targets.
 /// </summary>
 public class OrbitAnimation : IKeyframeAnimation
 {
@@ -21,8 +21,7 @@ public class OrbitAnimation : IKeyframeAnimation
     
     // Runtime state
     private double3 _orbitAxis;
-    private double3 _startOffset;  // FIXED: Store original offset to avoid cumulative error
-    private double3 _startTargetPos;  // FIXED: Store original target position
+    private double3 _startOffset;  // Store original offset to avoid cumulative error
     private bool _isInitialized;
     
     // Interface properties
@@ -62,9 +61,8 @@ public class OrbitAnimation : IKeyframeAnimation
             return;
         }
         
-        // FIXED: Store starting offset and target to avoid cumulative rotation error
+        // Store starting offset to avoid cumulative rotation error
         _startOffset = currentOffset;
-        _startTargetPos = targetPos;
         
         // Calculate orbit axis (perpendicular to offset - determines rotation direction)
         _orbitAxis = AnimationHelpers.CalculateOrbitAxis(currentOffset, transform.LocalRotation);
@@ -104,9 +102,12 @@ public class OrbitAnimation : IKeyframeAnimation
             + double3.Cross(k, _startOffset) * sin 
             + k * double3.Dot(k, _startOffset) * (1.0 - cos);
         
-        // Update position relative to starting target
-        // (Using start target keeps orbit stable even if target moves)
-        transform.PositionEcl = _startTargetPos + rotatedOffset;
+        // Get CURRENT target position - target may be moving!
+        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
+        
+        // Update position relative to CURRENT target (not starting target)
+        // This allows orbit to follow a moving target while still using absolute rotation
+        transform.PositionEcl = currentTargetPos + rotatedOffset;
         
         // Log on first frame
         if (elapsedTime < deltaTime * 1.5)
@@ -114,8 +115,7 @@ public class OrbitAnimation : IKeyframeAnimation
             Console.WriteLine($"[OrbitAnimation] First frame: elapsed={elapsedTime:F4}, totalAngle={totalAngleDegrees:F4}°");
         }
         
-        // Maintain look-at behavior - use CURRENT target for looking
-        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
+        // Maintain look-at behavior
         double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? currentTargetPos;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
@@ -133,7 +133,6 @@ public class OrbitAnimation : IKeyframeAnimation
     {
         _orbitAxis = double3.Zero;
         _startOffset = double3.Zero;
-        _startTargetPos = double3.Zero;
         _isInitialized = false;
     }
     
