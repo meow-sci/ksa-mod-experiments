@@ -330,6 +330,13 @@ public static class KeyframeSequencePanel
             player.ReturnToStartEasing = (Animation.EasingType)returnEasing;
         }
         
+        // Return easing power slider
+        float returnEasingPower = (float)player.ReturnToStartEasingPower;
+        if (ImGui.SliderFloat("Return Easing Power", ref returnEasingPower, 1.0f, 6.0f))
+        {
+            player.ReturnToStartEasingPower = returnEasingPower;
+        }
+        
         ImGui.Unindent();
     }
     
