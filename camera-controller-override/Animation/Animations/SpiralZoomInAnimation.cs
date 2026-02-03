@@ -21,8 +21,8 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
     
     // Runtime state
     private double _distanceTraveled;
-    private double _lastEasedProgress;
     private double _totalDegreesRotated;
+    private double3 _startUpVector;
     
     // Interface properties
     public string Name => "Spiral Zoom In";
@@ -55,8 +55,10 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
     {
         // Reset all runtime state
         _distanceTraveled = 0.0;
-        _lastEasedProgress = 0.0;
         _totalDegreesRotated = 0.0;
+        
+        // Store original up vector at animation start
+        _startUpVector = double3.UnitY.Transform(transform.LocalRotation);
         
         Console.WriteLine($"[SpiralZoomInAnimation] Initialize: pos={transform.PositionEcl}, spiralDegrees={SpiralDegrees}");
     }
@@ -76,11 +78,10 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
             currentEasedProgress = 1.0;
         }
         
-        // Calculate how much progress we should make THIS frame
-        double frameProgress = currentEasedProgress - _lastEasedProgress;
-        _lastEasedProgress = currentEasedProgress;
-        
         // === ZOOM COMPONENT (from ZoomInAnimation) ===
+        
+        // Calculate frame progress for zoom movement
+        double frameDistance = totalDistance * currentEasedProgress - _distanceTraveled;
         
         // Get CURRENT target position and calculate direction toward it
         double3 targetPos = AnimationHelpers.GetTargetPosition(controller);
@@ -96,7 +97,6 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
         
         // Calculate displacement for this frame
         double3 direction = double3.Normalize(towardTarget);
-        double frameDistance = totalDistance * frameProgress;
         
         // Clamp displacement to not overshoot minimum distance
         if (distanceToTarget - frameDistance < MinimumDistance)
@@ -110,9 +110,9 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
         
         // === SPIRAL COMPONENT (rotate camera orientation around look-at axis) ===
         
-        // Calculate the angle to rotate THIS frame
-        double frameAngleDegrees = SpiralDegrees * frameProgress;
-        double frameAngleRadians = frameAngleDegrees * Math.PI / 180.0;
+        // Calculate TOTAL angle based on absolute progress (not incremental)
+        double totalAngleDegrees = SpiralDegrees * currentEasedProgress;
+        double totalAngleRadians = totalAngleDegrees * Math.PI / 180.0;
         
         // Calculate look-at direction (from camera to target)
         double3 lookDirection = targetPos - transform.PositionEcl;
@@ -123,27 +123,24 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
             // Normalize to get spiral axis (the look-at direction)
             double3 spiralAxis = double3.Normalize(lookDirection);
             
-            // Get current up vector
-            double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
-            
-            // Rotate up vector around spiral axis using Rodrigues' formula
+            // Rotate ORIGINAL up vector by TOTAL angle using Rodrigues' formula
             double3 k = spiralAxis;
-            double cos = Math.Cos(frameAngleRadians);
-            double sin = Math.Sin(frameAngleRadians);
-            double3 rotatedUp = currentUp * cos 
-                + double3.Cross(k, currentUp) * sin 
-                + k * double3.Dot(k, currentUp) * (1.0 - cos);
+            double cos = Math.Cos(totalAngleRadians);
+            double sin = Math.Sin(totalAngleRadians);
+            double3 rotatedUp = _startUpVector * cos 
+                + double3.Cross(k, _startUpVector) * sin 
+                + k * double3.Dot(k, _startUpVector) * (1.0 - cos);
             
             // Apply rotation with rotated up vector
             transform.LocalRotation = Camera.LookAtRotation(lookDirection, rotatedUp);
             
-            _totalDegreesRotated += frameAngleDegrees;
+            _totalDegreesRotated = totalAngleDegrees;
         }
         
         // Log on first frame to verify correct initialization
         if (elapsedTime < deltaTime * 1.5)
         {
-            Console.WriteLine($"[SpiralZoomInAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, displacement={displacement.Length():F4}, rotation={frameAngleDegrees:F4}°");
+            Console.WriteLine($"[SpiralZoomInAnimation] First frame: elapsed={elapsedTime:F4}, easedProgress={currentEasedProgress:F6}, displacement={displacement.Length():F4}, rotation={totalAngleDegrees:F4}°");
         }
         
         // Log on completion
@@ -159,8 +156,8 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
     public void Reset()
     {
         _distanceTraveled = 0.0;
-        _lastEasedProgress = 0.0;
         _totalDegreesRotated = 0.0;
+        _startUpVector = double3.Zero;
     }
     
     public Dictionary<string, string> GetDisplayProperties()

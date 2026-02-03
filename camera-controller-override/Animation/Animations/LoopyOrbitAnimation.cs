@@ -24,7 +24,7 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
     // Runtime state
     private double3 _orbitAxis;
     private double3 _verticalAxis;
-    private double _lastEasedProgress;
+    private double3 _startOffset;
     private double _totalDegreesRotated;
     private double _lastOscillationOffset;
     private bool _isInitialized;
@@ -83,7 +83,9 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
         // Set vertical axis = orbit axis for perpendicular oscillation
         _verticalAxis = _orbitAxis;
         
-        _lastEasedProgress = 0.0;
+        // Store original offset from target to camera
+        _startOffset = currentOffset;
+        
         _totalDegreesRotated = 0.0;
         _lastOscillationOffset = 0.0;
         _isInitialized = true;
@@ -109,49 +111,38 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
             currentEasedProgress = 1.0;
         }
         
-        // Calculate how much rotation we should make THIS frame
-        double frameProgress = currentEasedProgress - _lastEasedProgress;
-        _lastEasedProgress = currentEasedProgress;
+        // Calculate TOTAL rotation angle based on absolute progress (not incremental)
+        double totalAngleDegrees = Degrees * currentEasedProgress;
+        double totalAngleRadians = totalAngleDegrees * Math.PI / 180.0;
         
-        // Calculate the angle to rotate THIS frame
-        double frameAngleDegrees = Degrees * frameProgress;
-        double frameAngleRadians = frameAngleDegrees * Math.PI / 180.0;
-        
-        // Get CURRENT target position and offset
-        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
-        double3 currentOffset = transform.PositionEcl - currentTargetPos;
-        
-        // Remove any previous oscillation from the offset to get the "base" orbit position
-        // This ensures oscillation is applied cleanly each frame
-        currentOffset -= _verticalAxis * _lastOscillationOffset;
-        
-        // Apply incremental Rodrigues' rotation for this frame's angle
+        // Apply TOTAL rotation to ORIGINAL offset using Rodrigues' formula
         double3 k = _orbitAxis;
-        double cos = Math.Cos(frameAngleRadians);
-        double sin = Math.Sin(frameAngleRadians);
-        double3 rotatedOffset = currentOffset * cos 
-            + double3.Cross(k, currentOffset) * sin 
-            + k * double3.Dot(k, currentOffset) * (1.0 - cos);
+        double cos = Math.Cos(totalAngleRadians);
+        double sin = Math.Sin(totalAngleRadians);
+        double3 rotatedOffset = _startOffset * cos 
+            + double3.Cross(k, _startOffset) * sin 
+            + k * double3.Dot(k, _startOffset) * (1.0 - cos);
         
-        // Update total rotation for oscillation calculation
-        _totalDegreesRotated += frameAngleDegrees;
+        // Update total rotation for logging and oscillation calculation
+        _totalDegreesRotated = totalAngleDegrees;
         
         // Calculate new vertical oscillation based on total rotation
         double loopsPerRevolution = 360.0 / LoopIntervalDegrees;
-        double oscillationPhase = _totalDegreesRotated * loopsPerRevolution * Math.PI / 180.0;
+        double oscillationPhase = totalAngleDegrees * loopsPerRevolution * Math.PI / 180.0;
         double currentOscillationOffset = Math.Sin(oscillationPhase) * AmplitudeMeters;
         _lastOscillationOffset = currentOscillationOffset;
         
         // Apply oscillation to the rotated offset
         double3 finalOffset = rotatedOffset + _verticalAxis * currentOscillationOffset;
         
-        // Update position relative to CURRENT target
+        // Get CURRENT target position and update position relative to it
+        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
         transform.PositionEcl = currentTargetPos + finalOffset;
         
         // Log on first frame
         if (elapsedTime < deltaTime * 1.5)
         {
-            Console.WriteLine($"[LoopyOrbitAnimation] First frame: elapsed={elapsedTime:F4}, frameAngle={frameAngleDegrees:F4}°");
+            Console.WriteLine($"[LoopyOrbitAnimation] First frame: elapsed={elapsedTime:F4}, totalAngle={totalAngleDegrees:F4}°");
         }
         
         // Maintain look-at behavior
@@ -172,7 +163,7 @@ public class LoopyOrbitAnimation : IKeyframeAnimation
     {
         _orbitAxis = double3.Zero;
         _verticalAxis = double3.Zero;
-        _lastEasedProgress = 0.0;
+        _startOffset = double3.Zero;
         _totalDegreesRotated = 0.0;
         _lastOscillationOffset = 0.0;
         _isInitialized = false;
