@@ -32,14 +32,26 @@ public interface IKeyframeAnimation
     EasingType Easing { get; }
     
     /// <summary>
-    /// Power parameter for easing function.
+    /// Power parameter for acceleration phase of easing function.
+    /// Used by EaseIn and the first half of EaseInOut.
     /// Controls the "strength" of the easing curve:
     /// - 1.0 = linear (no easing)
     /// - 2.0 = quadratic
     /// - 3.0 = cubic (default)
     /// - Higher values = more extreme easing effect
     /// </summary>
-    double EasingPower { get; }
+    double EasingPowerStart { get; }
+    
+    /// <summary>
+    /// Power parameter for deceleration phase of easing function.
+    /// Used by EaseOut and the second half of EaseInOut.
+    /// Controls the "strength" of the easing curve:
+    /// - 1.0 = linear (no easing)
+    /// - 2.0 = quadratic
+    /// - 3.0 = cubic (default)
+    /// - Higher values = more extreme easing effect
+    /// </summary>
+    double EasingPowerEnd { get; }
     
     /// <summary>
     /// Optional override for look-at target position.
