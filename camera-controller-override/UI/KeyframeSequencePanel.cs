@@ -330,11 +330,18 @@ public static class KeyframeSequencePanel
             player.ReturnToStartEasing = (Animation.EasingType)returnEasing;
         }
         
-        // Return easing power slider
-        float returnEasingPower = (float)player.ReturnToStartEasingPower;
-        if (ImGui.SliderFloat("Return Easing Power", ref returnEasingPower, 1.0f, 6.0f))
+        // Return easing power start slider
+        float returnEasingPowerStart = (float)player.ReturnToStartEasingPowerStart;
+        if (ImGui.SliderFloat("Return Easing Power Start", ref returnEasingPowerStart, 1.0f, 6.0f))
         {
-            player.ReturnToStartEasingPower = returnEasingPower;
+            player.ReturnToStartEasingPowerStart = returnEasingPowerStart;
+        }
+        
+        // Return easing power end slider
+        float returnEasingPowerEnd = (float)player.ReturnToStartEasingPowerEnd;
+        if (ImGui.SliderFloat("Return Easing Power End", ref returnEasingPowerEnd, 1.0f, 6.0f))
+        {
+            player.ReturnToStartEasingPowerEnd = returnEasingPowerEnd;
         }
         
         ImGui.Unindent();

@@ -104,12 +104,21 @@ public class KeyframeSequencePlayer
     }
     
     /// <summary>
-    /// Gets or sets the easing power for the return-to-start animation.
+    /// Gets or sets the starting easing power for the return-to-start animation.
     /// </summary>
-    public double ReturnToStartEasingPower
+    public double ReturnToStartEasingPowerStart
     {
-        get => _returnToStartEasingPower;
-        set => _returnToStartEasingPower = value;
+        get => _returnToStartEasingPowerStart;
+        set => _returnToStartEasingPowerStart = value;
+    }
+    
+    /// <summary>
+    /// Gets or sets the ending easing power for the return-to-start animation.
+    /// </summary>
+    public double ReturnToStartEasingPowerEnd
+    {
+        get => _returnToStartEasingPowerEnd;
+        set => _returnToStartEasingPowerEnd = value;
     }
     
     /// <summary>
@@ -160,9 +169,14 @@ public class KeyframeSequencePlayer
     private EasingType _returnToStartEasing = EasingType.EaseInOut;
     
     /// <summary>
-    /// Easing power for the return-to-start animation.
+    /// Starting easing power for the return-to-start animation.
     /// </summary>
-    private double _returnToStartEasingPower = 3.0;
+    private double _returnToStartEasingPowerStart = 3.0;
+    
+    /// <summary>
+    /// Ending easing power for the return-to-start animation.
+    /// </summary>
+    private double _returnToStartEasingPowerEnd = 3.0;
     
     /// <summary>
     /// Flag indicating if currently returning to start position.
@@ -430,7 +444,7 @@ public class KeyframeSequencePlayer
         {
             double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
             double t = _returnElapsedTime / _returnToStartDuration;
-            double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing, _returnToStartEasingPower);
+            double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing, _returnToStartEasingPowerStart, _returnToStartEasingPowerEnd);
             
             // Lerp position offset
             double3 currentOffset = double3.Lerp(_returnFromOffset, _sequenceStartOffset, easedT);
