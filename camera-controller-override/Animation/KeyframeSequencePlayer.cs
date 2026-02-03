@@ -126,6 +126,11 @@ public class KeyframeSequencePlayer
     private double3 _sequenceStartOffset;
     
     /// <summary>
+    /// Camera rotation at the start of the sequence.
+    /// </summary>
+    private doubleQuat _sequenceStartRotation;
+    
+    /// <summary>
     /// Flag to track if the sequence has started (and captured start position).
     /// </summary>
     private bool _hasStartedSequence = false;
@@ -160,6 +165,11 @@ public class KeyframeSequencePlayer
     /// </summary>
     private double3 _returnFromOffset;
     
+    /// <summary>
+    /// Camera rotation at the end of sequence (where return-to-start begins).
+    /// </summary>
+    private doubleQuat _returnFromRotation;
+    
     // Public methods
     
     /// <summary>
@@ -178,6 +188,7 @@ public class KeyframeSequencePlayer
         // Reset sequence start state - CRITICAL: must be false so start offset is captured fresh
         _hasStartedSequence = false;
         _sequenceStartOffset = double3.Zero;
+        _sequenceStartRotation = doubleQuat.Identity;
         
         // Reset return-to-start state
         _isReturningToStart = false;
@@ -232,11 +243,13 @@ public class KeyframeSequencePlayer
         // Reset sequence start state
         _hasStartedSequence = false;
         _sequenceStartOffset = double3.Zero;
+        _sequenceStartRotation = doubleQuat.Identity;
         
         // Reset return-to-start state
         _isReturningToStart = false;
         _returnElapsedTime = 0.0;
         _returnFromOffset = double3.Zero;
+        _returnFromRotation = doubleQuat.Identity;
         
         // Reset all animation state
         foreach (var keyframe in Keyframes)
@@ -383,30 +396,35 @@ public class KeyframeSequencePlayer
             return false;
         }
         
-        // Capture start offset on first frame of playback
+        // Capture start offset and rotation on first frame of playback
         if (!_hasStartedSequence)
         {
             double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
             _sequenceStartOffset = transform.PositionEcl - currentTargetPos;
+            _sequenceStartRotation = transform.LocalRotation;
             _hasStartedSequence = true;
-            Console.WriteLine($"[KeyframeSequencePlayer] Captured start offset: {_sequenceStartOffset}");
+            Console.WriteLine($"[KeyframeSequencePlayer] Captured start offset: {_sequenceStartOffset}, rotation: {_sequenceStartRotation}");
         }
         
         // Handle return-to-start animation
-        // This matches the old working lerp back logic EXACTLY:
+        // Smoothly interpolate BOTH position and rotation:
         // 1. Get CURRENT target position
         // 2. Lerp OFFSET from end to start
-        // 3. Apply offset to current target
-        // 4. Look at current target
+        // 3. Slerp ROTATION from end to start
+        // 4. Apply both to transform
         if (_isReturningToStart)
         {
             double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
             double t = _returnElapsedTime / _returnToStartDuration;
             double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing);
             
+            // Lerp position offset
             double3 currentOffset = double3.Lerp(_returnFromOffset, _sequenceStartOffset, easedT);
             transform.PositionEcl = currentTargetPos + currentOffset;
-            AnimationHelpers.LookAtTarget(transform, currentTargetPos);
+            
+            // Slerp rotation (quaternion interpolation)
+            doubleQuat currentRotation = doubleQuat.Slerp(_returnFromRotation, _sequenceStartRotation, easedT);
+            transform.LocalRotation = currentRotation;
             
             _returnElapsedTime += deltaTime;
             if (_returnElapsedTime >= _returnToStartDuration)
@@ -460,12 +478,13 @@ public class KeyframeSequencePlayer
                 
                 if (_returnToStartEnabled)
                 {
-                    // Capture current offset and start return-to-start
+                    // Capture current offset and rotation, then start return-to-start
                     double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
                     _returnFromOffset = transform.PositionEcl - currentTargetPos;
+                    _returnFromRotation = transform.LocalRotation;
                     _isReturningToStart = true;
                     _returnElapsedTime = 0.0;
-                    Console.WriteLine($"[KeyframeSequencePlayer] Starting return to start from offset: {_returnFromOffset}");
+                    Console.WriteLine($"[KeyframeSequencePlayer] Starting return to start from offset: {_returnFromOffset}, rotation: {_returnFromRotation}");
                 }
                 else
                 {
