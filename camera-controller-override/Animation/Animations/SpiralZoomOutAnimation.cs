@@ -89,41 +89,43 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
         transform.PositionEcl += displacement;
         _distanceTraveled += frameDistance;
         
-        // === SPIRAL COMPONENT (rotation around target) ===
+        // === SPIRAL COMPONENT (rotate camera orientation around look-at axis) ===
         
         // Calculate frame rotation angle
         double frameAngleDegrees = SpiralDegrees * frameProgress;
         double frameAngleRadians = frameAngleDegrees * Math.PI / 180.0;
         
-        // Get current offset from target after zoom movement
-        double3 currentOffset = transform.PositionEcl - targetPos;
+        // Calculate look-at direction (from camera to target)
+        double3 lookDirection = targetPos - transform.PositionEcl;
+        double lookDirectionLength = lookDirection.Length();
         
-        // Calculate spiral axis perpendicular to offset, using camera's up direction
-        double3 spiralAxis = AnimationHelpers.CalculateOrbitAxis(currentOffset, transform.LocalRotation);
-        
-        // Apply Rodrigues' rotation formula to rotate position around spiral axis
-        double3 k = spiralAxis;
-        double cos = Math.Cos(frameAngleRadians);
-        double sin = Math.Sin(frameAngleRadians);
-        
-        double3 rotatedOffset = currentOffset * cos 
-            + double3.Cross(k, currentOffset) * sin 
-            + k * double3.Dot(k, currentOffset) * (1.0 - cos);
-        
-        // Update position with rotated offset
-        transform.PositionEcl = targetPos + rotatedOffset;
-        
-        _totalDegreesRotated += frameAngleDegrees;
+        if (lookDirectionLength > 0.0001)
+        {
+            // Normalize to get spiral axis (the look-at direction)
+            double3 spiralAxis = double3.Normalize(lookDirection);
+            
+            // Get current up vector
+            double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+            
+            // Rotate up vector around spiral axis using Rodrigues' formula
+            double3 k = spiralAxis;
+            double cos = Math.Cos(frameAngleRadians);
+            double sin = Math.Sin(frameAngleRadians);
+            double3 rotatedUp = currentUp * cos 
+                + double3.Cross(k, currentUp) * sin 
+                + k * double3.Dot(k, currentUp) * (1.0 - cos);
+            
+            // Apply rotation with rotated up vector
+            transform.LocalRotation = Camera.LookAtRotation(lookDirection, rotatedUp);
+            
+            _totalDegreesRotated += frameAngleDegrees;
+        }
         
         // Log on first frame
         if (elapsedTime < deltaTime * 1.5)
         {
             Console.WriteLine($"[SpiralZoomOutAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, frameAngle={frameAngleDegrees:F4}°");
         }
-        
-        // Maintain look-at behavior
-        double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? targetPos;
-        AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
         // Log on completion
         bool isComplete = elapsedTime >= DurationSeconds;
