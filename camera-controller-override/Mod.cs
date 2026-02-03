@@ -36,6 +36,12 @@ public class Mod
   private float _zoomInOffsetY = 0.5f;   // meters (default: slightly above center)
   private float _zoomInOffsetZ = 0.0f;   // meters
 
+  // Spiral Zoom In configuration
+  private float _spiralZoomInSpeed = 25.0f;
+  private float _spiralZoomInDuration = 5.0f;
+  private int _spiralZoomInEasing = (int)Animation.EasingType.EaseOut;
+  private float _spiralZoomInDegrees = 360.0f;
+
   // Orbit configuration  
   private float _orbitDegrees = 360.0f;
   private float _orbitDuration = 5.0f;
@@ -54,6 +60,12 @@ public class Mod
   private float _shakeAmplitude = 5.0f;  // degrees
   private float _shakeSpeed = 1.0f;       // speed modifier
   private int _shakeEasing = (int)Animation.EasingType.EaseInOut;
+
+  // Spiral Zoom Out configuration
+  private float _spiralZoomOutSpeed = 25.0f;
+  private float _spiralZoomOutDuration = 5.0f;
+  private int _spiralZoomOutEasing = (int)Animation.EasingType.EaseOut;
+  private float _spiralZoomOutDegrees = 360.0f;
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -270,6 +282,56 @@ public class Mod
       ImGui.Spacing();
       ImGui.Separator();
 
+      // Spiral Zoom In Animation Configuration
+      if (ImGui.CollapsingHeader("Spiral Zoom In Animation"))
+      {
+        ImGui.Indent();
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed (m/s)##SpiralZoomIn", ref _spiralZoomInSpeed, 1.0f, 250.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)##SpiralZoomIn", ref _spiralZoomInDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing##SpiralZoomIn", ref _spiralZoomInEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        // Spiral Degrees slider
+        if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomIn", ref _spiralZoomInDegrees, -1080.0f, 1080.0f))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##SpiralZoomIn"))
+        {
+          var animation = new SpiralZoomInAnimation(
+            speedMetersPerSecond: _spiralZoomInSpeed,
+            durationSeconds: _spiralZoomInDuration,
+            easing: (Animation.EasingType)_spiralZoomInEasing,
+            spiralDegrees: _spiralZoomInDegrees
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
       // Shake Animation Configuration
       if (ImGui.CollapsingHeader("Shake Animation"))
       {
@@ -417,6 +479,56 @@ public class Mod
             amplitudeMeters: _loopyAmplitude,
             durationSeconds: _loopyDuration,
             easing: (Animation.EasingType)_loopyEasing
+          );
+          Patcher.SequencePlayer.AddKeyframe(animation);
+        }
+        
+        ImGui.Unindent();
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+
+      // Spiral Zoom Out Animation Configuration
+      if (ImGui.CollapsingHeader("Spiral Zoom Out Animation"))
+      {
+        ImGui.Indent();
+        
+        // Speed slider
+        if (ImGui.SliderFloat("Speed (m/s)##SpiralZoomOut", ref _spiralZoomOutSpeed, 1.0f, 250.0f))
+        {
+          // Value updated
+        }
+        
+        // Duration slider
+        if (ImGui.SliderFloat("Duration (s)##SpiralZoomOut", ref _spiralZoomOutDuration, 1.0f, 30.0f))
+        {
+          // Value updated
+        }
+        
+        // Easing dropdown
+        string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+        if (ImGui.Combo("Easing##SpiralZoomOut", ref _spiralZoomOutEasing, easingNames, easingNames.Length))
+        {
+          // Value updated
+        }
+        
+        // Spiral Degrees slider (negative = counter-clockwise)
+        if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomOut", ref _spiralZoomOutDegrees, -1080.0f, 1080.0f))
+        {
+          // Value updated
+        }
+        
+        ImGui.Spacing();
+        
+        // Add to Sequence button
+        if (ImGui.Button("Add to Sequence##SpiralZoomOut"))
+        {
+          var animation = new SpiralZoomOutAnimation(
+            speedMetersPerSecond: _spiralZoomOutSpeed,
+            durationSeconds: _spiralZoomOutDuration,
+            easing: (Animation.EasingType)_spiralZoomOutEasing,
+            spiralDegrees: _spiralZoomOutDegrees
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
