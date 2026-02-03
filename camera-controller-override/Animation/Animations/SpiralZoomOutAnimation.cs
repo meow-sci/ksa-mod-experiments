@@ -89,26 +89,31 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
         transform.PositionEcl += displacement;
         _distanceTraveled += frameDistance;
         
-        // === SPIRAL COMPONENT ===
-        // Spiral axis is the direction TOWARD target (the look-at vector)
-        double3 spiralAxis = double3.Normalize(towardTarget);
+        // === SPIRAL COMPONENT (rotation around target) ===
         
         // Calculate frame rotation angle
         double frameAngleDegrees = SpiralDegrees * frameProgress;
         double frameAngleRadians = frameAngleDegrees * Math.PI / 180.0;
-        _totalDegreesRotated += frameAngleDegrees;
         
-        // Apply Rodrigues' rotation formula to rotate camera's up vector around spiral axis
-        double3 currentUp = double3.UnitY.Transform(transform.LocalRotation);
+        // Get current offset from target after zoom movement
+        double3 currentOffset = transform.PositionEcl - targetPos;
         
+        // Calculate spiral axis perpendicular to offset, using camera's up direction
+        double3 spiralAxis = AnimationHelpers.CalculateOrbitAxis(currentOffset, transform.LocalRotation);
+        
+        // Apply Rodrigues' rotation formula to rotate position around spiral axis
         double3 k = spiralAxis;
         double cos = Math.Cos(frameAngleRadians);
         double sin = Math.Sin(frameAngleRadians);
         
-        // Rotate the up vector around the spiral axis
-        double3 rotatedUp = currentUp * cos 
-            + double3.Cross(k, currentUp) * sin 
-            + k * double3.Dot(k, currentUp) * (1.0 - cos);
+        double3 rotatedOffset = currentOffset * cos 
+            + double3.Cross(k, currentOffset) * sin 
+            + k * double3.Dot(k, currentOffset) * (1.0 - cos);
+        
+        // Update position with rotated offset
+        transform.PositionEcl = targetPos + rotatedOffset;
+        
+        _totalDegreesRotated += frameAngleDegrees;
         
         // Log on first frame
         if (elapsedTime < deltaTime * 1.5)
@@ -116,10 +121,9 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
             Console.WriteLine($"[SpiralZoomOutAnimation] First frame: elapsed={elapsedTime:F4}, frameProgress={frameProgress:F6}, frameAngle={frameAngleDegrees:F4}°");
         }
         
-        // Maintain look-at behavior with spiraled rotation
+        // Maintain look-at behavior
         double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? targetPos;
-        double3 forward = double3.Normalize(lookAtTarget - transform.PositionEcl);
-        transform.LocalRotation = Camera.LookAtRotation(forward, rotatedUp);
+        AnimationHelpers.LookAtTarget(transform, lookAtTarget);
         
         // Log on completion
         bool isComplete = elapsedTime >= DurationSeconds;
