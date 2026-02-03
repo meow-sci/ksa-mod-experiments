@@ -14,6 +14,9 @@ public static class KeyframeSequencePanel
     // Track selected keyframe for move operations
     private static int _selectedKeyframeIndex = -1;
     
+    // Track selected return-to-start easing type for conditional UI
+    private static EasingType _returnToStartEasing = EasingType.Linear;
+    
     /// <summary>
     /// Render the keyframe sequence panel.
     /// </summary>
@@ -327,21 +330,33 @@ public static class KeyframeSequencePanel
         string[] returnEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
         if (ImGui.Combo("Return Easing", ref returnEasing, returnEasingNames, returnEasingNames.Length))
         {
-            player.ReturnToStartEasing = (Animation.EasingType)returnEasing;
+            _returnToStartEasing = (Animation.EasingType)returnEasing;
+            player.ReturnToStartEasing = _returnToStartEasing;
+        }
+        else
+        {
+            // Sync the tracking variable with the player's current value
+            _returnToStartEasing = player.ReturnToStartEasing;
         }
         
-        // Return easing power start slider
-        float returnEasingPowerStart = (float)player.ReturnToStartEasingPowerStart;
-        if (ImGui.SliderFloat("Return Easing Power Start", ref returnEasingPowerStart, 1.0f, 6.0f))
+        // Show EasingPowerStart for EaseIn and EaseInOut
+        if (_returnToStartEasing == EasingType.EaseIn || _returnToStartEasing == EasingType.EaseInOut)
         {
-            player.ReturnToStartEasingPowerStart = returnEasingPowerStart;
+            float powerStart = (float)player.ReturnToStartEasingPowerStart;
+            if (ImGui.SliderFloat("Easing Power (Start)", ref powerStart, 1.0f, 6.0f))
+            {
+                player.ReturnToStartEasingPowerStart = powerStart;
+            }
         }
         
-        // Return easing power end slider
-        float returnEasingPowerEnd = (float)player.ReturnToStartEasingPowerEnd;
-        if (ImGui.SliderFloat("Return Easing Power End", ref returnEasingPowerEnd, 1.0f, 6.0f))
+        // Show EasingPowerEnd for EaseOut and EaseInOut
+        if (_returnToStartEasing == EasingType.EaseOut || _returnToStartEasing == EasingType.EaseInOut)
         {
-            player.ReturnToStartEasingPowerEnd = returnEasingPowerEnd;
+            float powerEnd = (float)player.ReturnToStartEasingPowerEnd;
+            if (ImGui.SliderFloat("Easing Power (End)", ref powerEnd, 1.0f, 6.0f))
+            {
+                player.ReturnToStartEasingPowerEnd = powerEnd;
+            }
         }
         
         ImGui.Unindent();
