@@ -104,6 +104,15 @@ public class KeyframeSequencePlayer
     }
     
     /// <summary>
+    /// Gets or sets the easing power for the return-to-start animation.
+    /// </summary>
+    public double ReturnToStartEasingPower
+    {
+        get => _returnToStartEasingPower;
+        set => _returnToStartEasingPower = value;
+    }
+    
+    /// <summary>
     /// Gets whether the player is currently returning to start position.
     /// </summary>
     public bool IsReturningToStart => _isReturningToStart;
@@ -149,6 +158,11 @@ public class KeyframeSequencePlayer
     /// Easing type for the return-to-start animation.
     /// </summary>
     private EasingType _returnToStartEasing = EasingType.EaseInOut;
+    
+    /// <summary>
+    /// Easing power for the return-to-start animation.
+    /// </summary>
+    private double _returnToStartEasingPower = 3.0;
     
     /// <summary>
     /// Flag indicating if currently returning to start position.
@@ -416,7 +430,7 @@ public class KeyframeSequencePlayer
         {
             double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
             double t = _returnElapsedTime / _returnToStartDuration;
-            double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing);
+            double easedT = AnimationHelpers.ApplyEasing(t, _returnToStartEasing, _returnToStartEasingPower);
             
             // Lerp position offset
             double3 currentOffset = double3.Lerp(_returnFromOffset, _sequenceStartOffset, easedT);
