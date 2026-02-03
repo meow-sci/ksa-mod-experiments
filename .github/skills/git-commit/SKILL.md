@@ -96,15 +96,14 @@ Analyze the diff to determine:
 # Single line
 git commit -m "<type>[scope]: <description>"
 
+# Multi-line use multiple -m flags for each additional line
+
 # Multi-line with body/footer
-git commit -m "$(cat <<'EOF'
-<type>[scope]: <description>
-
-<optional body>
-
-<optional footer>
-EOF
-)"
+git commit -m "<type>[scope]: <description>" \
+-m "<optional body line 1>" \
+-m "<optional body line 2>" \
+-m "<optional body line N>" \
+-m "<optional footer>"
 ```
 
 ## Best Practices
