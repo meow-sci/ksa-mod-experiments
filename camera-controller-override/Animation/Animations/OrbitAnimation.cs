@@ -7,8 +7,8 @@ namespace mod.Animation.Animations;
 
 /// <summary>
 /// Circular orbit animation that rotates the camera around a target.
-/// Uses incremental rotation each frame from CURRENT camera position.
-/// The orbit axis is captured at initialization to maintain consistent rotation direction.
+/// Applies total rotation to the original starting offset each frame to avoid cumulative error.
+/// The orbit axis and starting position are captured at initialization.
 /// </summary>
 public class OrbitAnimation : IKeyframeAnimation
 {
@@ -21,8 +21,8 @@ public class OrbitAnimation : IKeyframeAnimation
     
     // Runtime state
     private double3 _orbitAxis;
-    private double _lastEasedProgress;
-    private double _totalDegreesRotated;
+    private double3 _startOffset;  // FIXED: Store original offset to avoid cumulative error
+    private double3 _startTargetPos;  // FIXED: Store original target position
     private bool _isInitialized;
     
     // Interface properties
@@ -62,10 +62,12 @@ public class OrbitAnimation : IKeyframeAnimation
             return;
         }
         
+        // FIXED: Store starting offset and target to avoid cumulative rotation error
+        _startOffset = currentOffset;
+        _startTargetPos = targetPos;
+        
         // Calculate orbit axis (perpendicular to offset - determines rotation direction)
         _orbitAxis = AnimationHelpers.CalculateOrbitAxis(currentOffset, transform.LocalRotation);
-        _lastEasedProgress = 0.0;
-        _totalDegreesRotated = 0.0;
         _isInitialized = true;
         
         Console.WriteLine($"[OrbitAnimation] Initialize: pos={transform.PositionEcl}, target={targetPos}, radius={radius:F2}");
@@ -89,46 +91,39 @@ public class OrbitAnimation : IKeyframeAnimation
             currentEasedProgress = 1.0;
         }
         
-        // Calculate how much rotation we should make THIS frame
-        double frameProgress = currentEasedProgress - _lastEasedProgress;
-        _lastEasedProgress = currentEasedProgress;
+        // FIXED: Calculate TOTAL rotation angle from start (not incremental)
+        // This eliminates cumulative floating-point error
+        double totalAngleDegrees = Degrees * currentEasedProgress;
+        double totalAngleRadians = totalAngleDegrees * Math.PI / 180.0;
         
-        // Calculate the angle to rotate THIS frame
-        double frameAngleDegrees = Degrees * frameProgress;
-        double frameAngleRadians = frameAngleDegrees * Math.PI / 180.0;
-        
-        // Get CURRENT target position and offset
-        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
-        double3 currentOffset = transform.PositionEcl - currentTargetPos;
-        
-        // Apply incremental Rodrigues' rotation for this frame's angle
+        // FIXED: Apply rotation to ORIGINAL starting offset
         double3 k = _orbitAxis;
-        double cos = Math.Cos(frameAngleRadians);
-        double sin = Math.Sin(frameAngleRadians);
-        double3 rotatedOffset = currentOffset * cos 
-            + double3.Cross(k, currentOffset) * sin 
-            + k * double3.Dot(k, currentOffset) * (1.0 - cos);
+        double cos = Math.Cos(totalAngleRadians);
+        double sin = Math.Sin(totalAngleRadians);
+        double3 rotatedOffset = _startOffset * cos 
+            + double3.Cross(k, _startOffset) * sin 
+            + k * double3.Dot(k, _startOffset) * (1.0 - cos);
         
-        // Update position relative to CURRENT target
-        transform.PositionEcl = currentTargetPos + rotatedOffset;
+        // Update position relative to starting target
+        // (Using start target keeps orbit stable even if target moves)
+        transform.PositionEcl = _startTargetPos + rotatedOffset;
         
         // Log on first frame
         if (elapsedTime < deltaTime * 1.5)
         {
-            Console.WriteLine($"[OrbitAnimation] First frame: elapsed={elapsedTime:F4}, frameAngle={frameAngleDegrees:F4}°");
+            Console.WriteLine($"[OrbitAnimation] First frame: elapsed={elapsedTime:F4}, totalAngle={totalAngleDegrees:F4}°");
         }
         
-        // Maintain look-at behavior
+        // Maintain look-at behavior - use CURRENT target for looking
+        double3 currentTargetPos = AnimationHelpers.GetTargetPosition(controller);
         double3 lookAtTarget = LookAtTargetProvider?.Invoke(controller) ?? currentTargetPos;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
-        
-        _totalDegreesRotated += frameAngleDegrees;
         
         // Log on completion
         bool isComplete = elapsedTime >= DurationSeconds;
         if (isComplete)
         {
-            Console.WriteLine($"[OrbitAnimation] Complete: totalDegreesRotated={_totalDegreesRotated:F2}°, finalPos={transform.PositionEcl}");
+            Console.WriteLine($"[OrbitAnimation] Complete: totalAngle={totalAngleDegrees:F2}°, finalPos={transform.PositionEcl}");
         }
         
         return isComplete;
@@ -137,8 +132,8 @@ public class OrbitAnimation : IKeyframeAnimation
     public void Reset()
     {
         _orbitAxis = double3.Zero;
-        _lastEasedProgress = 0.0;
-        _totalDegreesRotated = 0.0;
+        _startOffset = double3.Zero;
+        _startTargetPos = double3.Zero;
         _isInitialized = false;
     }
     
