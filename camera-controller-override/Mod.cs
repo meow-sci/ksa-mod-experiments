@@ -22,16 +22,22 @@ public class Mod
   private float _zoomOutSpeed = 25.0f;
   private float _zoomOutDuration = 5.0f;
   private int _zoomOutEasing = (int)Animation.EasingType.EaseOut;
+  private float _zoomOutEasingPowerStart = 3.0f;
+  private float _zoomOutEasingPowerEnd = 3.0f;
 
   // Zoom In configuration
   private float _zoomInSpeed = 25.0f;
   private float _zoomInDuration = 5.0f;
   private int _zoomInEasing = (int)Animation.EasingType.EaseOut;
+  private float _zoomInEasingPowerStart = 3.0f;
+  private float _zoomInEasingPowerEnd = 3.0f;
 
   // Zoom In To Offset configuration
   private float _zoomInOffsetSpeed = 25.0f;
   private float _zoomInOffsetDuration = 5.0f;
   private int _zoomInOffsetEasing = (int)Animation.EasingType.EaseOut;
+  private float _zoomInOffsetEasingPowerStart = 3.0f;
+  private float _zoomInOffsetEasingPowerEnd = 3.0f;
   private float _zoomInOffsetX = 0.0f;   // meters
   private float _zoomInOffsetY = 0.5f;   // meters (default: slightly above center)
   private float _zoomInOffsetZ = 0.0f;   // meters
@@ -40,12 +46,16 @@ public class Mod
   private float _spiralZoomInSpeed = 25.0f;
   private float _spiralZoomInDuration = 5.0f;
   private int _spiralZoomInEasing = (int)Animation.EasingType.EaseOut;
+  private float _spiralZoomInEasingPowerStart = 3.0f;
+  private float _spiralZoomInEasingPowerEnd = 3.0f;
   private float _spiralZoomInDegrees = 360.0f;
 
   // Orbit configuration  
   private float _orbitDegrees = 360.0f;
   private float _orbitDuration = 5.0f;
   private int _orbitEasing = (int)Animation.EasingType.EaseOut;
+  private float _orbitEasingPowerStart = 3.0f;
+  private float _orbitEasingPowerEnd = 3.0f;
 
   // Loopy Orbit configuration
   private float _loopyOrbitDegrees = 720.0f;
@@ -53,6 +63,8 @@ public class Mod
   private float _loopyAmplitude = 50.0f;
   private float _loopyDuration = 8.0f;
   private int _loopyEasing = (int)Animation.EasingType.EaseOut;
+  private float _loopyEasingPowerStart = 3.0f;
+  private float _loopyEasingPowerEnd = 3.0f;
 
   // Shake configuration
   private float _shakeDuration = 2.0f;
@@ -60,11 +72,15 @@ public class Mod
   private float _shakeAmplitude = 5.0f;  // degrees
   private float _shakeSpeed = 1.0f;       // speed modifier
   private int _shakeEasing = (int)Animation.EasingType.EaseInOut;
+  private float _shakeEasingPowerStart = 3.0f;
+  private float _shakeEasingPowerEnd = 3.0f;
 
   // Spiral Zoom Out configuration
   private float _spiralZoomOutSpeed = 25.0f;
   private float _spiralZoomOutDuration = 5.0f;
   private int _spiralZoomOutEasing = (int)Animation.EasingType.EaseOut;
+  private float _spiralZoomOutEasingPowerStart = 3.0f;
+  private float _spiralZoomOutEasingPowerEnd = 3.0f;
   private float _spiralZoomOutDegrees = 360.0f;
 
   [StarMapImmediateLoad]
@@ -156,6 +172,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var zoomOutEasingType = (Animation.EasingType)_zoomOutEasing;
+        if (zoomOutEasingType == Animation.EasingType.EaseIn || zoomOutEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##ZoomOut", ref _zoomOutEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (zoomOutEasingType == Animation.EasingType.EaseOut || zoomOutEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##ZoomOut", ref _zoomOutEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Add to Sequence button
@@ -164,7 +191,9 @@ public class Mod
           var animation = new ZoomOutAnimation(
             speedMetersPerSecond: _zoomOutSpeed,
             durationSeconds: _zoomOutDuration,
-            easing: (Animation.EasingType)_zoomOutEasing
+            easing: (Animation.EasingType)_zoomOutEasing,
+            easingPowerStart: _zoomOutEasingPowerStart,
+            easingPowerEnd: _zoomOutEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -199,6 +228,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var zoomInEasingType = (Animation.EasingType)_zoomInEasing;
+        if (zoomInEasingType == Animation.EasingType.EaseIn || zoomInEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##ZoomIn", ref _zoomInEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (zoomInEasingType == Animation.EasingType.EaseOut || zoomInEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##ZoomIn", ref _zoomInEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Add to Sequence button
@@ -207,7 +247,9 @@ public class Mod
           var animation = new ZoomInAnimation(
             speedMetersPerSecond: _zoomInSpeed,
             durationSeconds: _zoomInDuration,
-            easing: (Animation.EasingType)_zoomInEasing
+            easing: (Animation.EasingType)_zoomInEasing,
+            easingPowerStart: _zoomInEasingPowerStart,
+            easingPowerEnd: _zoomInEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -242,6 +284,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var zoomInOffsetEasingType = (Animation.EasingType)_zoomInOffsetEasing;
+        if (zoomInOffsetEasingType == Animation.EasingType.EaseIn || zoomInOffsetEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##ZoomInOffset", ref _zoomInOffsetEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (zoomInOffsetEasingType == Animation.EasingType.EaseOut || zoomInOffsetEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##ZoomInOffset", ref _zoomInOffsetEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Offset sliders
@@ -271,7 +324,9 @@ public class Mod
             easing: (Animation.EasingType)_zoomInOffsetEasing,
             offsetX: _zoomInOffsetX,
             offsetY: _zoomInOffsetY,
-            offsetZ: _zoomInOffsetZ
+            offsetZ: _zoomInOffsetZ,
+            easingPowerStart: _zoomInOffsetEasingPowerStart,
+            easingPowerEnd: _zoomInOffsetEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -306,6 +361,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var spiralZoomInEasingType = (Animation.EasingType)_spiralZoomInEasing;
+        if (spiralZoomInEasingType == Animation.EasingType.EaseIn || spiralZoomInEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##SpiralZoomIn", ref _spiralZoomInEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (spiralZoomInEasingType == Animation.EasingType.EaseOut || spiralZoomInEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##SpiralZoomIn", ref _spiralZoomInEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         // Spiral Degrees slider
         if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomIn", ref _spiralZoomInDegrees, -1080.0f, 1080.0f))
         {
@@ -321,7 +387,9 @@ public class Mod
             speedMetersPerSecond: _spiralZoomInSpeed,
             durationSeconds: _spiralZoomInDuration,
             easing: (Animation.EasingType)_spiralZoomInEasing,
-            spiralDegrees: _spiralZoomInDegrees
+            spiralDegrees: _spiralZoomInDegrees,
+            easingPowerStart: _spiralZoomInEasingPowerStart,
+            easingPowerEnd: _spiralZoomInEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -368,6 +436,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var shakeEasingType = (Animation.EasingType)_shakeEasing;
+        if (shakeEasingType == Animation.EasingType.EaseIn || shakeEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##Shake", ref _shakeEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (shakeEasingType == Animation.EasingType.EaseOut || shakeEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##Shake", ref _shakeEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Add to Sequence button
@@ -378,7 +457,9 @@ public class Mod
             shakeCount: _shakeCount,
             amplitudeDegrees: _shakeAmplitude,
             shakeSpeed: _shakeSpeed,
-            easing: (Animation.EasingType)_shakeEasing
+            easing: (Animation.EasingType)_shakeEasing,
+            easingPowerStart: _shakeEasingPowerStart,
+            easingPowerEnd: _shakeEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -413,6 +494,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var orbitEasingType = (Animation.EasingType)_orbitEasing;
+        if (orbitEasingType == Animation.EasingType.EaseIn || orbitEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##Orbit", ref _orbitEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (orbitEasingType == Animation.EasingType.EaseOut || orbitEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##Orbit", ref _orbitEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Add to Sequence button
@@ -421,7 +513,9 @@ public class Mod
           var animation = new OrbitAnimation(
             degrees: _orbitDegrees,
             durationSeconds: _orbitDuration,
-            easing: (Animation.EasingType)_orbitEasing
+            easing: (Animation.EasingType)_orbitEasing,
+            easingPowerStart: _orbitEasingPowerStart,
+            easingPowerEnd: _orbitEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -468,6 +562,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var loopyEasingType = (Animation.EasingType)_loopyEasing;
+        if (loopyEasingType == Animation.EasingType.EaseIn || loopyEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##Loopy", ref _loopyEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (loopyEasingType == Animation.EasingType.EaseOut || loopyEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##Loopy", ref _loopyEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         ImGui.Spacing();
         
         // Add to Sequence button
@@ -478,7 +583,9 @@ public class Mod
             loopIntervalDegrees: _loopyLoopInterval,
             amplitudeMeters: _loopyAmplitude,
             durationSeconds: _loopyDuration,
-            easing: (Animation.EasingType)_loopyEasing
+            easing: (Animation.EasingType)_loopyEasing,
+            easingPowerStart: _loopyEasingPowerStart,
+            easingPowerEnd: _loopyEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
@@ -513,6 +620,17 @@ public class Mod
           // Value updated
         }
         
+        // Conditional easing power sliders
+        var spiralZoomOutEasingType = (Animation.EasingType)_spiralZoomOutEasing;
+        if (spiralZoomOutEasingType == Animation.EasingType.EaseIn || spiralZoomOutEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (Start)##SpiralZoomOut", ref _spiralZoomOutEasingPowerStart, 1.0f, 6.0f);
+        }
+        if (spiralZoomOutEasingType == Animation.EasingType.EaseOut || spiralZoomOutEasingType == Animation.EasingType.EaseInOut)
+        {
+          ImGui.SliderFloat("Easing Power (End)##SpiralZoomOut", ref _spiralZoomOutEasingPowerEnd, 1.0f, 6.0f);
+        }
+        
         // Spiral Degrees slider (negative = counter-clockwise)
         if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomOut", ref _spiralZoomOutDegrees, -1080.0f, 1080.0f))
         {
@@ -528,7 +646,9 @@ public class Mod
             speedMetersPerSecond: _spiralZoomOutSpeed,
             durationSeconds: _spiralZoomOutDuration,
             easing: (Animation.EasingType)_spiralZoomOutEasing,
-            spiralDegrees: _spiralZoomOutDegrees
+            spiralDegrees: _spiralZoomOutDegrees,
+            easingPowerStart: _spiralZoomOutEasingPowerStart,
+            easingPowerEnd: _spiralZoomOutEasingPowerEnd
           );
           Patcher.SequencePlayer.AddKeyframe(animation);
         }
