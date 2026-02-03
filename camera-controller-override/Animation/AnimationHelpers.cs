@@ -26,15 +26,18 @@ public static class AnimationHelpers
     /// </summary>
     /// <param name="t">Normalized time in range [0, 1].</param>
     /// <param name="easingType">The easing function to apply.</param>
+    /// <param name="power">Power parameter for easing strength (default 3.0).</param>
     /// <returns>Eased time value.</returns>
-    public static double ApplyEasing(double t, EasingType easingType)
+    public static double ApplyEasing(double t, EasingType easingType, double power = 3.0)
     {
         t = Math.Clamp(t, 0.0, 1.0);
         return easingType switch
         {
-            EasingType.EaseIn => t * t * t,
-            EasingType.EaseOut => 1.0 - Math.Pow(1.0 - t, 3),
-            EasingType.EaseInOut => t * t * (3.0 - 2.0 * t),
+            EasingType.EaseIn => Math.Pow(t, power),
+            EasingType.EaseOut => 1.0 - Math.Pow(1.0 - t, power),
+            EasingType.EaseInOut => t < 0.5 
+                ? Math.Pow(2 * t, power) / 2.0
+                : 1.0 - Math.Pow(2 * (1 - t), power) / 2.0,
             _ => t
         };
     }
@@ -71,12 +74,13 @@ public static class AnimationHelpers
     /// <param name="duration">Total animation duration.</param>
     /// <param name="deltaTime">Time since last frame.</param>
     /// <param name="easingType">Easing function to apply.</param>
+    /// <param name="power">Power parameter for easing strength (default 3.0).</param>
     /// <returns>Eased progress delta for this frame.</returns>
-    public static double GetEasedFrameProgress(double elapsed, double duration, double deltaTime, EasingType easingType)
+    public static double GetEasedFrameProgress(double elapsed, double duration, double deltaTime, EasingType easingType, double power = 3.0)
     {
         double t = Math.Min(1.0, elapsed / duration);
         double lastT = Math.Max(0.0, (elapsed - deltaTime) / duration);
-        return ApplyEasing(t, easingType) - ApplyEasing(lastT, easingType);
+        return ApplyEasing(t, easingType, power) - ApplyEasing(lastT, easingType, power);
     }
     
     /// <summary>

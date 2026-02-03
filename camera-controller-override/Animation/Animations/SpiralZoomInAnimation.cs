@@ -15,6 +15,7 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
     public double SpeedMetersPerSecond { get; }
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
+    public double EasingPower { get; }
     public double SpiralDegrees { get; }
     
     // Runtime state
@@ -37,11 +38,13 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
     /// <param name="durationSeconds">Total duration of the animation.</param>
     /// <param name="easing">Easing function to apply to both movement and rotation.</param>
     /// <param name="spiralDegrees">Total rotation degrees during zoom (positive = clockwise when looking at target).</param>
-    public SpiralZoomInAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, double spiralDegrees)
+    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
+    public SpiralZoomInAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, double spiralDegrees, double easingPower = 3.0)
     {
         SpeedMetersPerSecond = speedMetersPerSecond;
         DurationSeconds = durationSeconds;
         Easing = easing;
+        EasingPower = easingPower;
         SpiralDegrees = spiralDegrees;
     }
     
@@ -62,7 +65,7 @@ public class SpiralZoomInAnimation : IKeyframeAnimation
         
         // Get current eased progress (0.0 to 1.0)
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
-        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPower);
         
         // Calculate how much progress we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;

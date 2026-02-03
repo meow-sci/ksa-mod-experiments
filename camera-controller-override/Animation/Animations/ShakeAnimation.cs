@@ -17,6 +17,7 @@ public class ShakeAnimation : IKeyframeAnimation
     public double AmplitudeDegrees { get; }
     public double ShakeSpeed { get; }
     public EasingType Easing { get; }
+    public double EasingPower { get; }
     
     // Runtime state
     private doubleQuat _startRotation;
@@ -36,18 +37,21 @@ public class ShakeAnimation : IKeyframeAnimation
     /// <param name="amplitudeDegrees">How far the yaw rotates from center (extent).</param>
     /// <param name="shakeSpeed">Acceleration/snap factor affecting how quickly it transitions.</param>
     /// <param name="easing">Easing function for overall animation progress.</param>
+    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
     public ShakeAnimation(
         double durationSeconds,
         int shakeCount,
         double amplitudeDegrees,
         double shakeSpeed,
-        EasingType easing)
+        EasingType easing,
+        double easingPower = 3.0)
     {
         DurationSeconds = durationSeconds;
         ShakeCount = shakeCount;
         AmplitudeDegrees = amplitudeDegrees;
         ShakeSpeed = shakeSpeed;
         Easing = easing;
+        EasingPower = easingPower;
     }
     
     public void Initialize(Controller controller, Transform3D transform)

@@ -16,6 +16,7 @@ public class ZoomOutAnimation : IKeyframeAnimation
     public double SpeedMetersPerSecond { get; }
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
+    public double EasingPower { get; }
     
     // Runtime state - only track progress, not positions
     private double _distanceTraveled;
@@ -32,11 +33,13 @@ public class ZoomOutAnimation : IKeyframeAnimation
     /// <param name="speedMetersPerSecond">Movement speed in meters per second.</param>
     /// <param name="durationSeconds">Total duration of the animation.</param>
     /// <param name="easing">Easing function to apply to the movement.</param>
-    public ZoomOutAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing)
+    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
+    public ZoomOutAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, double easingPower = 3.0)
     {
         SpeedMetersPerSecond = speedMetersPerSecond;
         DurationSeconds = durationSeconds;
         Easing = easing;
+        EasingPower = easingPower;
     }
     
     public void Initialize(Controller controller, Transform3D transform)
@@ -56,7 +59,7 @@ public class ZoomOutAnimation : IKeyframeAnimation
         
         // Get current eased progress (0.0 to 1.0)
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
-        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPower);
         
         // Calculate how much progress we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;
