@@ -16,7 +16,8 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
     public double SpeedMetersPerSecond { get; }
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
-    public double EasingPower { get; }
+    public double EasingPowerStart { get; }
+    public double EasingPowerEnd { get; }
     public double SpiralDegrees { get; }
     
     // Runtime state
@@ -36,13 +37,15 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
     /// <param name="durationSeconds">Total duration of the animation.</param>
     /// <param name="easing">Easing function to apply to both movement and rotation.</param>
     /// <param name="spiralDegrees">Total rotation degrees during zoom (positive = clockwise when looking at target).</param>
-    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
-    public SpiralZoomOutAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, double spiralDegrees, double easingPower = 3.0)
+    /// <param name="easingPowerStart">Power parameter for easing at animation start (default 3.0).</param>
+    /// <param name="easingPowerEnd">Power parameter for easing at animation end (default 3.0).</param>
+    public SpiralZoomOutAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, double spiralDegrees, double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
     {
         SpeedMetersPerSecond = speedMetersPerSecond;
         DurationSeconds = durationSeconds;
         Easing = easing;
-        EasingPower = easingPower;
+        EasingPowerStart = easingPowerStart;
+        EasingPowerEnd = easingPowerEnd;
         SpiralDegrees = spiralDegrees;
     }
     
@@ -63,7 +66,7 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
         
         // Get current eased progress (0.0 to 1.0)
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
-        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPower);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPowerStart, EasingPowerEnd);
         
         // Calculate how much progress we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;
@@ -154,7 +157,9 @@ public class SpiralZoomOutAnimation : IKeyframeAnimation
             { "Speed", $"{SpeedMetersPerSecond:F1} m/s" },
             { "Duration", $"{DurationSeconds:F1}s" },
             { "Spiral", $"{SpiralDegrees:F0}°" },
-            { "Easing", Easing.ToString() }
+            { "Easing", Easing.ToString() },
+            { "Easing Power (Start)", $"{EasingPowerStart:F1}" },
+            { "Easing Power (End)", $"{EasingPowerEnd:F1}" }
         };
     }
 }

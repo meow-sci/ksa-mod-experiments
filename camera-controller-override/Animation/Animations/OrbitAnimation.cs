@@ -16,7 +16,8 @@ public class OrbitAnimation : IKeyframeAnimation
     public double Degrees { get; }
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
-    public double EasingPower { get; }
+    public double EasingPowerStart { get; }
+    public double EasingPowerEnd { get; }
     
     // Runtime state
     private double3 _orbitAxis;
@@ -35,13 +36,15 @@ public class OrbitAnimation : IKeyframeAnimation
     /// <param name="degrees">Total rotation angle in degrees.</param>
     /// <param name="durationSeconds">Total duration of the animation.</param>
     /// <param name="easing">Easing function to apply to the rotation.</param>
-    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
-    public OrbitAnimation(double degrees, double durationSeconds, EasingType easing, double easingPower = 3.0)
+    /// <param name="easingPowerStart">Power parameter for easing at animation start (default 3.0).</param>
+    /// <param name="easingPowerEnd">Power parameter for easing at animation end (default 3.0).</param>
+    public OrbitAnimation(double degrees, double durationSeconds, EasingType easing, double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
     {
         Degrees = degrees;
         DurationSeconds = durationSeconds;
         Easing = easing;
-        EasingPower = easingPower;
+        EasingPowerStart = easingPowerStart;
+        EasingPowerEnd = easingPowerEnd;
     }
     
     public void Initialize(Controller controller, Transform3D transform)
@@ -78,7 +81,7 @@ public class OrbitAnimation : IKeyframeAnimation
         
         // Get current eased progress (0.0 to 1.0)
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
-        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPower);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPowerStart, EasingPowerEnd);
         
         // Calculate how much rotation we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;
@@ -139,7 +142,9 @@ public class OrbitAnimation : IKeyframeAnimation
         {
             { "Degrees", $"{Degrees:F1}°" },
             { "Duration", $"{DurationSeconds:F1}s" },
-            { "Easing", Easing.ToString() }
+            { "Easing", Easing.ToString() },
+            { "Easing Power (Start)", $"{EasingPowerStart:F1}" },
+            { "Easing Power (End)", $"{EasingPowerEnd:F1}" }
         };
     }
 }

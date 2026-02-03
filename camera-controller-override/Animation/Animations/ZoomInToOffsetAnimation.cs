@@ -17,7 +17,8 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     public double SpeedMetersPerSecond { get; }
     public double DurationSeconds { get; }
     public EasingType Easing { get; }
-    public double EasingPower { get; }
+    public double EasingPowerStart { get; }
+    public double EasingPowerEnd { get; }
     public double OffsetX { get; }
     public double OffsetY { get; }
     public double OffsetZ { get; }
@@ -43,14 +44,16 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
     /// <param name="offsetX">X-axis offset from target center (meters).</param>
     /// <param name="offsetY">Y-axis offset from target center (meters).</param>
     /// <param name="offsetZ">Z-axis offset from target center (meters).</param>
-    /// <param name="easingPower">Power parameter for easing strength (default 3.0).</param>
+    /// <param name="easingPowerStart">Power parameter for easing at animation start (default 3.0).</param>
+    /// <param name="easingPowerEnd">Power parameter for easing at animation end (default 3.0).</param>
     public ZoomInToOffsetAnimation(double speedMetersPerSecond, double durationSeconds, EasingType easing, 
-        double offsetX, double offsetY, double offsetZ, double easingPower = 3.0)
+        double offsetX, double offsetY, double offsetZ, double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
     {
         SpeedMetersPerSecond = speedMetersPerSecond;
         DurationSeconds = durationSeconds;
         Easing = easing;
-        EasingPower = easingPower;
+        EasingPowerStart = easingPowerStart;
+        EasingPowerEnd = easingPowerEnd;
         OffsetX = offsetX;
         OffsetY = offsetY;
         OffsetZ = offsetZ;
@@ -73,7 +76,7 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
         
         // Get current eased progress (0.0 to 1.0)
         double t = Math.Min(1.0, elapsedTime / DurationSeconds);
-        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPower);
+        double currentEasedProgress = AnimationHelpers.ApplyEasing(t, Easing, EasingPowerStart, EasingPowerEnd);
         
         // Calculate how much progress we should make THIS frame
         double frameProgress = currentEasedProgress - _lastEasedProgress;
@@ -142,7 +145,9 @@ public class ZoomInToOffsetAnimation : IKeyframeAnimation
             { "Speed", $"{SpeedMetersPerSecond:F1} m/s" },
             { "Duration", $"{DurationSeconds:F1}s" },
             { "Easing", Easing.ToString() },
-            { "Offset", $"({OffsetX:F1}, {OffsetY:F1}, {OffsetZ:F1})m" }
+            { "Offset", $"({OffsetX:F1}, {OffsetY:F1}, {OffsetZ:F1})m" },
+            { "Easing Power (Start)", $"{EasingPowerStart:F1}" },
+            { "Easing Power (End)", $"{EasingPowerEnd:F1}" }
         };
     }
 }
