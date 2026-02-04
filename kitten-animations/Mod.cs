@@ -85,15 +85,29 @@ public class Mod
       if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
       {
         ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
+
+        var avatar = GetKittenAvatar();
+        if (null != avatar)
         {
-          Console.WriteLine("button pressed!");
+          if (ImGui.Button("Idle Default"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuIdleDefaultAnim);
+          if (ImGui.Button("Move Left"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveLeftLoopAnim);
+          if (ImGui.Button("Move Right"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveRightLoopAnim);
+          if (ImGui.Button("Move Forward"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveForwardLoopAnim);
+          if (ImGui.Button("Move Backward"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveBackwardLoopAnim);
+          if (ImGui.Button("Move Up"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveUpLoopAnim);
+          if (ImGui.Button("Move Down"))
+            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveDownLoopAnim);
         }
-        
+
         ImGui.Unindent();
       }
-      
+
       // Close button
       if (ImGui.Button("Close"))
       {
@@ -101,6 +115,34 @@ public class Mod
       }
     }
     ImGui.End();
+  }
+
+  private KSA.CharacterAvatar? GetKittenAvatar()
+  {
+    var vehicle = Program.ControlledVehicle;
+    if (null == vehicle || !(vehicle is KittenEva kitten))
+      return null;
+
+    var renderableField = typeof(KittenEva).GetField("_renderable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    var renderable = renderableField?.GetValue(kitten);
+
+    var characterAvatarField = typeof(KSA.KittenRenderable).GetField("_characterAvatar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    return characterAvatarField?.GetValue(renderable) as KSA.CharacterAvatar;
+  }
+
+  private void PlayMmuAnimation(KSA.CharacterAvatar avatar, KSA.IAnimation? animation)
+  {
+    if (null == avatar || null == animation)
+      return;
+
+    try
+    {
+      avatar.Core.CharacterModel.SetAnimation(animation);
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"Error playing animation: {ex.Message}");
+    }
   }
 }
 
