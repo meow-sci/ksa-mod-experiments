@@ -5,4 +5,5 @@
         <Platform Name="x86" />
     </Configurations>
     <Project Path="camera-controller-override/camera-controller-override.csproj" />
+    <Project Path="kitten-animations/kitten-animations.csproj" />
 </Solution>
