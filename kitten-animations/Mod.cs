@@ -15,6 +15,9 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
+  private Random _random = new Random();
+
+
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -81,32 +84,83 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "kitten-animations");
       ImGui.Separator();
 
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
-      {
-        ImGui.Indent();
 
-        var avatar = GetKittenAvatar();
-        if (null != avatar)
+
+      var avatar = GetKittenAvatar();
+      if (null != avatar)
+      {
+
+        if (ImGui.CollapsingHeader("MMU Animations"))
         {
           if (ImGui.Button("Idle Default"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuIdleDefaultAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuIdleDefaultAnim);
           if (ImGui.Button("Move Left"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveLeftLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveLeftLoopAnim);
           if (ImGui.Button("Move Right"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveRightLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveRightLoopAnim);
           if (ImGui.Button("Move Forward"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveForwardLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveForwardLoopAnim);
           if (ImGui.Button("Move Backward"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveBackwardLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveBackwardLoopAnim);
           if (ImGui.Button("Move Up"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveUpLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveUpLoopAnim);
           if (ImGui.Button("Move Down"))
-            PlayMmuAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveDownLoopAnim);
+            PlayAvatarAnimation(avatar, avatar.Animations.MmuAnimations.MmuMoveDownLoopAnim);
         }
 
-        ImGui.Unindent();
+        if (ImGui.CollapsingHeader("Expressions"))
+        {
+          if (ImGui.Button("Angry"))
+          {
+
+            // var kitten = GetKitten();
+            // if (null != kitten) {
+            //   var x1 = kitten.Character.Get()?.CharacterExpressions?.Get().ExpressionAngry;
+            // }
+
+            var anim = avatar.Expressions.Angry?[_random.Next(avatar.Expressions.Angry.Count)];
+            PlayAvatarAnimation(avatar, anim);
+          }
+          if (ImGui.Button("Awe"))
+          {
+            var anim = avatar.Expressions.Awe?[_random.Next(avatar.Expressions.Awe.Count)];
+            PlayAvatarAnimation(avatar, anim);
+          }
+          if (ImGui.Button("Happy"))
+          {
+            var anim = avatar.Expressions.Happy?[_random.Next(avatar.Expressions.Happy.Count)];
+            PlayAvatarAnimation(avatar, anim);
+          }
+          if (ImGui.Button("Sad"))
+          {
+            var anim = avatar.Expressions.Sad?[_random.Next(avatar.Expressions.Sad.Count)];
+            PlayAvatarAnimation(avatar, anim);
+          }
+          if (ImGui.Button("Scared"))
+          {
+            var anim = avatar.Expressions.Scared?[_random.Next(avatar.Expressions.Scared.Count)];
+            PlayAvatarAnimation(avatar, anim);
+          }
+        }
+
+        if (ImGui.CollapsingHeader("Walking Animations"))
+        {
+          if (ImGui.Button("Running"))
+          {
+            var anim = avatar.Animations.WalkingAnimations.RunningAnim;
+            PlayAvatarAnimation(avatar, anim);
+          }
+          if (ImGui.Button("Walking"))
+          {
+            var anim = avatar.Animations.WalkingAnimations.WalkingAnim;
+            PlayAvatarAnimation(avatar, anim);
+          }
+        }
+
+
       }
+
+
 
       // Close button
       if (ImGui.Button("Close"))
@@ -117,10 +171,19 @@ public class Mod
     ImGui.End();
   }
 
-  private KSA.CharacterAvatar? GetKittenAvatar()
+  private KittenEva? GetKitten()
   {
     var vehicle = Program.ControlledVehicle;
     if (null == vehicle || !(vehicle is KittenEva kitten))
+      return null;
+
+    return kitten;
+  }
+
+  private KSA.CharacterAvatar? GetKittenAvatar()
+  {
+    var kitten = GetKitten();
+    if (null == kitten)
       return null;
 
     var renderableField = typeof(KittenEva).GetField("_renderable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -130,13 +193,15 @@ public class Mod
     return characterAvatarField?.GetValue(renderable) as KSA.CharacterAvatar;
   }
 
-  private void PlayMmuAnimation(KSA.CharacterAvatar avatar, KSA.IAnimation? animation)
+  private void PlayAvatarAnimation(KSA.CharacterAvatar avatar, KSA.IAnimation? animation)
   {
     if (null == avatar || null == animation)
       return;
 
     try
     {
+      Console.WriteLine($"Playing animation: {animation}");
+
       avatar.Core.CharacterModel.SetAnimation(animation);
     }
     catch (Exception ex)
