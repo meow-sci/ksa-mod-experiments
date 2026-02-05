@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
@@ -16,6 +17,15 @@ public class Mod
   private bool _windowVisible = false;
 
   private Random _random = new Random();
+
+  // Expression state tracking
+  private enum ExpressionType { None, Angry, Awe, Happy, Sad, Scared }
+  private ExpressionType _currentExpression = ExpressionType.None;
+  private KSA.AnimationAssetRef? _currentExpressionAnim = null;
+  private float _expressionTimer = 0f;
+  private float _expressionDuration = 1.5f;  // Default 1.5 seconds
+  private float _expressionEaseInTimer = 0f;
+  private const float EXPRESSION_EASE_IN_DURATION = 0.25f;  // 250ms ease-in
 
 
 
@@ -37,7 +47,49 @@ public class Mod
   }
 
   [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
+  public void OnBeforeUi(double dt) 
+  {
+    try
+    {
+      if (!_isInitialized || _isDisposed) return;
+
+      // Update expression timer and maintain weight
+      if (_expressionTimer > 0f)
+      {
+        _expressionTimer -= (float)dt;
+        _expressionEaseInTimer += (float)dt;
+        
+        // Calculate eased weight using ease-in function (quadratic)
+        float easeInProgress = Math.Min(_expressionEaseInTimer / EXPRESSION_EASE_IN_DURATION, 1.0f);
+        float easedWeight = easeInProgress * easeInProgress;  // Quadratic ease-in: t^2
+
+        // Keep the expression weight maintained during the display period
+        var avatar = GetKittenAvatar();
+        if (avatar != null && _currentExpressionAnim != null)
+        {
+          var expressionProcessor = avatar.Core.CharacterModel.AnimProcessors
+            .OfType<KSA.CatExpressionAnim>()
+            .FirstOrDefault();
+          
+          if (expressionProcessor != null)
+          {
+            expressionProcessor.ExpressionWeight = easedWeight;
+          }
+        }
+      }
+      else if (_currentExpression != ExpressionType.None)
+      {
+        // Timer expired, stop maintaining the expression
+        _currentExpression = ExpressionType.None;
+        _currentExpressionAnim = null;
+        _expressionEaseInTimer = 0f;
+      }
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"kitten-animations: Error in OnBeforeUi: {ex.Message}");
+    }
+  }
 
   [StarMapAfterGui]
   public void OnAfterUi(double dt)
@@ -110,36 +162,34 @@ public class Mod
 
         if (ImGui.CollapsingHeader("Expressions"))
         {
+          // Duration slider
+          ImGui.SliderFloat("Expression Duration (s)", ref _expressionDuration, 1.0f, 5.0f);
+          ImGui.Separator();
+
           if (ImGui.Button("Angry"))
           {
-
-            // var kitten = GetKitten();
-            // if (null != kitten) {
-            //   var x1 = kitten.Character.Get()?.CharacterExpressions?.Get().ExpressionAngry;
-            // }
-
             var anim = avatar.Expressions.Angry?[_random.Next(avatar.Expressions.Angry.Count)];
-            PlayAvatarAnimation(avatar, anim);
+            TriggerExpression(ExpressionType.Angry, anim);
           }
           if (ImGui.Button("Awe"))
           {
             var anim = avatar.Expressions.Awe?[_random.Next(avatar.Expressions.Awe.Count)];
-            PlayAvatarAnimation(avatar, anim);
+            TriggerExpression(ExpressionType.Awe, anim);
           }
           if (ImGui.Button("Happy"))
           {
             var anim = avatar.Expressions.Happy?[_random.Next(avatar.Expressions.Happy.Count)];
-            PlayAvatarAnimation(avatar, anim);
+            TriggerExpression(ExpressionType.Happy, anim);
           }
           if (ImGui.Button("Sad"))
           {
             var anim = avatar.Expressions.Sad?[_random.Next(avatar.Expressions.Sad.Count)];
-            PlayAvatarAnimation(avatar, anim);
+            TriggerExpression(ExpressionType.Sad, anim);
           }
           if (ImGui.Button("Scared"))
           {
             var anim = avatar.Expressions.Scared?[_random.Next(avatar.Expressions.Scared.Count)];
-            PlayAvatarAnimation(avatar, anim);
+            TriggerExpression(ExpressionType.Scared, anim);
           }
         }
 
@@ -208,6 +258,57 @@ public class Mod
     {
       Console.WriteLine($"Error playing animation: {ex.Message}");
     }
+  }
+
+  private void SetExpressionAnimation(KSA.CharacterAvatar avatar, KSA.AnimationAssetRef? animation)
+  {
+    if (null == avatar || null == animation)
+      return;
+
+    try
+    {
+      var characterModel = avatar.Core.CharacterModel;
+
+      var expressionProcessor = characterModel.AnimProcessors
+        .OfType<KSA.CatExpressionAnim>()
+        .FirstOrDefault();
+
+      if (expressionProcessor != null)
+      {
+        Console.WriteLine($"[EXPR] Setting expression animation: {animation}");
+        expressionProcessor.ExpressionAnim = animation;
+        expressionProcessor.ExpressionWeight = 0f;  // Start at 0, will be eased in by OnBeforeUi
+      }
+      else
+      {
+        Console.WriteLine("[EXPR] Warning: CatExpressionAnim processor not found");
+      }
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"[EXPR] Error setting expression animation: {ex.Message}");
+    }
+  }
+
+  private void TriggerExpression(ExpressionType expressionType, KSA.AnimationAssetRef? animation)
+  {
+    if (null == animation)
+      return;
+
+    var avatar = GetKittenAvatar();
+    if (null == avatar)
+      return;
+
+    Console.WriteLine($"[EXPR] Triggering expression: {expressionType} for {_expressionDuration}s");
+
+    // Set the expression animation
+    SetExpressionAnimation(avatar, animation);
+
+    // Update state for maintenance in OnBeforeUi
+    _currentExpression = expressionType;
+    _currentExpressionAnim = animation;
+    _expressionTimer = _expressionDuration;
+    _expressionEaseInTimer = 0f;  // Reset ease-in timer for smooth fade-in
   }
 }
 
