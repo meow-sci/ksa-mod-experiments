@@ -250,7 +250,7 @@ public class Mod
 
     try
     {
-      Console.WriteLine($"Playing animation: {animation}");
+      // Console.WriteLine($"Playing animation: {animation}");
 
       avatar.Core.CharacterModel.SetAnimation(animation);
     }
@@ -275,7 +275,7 @@ public class Mod
 
       if (expressionProcessor != null)
       {
-        Console.WriteLine($"[EXPR] Setting expression animation: {animation}");
+        // Console.WriteLine($"[EXPR] Setting expression animation: {animation}");
         expressionProcessor.ExpressionAnim = animation;
         expressionProcessor.ExpressionWeight = 0f;  // Start at 0, will be eased in by OnBeforeUi
       }
@@ -299,7 +299,7 @@ public class Mod
     if (null == avatar)
       return;
 
-    Console.WriteLine($"[EXPR] Triggering expression: {expressionType} for {_expressionDuration}s");
+    // Console.WriteLine($"[EXPR] Triggering expression: {expressionType} for {_expressionDuration}s");
 
     // Set the expression animation
     SetExpressionAnimation(avatar, animation);

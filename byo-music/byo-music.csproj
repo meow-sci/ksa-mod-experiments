@@ -3,13 +3,13 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <!-- <TargetFramework>net10.0</TargetFramework> -->
-    <AssemblyName>fixme-mod-name</AssemblyName>
+    <AssemblyName>byo-music</AssemblyName>
     <!-- <LangVersion>13</LangVersion> -->
-    <!-- <Nullable>enable</Nullable> -->
+    <Nullable>enable</Nullable>
     <!-- <ImplicitUsings>disable</ImplicitUsings> -->
     <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
     <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
-    <DistDir>C:\Program Files\Kitten Space Agency\Content\fixme-mod-name\</DistDir>
+    <DistDir>C:\Program Files\Kitten Space Agency\Content\byo-music\</DistDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +22,8 @@
       <HintPath>$(KSAFolder)Brutal.Core.Common.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Brutal.Core.Numerics" Condition="Exists('$(KSAFolder)Brutal.Core.Numerics.dll')">
+    <Reference Include="Brutal.Core.Numerics"
+      Condition="Exists('$(KSAFolder)Brutal.Core.Numerics.dll')">
       <HintPath>$(KSAFolder)Brutal.Core.Numerics.dll</HintPath>
       <Private>false</Private>
     </Reference>
@@ -30,11 +31,13 @@
       <HintPath>$(KSAFolder)Brutal.ImGui.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Brutal.ImGui.Abstractions" Condition="Exists('$(KSAFolder)Brutal.ImGui.Abstractions.dll')">
+    <Reference Include="Brutal.ImGui.Abstractions"
+      Condition="Exists('$(KSAFolder)Brutal.ImGui.Abstractions.dll')">
       <HintPath>$(KSAFolder)Brutal.ImGui.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Brutal.Core.Strings" Condition="Exists('$(KSAFolder)Brutal.Core.Strings.dll')">
+    <Reference Include="Brutal.Core.Strings"
+      Condition="Exists('$(KSAFolder)Brutal.Core.Strings.dll')">
       <HintPath>$(KSAFolder)Brutal.Core.Strings.dll</HintPath>
       <Private>false</Private>
     </Reference>
@@ -48,18 +51,33 @@
     <None Update="mod.toml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Music\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
+
     <MakeDir Directories="$(DistDir)" />
     <ItemGroup>
-      <FilesToCopy Include="$(OutputPath)mod.toml" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).dll" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).pdb" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).deps.json" />
+      <FilesToCopy Include="$(TargetDir)Assets.xml" />
+      <FilesToCopy Include="$(TargetDir)mod.toml" />
+      <FilesToCopy Include="$(TargetDir)$(AssemblyName).dll" />
+      <FilesToCopy Include="$(TargetDir)$(AssemblyName).pdb" />
+      <FilesToCopy Include="$(TargetDir)$(AssemblyName).deps.json" />
     </ItemGroup>
     <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(DistDir)" />
-    <Message Text="Copied mod files to $(DistDir)" Importance="high" />
+
+    <MakeDir Directories="$(DistDir)Music" />
+    <ItemGroup>
+      <MusicFiles Include="$(TargetDir)Music\**\*" />
+      <MusicFiles Include="$(TargetDir)Music\**\*.mp3" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MusicFiles)" DestinationFolder="$(DistDir)Music\%(RecursiveDir)" />
+
   </Target>
 
 </Project>

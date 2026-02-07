@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Assets>
+
+    <!-- Channel can be "UI", "Sfx", "Music" -->
+    <MultiSound Id="SabotageMulti">
+        <Sound Priority="125" SimSpeed="Ignore" Channel="Sfx">
+            <SoundFile Path="Music/Sabotage.mp3" TwoD="true"/>
+        </Sound>
+    </MultiSound>
+
+    <MusicPlaylist Id="SabotageMusic" LocationId="Sol" SimSpeed="Ignore" SelectionRule="Shuffle" Channel="Music">
+        <MusicFile Path="Music/Sabotage.mp3" StreamFromDisk="true" TwoD="true" Volume="1.0">
+            <Loop/>
+        </MusicFile>
+        <FadeOut Time="5"/>
+    </MusicPlaylist>
+
+</Assets>

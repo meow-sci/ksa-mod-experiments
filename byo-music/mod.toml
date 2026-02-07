@@ -1,0 +1,6 @@
+name = "byo-music"
+description = "byo-music"
+version = "0.1.0"
+author = "meow sci"
+
+assets = [ "Assets.xml"  ]
