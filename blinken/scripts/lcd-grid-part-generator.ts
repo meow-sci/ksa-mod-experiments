@@ -1,13 +1,13 @@
 const INITIAL_CONFIG: InitialConfig = {
-  scale: 0.25,
+  scale: 0.10,
   position: { x: -4.0, y: 2, z: 0 },
   rotation: { x: 0, y: -1.5708, z: 0 },
   reverseRotation: { x: 0, y: 1.5708, z: 0 },
   stage: 0,
-  rows: 25,
-  cols: 5,
+  rows: 30,
+  cols: 10,
   initialLocalInstanceId: 1000,
-  positionGap: 0.75
+  positionGap: 2.0
 };
 
 interface InitialConfig {

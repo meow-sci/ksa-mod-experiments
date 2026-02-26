@@ -507,7 +507,7 @@ public class Mod
     var vehicle = Program.ControlledVehicle;
     if (vehicle == null) return;
 
-    SetupMinThrottle(vehicle, 0.01f);
+    SetupMinThrottle(vehicle, 0.0001f);
 
     // Step 1: shutdown all engines
     // vehicle.SetEnum(VehicleEngine.MainShutdown);
