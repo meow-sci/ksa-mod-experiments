@@ -4,8 +4,8 @@ const INITIAL_CONFIG: InitialConfig = {
   rotation: { x: 0, y: -1.5708, z: 0 },
   reverseRotation: { x: 0, y: 1.5708, z: 0 },
   stage: 0,
-  rows: 50,
-  cols: 18,
+  rows: 53,
+  cols: 12,
   initialLocalInstanceId: 1000,
   positionGap: 4.0
 };

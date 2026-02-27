@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
@@ -19,10 +20,24 @@ public class Mod
 
   // pixel grid: key = (row, col), value = (partA, partB) — the a/b engine pair for each pixel
   private readonly Dictionary<(int row, int col), (Part a, Part b)> _pixelGrid = new();
+  // cached EngineControllers per pixel — resolved once at scan time, used every frame
+  private readonly Dictionary<(int row, int col), EngineController[]> _pixelEngines = new();
   private object? _lastVehicle = null;
   private bool _vehicleDebugDumped = false;
   private EngineController? _testEngineController = null;
   private bool _testEngineActive = false;
+
+  // ─── LCD scroll animation state ───
+  private bool _lcdAnimationActive = false;
+  private float _lcdScrollOffset = 0f;        // current scroll position (fractional columns)
+  private float _lcdScrollSpeed = 3f;          // columns per second
+  private int _lcdLastScrollCol = -1;          // last integer column applied (dirty check)
+  private int _gridRows = 0;                   // physical grid height  (from scanned parts)
+  private int _gridCols = 0;                   // physical grid width   (from scanned parts)
+  private int _imageWidth = 0;                 // source image width    (from pixel data)
+  private int _imageHeight = 0;                // source image height   (from pixel data)
+  private HashSet<(int x, int y)> _lcdPixelSet = new(); // fast lookup for source pixels
+  private int _lcdTotalScroll = 0;             // imageWidth + gap before repeat
 
 
   [StarMapImmediateLoad]
@@ -51,6 +66,10 @@ public class Mod
     try
     {
       if (!_isInitialized || _isDisposed) return;
+
+      // Advance LCD scroll animation
+      if (_lcdAnimationActive && _gridCols > 0)
+        UpdateLcdAnimation(dt);
 
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
         _windowVisible = !_windowVisible;
@@ -439,7 +458,21 @@ public class Mod
       if (partB.TryGetValue(key, out var pb))
         _pixelGrid[key] = (partA[key], pb);
 
-    Console.WriteLine($"blinken: found {_pixelGrid.Count} pixel pairs");
+    // Cache EngineControllers per pixel so we never call Get<T>() in the hot loop
+    _pixelEngines.Clear();
+    foreach (var (key, (a, b)) in _pixelGrid)
+    {
+      var list = new List<EngineController>();
+      foreach (var part in new[] { a, b })
+      {
+        var controllers = part.SubtreeComponents.Get<EngineController>();
+        for (int i = 0; i < controllers.Length; i++)
+          list.Add(controllers[i]);
+      }
+      _pixelEngines[key] = list.ToArray();
+    }
+
+    Console.WriteLine($"blinken: found {_pixelGrid.Count} pixel pairs, cached {_pixelEngines.Values.Sum(e => e.Length)} engine controllers");
   }
 
   // Set the Active state on an engine pair (both a and b).
@@ -451,6 +484,13 @@ public class Mod
       for (int i = 0; i < controllers.Length; i++)
         controllers[i].SetIsActive(null, active);
     }
+  }
+
+  // Set active state using cached controllers (no reflection per call)
+  private static void SetEngineActiveCached(EngineController[] controllers, bool active)
+  {
+    for (int i = 0; i < controllers.Length; i++)
+      controllers[i].SetIsActive(null, active);
   }
 
   // Deactivate every EngineController on the entire vehicle.
@@ -494,6 +534,72 @@ public class Mod
     {
       Console.WriteLine($"blinken: set MinimumThrottle={minThrottle} on {count} engine controllers");
       vehicle.Parts.RecomputeAllDerivedData();
+    }
+  }
+
+  // ─── LCD scroll animation logic ───
+
+  private void InitLcdAnimation()
+  {
+    // Compute physical grid dimensions from scanned pixel parts
+    _gridRows = _pixelGrid.Keys.Max(k => k.row) + 1;
+    _gridCols = _pixelGrid.Keys.Max(k => k.col) + 1;
+
+    // Compute source image dimensions from pixel data
+    var pixels = LcdAnimationPixels.Pixels;
+    if (pixels.Length == 0)
+    {
+      _imageWidth = 0;
+      _imageHeight = 0;
+      Console.WriteLine("blinken: LCD animation has no pixel data");
+      return;
+    }
+
+    _imageWidth  = pixels.Max(p => p.x) + 1;
+    _imageHeight = pixels.Max(p => p.y) + 1;
+
+    // Build fast lookup set
+    _lcdPixelSet = new HashSet<(int x, int y)>(pixels);
+
+    // Total scroll distance: image width + half-grid-width gap
+    _lcdTotalScroll = _imageWidth + (_gridCols / 2);
+
+    _lcdScrollOffset = 0f;
+    _lcdLastScrollCol = -1; // force first frame to apply
+
+    // One-time throttle setup so we don't do it every frame
+    var vehicle = Program.ControlledVehicle;
+    if (vehicle != null)
+      SetupMinThrottle(vehicle, 0.0001f);
+
+    Console.WriteLine($"blinken: LCD init — grid {_gridCols}x{_gridRows}, image {_imageWidth}x{_imageHeight}, totalScroll {_lcdTotalScroll}");
+  }
+
+  private void UpdateLcdAnimation(double dt)
+  {
+    _lcdScrollOffset += _lcdScrollSpeed * (float)dt;
+
+    // Wrap around when we've scrolled the full cycle
+    if (_lcdScrollOffset >= _lcdTotalScroll)
+      _lcdScrollOffset -= _lcdTotalScroll;
+
+    int scrollCol = (int)_lcdScrollOffset;
+
+    // Skip update if we haven't moved to a new integer column
+    if (scrollCol == _lcdLastScrollCol) return;
+    _lcdLastScrollCol = scrollCol;
+
+    // Directly update cached engine controllers — no reflection, no lambda, no SetupMinThrottle
+    foreach (var (key, engines) in _pixelEngines)
+    {
+      int srcX = scrollCol + key.col;
+      int srcY = key.row;
+
+      bool on = srcX >= 0 && srcX < _imageWidth
+             && srcY >= 0 && srcY < _imageHeight
+             && _lcdPixelSet.Contains((srcX, srcY));
+
+      SetEngineActiveCached(engines, on);
     }
   }
 
@@ -586,6 +692,35 @@ public class Mod
           ImGui.SameLine();
           if (ImGui.Button("Deactivate All Engines"))
             DeactivateAllEngines(vehicle);
+
+          // --- LCD scroll animation ---
+          ImGui.Separator();
+          ImGui.TextColored(new float4(0.3f, 0.8f, 1.0f, 1.0f), "LCD Animation");
+
+          if (ImGui.Button(_lcdAnimationActive ? "Stop Scroll" : "Start Scroll"))
+          {
+            _lcdAnimationActive = !_lcdAnimationActive;
+            if (_lcdAnimationActive)
+            {
+              InitLcdAnimation();
+              Console.WriteLine("blinken: LCD scroll animation started");
+            }
+            else
+            {
+              // Turn everything off when stopping
+              ApplyPattern(ignite: false, _ => false);
+              Console.WriteLine("blinken: LCD scroll animation stopped");
+            }
+          }
+
+          ImGui.SameLine();
+          ImGui.SetNextItemWidth(120);
+          ImGui.SliderFloat("Speed", ref _lcdScrollSpeed, 0.5f, 20f);
+
+          if (_lcdAnimationActive)
+          {
+            ImGui.Text($"Grid: {_gridCols}x{_gridRows}  Image: {_imageWidth}x{_imageHeight}  Offset: {_lcdScrollOffset:F1}");
+          }
 
           // --- Test: toggle pixel_2_0_a engine ---
           ImGui.Separator();
