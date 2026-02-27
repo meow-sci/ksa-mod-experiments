@@ -5,7 +5,7 @@ const INITIAL_CONFIG: InitialConfig = {
   reverseRotation: { x: 0, y: 1.5708, z: 0 },
   stage: 0,
   rows: 53,
-  cols: 12,
+  cols: 18,
   initialLocalInstanceId: 1000,
   positionGap: 4.0
 };
