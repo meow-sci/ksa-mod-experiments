@@ -192,89 +192,89 @@ public class Mod
     }
   }
 
-  private static void DumpComponentList(PartComponentList list, string listPath, string indent)
-  {
-    var dictField = typeof(PartComponentList).GetField(
-      "_typeListsByType", BindingFlags.Instance | BindingFlags.NonPublic);
-    if (dictField == null)
-    {
-      Console.WriteLine($"{indent}{listPath}  = <_typeListsByType field not found>");
-      return;
-    }
+  // private static void DumpComponentList(PartComponentList list, string listPath, string indent)
+  // {
+  //   var dictField = typeof(PartComponentList).GetField(
+  //     "_typeListsByType", BindingFlags.Instance | BindingFlags.NonPublic);
+  //   if (dictField == null)
+  //   {
+  //     Console.WriteLine($"{indent}{listPath}  = <_typeListsByType field not found>");
+  //     return;
+  //   }
 
-    var dict = dictField.GetValue(list) as System.Collections.IDictionary;
-    if (dict == null || dict.Count == 0)
-    {
-      Console.WriteLine($"{indent}{listPath}  = (empty — 0 types)");
-      return;
-    }
+  //   var dict = dictField.GetValue(list) as System.Collections.IDictionary;
+  //   if (dict == null || dict.Count == 0)
+  //   {
+  //     Console.WriteLine($"{indent}{listPath}  = (empty — 0 types)");
+  //     return;
+  //   }
 
-    Console.WriteLine($"{indent}{listPath}  ({dict.Count} type(s)):");
-    foreach (System.Collections.DictionaryEntry entry in dict)
-    {
-      var componentType = (Type)entry.Key;
-      var typeList = entry.Value;
-      if (typeList == null) continue;
+  //   Console.WriteLine($"{indent}{listPath}  ({dict.Count} type(s)):");
+  //   foreach (System.Collections.DictionaryEntry entry in dict)
+  //   {
+  //     var componentType = (Type)entry.Key;
+  //     var typeList = entry.Value;
+  //     if (typeList == null) continue;
 
-      var tlType = typeList.GetType();
+  //     var tlType = typeList.GetType();
 
-      int count = -1;
-      var countProp = tlType.GetProperty("Count", PubInst);
-      if (countProp != null)
-        count = (int)countProp.GetValue(typeList)!;
+  //     int count = -1;
+  //     var countProp = tlType.GetProperty("Count", PubInst);
+  //     if (countProp != null)
+  //       count = (int)countProp.GetValue(typeList)!;
 
-      Console.WriteLine($"{indent}  [{componentType.FullName}]  count={count}");
+  //     Console.WriteLine($"{indent}  [{componentType.FullName}]  count={count}");
 
-      if (count <= 0) continue;
+  //     if (count <= 0) continue;
 
-      // Primary: extract from _components (List<T>)
-      var componentsField = tlType.GetField("_components", AllInst);
-      if (componentsField != null)
-      {
-        var listObj = componentsField.GetValue(typeList);
-        if (listObj is System.Collections.IList ilist)
-        {
-          for (int i = 0; i < ilist.Count && i < count; i++)
-          {
-            var elem = ilist[i];
-            if (elem == null) continue;
-            string elemPath = $"{listPath}[{componentType.Name}][{i}]";
-            string elemIndent = indent + "      ";
-            DumpObject(elem, elemPath, elemIndent);
-          }
-          continue;
-        }
-      }
+  //     // Primary: extract from _components (List<T>)
+  //     var componentsField = tlType.GetField("_components", AllInst);
+  //     if (componentsField != null)
+  //     {
+  //       var listObj = componentsField.GetValue(typeList);
+  //       if (listObj is System.Collections.IList ilist)
+  //       {
+  //         for (int i = 0; i < ilist.Count && i < count; i++)
+  //         {
+  //           var elem = ilist[i];
+  //           if (elem == null) continue;
+  //           string elemPath = $"{listPath}[{componentType.Name}][{i}]";
+  //           string elemIndent = indent + "      ";
+  //           DumpObject(elem, elemPath, elemIndent);
+  //         }
+  //         continue;
+  //       }
+  //     }
 
-      // Fallback: any IEnumerable field
-      bool extracted = false;
-      foreach (var f in tlType.GetFields(AllInst))
-      {
-        var fVal = f.GetValue(typeList);
-        if (fVal is System.Collections.IEnumerable enumerable && fVal is not string)
-        {
-          int i = 0;
-          foreach (var elem in enumerable)
-          {
-            if (elem == null) continue;
-            if (i >= count) break;
-            string elemPath = $"{listPath}[{componentType.Name}][{i}]";
-            string elemIndent = indent + "      ";
-            DumpObject(elem, elemPath, elemIndent);
-            i++;
-          }
-          if (i > 0) { extracted = true; break; }
-        }
-      }
+  //     // Fallback: any IEnumerable field
+  //     bool extracted = false;
+  //     foreach (var f in tlType.GetFields(AllInst))
+  //     {
+  //       var fVal = f.GetValue(typeList);
+  //       if (fVal is System.Collections.IEnumerable enumerable && fVal is not string)
+  //       {
+  //         int i = 0;
+  //         foreach (var elem in enumerable)
+  //         {
+  //           if (elem == null) continue;
+  //           if (i >= count) break;
+  //           string elemPath = $"{listPath}[{componentType.Name}][{i}]";
+  //           string elemIndent = indent + "      ";
+  //           DumpObject(elem, elemPath, elemIndent);
+  //           i++;
+  //         }
+  //         if (i > 0) { extracted = true; break; }
+  //       }
+  //     }
 
-      if (!extracted)
-      {
-        Console.WriteLine($"{indent}    (could not extract instances; type-list type: {tlType.FullName})");
-        foreach (var f in tlType.GetFields(AllInst))
-          Console.WriteLine($"{indent}      {f.Name} ({f.FieldType.Name}) = {f.GetValue(typeList)}");
-      }
-    }
-  }
+  //     if (!extracted)
+  //     {
+  //       Console.WriteLine($"{indent}    (could not extract instances; type-list type: {tlType.FullName})");
+  //       foreach (var f in tlType.GetFields(AllInst))
+  //         Console.WriteLine($"{indent}      {f.Name} ({f.FieldType.Name}) = {f.GetValue(typeList)}");
+  //     }
+  //   }
+  // }
 
   // ─── Debug: deep-dump a Part's component graph ───
   private void DebugDumpPart(Part part, string path = "part", int depth = 0)
@@ -287,8 +287,8 @@ public class Mod
     Console.WriteLine($"{indent}{path}.IsSubPart          = {part.IsSubPart}");
     Console.WriteLine($"{indent}{path}.PartParent?.Id     = {part.PartParent?.Id ?? "(null)"}");
 
-    DumpComponentList(part.Components, $"{path}.Components", indent);
-    DumpComponentList(part.SubtreeComponents, $"{path}.SubtreeComponents", indent);
+    // DumpComponentList(part.Components, $"{path}.Components", indent);
+    // DumpComponentList(part.SubtreeComponents, $"{path}.SubtreeComponents", indent);
 
     // SubParts — recurse
     int spIdx = 0;
@@ -314,103 +314,6 @@ public class Mod
     }
   }
 
-  // ─── Debug: dump Vehicle + PartTree component lists ───
-  private void DebugDumpVehicle(Vehicle vehicle)
-  {
-    Console.WriteLine("═══════════ blinken VEHICLE DEBUG DUMP ═══════════");
-
-    // Vehicle identity
-    Console.WriteLine($"vehicle.GetType()     = {vehicle.GetType().FullName}");
-    Console.WriteLine($"vehicle.Id            = {vehicle.Id}");
-
-    // PartTree info
-    var parts = vehicle.Parts;
-    Console.WriteLine($"vehicle.Parts.GetType() = {parts.GetType().FullName}");
-    Console.WriteLine($"vehicle.Parts.Count     = {parts.Count}");
-
-    // PartTree public fields/properties via reflection
-    var ptType = parts.GetType();
-    Console.WriteLine($"vehicle.Parts type hierarchy:");
-    var pt = ptType;
-    while (pt != null && pt != typeof(object))
-    {
-      Console.WriteLine($"  {pt.FullName}");
-      pt = pt.BaseType;
-    }
-
-    // Dump all public fields on PartTree (this is where Components, StageList, RocketCores, etc. live)
-    Console.WriteLine("vehicle.Parts public fields:");
-    foreach (var field in ptType.GetFields(PubInst))
-    {
-      var val = field.GetValue(parts);
-      Console.WriteLine($"  vehicle.Parts.{field.Name}  = {FormatValue(val)}  ({field.FieldType.Name})");
-    }
-
-    Console.WriteLine("vehicle.Parts public properties:");
-    foreach (var prop in ptType.GetProperties(PubInst))
-    {
-      if (prop.GetIndexParameters().Length > 0) continue;
-      try
-      {
-        var val = prop.GetValue(parts);
-        Console.WriteLine($"  vehicle.Parts.{prop.Name}  = {FormatValue(val)}  ({prop.PropertyType.Name})");
-      }
-      catch (Exception ex)
-      {
-        Console.WriteLine($"  vehicle.Parts.{prop.Name}  = <error: {ex.InnerException?.Message ?? ex.Message}>");
-      }
-    }
-
-    // PartTree.Components — the vehicle-wide component list (this is where EngineController/ThrusterController live)
-    // Access via reflection since we don't know exactly what's public vs field
-    PartComponentList? treeComponents = null;
-    var compField = ptType.GetField("Components", PubInst);
-    if (compField != null)
-      treeComponents = compField.GetValue(parts) as PartComponentList;
-    else
-    {
-      var compProp = ptType.GetProperty("Components", PubInst);
-      if (compProp != null)
-        treeComponents = compProp.GetValue(parts) as PartComponentList;
-    }
-
-    if (treeComponents != null)
-    {
-      DumpComponentList(treeComponents, "vehicle.Parts.Components", "");
-    }
-    else
-    {
-      Console.WriteLine("vehicle.Parts.Components  = <not found>");
-    }
-
-    // Also dump any other PartComponentList-type fields on PartTree
-    foreach (var field in ptType.GetFields(AllInst))
-    {
-      if (field.FieldType == typeof(PartComponentList) && field.Name != "Components")
-      {
-        var pcl = field.GetValue(parts) as PartComponentList;
-        if (pcl != null)
-          DumpComponentList(pcl, $"vehicle.Parts.{field.Name}", "");
-      }
-    }
-
-    // List all parts (just ids) for reference
-    Console.WriteLine($"vehicle.Parts — part list ({parts.Count} parts):");
-    foreach (var p in parts.Parts)
-    {
-      var compCount = 0;
-      var dictField = typeof(PartComponentList).GetField("_typeListsByType", BindingFlags.Instance | BindingFlags.NonPublic);
-      if (dictField != null)
-      {
-        var dict = dictField.GetValue(p.Components) as System.Collections.IDictionary;
-        compCount = dict?.Count ?? 0;
-      }
-      Console.WriteLine($"  {p.Id}  components={compCount}  subparts={p.SubParts.Length}  treeChildren={p.TreeChildren.Count}");
-    }
-
-    Console.WriteLine("═══════════ END VEHICLE DEBUG DUMP ══════════════");
-  }
-
   // Scans vehicle parts for pixel_ engine pairs and populates _pixelGrid.
   // Id format: pixel_{row}_{col}_a / pixel_{row}_{col}_b
   private void RefreshPixelGrid(object vehicle)
@@ -432,7 +335,7 @@ public class Mod
       // Capture EngineController for pixel_2_0_a — one time only
       if (_testEngineController == null && part.Id == "pixel_2_0_a")
       {
-        var controllers = part.SubtreeComponents.Get<EngineController>();
+        var controllers = part.SubtreeModules.Get<EngineController>();
         if (controllers.Length > 0)
         {
           _testEngineController = controllers[0];
@@ -465,7 +368,7 @@ public class Mod
       var list = new List<EngineController>();
       foreach (var part in new[] { a, b })
       {
-        var controllers = part.SubtreeComponents.Get<EngineController>();
+        var controllers = part.SubtreeModules.Get<EngineController>();
         for (int i = 0; i < controllers.Length; i++)
           list.Add(controllers[i]);
       }
@@ -480,7 +383,7 @@ public class Mod
   {
     foreach (var part in new[] { partA, partB })
     {
-      var controllers = part.SubtreeComponents.Get<EngineController>();
+      var controllers = part.SubtreeModules.Get<EngineController>();
       for (int i = 0; i < controllers.Length; i++)
         controllers[i].SetIsActive(null, active);
     }
@@ -499,7 +402,7 @@ public class Mod
     int count = 0;
     foreach (var part in vehicle.Parts.Parts)
     {
-      var controllers = part.SubtreeComponents.Get<EngineController>();
+      var controllers = part.SubtreeModules.Get<EngineController>();
       for (int i = 0; i < controllers.Length; i++)
       {
         controllers[i].SetIsActive(null, false);
@@ -512,7 +415,7 @@ public class Mod
   private void SetupMinThrottle(Vehicle vehicle, float minThrottle)
   {
     int count = 0;
-    var engineControllers = vehicle.Parts.Components.Get<EngineController>();
+    var engineControllers = vehicle.Parts.Modules.Get<EngineController>();
     
     foreach (var controller in engineControllers)
     {

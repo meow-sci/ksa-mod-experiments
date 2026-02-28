@@ -1,11 +1,14 @@
 const INITIAL_CONFIG: InitialConfig = {
-  scale: 0.01,
+  scale: 0.1,
   position: { x: -4.0, y: 2, z: 0 },
   rotation: { x: 0, y: -1.5708, z: 0 },
   reverseRotation: { x: 0, y: 1.5708, z: 0 },
   stage: 0,
-  rows: 53,
-  cols: 18,
+  // rows: 53,
+  // cols: 18,
+  rows: 30,
+  cols: 10,
+  connectedLocalInstanceId: 30,
   initialLocalInstanceId: 1000,
   positionGap: 4.0
 };
@@ -18,6 +21,7 @@ interface InitialConfig {
   stage: number;
   rows: number;
   cols: number;
+  connectedLocalInstanceId: number;
   initialLocalInstanceId: number;
   positionGap: number;
 }
@@ -39,6 +43,7 @@ interface PartConfig {
   position: XYZ;
   rotation: XYZ;
   reverseRotation: XYZ;
+  connectedLocalInstanceId: number;
   localInstanceId: LocalInstanceId;
   stage: number;
   x: number;
@@ -55,7 +60,7 @@ function enginePartTemplate(config: PartConfig): string {
                 <Rotation X="${config.rotation.x ?? "0"}" Y="${config.rotation.y ?? "0"}" Z="${config.rotation.z ?? "0"}" />
                 <Scale X="${config.scale ?? "1"}" Y="${config.scale ?? "1"}" Z="${config.scale ?? "1"}" />
               </Transform>
-              <PartConnectorRef Index="0" ConnectedLocalInstanceId="${config.localInstanceId.current++}" />
+              <PartConnectorRef Index="0" ConnectedLocalInstanceId="${config.connectedLocalInstanceId}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineA1WBaseCompact" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineACompactVacAssembly" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineANozzleC" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
@@ -69,7 +74,7 @@ function enginePartTemplate(config: PartConfig): string {
                 <Rotation X="${config.reverseRotation.x ?? "0"}" Y="${config.reverseRotation.y ?? "0"}" Z="${config.reverseRotation.z ?? "0"}" />
                 <Scale X="${config.scale ?? "1"}" Y="${config.scale ?? "1"}" Z="${config.scale ?? "1"}" />
               </Transform>
-              <PartConnectorRef Index="0" ConnectedLocalInstanceId="${config.localInstanceId.current++}" />
+              <PartConnectorRef Index="0" ConnectedLocalInstanceId="${config.connectedLocalInstanceId}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineA1WBaseCompact" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineACompactVacAssembly" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
               <SubPartRef InstanceOf="CorePropulsionA_Subpart_EngineANozzleC" LocalInstanceId="${config.localInstanceId.current++}" Stage="${config.stage}" />
@@ -102,6 +107,7 @@ function generateEngineGrid(config: InitialConfig): string {
         },
         rotation: config.rotation,
         reverseRotation: config.reverseRotation,
+        connectedLocalInstanceId: config.connectedLocalInstanceId,
         localInstanceId,
         stage: config.stage,
         x: col,
