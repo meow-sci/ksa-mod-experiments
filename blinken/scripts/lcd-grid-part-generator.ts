@@ -6,8 +6,8 @@ const INITIAL_CONFIG: InitialConfig = {
   stage: 0,
   // rows: 53,
   // cols: 18,
-  rows: 30,
-  cols: 10,
+  rows: 65,
+  cols: 22,
   connectedLocalInstanceId: 30,
   initialLocalInstanceId: 1000,
   positionGap: 4.0

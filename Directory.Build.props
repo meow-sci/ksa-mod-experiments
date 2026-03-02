@@ -28,6 +28,13 @@
 
     <!-- KSA Game Installation Path -->
     <PropertyGroup>
-        <KSAFolder Condition="'$(KSAFolder)' == ''">C:\Program Files\Kitten Space Agency\</KSAFolder>
+    <KSAFolder Condition="'$(KSAFolder)' == ''">C:\Program Files\Kitten Space Agency\</KSAFolder>
+    <KSAUserDir Condition="'$(KSAUserDir)' == ''">$(USERPROFILE)\Documents\My Games\Kitten Space Agency\</KSAUserDir>
+    <KSAUserModDir>$(KSAUserDir)\mods\</KSAUserModDir>
+    <KSAProgramFilesModDir>C:\Program Files\Kitten Space Agency\Content\</KSAProgramFilesModDir>
+    <!-- <SelectedDistModDir>$(KSAProgramFilesModDir)</SelectedDistModDir> -->
+    <!-- StarMap not yet working with user mods directory -->
+    <SelectedDistModDir>$(KSAUserModDir)</SelectedDistModDir>
+
     </PropertyGroup>
 </Project>
