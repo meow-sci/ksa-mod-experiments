@@ -15,6 +15,11 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
+  private double _twrSum = 0.0;
+  private int _twrSampleCount = 0;
+  private double _timeSinceLastSample = 0.0;
+  private bool _isCollecting = false;
+  private const double SampleInterval = 0.01; // 10ms = 100 times per second
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -34,7 +39,25 @@ public class Mod
   }
 
   [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
+  public void OnBeforeUi(double dt)
+  {
+    if (!_isInitialized || _isDisposed) return;
+
+    if (_isCollecting)
+    {
+      _timeSinceLastSample += dt;
+      if (_timeSinceLastSample >= SampleInterval)
+      {
+        _timeSinceLastSample = 0.0;
+        var vehicle = Program.ControlledVehicle;
+        if (vehicle != null)
+        {
+          _twrSum += vehicle.NavBallData.ThrustWeightRatio;
+          _twrSampleCount++;
+        }
+      }
+    }
+  }
 
   [StarMapAfterGui]
   public void OnAfterUi(double dt)
@@ -71,33 +94,24 @@ public class Mod
 
   private void RenderWindow()
   {
-    // Set initial window size
-    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
+    ImGui.SetNextWindowSize(new float2(300, 120), ImGuiCond.FirstUseEver);
 
-    // Begin window
-    if (ImGui.Begin("average-twr Mod", ref _windowVisible))
+    if (ImGui.Begin("Average TWR", ref _windowVisible))
     {
-      // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "average-twr");
-      ImGui.Separator();
+      double averageTwr = _twrSampleCount > 0 ? _twrSum / _twrSampleCount : 0.0;
+      ImGui.Text($"Average TWR: {averageTwr:F4}  (n={_twrSampleCount})");
 
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
+      if (ImGui.Button(_isCollecting ? "Pause" : "Start"))
       {
-        ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
-        {
-          Console.WriteLine("button pressed!");
-        }
-        
-        ImGui.Unindent();
+        _isCollecting = !_isCollecting;
       }
-      
-      // Close button
-      if (ImGui.Button("Close"))
+
+      ImGui.SameLine();
+
+      if (ImGui.Button("Reset"))
       {
-        _windowVisible = false;
+        _twrSum = 0.0;
+        _twrSampleCount = 0;
       }
     }
     ImGui.End();
