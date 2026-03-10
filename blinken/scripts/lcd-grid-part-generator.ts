@@ -3,12 +3,12 @@ const INITIAL_CONFIG: InitialConfig = {
   position: { x: -4.0, y: 2, z: 0 },
   rotation: { x: 0, y: -1.5708, z: 0 },
   reverseRotation: { x: 0, y: 1.5708, z: 0 },
-  stage: 0,
+  stage: 3,
   // rows: 53,
   // cols: 18,
-  rows: 65,
-  cols: 22,
-  connectedLocalInstanceId: 30,
+  rows: 90,
+  cols: 90,
+  connectedLocalInstanceId: 187,
   initialLocalInstanceId: 1000,
   positionGap: 4.0
 };

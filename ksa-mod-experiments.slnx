@@ -9,5 +9,6 @@
     <Project Path="byo-music/byo-music.csproj" />
     <Project Path="stampy/stampy.csproj" />
     <Project Path="blinken/blinken.csproj" />
+    <Project Path="average-twr/average-twr.csproj" />
     
 </Solution>
