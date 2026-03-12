@@ -29,7 +29,7 @@ public class Mod
     {
       Patcher.Patch();
       int capacity = GForceUI.GetRequiredCapacity(SampleIntervalSec);
-      _recorder = new GForceRecorder(capacity);
+      _recorder = new GForceRecorder(capacity, SampleIntervalSec);
       _isInitialized = true;
     }
     catch (Exception ex)

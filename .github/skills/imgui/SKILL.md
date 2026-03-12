@@ -23,3 +23,90 @@ if (ImGui.Button("Click me!")) {
   Console.WriteLine("clicked!");
 }
 ```
+
+## Full ImGui API Reference
+
+The entire ImGui API should be exposed via this Brutal C# wrapper, so use your knowledge of the official ImGui
+
+## Examples
+
+These are some examples using Brutal ImGui API calls to demonstrate common ImGui features.
+
+### Colored text
+
+```csharp
+float4 currentColor = GetGForceColor(recorder.Latest.Magnitude);
+ImGui.TextColored(currentColor, $"Current: {recorder.Latest.Magnitude:F2} g");
+ImGui.SameLine(0, 20);
+ImGui.TextColored(ColorRed, $"Peak: {recorder.PeakG:F2} g");
+ImGui.SameLine(0, 20);
+ImGui.Text($"Avg: {recorder.AvgG:F2} g");
+
+```
+
+### Horizontal line separator
+
+```csharp
+ImGui.Separator();
+```
+
+### Indentation
+
+```csharp
+ImGui.Indent();
+ImGui.Text("abc");
+ImGui.Unindent();
+```
+
+### Collapsing Header
+
+```csharp
+if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
+{
+  ImGui.Text("content");
+}
+```
+
+### Detect Keypresses
+
+```csharp
+if (ImGui.IsKeyPressed(ImGuiKey.F11))
+{
+  _windowVisible = !_windowVisible;
+}
+
+```
+
+### Float value slider
+
+```csharp
+// Speed slider arguments are: (label, ref to value, min, max)
+if (ImGui.SliderFloat("Speed (m/s)", ref _actualValue, 1.0f, 250.0f))
+{
+  // Value updated
+}
+```
+
+### Combobox
+
+```csharp
+string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+// Combo box arguments are: (label, ref to selected index, array of options, number of options)
+if (ImGui.Combo("Easing##ZoomOut", ref _selectedValue, easingNames, easingNames.Length))
+{
+  // Value updated
+}
+```
+
+### Add a spacing gap
+
+```csharp
+ImGui.Spacing();
+```
+
+### Progress bar
+
+```csharp
+progress = Math.Clamp(progress, 0.0f, 1.0f);
+ImGui.ProgressBar(progress, new float2(-1, 0));
+```
