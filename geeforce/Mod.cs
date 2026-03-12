@@ -15,6 +15,9 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
+  private const double SampleIntervalSec = 0.025; // 25ms → 40 Hz
+  private double _accumulator = 0.0;
+  private GForceRecorder _recorder = null!;
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -25,6 +28,8 @@ public class Mod
     try
     {
       Patcher.Patch();
+      int capacity = GForceUI.GetRequiredCapacity(SampleIntervalSec);
+      _recorder = new GForceRecorder(capacity);
       _isInitialized = true;
     }
     catch (Exception ex)
@@ -46,8 +51,22 @@ public class Mod
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
         _windowVisible = !_windowVisible;
 
+      // Accumulate time and sample at fixed interval
+      _accumulator += dt;
+      while (_accumulator >= SampleIntervalSec)
+      {
+        _accumulator -= SampleIntervalSec;
+
+        var vehicle = Program.ControlledVehicle;
+        if (vehicle != null)
+        {
+          double simTime = Universe.GetElapsedSimTime().Seconds();
+          _recorder.RecordSample(vehicle, simTime);
+        }
+      }
+
       if (_windowVisible)
-        RenderWindow();
+        GForceUI.Render(ref _windowVisible, _recorder, SampleIntervalSec);
     }
     catch (Exception ex)
     {
@@ -67,40 +86,6 @@ public class Mod
     {
       Console.WriteLine($"geeforce: Error during unload: {ex.Message}");
     }
-  }
-
-  private void RenderWindow()
-  {
-    // Set initial window size
-    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
-
-    // Begin window
-    if (ImGui.Begin("geeforce Mod", ref _windowVisible))
-    {
-      // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "geeforce");
-      ImGui.Separator();
-
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
-      {
-        ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
-        {
-          Console.WriteLine("button pressed!");
-        }
-        
-        ImGui.Unindent();
-      }
-      
-      // Close button
-      if (ImGui.Button("Close"))
-      {
-        _windowVisible = false;
-      }
-    }
-    ImGui.End();
   }
 }
 
