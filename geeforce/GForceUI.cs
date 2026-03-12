@@ -41,6 +41,7 @@ public static class GForceUI
 
     private static bool _showAxes = false;
     private static bool _showJerk = false;
+    private static float _killGeesThreshold = 9.0f;
 
     public static float GetSelectedHistorySeconds() => HistoryOptions[_selectedHistoryIdx];
 
@@ -73,6 +74,10 @@ public static class GForceUI
         ImGui.Text($"Avg: {recorder.AvgG:F2} g");
         ImGui.SameLine(0, 20);
         ImGui.TextColored(ColorJerk, $"Max Jerk: {recorder.MaxJerk:F1} g/s");
+        ImGui.SameLine(0, 20);
+        ImGui.TextColored(ColorRed, $"Breaches: {recorder.KillGeesBreaches}");
+        ImGui.SameLine(0, 20);
+        ImGui.TextColored(ColorJerk, $"Jerk Breaches: {recorder.JerkBreaches}");
 
         // --- Per-axis readout ---
         ImGui.TextColored(ColorAxisX, $"X: {recorder.Latest.Longitudinal:F2}g");
@@ -90,6 +95,8 @@ public static class GForceUI
 
         // --- Graph ---
         DrawGraph(recorder, sampleIntervalSec);
+        recorder.CheckKillGeesBreaches((double)_killGeesThreshold);
+        recorder.CheckJerkBreaches((double)_killGeesThreshold);
 
         // --- Scrub slider ---
         DrawScrubSlider(recorder);
@@ -244,7 +251,7 @@ public static class GForceUI
         jerkMax = CeilToNice(jerkMax);
 
         float padLeft = 40f;
-        float padRight = _showJerk ? 44f : 4f; // extra right pad for jerk labels
+        float padRight = _showJerk ? 120f : 4f; // extra right pad for jerk labels
         float padBottom = 30f; // space for X-axis labels
         float plotInnerWidth = plotSize.X - padLeft - padRight;
         float plotInnerHeight = plotSize.Y - 4f - padBottom;
@@ -358,6 +365,10 @@ public static class GForceUI
             DrawThresholdLine(drawList, innerMin, plotInnerWidth, plotInnerHeight, yMax, 3.0, ColorYellow, "3g");
         if (yMax > 6.0)
             DrawThresholdLine(drawList, innerMin, plotInnerWidth, plotInnerHeight, yMax, 6.0, ColorRed, "6g");
+
+        // Kill-gees user-defined threshold line
+        if (yMax > (double)_killGeesThreshold)
+            DrawThresholdLine(drawList, innerMin, plotInnerWidth, plotInnerHeight, yMax, (double)_killGeesThreshold, ColorRed, $"{_killGeesThreshold:F0}g");
 
         // --- Feature #3: Peak marker within visible viewport ---
         if (visiblePeakIdx >= 0)
@@ -494,6 +505,10 @@ public static class GForceUI
 
         ImGui.SameLine(0, 8);
         ImGui.Checkbox("Jerk", ref _showJerk);
+
+        ImGui.Separator();
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - 150);
+        ImGui.SliderFloat("kill gees", ref _killGeesThreshold, 1.0f, 250.0f);
     }
 
     private static void DrawThresholdLine(ImDrawListPtr drawList, float2 innerMin, float plotInnerWidth, float plotInnerHeight, double yMax, double threshold, float4 color, string label)

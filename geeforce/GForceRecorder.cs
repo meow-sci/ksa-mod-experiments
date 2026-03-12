@@ -27,6 +27,8 @@ public class GForceRecorder
     public double MinG { get; private set; }
     public double AvgG { get; private set; }
     public double MaxJerk { get; private set; }
+    public int KillGeesBreaches { get; private set; }
+    public int JerkBreaches { get; private set; }
     public int PeakIndex { get; private set; }
     public GForceSample Latest { get; private set; }
     public bool IsRecording { get; set; } = true;
@@ -35,6 +37,8 @@ public class GForceRecorder
     public int Capacity => _buffer.Length;
 
     private double _sumG;
+    private bool _wasAboveKillGees;
+    private bool _wasAboveJerkThreshold;
 
     public GForceRecorder(int capacity, double sampleInterval)
     {
@@ -44,6 +48,10 @@ public class GForceRecorder
         PeakG = 0.0;
         MinG = double.MaxValue;
         MaxJerk = 0.0;
+        KillGeesBreaches = 0;
+        _wasAboveKillGees = false;
+        JerkBreaches = 0;
+        _wasAboveJerkThreshold = false;
         PeakIndex = -1;
         _sumG = 0.0;
         _sampleInterval = sampleInterval;
@@ -131,6 +139,24 @@ public class GForceRecorder
         AvgG = _count > 0 ? _sumG / _count : 0.0;
     }
 
+    public void CheckKillGeesBreaches(double threshold)
+    {
+        if (_count == 0) return;
+        bool isAbove = Latest.Magnitude > threshold;
+        if (isAbove && !_wasAboveKillGees)
+            KillGeesBreaches++;
+        _wasAboveKillGees = isAbove;
+    }
+
+    public void CheckJerkBreaches(double threshold)
+    {
+        if (_count == 0) return;
+        bool isAbove = Math.Abs(Latest.Jerk) > threshold;
+        if (isAbove && !_wasAboveJerkThreshold)
+            JerkBreaches++;
+        _wasAboveJerkThreshold = isAbove;
+    }
+
     public void Clear()
     {
         _head = 0;
@@ -138,6 +164,10 @@ public class GForceRecorder
         PeakG = 0.0;
         MinG = double.MaxValue;
         MaxJerk = 0.0;
+        KillGeesBreaches = 0;
+        _wasAboveKillGees = false;
+        JerkBreaches = 0;
+        _wasAboveJerkThreshold = false;
         PeakIndex = -1;
         AvgG = 0.0;
         _sumG = 0.0;
@@ -181,6 +211,10 @@ public class GForceRecorder
             }
             if (m < MinG) MinG = m;
         }
+        KillGeesBreaches = 0;
+        _wasAboveKillGees = false;
+        JerkBreaches = 0;
+        _wasAboveJerkThreshold = false;
         AvgG = _count > 0 ? _sumG / _count : 0.0;
     }
 }
