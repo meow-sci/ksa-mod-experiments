@@ -17,6 +17,7 @@ public class Mod
   private bool _windowVisible = false;
 
   private readonly List<WeldEntry> _welds = new List<WeldEntry>();
+  private float _pendingDistance = 10f;
 
   private class WeldEntry
   {
@@ -24,6 +25,7 @@ public class Mod
     public Vehicle Target = null!;
     public double3 OffsetInTargetBody;
     public doubleQuat RotationOffset;
+    public float DesiredDistance;
   }
 
 
@@ -124,7 +126,7 @@ public class Mod
           {
             if (v == controlled) continue;
             if (ImGui.Button($"Weld to: {v.Id}"))
-              InitiateWeld(controlled, v);
+              InitiateWeld(controlled, v, _pendingDistance);
           }
         }
       }
@@ -132,11 +134,19 @@ public class Mod
     ImGui.End();
   }
 
-  private void InitiateWeld(Vehicle source, Vehicle target)
+  private void InitiateWeld(Vehicle source, Vehicle target, float desiredDistance)
   {
     double3 srcPosCci = source.GetPositionCci();
     double3 tgtPosCci = target.GetPositionCci();
-    double3 offsetCci = srcPosCci - tgtPosCci;
+    double3 rawOffsetCci = srcPosCci - tgtPosCci;
+
+    // Normalize direction; fallback to CCI Z-axis if vehicles are coincident
+    double3 directionCci = rawOffsetCci.Length() > 1e-6
+      ? rawOffsetCci.Normalized()
+      : double3.UnitZ;
+
+    // Scale to desired distance
+    double3 offsetCci = directionCci * (double)desiredDistance;
 
     doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
@@ -151,6 +161,7 @@ public class Mod
       Target = target,
       OffsetInTargetBody = offsetInTargetBody,
       RotationOffset = rotationOffset,
+      DesiredDistance = desiredDistance,
     });
 
     Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
