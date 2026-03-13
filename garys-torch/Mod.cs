@@ -53,6 +53,9 @@ public class Mod
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
         _windowVisible = !_windowVisible;
 
+      if (_isWelded)
+        UpdateWeld();
+
       if (_windowVisible)
         RenderWindow();
     }
