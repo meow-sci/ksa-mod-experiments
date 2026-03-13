@@ -16,13 +16,13 @@ public class Mod
   private bool _windowVisible = false;
 
   // Weld state
-#pragma warning disable CS0169, CS0414
+#pragma warning disable CS0414, CS0649
   private bool _isWelded = false;
   private Vehicle? _sourceVehicle;
   private Vehicle? _targetVehicle;
   private double3 _offsetInTargetBody;
   private doubleQuat _rotationOffset;
-#pragma warning restore CS0169, CS0414
+#pragma warning restore CS0414, CS0649
 
 
   [StarMapImmediateLoad]
@@ -110,6 +110,33 @@ public class Mod
       }
     }
     ImGui.End();
+  }
+
+  private void InitiateWeld()
+  {
+    if (_sourceVehicle == null || _targetVehicle == null) return;
+
+    // Get positions in CCI (inertial frame, relative to shared parent body)
+    double3 srcPosCci = _sourceVehicle.GetPositionCci();
+    double3 tgtPosCci = _targetVehicle.GetPositionCci();
+
+    // Offset in CCI
+    double3 offsetCci = srcPosCci - tgtPosCci;
+
+    // Transform offset into target's body frame so it rotates with the target
+    doubleQuat tgtBody2Cci = _targetVehicle.GetBody2Cci();
+    doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
+    _offsetInTargetBody = offsetCci.Transform(cci2TgtBody);
+
+    // Capture relative rotation: source orientation relative to target
+    // To recover: newSrcBody2Cci = _rotationOffset * tgtBody2Cci
+    doubleQuat srcBody2Cci = _sourceVehicle.GetBody2Cci();
+    _rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
+
+    _isWelded = true;
+
+    Console.WriteLine($"garys-torch: Welded {_sourceVehicle.Id} to {_targetVehicle.Id}");
+    Console.WriteLine($"garys-torch: Offset (target body): {_offsetInTargetBody}");
   }
 }
 
