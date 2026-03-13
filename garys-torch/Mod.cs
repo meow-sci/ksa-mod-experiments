@@ -16,13 +16,13 @@ public class Mod
   private bool _windowVisible = false;
 
   // Weld state
-#pragma warning disable CS0414, CS0649
+#pragma warning disable CS0414
   private bool _isWelded = false;
+#pragma warning restore CS0414
   private Vehicle? _sourceVehicle;
   private Vehicle? _targetVehicle;
   private double3 _offsetInTargetBody;
   private doubleQuat _rotationOffset;
-#pragma warning restore CS0414, CS0649
 
 
   [StarMapImmediateLoad]
@@ -186,7 +186,16 @@ public class Mod
     _sourceVehicle.Teleport(newOrbit, newSrcBody2Cce, newBodyRates);
   }
 
-  // Stub: full implementation added in Task 4
-  private void Unweld() { }
+  private void Unweld()
+  {
+    if (_sourceVehicle != null && _targetVehicle != null)
+      Console.WriteLine($"garys-torch: Unwelded {_sourceVehicle.Id} from {_targetVehicle.Id}");
+
+    _sourceVehicle = null;
+    _targetVehicle = null;
+    _isWelded = false;
+    _offsetInTargetBody = default;
+    _rotationOffset = default;
+  }
 }
 
