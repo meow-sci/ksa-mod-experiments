@@ -90,34 +90,45 @@ public class Mod
 
   private void RenderWindow()
   {
-    ImGui.SetNextWindowSize(new float2(400, 300), ImGuiCond.FirstUseEver);
+    ImGui.SetNextWindowSize(new float2(450, 400), ImGuiCond.FirstUseEver);
 
     if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
-      foreach (var weld in _welds)
+      // Active welds — one collapsible section per weld
+      WeldEntry? toRemove = null;
+      for (int i = 0; i < _welds.Count; i++)
       {
-        ImGui.Text($"{weld.Source.Id} \u2192 {weld.Target.Id}");
-        ImGui.SameLine();
-        if (ImGui.Button($"Unweld##{weld.Source.Id}-{weld.Target.Id}"))
+        var weld = _welds[i];
+        string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id} ({weld.DesiredDistance:F1} m)";
+        if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
         {
-          RemoveWeld(weld);
-          break;
+          ImGui.Indent();
+          ImGui.Text($"Source:   {weld.Source.Id}");
+          ImGui.Text($"Target:   {weld.Target.Id}");
+          ImGui.Text($"Distance: {weld.DesiredDistance:F1} m");
+          if (ImGui.Button($"Unweld##{i}"))
+            toRemove = weld;
+          ImGui.Unindent();
         }
       }
+      if (toRemove != null)
+        RemoveWeld(toRemove);
 
-      if (_welds.Count > 0)
-        ImGui.Separator();
+      ImGui.Separator();
 
+      // Add New Weld section
       var controlled = Program.ControlledVehicle;
       if (controlled == null)
       {
-        ImGui.Text("Control a vehicle first.");
+        ImGui.Text("Control a vehicle first to add a weld.");
       }
       else
       {
-        ImGui.Text($"Controlled: {controlled.Id}");
+        ImGui.Text("Add New Weld");
+        ImGui.Text($"Source: {controlled.Id}");
+        ImGui.SliderFloat("Distance (m)##pending", ref _pendingDistance, 0f, 100f);
         ImGui.Separator();
-        ImGui.Text("Select target to weld to:");
+        ImGui.Text("Weld to:");
 
         var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
         if (vehicles != null)
@@ -125,7 +136,7 @@ public class Mod
           foreach (var v in vehicles)
           {
             if (v == controlled) continue;
-            if (ImGui.Button($"Weld to: {v.Id}"))
+            if (ImGui.Button($"{v.Id}##weld"))
               InitiateWeld(controlled, v, _pendingDistance);
           }
         }
