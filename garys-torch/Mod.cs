@@ -15,6 +15,15 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
+  // Weld state
+#pragma warning disable CS0169, CS0414
+  private bool _isWelded = false;
+  private Vehicle? _sourceVehicle;
+  private Vehicle? _targetVehicle;
+  private double3 _offsetInTargetBody;
+  private doubleQuat _rotationOffset;
+#pragma warning restore CS0169, CS0414
+
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
