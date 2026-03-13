@@ -1,0 +1,1 @@
+- re-organize mod so that multiple "welds" can be maintained, not just a single one.  refactor as necessary to maintain state per weld.  this can be done using an ImGui collapsible section per weld with an add button to add more welds (none to start with), and then use the existing logic for welding per-weld under each collapsible header.
