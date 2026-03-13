@@ -138,5 +138,55 @@ public class Mod
     Console.WriteLine($"garys-torch: Welded {_sourceVehicle.Id} to {_targetVehicle.Id}");
     Console.WriteLine($"garys-torch: Offset (target body): {_offsetInTargetBody}");
   }
+
+  private void UpdateWeld()
+  {
+    if (_sourceVehicle == null || _targetVehicle == null) return;
+
+    // Check vehicles share the same parent body (SOI change would break weld)
+    if (_sourceVehicle.Parent != _targetVehicle.Parent)
+    {
+      Console.WriteLine("garys-torch: Parent body mismatch, unwelding");
+      Unweld();
+      return;
+    }
+
+    // Current target state in CCI (inertial frame)
+    double3 tgtPosCci = _targetVehicle.GetPositionCci();
+    double3 tgtVelCci = _targetVehicle.GetVelocityCci();
+    doubleQuat tgtBody2Cci = _targetVehicle.GetBody2Cci();
+
+    // Compute source position: transform stored body-frame offset back to CCI
+    double3 offsetCci = _offsetInTargetBody.Transform(tgtBody2Cci);
+    double3 newSrcPosCci = tgtPosCci + offsetCci;
+
+    // Match velocity to target (simple approach; ignores rotational ω×r contribution)
+    double3 newSrcVelCci = tgtVelCci;
+
+    // Compute source orientation: _rotationOffset ⊙ tgtBody2Cci
+    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(_rotationOffset, tgtBody2Cci);
+
+    // Convert Body2Cci back to Body2Cce (what Teleport expects)
+    doubleQuat cci2Cce = _sourceVehicle.Parent.GetCci2Cce();
+    doubleQuat newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
+
+    // Match body rates from target
+    double3 newBodyRates = _targetVehicle.BodyRates;
+
+    // Create new orbit from computed CCI state vectors
+    Orbit newOrbit = Orbit.CreateFromStateCci(
+      _sourceVehicle.Parent,
+      Universe.GetElapsedSimTime(),
+      newSrcPosCci,
+      newSrcVelCci,
+      _sourceVehicle.Orbit.OrbitLineColor
+    );
+
+    // Teleport source vehicle to new position
+    _sourceVehicle.Teleport(newOrbit, newSrcBody2Cce, newBodyRates);
+  }
+
+  // Stub: full implementation added in Task 4
+  private void Unweld() { }
 }
 
