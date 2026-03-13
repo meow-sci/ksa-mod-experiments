@@ -11,5 +11,6 @@
     <Project Path="blinken/blinken.csproj" />
     <Project Path="average-twr/average-twr.csproj" />
     <Project Path="geeforce/geeforce.csproj" />
+    <Project Path="garys-torch/garys-torch.csproj" />
     
 </Solution>
