@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
@@ -15,12 +16,15 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
-  // Weld state
-  private bool _isWelded = false;
-  private Vehicle? _sourceVehicle;
-  private Vehicle? _targetVehicle;
-  private double3 _offsetInTargetBody;
-  private doubleQuat _rotationOffset;
+  private readonly List<WeldEntry> _welds = new List<WeldEntry>();
+
+  private class WeldEntry
+  {
+    public Vehicle Source = null!;
+    public Vehicle Target = null!;
+    public double3 OffsetInTargetBody;
+    public doubleQuat RotationOffset;
+  }
 
 
   [StarMapImmediateLoad]
@@ -53,8 +57,11 @@ public class Mod
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
         _windowVisible = !_windowVisible;
 
-      if (_isWelded)
-        UpdateWeld();
+      var toRemove = new List<WeldEntry>();
+      foreach (var weld in _welds)
+        if (!UpdateWeld(weld)) toRemove.Add(weld);
+      foreach (var weld in toRemove)
+        RemoveWeld(weld);
 
       if (_windowVisible)
         RenderWindow();
@@ -85,24 +92,27 @@ public class Mod
 
     if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
+      foreach (var weld in _welds)
+      {
+        ImGui.Text($"{weld.Source.Id} \u2192 {weld.Target.Id}");
+        ImGui.SameLine();
+        if (ImGui.Button($"Unweld##{weld.Source.Id}-{weld.Target.Id}"))
+        {
+          RemoveWeld(weld);
+          break;
+        }
+      }
+
+      if (_welds.Count > 0)
+        ImGui.Separator();
+
       var controlled = Program.ControlledVehicle;
       if (controlled == null)
       {
         ImGui.Text("Control a vehicle first.");
       }
-      else if (_isWelded)
-      {
-        // Welded state
-        ImGui.TextColored(new float4(0f, 1f, 0f, 1f), "WELDED");
-        ImGui.Text($"Source: {_sourceVehicle?.Id}");
-        ImGui.Text($"Target: {_targetVehicle?.Id}");
-        ImGui.Separator();
-        if (ImGui.Button("Unweld"))
-          Unweld();
-      }
       else
       {
-        // Vehicle picker
         ImGui.Text($"Controlled: {controlled.Id}");
         ImGui.Separator();
         ImGui.Text("Select target to weld to:");
@@ -114,11 +124,7 @@ public class Mod
           {
             if (v == controlled) continue;
             if (ImGui.Button($"Weld to: {v.Id}"))
-            {
-              _sourceVehicle = controlled;
-              _targetVehicle = v;
-              InitiateWeld();
-            }
+              InitiateWeld(controlled, v);
           }
         }
       }
@@ -126,90 +132,69 @@ public class Mod
     ImGui.End();
   }
 
-  private void InitiateWeld()
+  private void InitiateWeld(Vehicle source, Vehicle target)
   {
-    if (_sourceVehicle == null || _targetVehicle == null) return;
-
-    // Get positions in CCI (inertial frame, relative to shared parent body)
-    double3 srcPosCci = _sourceVehicle.GetPositionCci();
-    double3 tgtPosCci = _targetVehicle.GetPositionCci();
-
-    // Offset in CCI
+    double3 srcPosCci = source.GetPositionCci();
+    double3 tgtPosCci = target.GetPositionCci();
     double3 offsetCci = srcPosCci - tgtPosCci;
 
-    // Transform offset into target's body frame so it rotates with the target
-    doubleQuat tgtBody2Cci = _targetVehicle.GetBody2Cci();
+    doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
-    _offsetInTargetBody = offsetCci.Transform(cci2TgtBody);
+    double3 offsetInTargetBody = offsetCci.Transform(cci2TgtBody);
 
-    // Capture relative rotation: source orientation relative to target
-    // To recover: newSrcBody2Cci = _rotationOffset * tgtBody2Cci
-    doubleQuat srcBody2Cci = _sourceVehicle.GetBody2Cci();
-    _rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
+    doubleQuat srcBody2Cci = source.GetBody2Cci();
+    doubleQuat rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
 
-    _isWelded = true;
+    _welds.Add(new WeldEntry
+    {
+      Source = source,
+      Target = target,
+      OffsetInTargetBody = offsetInTargetBody,
+      RotationOffset = rotationOffset,
+    });
 
-    Console.WriteLine($"garys-torch: Welded {_sourceVehicle.Id} to {_targetVehicle.Id}");
-    Console.WriteLine($"garys-torch: Offset (target body): {_offsetInTargetBody}");
+    Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
+    Console.WriteLine($"garys-torch: Offset (target body): {offsetInTargetBody}");
   }
 
-  private void UpdateWeld()
+  private bool UpdateWeld(WeldEntry entry)
   {
-    if (_sourceVehicle == null || _targetVehicle == null) return;
-
-    // Check vehicles share the same parent body (SOI change would break weld)
-    if (_sourceVehicle.Parent != _targetVehicle.Parent)
+    if (entry.Source.Parent != entry.Target.Parent)
     {
       Console.WriteLine("garys-torch: Parent body mismatch, unwelding");
-      Unweld();
-      return;
+      return false;
     }
 
-    // Current target state in CCI (inertial frame)
-    double3 tgtPosCci = _targetVehicle.GetPositionCci();
-    double3 tgtVelCci = _targetVehicle.GetVelocityCci();
-    doubleQuat tgtBody2Cci = _targetVehicle.GetBody2Cci();
+    double3 tgtPosCci = entry.Target.GetPositionCci();
+    double3 tgtVelCci = entry.Target.GetVelocityCci();
+    doubleQuat tgtBody2Cci = entry.Target.GetBody2Cci();
 
-    // Compute source position: transform stored body-frame offset back to CCI
-    double3 offsetCci = _offsetInTargetBody.Transform(tgtBody2Cci);
+    double3 offsetCci = entry.OffsetInTargetBody.Transform(tgtBody2Cci);
     double3 newSrcPosCci = tgtPosCci + offsetCci;
-
-    // Match velocity to target (simple approach; ignores rotational ω×r contribution)
     double3 newSrcVelCci = tgtVelCci;
 
-    // Compute source orientation: _rotationOffset ⊙ tgtBody2Cci
-    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(_rotationOffset, tgtBody2Cci);
-
-    // Convert Body2Cci back to Body2Cce (what Teleport expects)
-    doubleQuat cci2Cce = _sourceVehicle.Parent.GetCci2Cce();
+    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(entry.RotationOffset, tgtBody2Cci);
+    doubleQuat cci2Cce = entry.Source.Parent.GetCci2Cce();
     doubleQuat newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
 
-    // Match body rates from target
-    double3 newBodyRates = _targetVehicle.BodyRates;
+    double3 newBodyRates = entry.Target.BodyRates;
 
-    // Create new orbit from computed CCI state vectors
     Orbit newOrbit = Orbit.CreateFromStateCci(
-      _sourceVehicle.Parent,
+      entry.Source.Parent,
       Universe.GetElapsedSimTime(),
       newSrcPosCci,
       newSrcVelCci,
-      _sourceVehicle.Orbit.OrbitLineColor
+      entry.Source.Orbit.OrbitLineColor
     );
 
-    // Teleport source vehicle to new position
-    _sourceVehicle.Teleport(newOrbit, newSrcBody2Cce, newBodyRates);
+    entry.Source.Teleport(newOrbit, newSrcBody2Cce, newBodyRates);
+    return true;
   }
 
-  private void Unweld()
+  private void RemoveWeld(WeldEntry entry)
   {
-    if (_sourceVehicle != null && _targetVehicle != null)
-      Console.WriteLine($"garys-torch: Unwelded {_sourceVehicle.Id} from {_targetVehicle.Id}");
-
-    _sourceVehicle = null;
-    _targetVehicle = null;
-    _isWelded = false;
-    _offsetInTargetBody = default;
-    _rotationOffset = default;
+    Console.WriteLine($"garys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
+    _welds.Remove(entry);
   }
 }
 
