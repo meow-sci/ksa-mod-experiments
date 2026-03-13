@@ -16,9 +16,7 @@ public class Mod
   private bool _windowVisible = false;
 
   // Weld state
-#pragma warning disable CS0414
   private bool _isWelded = false;
-#pragma warning restore CS0414
   private Vehicle? _sourceVehicle;
   private Vehicle? _targetVehicle;
   private double3 _offsetInTargetBody;
@@ -80,33 +78,46 @@ public class Mod
 
   private void RenderWindow()
   {
-    // Set initial window size
-    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
+    ImGui.SetNextWindowSize(new float2(400, 300), ImGuiCond.FirstUseEver);
 
-    // Begin window
-    if (ImGui.Begin("garys-torch Mod", ref _windowVisible))
+    if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
-      // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "garys-torch");
-      ImGui.Separator();
-
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
+      var controlled = Program.ControlledVehicle;
+      if (controlled == null)
       {
-        ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
-        {
-          Console.WriteLine("button pressed!");
-        }
-        
-        ImGui.Unindent();
+        ImGui.Text("Control a vehicle first.");
       }
-      
-      // Close button
-      if (ImGui.Button("Close"))
+      else if (_isWelded)
       {
-        _windowVisible = false;
+        // Welded state
+        ImGui.TextColored(new float4(0f, 1f, 0f, 1f), "WELDED");
+        ImGui.Text($"Source: {_sourceVehicle?.Id}");
+        ImGui.Text($"Target: {_targetVehicle?.Id}");
+        ImGui.Separator();
+        if (ImGui.Button("Unweld"))
+          Unweld();
+      }
+      else
+      {
+        // Vehicle picker
+        ImGui.Text($"Controlled: {controlled.Id}");
+        ImGui.Separator();
+        ImGui.Text("Select target to weld to:");
+
+        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
+        if (vehicles != null)
+        {
+          foreach (var v in vehicles)
+          {
+            if (v == controlled) continue;
+            if (ImGui.Button($"Weld to: {v.Id}"))
+            {
+              _sourceVehicle = controlled;
+              _targetVehicle = v;
+              InitiateWeld();
+            }
+          }
+        }
       }
     }
     ImGui.End();
