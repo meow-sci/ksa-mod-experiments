@@ -30,6 +30,7 @@ public class Mod
     // Adjustable fields — modified via UI sliders
     public float3 Position;   // offset in target's body frame (metres)
     public float3 Rotation;   // Euler pitch/yaw/roll delta in degrees
+    public float Scale = 1f;  // uniform scale factor applied to all source parts
   }
 
 
@@ -116,6 +117,11 @@ public class Mod
           ImGui.Separator();
           ImGui.Text("Rotation (pitch / yaw / roll, deg)");
           ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.05f, -180f, 180f);
+
+          ImGui.Separator();
+          ImGui.Text("Scale");
+          if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.01f, 0f, 2f))
+            ApplyVehicleScale(weld.Source, weld.Scale);
 
           ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
@@ -230,8 +236,24 @@ public class Mod
 
   private void RemoveWeld(WeldEntry entry)
   {
+    // Restore source vehicle parts to default scale
+    ApplyVehicleScale(entry.Source, 1.0f);
     Console.WriteLine($"garys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
     _welds.Remove(entry);
+  }
+
+  private static void ApplyVehicleScale(Vehicle vehicle, float factor)
+  {
+    foreach (var part in vehicle.Parts.Parts)
+      SetPartScaleRecursive(part, factor);
+    Console.WriteLine($"garys-torch: applied scale {factor:F3} to {vehicle.Id}");
+  }
+
+  private static void SetPartScaleRecursive(Part part, float factor)
+  {
+    part.Scale = new double3(factor, factor, factor);
+    foreach (var sub in part.SubParts)
+      SetPartScaleRecursive(sub, factor);
   }
 
   private static doubleQuat EulerDegreesToQuat(float pitchDeg, float yawDeg, float rollDeg)
