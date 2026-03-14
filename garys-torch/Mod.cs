@@ -18,6 +18,9 @@ public class Mod
 
   private readonly List<WeldEntry> _welds = new List<WeldEntry>();
 
+  private int _pendingSourceIndex = 0;
+  private int _pendingTargetIndex = 0;
+
   private class WeldEntry
   {
     public Vehicle Source = null!;
@@ -126,27 +129,31 @@ public class Mod
       ImGui.Separator();
 
       // Add New Weld section
-      var controlled = Program.ControlledVehicle;
-      if (controlled == null)
+      var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
+      if (vehicles == null || vehicles.Count == 0)
       {
-        ImGui.Text("Control a vehicle first to add a weld.");
+        ImGui.Text("No vehicles available.");
       }
       else
       {
-        ImGui.Text("Add New Weld");
-        ImGui.Text($"Source: {controlled.Id}");
-        ImGui.Separator();
-        ImGui.Text("Weld to:");
+        var vehicleIds = new string[vehicles.Count];
+        for (int i = 0; i < vehicles.Count; i++)
+          vehicleIds[i] = vehicles[i].Id;
 
-        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
-        if (vehicles != null)
+        _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, vehicles.Count - 1);
+        _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, vehicles.Count - 1);
+
+        ImGui.Combo("Source##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
+        ImGui.Combo("Target##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
+
+        if (_pendingSourceIndex == _pendingTargetIndex)
         {
-          foreach (var v in vehicles)
-          {
-            if (v == controlled) continue;
-            if (ImGui.Button($"{v.Id}##weld"))
-              InitiateWeld(controlled, v);
-          }
+          ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), "Source and target must differ.");
+        }
+        else
+        {
+          if (ImGui.Button("Weld##addweld"))
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex]);
         }
       }
     }
