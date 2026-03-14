@@ -23,8 +23,16 @@ public class Mod
   {
     public Vehicle Source = null!;
     public Vehicle Target = null!;
-    public double3 OffsetInTargetBody;
+    // Base rotation captured at weld time (source orientation relative to target)
     public doubleQuat RotationOffset;
+    // Unit vector giving direction of offset in target's body frame (captured at weld time)
+    public double3 NormOffsetDir;
+    // Adjustable fields — modified via UI sliders
+    public float PosDistance;   // distance in metres from target
+    public float RotPitch;      // Euler pitch delta in degrees
+    public float RotYaw;        // Euler yaw delta in degrees
+    public float RotRoll;       // Euler roll delta in degrees
+    // Keep DesiredDistance for display in window header only
     public float DesiredDistance;
   }
 
@@ -151,17 +159,15 @@ public class Mod
     double3 tgtPosCci = target.GetPositionCci();
     double3 rawOffsetCci = srcPosCci - tgtPosCci;
 
-    // Normalize direction; fallback to CCI Z-axis if vehicles are coincident
     double3 directionCci = rawOffsetCci.Length() > 1e-6
       ? rawOffsetCci.Normalized()
       : double3.UnitZ;
 
-    // Scale to desired distance
-    double3 offsetCci = directionCci * (double)desiredDistance;
-
     doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
-    double3 offsetInTargetBody = offsetCci.Transform(cci2TgtBody);
+
+    // Store offset direction in target body frame (unit vector)
+    double3 normOffsetDir = (directionCci * (double)desiredDistance).Transform(cci2TgtBody).Normalized();
 
     doubleQuat srcBody2Cci = source.GetBody2Cci();
     doubleQuat rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
@@ -170,13 +176,16 @@ public class Mod
     {
       Source = source,
       Target = target,
-      OffsetInTargetBody = offsetInTargetBody,
       RotationOffset = rotationOffset,
+      NormOffsetDir = normOffsetDir,
+      PosDistance = desiredDistance,
+      RotPitch = 0f,
+      RotYaw = 0f,
+      RotRoll = 0f,
       DesiredDistance = desiredDistance,
     });
 
-    Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
-    Console.WriteLine($"garys-torch: Offset (target body): {offsetInTargetBody}");
+    Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id} at {desiredDistance:F1} m");
   }
 
   private bool UpdateWeld(WeldEntry entry)
@@ -191,11 +200,17 @@ public class Mod
     double3 tgtVelCci = entry.Target.GetVelocityCci();
     doubleQuat tgtBody2Cci = entry.Target.GetBody2Cci();
 
-    double3 offsetCci = entry.OffsetInTargetBody.Transform(tgtBody2Cci);
+    // Compute positional offset from stored direction + adjustable distance
+    double3 offsetInBodyFrame = entry.NormOffsetDir * (double)entry.PosDistance;
+    double3 offsetCci = offsetInBodyFrame.Transform(tgtBody2Cci);
     double3 newSrcPosCci = tgtPosCci + offsetCci;
     double3 newSrcVelCci = tgtVelCci;
 
-    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(entry.RotationOffset, tgtBody2Cci);
+    // Apply Euler rotation delta on top of base rotation offset
+    doubleQuat deltaRot = EulerDegreesToQuat(entry.RotPitch, entry.RotYaw, entry.RotRoll);
+    doubleQuat effectiveRot = doubleQuat.Concatenate(deltaRot, entry.RotationOffset);
+    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(effectiveRot, tgtBody2Cci);
+
     doubleQuat cci2Cce = entry.Source.Parent.GetCci2Cce();
     doubleQuat newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
 
@@ -217,6 +232,25 @@ public class Mod
   {
     Console.WriteLine($"garys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
     _welds.Remove(entry);
+  }
+
+  private static doubleQuat EulerDegreesToQuat(float pitchDeg, float yawDeg, float rollDeg)
+  {
+    double pitchRad = pitchDeg * (Math.PI / 180.0);
+    double yawRad   = yawDeg   * (Math.PI / 180.0);
+    double rollRad  = rollDeg  * (Math.PI / 180.0);
+
+    double cp = Math.Cos(pitchRad / 2), sp = Math.Sin(pitchRad / 2);
+    double cy = Math.Cos(yawRad   / 2), sy = Math.Sin(yawRad   / 2);
+    double cr = Math.Cos(rollRad  / 2), sr = Math.Sin(rollRad  / 2);
+
+    // Individual axis quaternions: new doubleQuat(x, y, z, w)
+    var qPitch = new doubleQuat(sp,  0,  0, cp);
+    var qYaw   = new doubleQuat( 0, sy,  0, cy);
+    var qRoll  = new doubleQuat( 0,  0, sr, cr);
+
+    // Compose: Yaw * Pitch * Roll (ZYX intrinsic Euler)
+    return doubleQuat.Concatenate(doubleQuat.Concatenate(qYaw, qPitch), qRoll);
   }
 }
 
