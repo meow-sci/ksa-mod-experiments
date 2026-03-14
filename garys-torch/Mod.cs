@@ -17,23 +17,16 @@ public class Mod
   private bool _windowVisible = false;
 
   private readonly List<WeldEntry> _welds = new List<WeldEntry>();
-  private float _pendingDistance = 10f;
 
   private class WeldEntry
   {
     public Vehicle Source = null!;
     public Vehicle Target = null!;
-    // Base rotation captured at weld time (source orientation relative to target)
+    // Source orientation relative to target, captured at weld time
     public doubleQuat RotationOffset;
-    // Unit vector giving direction of offset in target's body frame (captured at weld time)
-    public double3 NormOffsetDir;
     // Adjustable fields — modified via UI sliders
-    public float PosDistance;   // distance in metres from target
-    public float RotPitch;      // Euler pitch delta in degrees
-    public float RotYaw;        // Euler yaw delta in degrees
-    public float RotRoll;       // Euler roll delta in degrees
-    // Keep DesiredDistance for display in window header only
-    public float DesiredDistance;
+    public float3 Position;   // offset in target's body frame (metres)
+    public float3 Rotation;   // Euler pitch/yaw/roll delta in degrees
   }
 
 
@@ -107,21 +100,19 @@ public class Mod
       for (int i = 0; i < _welds.Count; i++)
       {
         var weld = _welds[i];
-        string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id} ({weld.DesiredDistance:F1} m)";
+        string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id}";
         if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
         {
           ImGui.Indent();
           ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
           ImGui.Separator();
 
-          ImGui.Text("Position");
-          ImGui.SliderFloat($"Distance (m)##{i}", ref weld.PosDistance, 0f, 100f);
+          ImGui.Text("Position (x / y / z, m)");
+          ImGui.DragFloat3($"##pos{i}", ref weld.Position, 0.05f, 0f, 0f);
 
           ImGui.Separator();
-          ImGui.Text("Rotation");
-          ImGui.SliderFloat($"Pitch (deg)##{i}", ref weld.RotPitch, -180f, 180f);
-          ImGui.SliderFloat($"Yaw (deg)##{i}",   ref weld.RotYaw,   -180f, 180f);
-          ImGui.SliderFloat($"Roll (deg)##{i}",  ref weld.RotRoll,  -180f, 180f);
+          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
+          ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.05f, -180f, 180f);
 
           ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
@@ -144,7 +135,6 @@ public class Mod
       {
         ImGui.Text("Add New Weld");
         ImGui.Text($"Source: {controlled.Id}");
-        ImGui.SliderFloat("Distance (m)##pending", ref _pendingDistance, 0f, 100f);
         ImGui.Separator();
         ImGui.Text("Weld to:");
 
@@ -155,7 +145,7 @@ public class Mod
           {
             if (v == controlled) continue;
             if (ImGui.Button($"{v.Id}##weld"))
-              InitiateWeld(controlled, v, _pendingDistance);
+              InitiateWeld(controlled, v);
           }
         }
       }
@@ -163,21 +153,18 @@ public class Mod
     ImGui.End();
   }
 
-  private void InitiateWeld(Vehicle source, Vehicle target, float desiredDistance)
+  private void InitiateWeld(Vehicle source, Vehicle target)
   {
     double3 srcPosCci = source.GetPositionCci();
     double3 tgtPosCci = target.GetPositionCci();
     double3 rawOffsetCci = srcPosCci - tgtPosCci;
 
-    double3 directionCci = rawOffsetCci.Length() > 1e-6
-      ? rawOffsetCci.Normalized()
-      : double3.UnitZ;
-
     doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
 
-    // Store offset direction in target body frame (unit vector)
-    double3 normOffsetDir = (directionCci * (double)desiredDistance).Transform(cci2TgtBody).Normalized();
+    // Capture current offset in target's body frame
+    double3 offsetBody = rawOffsetCci.Transform(cci2TgtBody);
+    float3 initialPosition = new float3((float)offsetBody.X, (float)offsetBody.Y, (float)offsetBody.Z);
 
     doubleQuat srcBody2Cci = source.GetBody2Cci();
     doubleQuat rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
@@ -187,15 +174,11 @@ public class Mod
       Source = source,
       Target = target,
       RotationOffset = rotationOffset,
-      NormOffsetDir = normOffsetDir,
-      PosDistance = desiredDistance,
-      RotPitch = 0f,
-      RotYaw = 0f,
-      RotRoll = 0f,
-      DesiredDistance = desiredDistance,
+      Position = initialPosition,
+      Rotation = new float3(0f, 0f, 0f),
     });
 
-    Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id} at {desiredDistance:F1} m");
+    Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
   }
 
   private bool UpdateWeld(WeldEntry entry)
@@ -210,14 +193,14 @@ public class Mod
     double3 tgtVelCci = entry.Target.GetVelocityCci();
     doubleQuat tgtBody2Cci = entry.Target.GetBody2Cci();
 
-    // Compute positional offset from stored direction + adjustable distance
-    double3 offsetInBodyFrame = entry.NormOffsetDir * (double)entry.PosDistance;
+    // Compute positional offset from the 3D body-frame position
+    double3 offsetInBodyFrame = new double3(entry.Position.X, entry.Position.Y, entry.Position.Z);
     double3 offsetCci = offsetInBodyFrame.Transform(tgtBody2Cci);
     double3 newSrcPosCci = tgtPosCci + offsetCci;
     double3 newSrcVelCci = tgtVelCci;
 
     // Apply Euler rotation delta on top of base rotation offset
-    doubleQuat deltaRot = EulerDegreesToQuat(entry.RotPitch, entry.RotYaw, entry.RotRoll);
+    doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
     doubleQuat effectiveRot = doubleQuat.Concatenate(deltaRot, entry.RotationOffset);
     doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(effectiveRot, tgtBody2Cci);
 

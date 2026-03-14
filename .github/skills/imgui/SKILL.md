@@ -1,5 +1,5 @@
 ---
-name: ImGui
+name: imgui
 description: ImGui is an immediate mode UI library.  KSA uses ImGui for UI
 ---
 
@@ -77,11 +77,15 @@ if (ImGui.IsKeyPressed(ImGuiKey.F11))
 
 ```
 
-### Float value slider
+### Float value drag slider
+
+There are also 2/3/4 value slider widget variants (see later)
+
+Prefer `ImGui.DragFloat` over `ImGui.SliderFloat` since it allows for both dragging and manual input
 
 ```csharp
 // Speed slider arguments are: (label, ref to value, min, max)
-if (ImGui.SliderFloat("Speed (m/s)", ref _actualValue, 1.0f, 250.0f))
+if (ImGui.DragFloat("Speed (m/s)", ref _actualValue, 1.0f, 250.0f))
 {
   // Value updated
 }
@@ -109,4 +113,56 @@ ImGui.Spacing();
 ```csharp
 progress = Math.Clamp(progress, 0.0f, 1.0f);
 ImGui.ProgressBar(progress, new float2(-1, 0));
+```
+
+### Multi-value slider inputs
+
+These are multi-input sliders for float2/3/4 and int2/3/4.  The arguments are (label, ref to value array, min, max) for the drag and slider variants, and (label, ref to value array) for the input variant.  The drag variant allows both dragging and manual input, while the slider variant only allows dragging.
+
+```csharp
+static float vec4f[4] = { 0.10f, 0.20f, 0.30f, 0.44f };
+static int vec4i[4] = { 1, 5, 100, 255 };
+
+ImGui.SeparatorText("2-wide");
+// manual input
+ImGui.InputFloat2("input float2", vec4f);
+// drag OR manual input
+ImGui.DragFloat2("drag float2", vec4f, 0.01f, 0.0f, 1.0f);
+// drag only
+ImGui.SliderFloat2("slider float2", vec4f, 0.0f, 1.0f);
+// manual input
+ImGui.InputInt2("input int2", vec4i);
+// drag OR manual input
+ImGui.DragInt2("drag int2", vec4i, 1, 0, 255);
+// drag only
+ImGui.SliderInt2("slider int2", vec4i, 0, 255);
+
+
+ImGui.SeparatorText("3-wide");
+// manual input
+ImGui.InputFloat3("input float3", vec4f);
+// drag OR manual input
+ImGui.DragFloat3("drag float3", vec4f, 0.01f, 0.0f, 1.0f);
+// drag only
+ImGui.SliderFloat3("slider float3", vec4f, 0.0f, 1.0f);
+// manual input
+ImGui.InputInt3("input int3", vec4i);
+// drag OR manual input
+ImGui.DragInt3("drag int3", vec4i, 1, 0, 255);
+// drag only
+ImGui.SliderInt3("slider int3", vec4i, 0, 255);
+
+ImGui.SeparatorText("4-wide");
+// manual input
+ImGui.InputFloat4("input float4", vec4f);
+// drag OR manual input
+ImGui.DragFloat4("drag float4", vec4f, 0.01f, 0.0f, 1.0f);
+// drag only
+ImGui.SliderFloat4("slider float4", vec4f, 0.0f, 1.0f);
+// manual input
+ImGui.InputInt4("input int4", vec4i);
+// drag OR manual input
+ImGui.DragInt4("drag int4", vec4i, 1, 0, 255);
+// drag only
+ImGui.SliderInt4("slider int4", vec4i, 0, 255);
 ```
