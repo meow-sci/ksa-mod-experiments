@@ -120,7 +120,7 @@ public class Mod
 
           ImGui.Separator();
           ImGui.Text("Scale");
-          if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.01f, 0f, 2f))
+          if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.05f, 0.05f, 20f))
             ApplyVehicleScale(weld.Source, weld.Scale);
 
           ImGui.Separator();
@@ -168,16 +168,8 @@ public class Mod
 
   private void InitiateWeld(Vehicle source, Vehicle target)
   {
-    double3 srcPosCci = source.GetPositionCci();
-    double3 tgtPosCci = target.GetPositionCci();
-    double3 rawOffsetCci = srcPosCci - tgtPosCci;
-
     doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
-
-    // Capture current offset in target's body frame
-    double3 offsetBody = rawOffsetCci.Transform(cci2TgtBody);
-    float3 initialPosition = new float3((float)offsetBody.X, (float)offsetBody.Y, (float)offsetBody.Z);
 
     doubleQuat srcBody2Cci = source.GetBody2Cci();
     doubleQuat rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
@@ -187,7 +179,7 @@ public class Mod
       Source = source,
       Target = target,
       RotationOffset = rotationOffset,
-      Position = initialPosition,
+      Position = new float3(0f, 0f, 0f),
       Rotation = new float3(0f, 0f, 0f),
     });
 
@@ -244,9 +236,72 @@ public class Mod
 
   private static void ApplyVehicleScale(Vehicle vehicle, float factor)
   {
+    string typeName = vehicle.GetType().Name;
+    int partCount = vehicle.Parts.Parts.Length;
+    Console.WriteLine($"garys-torch: ApplyVehicleScale — vehicle type={typeName}, parts={partCount}, factor={factor:F3}");
+
     foreach (var part in vehicle.Parts.Parts)
       SetPartScaleRecursive(part, factor);
-    Console.WriteLine($"garys-torch: applied scale {factor:F3} to {vehicle.Id}");
+
+    // KittenEva renders via CharacterAvatar.Core.Scale — reach it by reflection
+    if (typeName == "KittenEva")
+    {
+      try
+      {
+        var allFlags = System.Reflection.BindingFlags.Instance
+                     | System.Reflection.BindingFlags.Public
+                     | System.Reflection.BindingFlags.NonPublic;
+
+        var renderableField = vehicle.GetType().GetField("_renderable", allFlags);
+        var renderable = renderableField?.GetValue(vehicle);
+        if (renderable == null) throw new Exception("_renderable is null");
+
+        var avatarField = renderable.GetType().GetField("_characterAvatar", allFlags);
+        var avatar = avatarField?.GetValue(renderable);
+        if (avatar == null) throw new Exception("_characterAvatar is null");
+
+        // Core is a public field (not a property)
+        var coreField = avatar.GetType().GetField("Core", allFlags);
+        var core = coreField?.GetValue(avatar);
+        if (core == null) throw new Exception("Core field is null");
+
+        // Core.Scale is a float used in float4x4.CreateScale(Core.Scale)
+        var scaleField = core.GetType().GetField("Scale", allFlags);
+        var scaleProp  = core.GetType().GetProperty("Scale", allFlags);
+
+        if (scaleField != null && scaleField.FieldType == typeof(float))
+        {
+          scaleField.SetValue(core, factor * 0.01f); // Core.Scale 0.01 = 1:1
+          coreField!.SetValue(avatar, core); // write modified struct back (required if Core is a value type)
+          Console.WriteLine($"garys-torch:   KittenEva Core.Scale (field) set to {factor * 0.01f:F4}");
+        }
+        else if (scaleProp != null && scaleProp.PropertyType == typeof(float))
+        {
+          scaleProp.SetValue(core, factor * 0.01f); // Core.Scale 0.01 = 1:1
+          coreField!.SetValue(avatar, core); // write modified struct back (required if Core is a value type)
+          Console.WriteLine($"garys-torch:   KittenEva Core.Scale (prop) set to {factor * 0.01f:F4}");
+        }
+        else
+        {
+          // Scale not found — dump Core members so we can find it
+          Console.WriteLine("garys-torch:   CharacterCore members:");
+          foreach (var f in core.GetType().GetFields(allFlags))
+            Console.WriteLine($"garys-torch:     field {f.Name} : {f.FieldType.Name} = {f.GetValue(core)}");
+          foreach (var p in core.GetType().GetProperties(allFlags))
+          {
+            if (p.GetIndexParameters().Length > 0) continue;
+            try { Console.WriteLine($"garys-torch:     prop  {p.Name} : {p.PropertyType.Name} = {p.GetValue(core)}"); }
+            catch { Console.WriteLine($"garys-torch:     prop  {p.Name} : {p.PropertyType.Name} = <error>"); }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"garys-torch:   KittenEva scale error: {ex.Message}");
+      }
+    }
+
+    Console.WriteLine($"garys-torch: applied part scale {factor:F3} to {vehicle.Id} ({typeName})");
   }
 
   private static void SetPartScaleRecursive(Part part, float factor)
