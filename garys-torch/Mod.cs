@@ -98,7 +98,7 @@ public class Mod
 
   private void RenderWindow()
   {
-    ImGui.SetNextWindowSize(new float2(450, 400), ImGuiCond.FirstUseEver);
+    ImGui.SetNextWindowSize(new float2(450, 500), ImGuiCond.FirstUseEver);
 
     if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
@@ -111,9 +111,19 @@ public class Mod
         if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
         {
           ImGui.Indent();
-          ImGui.Text($"Source:   {weld.Source.Id}");
-          ImGui.Text($"Target:   {weld.Target.Id}");
-          ImGui.Text($"Distance: {weld.DesiredDistance:F1} m");
+          ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
+          ImGui.Separator();
+
+          ImGui.Text("Position");
+          ImGui.SliderFloat($"Distance (m)##{i}", ref weld.PosDistance, 0f, 100f);
+
+          ImGui.Separator();
+          ImGui.Text("Rotation");
+          ImGui.SliderFloat($"Pitch (deg)##{i}", ref weld.RotPitch, -180f, 180f);
+          ImGui.SliderFloat($"Yaw (deg)##{i}",   ref weld.RotYaw,   -180f, 180f);
+          ImGui.SliderFloat($"Roll (deg)##{i}",  ref weld.RotRoll,  -180f, 180f);
+
+          ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
             toRemove = weld;
           ImGui.Unindent();
