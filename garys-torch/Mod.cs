@@ -31,6 +31,7 @@ public class Mod
     public float3 Position;   // offset in target's body frame (metres)
     public float3 Rotation;   // Euler pitch/yaw/roll delta in degrees
     public float Scale = 1f;  // uniform scale factor applied to all source parts
+    public bool LockRotation = true;  // when false, only position is locked; source can rotate freely
   }
 
 
@@ -124,6 +125,11 @@ public class Mod
             ApplyVehicleScale(weld.Source, weld.Scale);
 
           ImGui.Separator();
+          bool lockRot = weld.LockRotation;
+          if (ImGui.Checkbox($"Lock Rotation##{i}", ref lockRot))
+            weld.LockRotation = lockRot;
+
+          ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
             toRemove = weld;
           ImGui.Unindent();
@@ -204,15 +210,26 @@ public class Mod
     double3 newSrcPosCci = tgtPosCci + offsetCci;
     double3 newSrcVelCci = tgtVelCci;
 
-    // Apply Euler rotation delta on top of base rotation offset
-    doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
-    doubleQuat effectiveRot = doubleQuat.Concatenate(deltaRot, entry.RotationOffset);
-    doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(effectiveRot, tgtBody2Cci);
-
     doubleQuat cci2Cce = entry.Source.Parent.GetCci2Cce();
-    doubleQuat newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
+    doubleQuat newSrcBody2Cce;
+    double3 newBodyRates;
 
-    double3 newBodyRates = entry.Target.BodyRates;
+    if (entry.LockRotation)
+    {
+      // Apply Euler rotation delta on top of base rotation offset
+      doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
+      doubleQuat effectiveRot = doubleQuat.Concatenate(deltaRot, entry.RotationOffset);
+      doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(effectiveRot, tgtBody2Cci);
+      newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
+      newBodyRates = entry.Target.BodyRates;
+    }
+    else
+    {
+      // Rotation unlocked — preserve source's current orientation and body rates
+      doubleQuat srcBody2Cci = entry.Source.GetBody2Cci();
+      newSrcBody2Cce = doubleQuat.Concatenate(srcBody2Cci, cci2Cce);
+      newBodyRates = entry.Source.BodyRates;
+    }
 
     Orbit newOrbit = Orbit.CreateFromStateCci(
       entry.Source.Parent,
