@@ -20,6 +20,8 @@ public class Mod
 
   private int _pendingSourceIndex = 0;
   private int _pendingTargetIndex = 0;
+  private float3 _pendingPosition = new float3(0f, 0f, 0f);
+  private float3 _pendingRotation = new float3(0f, 0f, 0f);
   private string? _weldError = null;
 
   private class WeldEntry
@@ -159,6 +161,16 @@ public class Mod
         ImGui.Combo("Source##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
         ImGui.Combo("Target##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
 
+        if (ImGui.CollapsingHeader("Starting Data##startingdata"))
+        {
+          ImGui.Text("Position (x / y / z, m)");
+          ImGui.DragFloat3("##pendingpos", ref _pendingPosition, 0.001f, 0f, 0f);
+          ImGui.Separator();
+          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
+          ImGui.DragFloat3("##pendingrot", ref _pendingRotation, 0.025f, -180f, 180f);
+        }
+        ImGui.Separator();
+
         if (_pendingSourceIndex == _pendingTargetIndex)
         {
           ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), "Source and target must differ.");
@@ -168,14 +180,14 @@ public class Mod
           if (_weldError != null)
             ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
           if (ImGui.Button("Weld##addweld"))
-            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex]);
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation);
         }
       }
     }
     ImGui.End();
   }
 
-  private void InitiateWeld(Vehicle source, Vehicle target)
+  private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation)
   {
     foreach (var weld in _welds)
     {
@@ -199,9 +211,12 @@ public class Mod
       Source = source,
       Target = target,
       RotationOffset = rotationOffset,
-      Position = new float3(0f, 0f, 0f),
-      Rotation = new float3(0f, 0f, 0f),
+      Position = position,
+      Rotation = rotation,
     });
+
+    _pendingPosition = new float3(0f, 0f, 0f);
+    _pendingRotation = new float3(0f, 0f, 0f);
 
     SortWelds();
     Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
