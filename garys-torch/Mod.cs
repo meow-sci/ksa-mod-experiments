@@ -305,15 +305,22 @@ public class Mod
       // Apply Euler rotation relative to target orientation
       doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
       doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(deltaRot, tgtBody2Cci);
-      newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
+      newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce).NormalizedOrZero();
       newBodyRates = entry.Target.BodyRates;
     }
     else
     {
       // Rotation unlocked — preserve source's current orientation and body rates
       doubleQuat srcBody2Cci = entry.Source.GetBody2Cci();
-      newSrcBody2Cce = doubleQuat.Concatenate(srcBody2Cci, cci2Cce);
+      newSrcBody2Cce = doubleQuat.Concatenate(srcBody2Cci, cci2Cce).NormalizedOrZero();
       newBodyRates = entry.Source.BodyRates;
+
+      // Guard against NaN body rates that can feed back into physics
+      if (double.IsNaN(newBodyRates.X) || double.IsNaN(newBodyRates.Y) || double.IsNaN(newBodyRates.Z))
+      {
+        Console.WriteLine("garys-torch: NaN detected in body rates, resetting to zero");
+        newBodyRates = new double3(0, 0, 0);
+      }
     }
 
     Orbit newOrbit = Orbit.CreateFromStateCci(
