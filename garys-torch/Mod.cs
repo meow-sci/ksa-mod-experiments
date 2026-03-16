@@ -163,9 +163,9 @@ public class Mod
         {
           if (_weldError != null)
             ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
-          if (ImGui.Button("Weld##addweld"))
+          if (ImGui.Button("Create Weld##addweld"))
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
-          ImGui.SameLine();
+          ImGui.SameLine(0, 20);
           ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.HotPink));
           ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(1f, 1f, 1f, 1f)));
           if (ImGui.Button("Ridin' Dirty 1##rd1"))
