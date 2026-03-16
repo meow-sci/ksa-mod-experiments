@@ -30,11 +30,9 @@ public class Mod
   {
     public Vehicle Source = null!;
     public Vehicle Target = null!;
-    // Source orientation relative to target, captured at weld time
-    public doubleQuat RotationOffset;
     // Adjustable fields — modified via UI sliders
     public float3 Position;   // offset in target's body frame (metres)
-    public float3 Rotation;   // Euler pitch/yaw/roll delta in degrees
+    public float3 Rotation;   // Euler pitch/yaw/roll relative to target orientation (degrees)
     public float Scale = 1f;  // uniform scale factor applied to all source parts
     public bool LockRotation = true;  // when false, only position is locked; source can rotate freely
   }
@@ -167,6 +165,24 @@ public class Mod
             ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
           if (ImGui.Button("Weld##addweld"))
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
+          ImGui.SameLine();
+          ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.HotPink));
+          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(1f, 1f, 1f, 1f)));
+          if (ImGui.Button("Ridin' Dirty 1##rd1"))
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-0.375f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
+          ImGui.PopStyleColor(2);
+          ImGui.SameLine();
+          ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.CanaryYellow));
+          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+          if (ImGui.Button("Ridin' Dirty 2##rd2"))
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-1.287f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
+          ImGui.PopStyleColor(2);
+          ImGui.SameLine();
+          ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.BrightLightBlue));
+          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+          if (ImGui.Button("Ridin' Dirty 3##rd3"))
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-2.215f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
+          ImGui.PopStyleColor(2);
         }
       }
 
@@ -240,17 +256,10 @@ public class Mod
 
     _weldError = null;
 
-    doubleQuat tgtBody2Cci = target.GetBody2Cci();
-    doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
-
-    doubleQuat srcBody2Cci = source.GetBody2Cci();
-    doubleQuat rotationOffset = doubleQuat.Concatenate(srcBody2Cci, cci2TgtBody);
-
     _welds.Add(new WeldEntry
     {
       Source = source,
       Target = target,
-      RotationOffset = rotationOffset,
       Position = position,
       Rotation = rotation,
       Scale = scale,
@@ -293,10 +302,9 @@ public class Mod
 
     if (entry.LockRotation)
     {
-      // Apply Euler rotation delta on top of base rotation offset
+      // Apply Euler rotation relative to target orientation
       doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
-      doubleQuat effectiveRot = doubleQuat.Concatenate(deltaRot, entry.RotationOffset);
-      doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(effectiveRot, tgtBody2Cci);
+      doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(deltaRot, tgtBody2Cci);
       newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce);
       newBodyRates = entry.Target.BodyRates;
     }
