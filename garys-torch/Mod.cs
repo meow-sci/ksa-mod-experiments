@@ -20,6 +20,7 @@ public class Mod
 
   private int _pendingSourceIndex = 0;
   private int _pendingTargetIndex = 0;
+  private string? _weldError = null;
 
   private class WeldEntry
   {
@@ -164,6 +165,8 @@ public class Mod
         }
         else
         {
+          if (_weldError != null)
+            ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
           if (ImGui.Button("Weld##addweld"))
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex]);
         }
@@ -174,6 +177,17 @@ public class Mod
 
   private void InitiateWeld(Vehicle source, Vehicle target)
   {
+    foreach (var weld in _welds)
+    {
+      if (weld.Source == source)
+      {
+        _weldError = $"Vehicle {source.Id} is already welded as a source.";
+        return;
+      }
+    }
+
+    _weldError = null;
+
     doubleQuat tgtBody2Cci = target.GetBody2Cci();
     doubleQuat cci2TgtBody = tgtBody2Cci.Inverse();
 
@@ -189,6 +203,7 @@ public class Mod
       Rotation = new float3(0f, 0f, 0f),
     });
 
+    SortWelds();
     Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
   }
 
@@ -301,6 +316,59 @@ public class Mod
     part.Scale = new double3(factor, factor, factor);
     foreach (var sub in part.SubParts)
       SetPartScaleRecursive(sub, factor);
+  }
+
+  private void SortWelds()
+  {
+    var inDegree = new Dictionary<WeldEntry, int>();
+    var adj = new Dictionary<WeldEntry, List<WeldEntry>>();
+
+    foreach (var w in _welds)
+    {
+      inDegree[w] = 0;
+      adj[w] = new List<WeldEntry>();
+    }
+
+    foreach (var x in _welds)
+    {
+      foreach (var y in _welds)
+      {
+        if (x.Source == y.Target)
+        {
+          adj[x].Add(y);
+          inDegree[y]++;
+        }
+      }
+    }
+
+    var queue = new Queue<WeldEntry>();
+    foreach (var w in _welds)
+      if (inDegree[w] == 0)
+        queue.Enqueue(w);
+
+    var sorted = new List<WeldEntry>();
+    while (queue.Count > 0)
+    {
+      var current = queue.Dequeue();
+      sorted.Add(current);
+      foreach (var neighbor in adj[current])
+      {
+        inDegree[neighbor]--;
+        if (inDegree[neighbor] == 0)
+          queue.Enqueue(neighbor);
+      }
+    }
+
+    if (sorted.Count == _welds.Count)
+    {
+      _welds.Clear();
+      foreach (var w in sorted)
+        _welds.Add(w);
+    }
+    else
+    {
+      Console.WriteLine("garys-torch: SortWelds: cycle detected, leaving order as-is.");
+    }
   }
 
   private static doubleQuat EulerDegreesToQuat(float pitchDeg, float yawDeg, float rollDeg)
