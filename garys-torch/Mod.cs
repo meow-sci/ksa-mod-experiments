@@ -109,6 +109,7 @@ public class Mod
       ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Create Weld");
       ImGui.Separator();
       ImGui.Indent();
+      ImGui.Indent();
 
       var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
       if (vehicles == null || vehicles.Count == 0)
@@ -125,28 +126,29 @@ public class Mod
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, vehicles.Count - 1);
 
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
         ImGui.Combo("##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
-        ImGui.PopStyleColor(2);
+        ImGui.PopStyleColor();
         ImGui.SameLine();
-        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Source");
+        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Source");
 
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
         ImGui.Combo("##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
-        ImGui.PopStyleColor(2);
+        ImGui.PopStyleColor();
         ImGui.SameLine();
-        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Target");
+        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Target");
 
         if (ImGui.CollapsingHeader("Starting Data##startingdata"))
         {
           ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "Position (x / y / z, m)");
+          ImGui.SetNextItemWidth(-1f);
           ImGui.DragFloat3("##pendingpos", ref _pendingPosition, 0.001f, 0f, 0f);
           ImGui.Separator();
           ImGui.TextColored((float4)KSAColor.Xkcd.GreenApple, "Rotation (pitch / yaw / roll, deg)");
+          ImGui.SetNextItemWidth(-1f);
           ImGui.DragFloat3("##pendingrot", ref _pendingRotation, 0.025f, -180f, 180f);
           ImGui.Separator();
           ImGui.TextColored((float4)KSAColor.Xkcd.OrangishRed, "Scale");
+          ImGui.SetNextItemWidth(-1f);
           ImGui.DragFloat("##pendingscale", ref _pendingScale, 0.001f, 0.05f, 20f);
           ImGui.Separator();
           ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.BrightMagenta));
@@ -169,6 +171,7 @@ public class Mod
       }
 
       ImGui.Unindent();
+      ImGui.Unindent();
 
       // --- Weld List ---
       ImGui.Spacing();
@@ -185,18 +188,22 @@ public class Mod
         if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
         {
           ImGui.Indent();
+          ImGui.Indent();
           ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
           ImGui.Separator();
 
           ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "Position (x / y / z, m)");
+          ImGui.SetNextItemWidth(-1f);
           ImGui.DragFloat3($"##pos{i}", ref weld.Position, 0.001f, 0f, 0f);
 
           ImGui.Separator();
           ImGui.TextColored((float4)KSAColor.Xkcd.GreenApple, "Rotation (pitch / yaw / roll, deg)");
+          ImGui.SetNextItemWidth(-1f);
           ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.025f, -180f, 180f);
 
           ImGui.Separator();
           ImGui.TextColored((float4)KSAColor.Xkcd.OrangishRed, "Scale");
+          ImGui.SetNextItemWidth(-1f);
           if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.001f, 0.05f, 20f))
             ApplyVehicleScale(weld.Source, weld.Scale);
 
@@ -210,6 +217,7 @@ public class Mod
           ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
             toRemove = weld;
+          ImGui.Unindent();
           ImGui.Unindent();
         }
       }
