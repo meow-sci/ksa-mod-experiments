@@ -140,16 +140,18 @@ public class Mod
 
         if (ImGui.CollapsingHeader("Starting Data##startingdata"))
         {
-          ImGui.Text("Position (x / y / z, m)");
+          ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "Position (x / y / z, m)");
           ImGui.DragFloat3("##pendingpos", ref _pendingPosition, 0.001f, 0f, 0f);
           ImGui.Separator();
-          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
+          ImGui.TextColored((float4)KSAColor.Xkcd.GreenApple, "Rotation (pitch / yaw / roll, deg)");
           ImGui.DragFloat3("##pendingrot", ref _pendingRotation, 0.025f, -180f, 180f);
           ImGui.Separator();
-          ImGui.Text("Scale");
+          ImGui.TextColored((float4)KSAColor.Xkcd.OrangishRed, "Scale");
           ImGui.DragFloat("##pendingscale", ref _pendingScale, 0.001f, 0.05f, 20f);
           ImGui.Separator();
+          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.BrightMagenta));
           ImGui.Checkbox("Lock Rotation##pendinglockrot", ref _pendingLockRotation);
+          ImGui.PopStyleColor();
         }
         ImGui.Separator();
 
@@ -186,22 +188,24 @@ public class Mod
           ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
           ImGui.Separator();
 
-          ImGui.Text("Position (x / y / z, m)");
+          ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "Position (x / y / z, m)");
           ImGui.DragFloat3($"##pos{i}", ref weld.Position, 0.001f, 0f, 0f);
 
           ImGui.Separator();
-          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
+          ImGui.TextColored((float4)KSAColor.Xkcd.GreenApple, "Rotation (pitch / yaw / roll, deg)");
           ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.025f, -180f, 180f);
 
           ImGui.Separator();
-          ImGui.Text("Scale");
+          ImGui.TextColored((float4)KSAColor.Xkcd.OrangishRed, "Scale");
           if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.001f, 0.05f, 20f))
             ApplyVehicleScale(weld.Source, weld.Scale);
 
           ImGui.Separator();
           bool lockRot = weld.LockRotation;
+          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.BrightMagenta));
           if (ImGui.Checkbox($"Lock Rotation##{i}", ref lockRot))
             weld.LockRotation = lockRot;
+          ImGui.PopStyleColor();
 
           ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
