@@ -105,47 +105,11 @@ public class Mod
 
     if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
-      // Active welds — one collapsible section per weld
-      WeldEntry? toRemove = null;
-      for (int i = 0; i < _welds.Count; i++)
-      {
-        var weld = _welds[i];
-        string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id}";
-        if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
-        {
-          ImGui.Indent();
-          ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
-          ImGui.Separator();
-
-          ImGui.Text("Position (x / y / z, m)");
-          ImGui.DragFloat3($"##pos{i}", ref weld.Position, 0.001f, 0f, 0f);
-
-          ImGui.Separator();
-          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
-          ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.025f, -180f, 180f);
-
-          ImGui.Separator();
-          ImGui.Text("Scale");
-          if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.001f, 0.05f, 20f))
-            ApplyVehicleScale(weld.Source, weld.Scale);
-
-          ImGui.Separator();
-          bool lockRot = weld.LockRotation;
-          if (ImGui.Checkbox($"Lock Rotation##{i}", ref lockRot))
-            weld.LockRotation = lockRot;
-
-          ImGui.Separator();
-          if (ImGui.Button($"Unweld##{i}"))
-            toRemove = weld;
-          ImGui.Unindent();
-        }
-      }
-      if (toRemove != null)
-        RemoveWeld(toRemove);
-
+      // --- Create Weld ---
+      ImGui.Text("Create Weld");
       ImGui.Separator();
+      ImGui.Indent();
 
-      // Add New Weld section
       var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
       if (vehicles == null || vehicles.Count == 0)
       {
@@ -190,6 +154,52 @@ public class Mod
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
         }
       }
+
+      ImGui.Unindent();
+
+      // --- Weld List ---
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.Text("Active Welds");
+      ImGui.Separator();
+
+      WeldEntry? toRemove = null;
+      for (int i = 0; i < _welds.Count; i++)
+      {
+        ImGui.Spacing();
+        var weld = _welds[i];
+        string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id}";
+        if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
+        {
+          ImGui.Indent();
+          ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
+          ImGui.Separator();
+
+          ImGui.Text("Position (x / y / z, m)");
+          ImGui.DragFloat3($"##pos{i}", ref weld.Position, 0.001f, 0f, 0f);
+
+          ImGui.Separator();
+          ImGui.Text("Rotation (pitch / yaw / roll, deg)");
+          ImGui.DragFloat3($"##rot{i}", ref weld.Rotation, 0.025f, -180f, 180f);
+
+          ImGui.Separator();
+          ImGui.Text("Scale");
+          if (ImGui.DragFloat($"##scale{i}", ref weld.Scale, 0.001f, 0.05f, 20f))
+            ApplyVehicleScale(weld.Source, weld.Scale);
+
+          ImGui.Separator();
+          bool lockRot = weld.LockRotation;
+          if (ImGui.Checkbox($"Lock Rotation##{i}", ref lockRot))
+            weld.LockRotation = lockRot;
+
+          ImGui.Separator();
+          if (ImGui.Button($"Unweld##{i}"))
+            toRemove = weld;
+          ImGui.Unindent();
+        }
+      }
+      if (toRemove != null)
+        RemoveWeld(toRemove);
     }
     ImGui.End();
   }
