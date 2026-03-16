@@ -106,7 +106,7 @@ public class Mod
     if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
     {
       // --- Create Weld ---
-      ImGui.Text("Create Weld");
+      ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Create Weld");
       ImGui.Separator();
       ImGui.Indent();
 
@@ -124,8 +124,11 @@ public class Mod
         _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, vehicles.Count - 1);
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, vehicles.Count - 1);
 
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.Custard));
         ImGui.Combo("Source##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
         ImGui.Combo("Target##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
+        ImGui.PopStyleColor(2);
 
         if (ImGui.CollapsingHeader("Starting Data##startingdata"))
         {
@@ -160,7 +163,7 @@ public class Mod
       // --- Weld List ---
       ImGui.Spacing();
       ImGui.Separator();
-      ImGui.Text("Active Welds");
+      ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Active Welds");
       ImGui.Separator();
 
       WeldEntry? toRemove = null;
