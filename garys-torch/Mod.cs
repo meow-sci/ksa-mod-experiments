@@ -22,6 +22,8 @@ public class Mod
   private int _pendingTargetIndex = 0;
   private float3 _pendingPosition = new float3(0f, 0f, 0f);
   private float3 _pendingRotation = new float3(0f, 0f, 0f);
+  private float _pendingScale = 1f;
+  private bool _pendingLockRotation = true;
   private string? _weldError = null;
 
   private class WeldEntry
@@ -168,6 +170,11 @@ public class Mod
           ImGui.Separator();
           ImGui.Text("Rotation (pitch / yaw / roll, deg)");
           ImGui.DragFloat3("##pendingrot", ref _pendingRotation, 0.025f, -180f, 180f);
+          ImGui.Separator();
+          ImGui.Text("Scale");
+          ImGui.DragFloat("##pendingscale", ref _pendingScale, 0.001f, 0.05f, 20f);
+          ImGui.Separator();
+          ImGui.Checkbox("Lock Rotation##pendinglockrot", ref _pendingLockRotation);
         }
         ImGui.Separator();
 
@@ -180,14 +187,14 @@ public class Mod
           if (_weldError != null)
             ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
           if (ImGui.Button("Weld##addweld"))
-            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation);
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
         }
       }
     }
     ImGui.End();
   }
 
-  private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation)
+  private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation, float scale, bool lockRotation)
   {
     foreach (var weld in _welds)
     {
@@ -213,10 +220,17 @@ public class Mod
       RotationOffset = rotationOffset,
       Position = position,
       Rotation = rotation,
+      Scale = scale,
+      LockRotation = lockRotation,
     });
+
+    if (scale != 1f)
+      ApplyVehicleScale(source, scale);
 
     _pendingPosition = new float3(0f, 0f, 0f);
     _pendingRotation = new float3(0f, 0f, 0f);
+    _pendingScale = 1f;
+    _pendingLockRotation = true;
 
     SortWelds();
     Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
