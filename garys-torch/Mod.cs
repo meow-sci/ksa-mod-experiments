@@ -125,10 +125,18 @@ public class Mod
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, vehicles.Count - 1);
 
         ImGui.PushStyleColor(ImGuiCol.FrameBg, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.Custard));
-        ImGui.Combo("Source##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
-        ImGui.Combo("Target##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+        ImGui.Combo("##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
         ImGui.PopStyleColor(2);
+        ImGui.SameLine();
+        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Source");
+
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+        ImGui.Combo("##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
+        ImGui.PopStyleColor(2);
+        ImGui.SameLine();
+        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Target");
 
         if (ImGui.CollapsingHeader("Starting Data##startingdata"))
         {
