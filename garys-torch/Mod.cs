@@ -124,15 +124,15 @@ public class Mod
         _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, vehicles.Count - 1);
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, vehicles.Count - 1);
 
-        ImGui.PushStyleColor(ImGuiCol.FrameBg, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
         ImGui.Combo("##src", ref _pendingSourceIndex, vehicleIds, vehicleIds.Length);
         ImGui.PopStyleColor(2);
         ImGui.SameLine();
         ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Source");
 
-        ImGui.PushStyleColor(ImGuiCol.FrameBg, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
         ImGui.Combo("##tgt", ref _pendingTargetIndex, vehicleIds, vehicleIds.Length);
         ImGui.PopStyleColor(2);
         ImGui.SameLine();
