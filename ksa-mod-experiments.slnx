@@ -12,5 +12,7 @@
     <Project Path="average-twr/average-twr.csproj" />
     <Project Path="geeforce/geeforce.csproj" />
     <Project Path="garys-torch/garys-torch.csproj" />
+    <Project Path="zippo/zippo.csproj" />
+    
     
 </Solution>
