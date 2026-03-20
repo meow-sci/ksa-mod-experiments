@@ -38,6 +38,19 @@ When you need to understand game types, APIs, or behavior:
 - **Prefer the decompiled sources** in `decomp/ksa/` — they contain all available information and are much easier to read
 - Do **not** attempt to inspect DLL files directly using shell commands or reflection tooling — use the decompiled sources instead
 
+> **Important:** The decompiled sources may be outdated. The running binary can have a completely different internal structure — field names that appear in decompiled code may not exist at runtime. When in doubt, use the runtime reflection dump strategy to discover the real structure. See [debug.md](debug.md).
+
+## Runtime Debugging
+
+When decompiled source field names don't match the actual binary (reflection returns `null`, counts show `-1`, etc.):
+
+- Use an ImGui **Dbg button** to trigger a reflection dump at runtime
+- Walk the object graph, printing `GetType().FullName` and all fields via `BindingFlags.Public | NonPublic | Instance | DeclaredOnly`
+- Pay special attention to `List<T>` / `IList` fields — the game may store typed components in a generic `Components` list rather than named fields
+- Save the console output to a file (e.g. `<mod>/DEBUG`) for offline analysis
+
+See [debug.md](debug.md) for complete helper code, the `DumpPartsWithComponents` pattern, and a worked example of how `LightModule+TemplateData` was discovered inside `PartTemplate.Components`.
+
 # Universe & Vehicles
 
 ```csharp
