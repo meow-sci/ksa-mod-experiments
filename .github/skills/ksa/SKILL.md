@@ -5,6 +5,8 @@ description: details about the ksa game code and behavior
 
 # KSA Mod Structure
 
+**StarMap is a mod loader only.** It is used to run the game and link mods in at runtime. The only interaction with StarMap is through the C# lifecycle attribute annotations on the mod class — there is no other StarMap API to use.
+
 Mods are C# 10 classes decorated with StarMap attributes:
 
 ```csharp
@@ -24,9 +26,17 @@ public class Mod
 }
 ```
 
+These attributes are the **complete** StarMap interface. Do not attempt to call other StarMap APIs or use StarMap for anything beyond these lifecycle hooks.
+
 - HarmonyLib patching is done in `Patcher.cs`; call `Patcher.Patch()` in `OnFullyLoaded` and `Patcher.Unload()` in `Unload`
 - Use `Console.WriteLine` for logging
 - Guard all lifecycle methods with try/catch and log errors
+
+## Researching KSA Game APIs
+
+When you need to understand game types, APIs, or behavior:
+- **Prefer the decompiled sources** in `decomp/ksa/` — they contain all available information and are much easier to read
+- Do **not** attempt to inspect DLL files directly using shell commands or reflection tooling — use the decompiled sources instead
 
 # Universe & Vehicles
 
