@@ -1,10 +1,3 @@
-# bugs
-
-[16753] [imgui-error] (current settings: Assert=1, Log=1, Tooltip=1)
-[16753] [imgui-error] In window 'G-Force Monitor (5m - LIVE)###geeforce': Calling PopStyleColor() too many times!
-[17271] [imgui-error] In window 'G-Force Monitor (5m - LIVE)###geeforce': Calling PopStyleColor() too many times!
-[17310] [imgui-error] In window 'G-Force Monitor (5m - LIVE)###geeforce': Calling PopStyleColor() too many times!
-
 # active harmony patch consolidation
 
 - look into "active" harmony patches and see if we can refactor them into data structures which contain a lambda to run and contain a description (short and long maybe?)

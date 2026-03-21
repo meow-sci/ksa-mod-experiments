@@ -470,7 +470,8 @@ public static class GForceUI
         for (int i = 0; i < HistoryOptions.Length; i++)
         {
             ImGui.SameLine(0, 3);
-            if (_selectedHistoryIdx == i)
+            bool isSelected = _selectedHistoryIdx == i;
+            if (isSelected)
                 ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(ColorGreen));
 
             if (ImGui.Button(HistoryLabels[i] + "###hist" + i))
@@ -479,7 +480,7 @@ public static class GForceUI
                 int newCapacity = GetRequiredCapacity(sampleIntervalSec);
                 recorder.Resize(newCapacity);
             }
-            if (_selectedHistoryIdx == i)
+            if (isSelected)
                 ImGui.PopStyleColor(1);
         }
 
