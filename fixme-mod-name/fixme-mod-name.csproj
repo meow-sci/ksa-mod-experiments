@@ -9,7 +9,7 @@
     <!-- <ImplicitUsings>disable</ImplicitUsings> -->
     <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
     <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
-    <DistDir>C:\Program Files\Kitten Space Agency\Content\fixme-mod-name\</DistDir>
+    <DistDir>$(SelectedDistModDir)fixme-mod-name\</DistDir>
   </PropertyGroup>
 
   <ItemGroup>

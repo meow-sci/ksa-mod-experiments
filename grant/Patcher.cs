@@ -3,12 +3,12 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod;
+namespace MeowSci.Grant;
 
 [HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("grant");
+    private static Harmony? _harmony = new Harmony("MeowSci.Grant");
 
     public static void Patch()
     {

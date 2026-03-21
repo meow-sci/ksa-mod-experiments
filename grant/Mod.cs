@@ -4,7 +4,7 @@ using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
 
-namespace mod;
+namespace MeowSci.Grant;
 
 [StarMapMod]
 public class Mod

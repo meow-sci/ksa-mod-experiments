@@ -2,3 +2,6 @@ name = "fixme-mod-name"
 description = "fixme-mod-name"
 version = "0.1.0"
 author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.FixmeModName"

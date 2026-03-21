@@ -7,6 +7,12 @@ have presets to do body, torso, head and eyes?
 
 needs some smarts to intelligently default to the bounding edges of the bodies since the distance scales are big. and the drag float sliders probably need to have scaling options (e.g. change between a 10x, 100x, 1000x, 10,000x multiplier when dragged)
 
+
+# glass
+
+
+
+ 
 # action hero
 
 this mod will reference many other mod libraries to reuse their functionality
@@ -22,3 +28,7 @@ some ideas:
 - the Trick creation UI's should be their own ephemeral ImGui Windows that get created.  An example flow would be the main ActionHero Window would have a Combobox with all known trick types, user selects one, then presses a "Create" button which launches the trick-specific Window to configure the given trick. 
 - When a trick is created, it should be added to an in-memory library of tricks. Tricks must have a unique name, when saving a trick if there is name collision display an error message next to the save button about the name collision and maintain all the UI state so the end user can simply fix the name and hit save again
 - Tricks should be assignable to hotkeys.  We need a Hotkey Assignments feature that pops up a Window to manage hotkey assignments.  When a hotkey assignment is active the mod needs to have code in its game loop code to detect keypresses using the imgui skill for reference how to do that
+
+
+
+dffghnjn

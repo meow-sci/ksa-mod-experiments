@@ -10,7 +10,7 @@
     <!-- <ImplicitUsings>disable</ImplicitUsings> -->
     <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
     <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
-    <DistDir>C:\Program Files\Kitten Space Agency\Content\zippo\</DistDir>
+    <DistDir>$(SelectedDistModDir)zippo\</DistDir>
   </PropertyGroup>  
   
   <ItemGroup>
