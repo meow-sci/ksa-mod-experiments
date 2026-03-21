@@ -3,8 +3,10 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using MeowSci.AverageTwrLib;
+using MeowSci.KsaAbstractions;
 
-namespace mod;
+namespace MeowSci.AverageTwr;
 
 [StarMapMod]
 public class Mod
@@ -15,20 +17,7 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
-  // shared sample count
-  private int _sampleCount = 0;
-
-  // TWR accumulators
-  private double _twrSum = 0.0;
-  private double _twrSumSq = 0.0;
-  private double _twrSumInv = 0.0;
-  private double _twrSumInvSqrt = 0.0;
-
-  // maxAccelMps2 accumulators
-  private double _accelSum = 0.0;
-  private double _accelSumSq = 0.0;
-  private double _accelSumInv = 0.0;
-  private double _accelSumInvSqrt = 0.0;
+  private readonly TwrSampleAccumulator _accumulator = new();
 
   private double _timeSinceLastSample = 0.0;
   private bool _isCollecting = false;
@@ -62,32 +51,12 @@ public class Mod
       if (_timeSinceLastSample >= SampleInterval)
       {
         _timeSinceLastSample = 0.0;
-        var vehicle = Program.ControlledVehicle;
+        var vehicle = VehicleProvider.GetControlledVehicle();
         if (vehicle != null)
         {
-          var twr = vehicle.NavBallData.ThrustWeightRatio;
-          _twrSum += twr;
-          _twrSumSq += twr * twr;
-          if (twr > 1e-30)
-          {
-            _twrSumInv += 1.0 / twr;
-            _twrSumInvSqrt += 1.0 / Math.Sqrt(twr);
-          }
-
-          var fc = vehicle.FlightComputer;
-          double gSurface = 6.6743e-11 * vehicle.Parent.Mass / (vehicle.Parent.MeanRadius * vehicle.Parent.MeanRadius);
-          double maxThrustN = (double)fc.VehicleConfig.TotalEngineVacuumThrust;
-          double totalMass = (double)vehicle.TotalMass;
-          double accel = totalMass > 0.0 ? maxThrustN / totalMass : 0.0;
-          _accelSum += accel;
-          _accelSumSq += accel * accel;
-          if (accel > 1e-30)
-          {
-            _accelSumInv += 1.0 / accel;
-            _accelSumInvSqrt += 1.0 / Math.Sqrt(accel);
-          }
-
-          _sampleCount++;
+          var twr = TwrDataReader.ReadTwr(vehicle);
+          var accel = TwrDataReader.ComputeMaxAcceleration(vehicle);
+          _accumulator.AddSample(twr, accel);
         }
       }
     }
@@ -132,23 +101,21 @@ public class Mod
 
     if (ImGui.Begin("Average TWR / Accel", ref _windowVisible))
     {
-      int n = _sampleCount;
+      int n = _accumulator.SampleCount;
       ImGui.Text($"Samples: {n}");
       ImGui.Separator();
 
       if (n > 0)
       {
-        double twrMean   = _twrSum / n;
-        double twrVar    = _twrSumSq / n - twrMean * twrMean;
-        double twrStdDev = twrVar > 0.0 ? Math.Sqrt(twrVar) : 0.0;
-        double twrHarmonic   = _twrSumInv > 0.0 ? n / _twrSumInv : 0.0;
-        double twrBrachi     = _twrSumInvSqrt > 0.0 ? Math.Pow(n / _twrSumInvSqrt, 2.0) : 0.0;
+        double twrMean     = TwrStatistics.ComputeMean(_accumulator.TwrSum, n);
+        double twrStdDev   = TwrStatistics.ComputeStdDev(_accumulator.TwrSum, _accumulator.TwrSumSq, n);
+        double twrHarmonic = TwrStatistics.ComputeHarmonicMean(_accumulator.TwrSumInv, n);
+        double twrBrachi   = TwrStatistics.ComputeBrachiMean(_accumulator.TwrSumInvSqrt, n);
 
-        double accelMean   = _accelSum / n;
-        double accelVar    = _accelSumSq / n - accelMean * accelMean;
-        double accelStdDev = accelVar > 0.0 ? Math.Sqrt(accelVar) : 0.0;
-        double accelHarmonic = _accelSumInv > 0.0 ? n / _accelSumInv : 0.0;
-        double accelBrachi   = _accelSumInvSqrt > 0.0 ? Math.Pow(n / _accelSumInvSqrt, 2.0) : 0.0;
+        double accelMean     = TwrStatistics.ComputeMean(_accumulator.AccelSum, n);
+        double accelStdDev   = TwrStatistics.ComputeStdDev(_accumulator.AccelSum, _accumulator.AccelSumSq, n);
+        double accelHarmonic = TwrStatistics.ComputeHarmonicMean(_accumulator.AccelSumInv, n);
+        double accelBrachi   = TwrStatistics.ComputeBrachiMean(_accumulator.AccelSumInvSqrt, n);
 
         ImGui.Text("── TWR ──────────────────────────────");
         ImGui.Text($"  Mean:          {twrMean:F4}");
@@ -175,17 +142,7 @@ public class Mod
       ImGui.SameLine();
 
       if (ImGui.Button("Reset"))
-      {
-        _twrSum = 0.0;
-        _twrSumSq = 0.0;
-        _twrSumInv = 0.0;
-        _twrSumInvSqrt = 0.0;
-        _accelSum = 0.0;
-        _accelSumSq = 0.0;
-        _accelSumInv = 0.0;
-        _accelSumInvSqrt = 0.0;
-        _sampleCount = 0;
-      }
+        _accumulator.Reset();
     }
     ImGui.End();
   }
