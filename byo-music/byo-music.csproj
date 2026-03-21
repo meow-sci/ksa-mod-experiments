@@ -3,14 +3,20 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <!-- <TargetFramework>net10.0</TargetFramework> -->
-    <AssemblyName>byo-music</AssemblyName>
+    <AssemblyName>MeowSci.ByoMusic</AssemblyName>
+    <RootNamespace>MeowSci.ByoMusic</RootNamespace>
     <!-- <LangVersion>13</LangVersion> -->
     <Nullable>enable</Nullable>
     <!-- <ImplicitUsings>disable</ImplicitUsings> -->
     <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
     <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
-    <DistDir>C:\Program Files\Kitten Space Agency\Content\byo-music\</DistDir>
+    <DistDir>$(SelectedDistModDir)byo-music\</DistDir>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\byo-music.lib\byo-music.lib.csproj" />
+    <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
@@ -77,6 +83,13 @@
       <MusicFiles Include="$(TargetDir)Music\**\*.mp3" />
     </ItemGroup>
     <Copy SourceFiles="@(MusicFiles)" DestinationFolder="$(DistDir)Music\%(RecursiveDir)" />
+
+    <ItemGroup>
+      <MeowSciAssemblies Include="$(TargetDir)MeowSci.*.dll;$(TargetDir)MeowSci.*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MeowSciAssemblies)"
+          DestinationFolder="$(DistDir)"
+          Condition="'@(MeowSciAssemblies)' != ''" />
 
   </Target>
 

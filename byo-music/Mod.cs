@@ -3,8 +3,9 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using ByoMusicPlayer = MeowSci.ByoMusicLib.MusicPlayer;
 
-namespace mod;
+namespace MeowSci.ByoMusic;
 
 [StarMapMod]
 public class Mod
@@ -95,11 +96,10 @@ public class Mod
 
           // sabotageMulti.Play();
 
-          var sabotageMusic = ModLibrary.Get<MusicPlayList>("SabotageMusic");
+          var sabotageMusic = ByoMusicPlayer.GetPlaylist("SabotageMusic");
           // Console.WriteLine($"sabotageMusic: {sabotageMusic}");
-          ChannelWrapper? iChannel = null;
-          // sabotageMusic.Play();
-          sabotageMusic.PlayMusic(out iChannel);
+          if (sabotageMusic != null)
+            ByoMusicPlayer.Play(sabotageMusic);
 
           // KSA.GameAudio.PlaySound();
         }
