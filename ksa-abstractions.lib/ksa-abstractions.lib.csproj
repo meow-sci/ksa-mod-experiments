@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.KsaAbstractions</AssemblyName>
+    <RootNamespace>MeowSci.KsaAbstractions</RootNamespace>
+    <Description>KSA Abstractions Library</Description>
+    <PackageId>MeowSci.KsaAbstractions</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>

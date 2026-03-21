@@ -13,6 +13,7 @@
   </PropertyGroup>  
   
   <ItemGroup>
+    <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
     <ProjectReference Include="..\example-lib-project\example-lib-project.csproj" />
   </ItemGroup>
 
