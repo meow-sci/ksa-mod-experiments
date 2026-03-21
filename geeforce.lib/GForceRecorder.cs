@@ -2,7 +2,7 @@ using System;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod;
+namespace MeowSci.GeeForceLib;
 
 public struct GForceSample
 {

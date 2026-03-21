@@ -1,9 +1,8 @@
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using KSA;
 
-namespace mod;
+namespace MeowSci.GeeForceLib;
 
 public static class GForceUI
 {

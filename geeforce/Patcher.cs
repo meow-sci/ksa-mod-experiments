@@ -3,7 +3,7 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod;
+namespace MeowSci.GeeForce;
 
 [HarmonyPatch]
 internal static class Patcher

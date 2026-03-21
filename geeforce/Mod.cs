@@ -3,8 +3,10 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using MeowSci.GeeForceLib;
+using MeowSci.KsaAbstractions;
 
-namespace mod;
+namespace MeowSci.GeeForce;
 
 [StarMapMod]
 public class Mod
@@ -57,10 +59,10 @@ public class Mod
       {
         _accumulator -= SampleIntervalSec;
 
-        var vehicle = Program.ControlledVehicle;
+        var vehicle = VehicleProvider.GetControlledVehicle();
         if (vehicle != null)
         {
-          double simTime = Universe.GetElapsedSimTime().Seconds();
+          double simTime = SimTimeProvider.GetElapsedTime().Seconds();
           _recorder.RecordSample(vehicle, simTime);
         }
       }
