@@ -16,6 +16,7 @@
     <Project Path="average-twr.lib/average-twr.lib.csproj" />
     <Project Path="geeforce/geeforce.csproj" />
     <Project Path="garys-torch/garys-torch.csproj" />
+    <Project Path="garys-torch.lib/garys-torch.lib.csproj" />
     <Project Path="zippo/zippo.csproj" />
     <Project Path="example-lib-project/example-lib-project.csproj" />
     <Project Path="grant/grant.csproj" />

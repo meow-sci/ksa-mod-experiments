@@ -9,3 +9,16 @@ needs some smarts to intelligently default to the bounding edges of the bodies s
 
 # action hero
 
+this mod will reference many other mod libraries to reuse their functionality
+
+this mod will be an orchestrator/runner of other mod functionality
+
+this is only scoped to be relatively small scale interactions and workflows
+
+some ideas:
+
+- will need a way to encapsulate invocation of some mod functionality into a standalone, not-shared data structure.  this will be called a "Trick".  some kind of object instance with metadata about its name, purpose, and lambda(s) or some kind of Runnable instance that when run will be responsible for executing arbitrary code (which will be invoking other mod lib code)
+- will want to be able to create Tricks with a custom UI per Trick, not something generic overall.  These should be streamlined UIs for each Trick we support tailored to the functionality encapsulated in the Trick.
+- the Trick creation UI's should be their own ephemeral ImGui Windows that get created.  An example flow would be the main ActionHero Window would have a Combobox with all known trick types, user selects one, then presses a "Create" button which launches the trick-specific Window to configure the given trick. 
+- When a trick is created, it should be added to an in-memory library of tricks. Tricks must have a unique name, when saving a trick if there is name collision display an error message next to the save button about the name collision and maintain all the UI state so the end user can simply fix the name and hit save again
+- 
