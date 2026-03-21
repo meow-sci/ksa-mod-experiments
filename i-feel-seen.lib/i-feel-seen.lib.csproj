@@ -2,25 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <!-- <TargetFramework>net10.0</TargetFramework> -->
-    <AssemblyName>MeowSci.IFeelSeen</AssemblyName>
-    <RootNamespace>MeowSci.IFeelSeen</RootNamespace>
-    <!-- <LangVersion>13</LangVersion> -->
-    <!-- <Nullable>enable</Nullable> -->
-    <!-- <ImplicitUsings>disable</ImplicitUsings> -->
-    <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
-    <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
-    <DistDir>$(SelectedDistModDir)i-feel-seen\</DistDir>
+    <AssemblyName>MeowSci.IFeelSeenLib</AssemblyName>
+    <RootNamespace>MeowSci.IFeelSeenLib</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,30 +40,5 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="mod.toml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
-    <MakeDir Directories="$(DistDir)" />
-    <ItemGroup>
-      <FilesToCopy Include="$(OutputPath)mod.toml" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).dll" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).pdb" />
-      <FilesToCopy Include="$(OutputPath)$(AssemblyName).deps.json" />
-    </ItemGroup>
-    <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(DistDir)" />
-    <Message Text="Copied mod files to $(DistDir)" Importance="high" />
-
-    <ItemGroup>
-      <MeowSciAssemblies Include="$(TargetDir)MeowSci.*.dll;$(TargetDir)MeowSci.*.pdb" />
-    </ItemGroup>
-    <Copy SourceFiles="@(MeowSciAssemblies)"
-          DestinationFolder="$(DistDir)"
-          Condition="'@(MeowSciAssemblies)' != ''" />
-  </Target>
 
 </Project>

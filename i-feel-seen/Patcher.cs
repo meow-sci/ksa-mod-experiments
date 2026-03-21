@@ -1,21 +1,22 @@
 using System;
-using System.Collections.Generic;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.IFeelSeenLib;
 
-namespace mod;
+namespace MeowSci.IFeelSeen;
 
 [HarmonyPatch]
 internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("i-feel-seen");
-    private static readonly HashSet<Vehicle> _trackedVehicles = new();
+    private static VehicleTracker? _tracker;
 
-    public static void Patch()
+    public static void Patch(VehicleTracker tracker)
     {
         try
         {
+            _tracker = tracker;
             _harmony?.PatchAll(typeof(Patcher).Assembly);
         }
         catch (Exception ex)
@@ -28,7 +29,7 @@ internal static class Patcher
     {
         try
         {
-            _trackedVehicles.Clear();
+            _tracker = null;
             _harmony?.UnpatchAll("i-feel-seen");
             _harmony = null;
         }
@@ -38,25 +39,11 @@ internal static class Patcher
         }
     }
 
-    public static void TrackVehicle(Vehicle vehicle)
-    {
-        if (_trackedVehicles.Add(vehicle))
-            Console.WriteLine($"i-feel-seen: Tracking {vehicle.Id}");
-    }
-
-    public static void UntrackVehicle(Vehicle vehicle)
-    {
-        if (_trackedVehicles.Remove(vehicle))
-            Console.WriteLine($"i-feel-seen: Untracked {vehicle.Id}");
-    }
-
-    public static bool IsTracked(Vehicle vehicle) => _trackedVehicles.Contains(vehicle);
-
     [HarmonyPatch(typeof(Vehicle), "GetWorldMatrix")]
     [HarmonyPrefix]
     private static bool GetWorldMatrix_Prefix(Vehicle __instance, Camera camera, ref float4x4? __result)
     {
-        if (!_trackedVehicles.Contains(__instance))
+        if (_tracker == null || !_tracker.IsTracked(__instance))
             return true;
 
         double3 vector = camera.GetPositionEgo(__instance);
@@ -70,11 +57,11 @@ internal static class Patcher
     [HarmonyPrefix]
     private static bool UpdateRenderData_Prefix(Vehicle __instance, Viewport viewport, int inFrameIndex)
     {
-        if (!_trackedVehicles.Contains(__instance))
+        if (_tracker == null || !_tracker.IsTracked(__instance))
             return true;
 
         double4x4 matrixAsmb2Ego = __instance.GetMatrixAsmb2Ego(viewport.GetCamera());
-        __instance.Parts.UpdateRenderData(in matrixAsmb2Ego, __instance.IsEditedVehicle, inFrameIndex);
+        __instance.Parts.UpdateRenderData(in matrixAsmb2Ego, __instance.IsEditedVehicle, viewport, inFrameIndex);
         return false;
     }
 }

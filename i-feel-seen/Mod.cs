@@ -1,11 +1,11 @@
 using System;
-using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using KSA;
+using MeowSci.IFeelSeenLib;
+using MeowSci.KsaAbstractions;
 
-namespace mod;
+namespace MeowSci.IFeelSeen;
 
 [StarMapMod]
 public class Mod
@@ -18,13 +18,7 @@ public class Mod
 
   private int _pendingVehicleIndex = 0;
 
-  private readonly List<TrackedVehicle> _tracked = new();
-
-  private class TrackedVehicle
-  {
-    public Vehicle Vehicle = null!;
-    public bool SeeMe = true;
-  }
+  private readonly VehicleTracker _tracker = new();
 
   [StarMapImmediateLoad]
   public void OnImmediateLoad() { }
@@ -34,7 +28,7 @@ public class Mod
   {
     try
     {
-      Patcher.Patch();
+      Patcher.Patch(_tracker);
       _isInitialized = true;
     }
     catch (Exception ex)
@@ -70,9 +64,7 @@ public class Mod
   {
     try
     {
-      foreach (var entry in _tracked)
-        Patcher.UntrackVehicle(entry.Vehicle);
-      _tracked.Clear();
+      _tracker.Clear();
       Patcher.Unload();
       _isDisposed = true;
     }
@@ -93,20 +85,15 @@ public class Mod
 
       // Tracked vehicles list
       TrackedVehicle? toRemove = null;
-      for (int i = 0; i < _tracked.Count; i++)
+      var tracked = _tracker.Tracked;
+      for (int i = 0; i < tracked.Count; i++)
       {
-        var entry = _tracked[i];
+        var entry = tracked[i];
         ImGui.PushID(i);
 
         bool seeMe = entry.SeeMe;
         if (ImGui.Checkbox($"{entry.Vehicle.Id}", ref seeMe))
-        {
           entry.SeeMe = seeMe;
-          if (seeMe)
-            Patcher.TrackVehicle(entry.Vehicle);
-          else
-            Patcher.UntrackVehicle(entry.Vehicle);
-        }
 
         ImGui.SameLine();
         if (ImGui.Button("Remove"))
@@ -116,16 +103,13 @@ public class Mod
       }
 
       if (toRemove != null)
-      {
-        Patcher.UntrackVehicle(toRemove.Vehicle);
-        _tracked.Remove(toRemove);
-      }
+        _tracker.RemoveVehicle(toRemove.Vehicle);
 
       ImGui.Separator();
 
       // Add vehicle
-      var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
-      if (vehicles != null && vehicles.Count > 0)
+      var vehicles = VehicleProvider.GetAllVehicles();
+      if (vehicles.Count > 0)
       {
         var vehicleIds = new string[vehicles.Count];
         for (int i = 0; i < vehicles.Count; i++)
@@ -135,25 +119,7 @@ public class Mod
         ImGui.Combo("Vehicle", ref _pendingVehicleIndex, vehicleIds, vehicleIds.Length);
 
         if (ImGui.Button("Add Vehicle"))
-        {
-          var vehicle = vehicles[_pendingVehicleIndex];
-          bool alreadyTracked = false;
-          foreach (var entry in _tracked)
-          {
-            if (entry.Vehicle == vehicle)
-            {
-              alreadyTracked = true;
-              break;
-            }
-          }
-
-          if (!alreadyTracked)
-          {
-            var newEntry = new TrackedVehicle { Vehicle = vehicle, SeeMe = true };
-            _tracked.Add(newEntry);
-            Patcher.TrackVehicle(vehicle);
-          }
-        }
+          _tracker.AddVehicle(vehicles[_pendingVehicleIndex]);
       }
       else
       {

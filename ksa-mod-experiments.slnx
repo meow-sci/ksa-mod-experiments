@@ -19,6 +19,8 @@
     <Project Path="garys-torch/garys-torch.csproj" />
     <Project Path="garys-torch.lib/garys-torch.lib.csproj" />
     <Project Path="zippo/zippo.csproj" />
+    <Project Path="i-feel-seen/i-feel-seen.csproj" />
+    <Project Path="i-feel-seen.lib/i-feel-seen.lib.csproj" />
     <Project Path="example-lib-project/example-lib-project.csproj" />
     <Project Path="grant/grant.csproj" />
     <Project Path="ksa-abstractions.lib/ksa-abstractions.lib.csproj" />
