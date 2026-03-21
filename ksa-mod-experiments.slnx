@@ -5,6 +5,7 @@
         <Platform Name="x86" />
     </Configurations>
     <Project Path="camera-controller-override/camera-controller-override.csproj" />
+    <Project Path="camera-controller-override.lib/camera-controller-override.lib.csproj" />
     <Project Path="kitten-animations/kitten-animations.csproj" />
     <Project Path="byo-music/byo-music.csproj" />
     <Project Path="byo-music.lib/byo-music.lib.csproj" />

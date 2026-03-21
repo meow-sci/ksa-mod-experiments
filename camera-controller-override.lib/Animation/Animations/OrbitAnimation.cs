@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation.Animations;
+namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Circular orbit animation that rotates the camera around a target.

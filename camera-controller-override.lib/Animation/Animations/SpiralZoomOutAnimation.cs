@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation.Animations;
+namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Zoom out animation combined with spiral rotation around the look-at axis.

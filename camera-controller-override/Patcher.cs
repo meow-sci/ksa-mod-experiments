@@ -2,9 +2,9 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
-using mod.Animation;
+using MeowSci.CameraControllerOverrideLib.Animation;
 
-namespace mod;
+namespace MeowSci.CameraControllerOverride;
 
 [HarmonyPatch]
 internal static class Patcher

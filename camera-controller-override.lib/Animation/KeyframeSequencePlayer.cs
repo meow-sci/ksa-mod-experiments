@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation;
+namespace MeowSci.CameraControllerOverrideLib.Animation;
 
 /// <summary>
 /// Playback state for the keyframe sequence player.

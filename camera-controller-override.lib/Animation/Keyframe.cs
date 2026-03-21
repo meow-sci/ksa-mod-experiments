@@ -1,4 +1,4 @@
-namespace mod.Animation;
+namespace MeowSci.CameraControllerOverrideLib.Animation;
 
 /// <summary>
 /// Wrapper class for a keyframe animation.

@@ -2,7 +2,7 @@ using System;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation;
+namespace MeowSci.CameraControllerOverrideLib.Animation;
 
 /// <summary>
 /// Easing function types for animation interpolation.

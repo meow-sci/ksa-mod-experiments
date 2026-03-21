@@ -1,9 +1,9 @@
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using mod.Animation;
+using MeowSci.CameraControllerOverrideLib.Animation;
 
-namespace mod.UI;
+namespace MeowSci.CameraControllerOverrideLib.UI;
 
 /// <summary>
 /// ImGui panel for managing and visualizing keyframe sequences.

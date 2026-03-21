@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation.Animations;
+namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Linear animation that moves the camera toward the target at a constant speed.

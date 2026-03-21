@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation.Animations;
+namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Shake animation that creates a "head shaking" effect using rotational yaw.

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
-namespace mod.Animation.Animations;
+namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Combines zoom-in movement toward the target with spiral rotation around the look-at axis.
