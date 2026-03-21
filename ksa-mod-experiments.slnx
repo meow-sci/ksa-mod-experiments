@@ -13,6 +13,7 @@
     <Project Path="geeforce/geeforce.csproj" />
     <Project Path="garys-torch/garys-torch.csproj" />
     <Project Path="zippo/zippo.csproj" />
+    <Project Path="example-lib-project/example-lib-project.csproj" />
     
     
 </Solution>

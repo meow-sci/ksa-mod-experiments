@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.ExampleLib</AssemblyName>
+    <RootNamespace>MeowSci.ExampleLib</RootNamespace>
+    <Description>Example lib</Description>
+    <PackageId>MeowSci.ExampleLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>

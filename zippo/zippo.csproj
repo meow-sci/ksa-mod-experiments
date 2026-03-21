@@ -10,7 +10,12 @@
     <!-- <GenerateDocumentationFile>false</GenerateDocumentationFile> -->
     <!-- <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> -->
     <DistDir>C:\Program Files\Kitten Space Agency\Content\zippo\</DistDir>
-  </PropertyGroup>
+  </PropertyGroup>  
+  
+  <ItemGroup>
+    <ProjectReference Include="..\example-lib-project\example-lib-project.csproj" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
@@ -60,6 +65,14 @@
     </ItemGroup>
     <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(DistDir)" />
     <Message Text="Copied mod files to $(DistDir)" Importance="high" />
+
+    <ItemGroup>
+      <MeowSciAssemblies Include="$(TargetDir)MeowSci.*.dll;$(TargetDir)MeowSci.*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MeowSciAssemblies)"
+          DestinationFolder="$(DistDir)"
+          Condition="'@(MeowSciAssemblies)' != ''" />
+
   </Target>
 
 </Project>
