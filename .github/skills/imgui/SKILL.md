@@ -50,12 +50,36 @@ ImGui.Text($"Avg: {recorder.AvgG:F2} g");
 ImGui.Separator();
 ```
 
+### Horitonzal line separator with text
+
+```csharp
+ImGui.SeparatorText("One-liner variants");
+```
+
 ### Indentation
 
 ```csharp
 ImGui.Indent();
 ImGui.Text("abc");
 ImGui.Unindent();
+```
+
+### Color widget - large - with RGB floats
+
+```csharp
+ImGui.Text("Color widget with Float Display:");
+float4 color = new float4(1.0f, 0.5f, 0.2f, 1.0f);
+ImGui.ColorEdit4("MyColor##2f", ref color, ImGuiColorEditFlags.Float);
+```
+
+### Color button only with Picker popup - with RGB floats
+
+```csharp
+ImGui.Text("Color button with Picker:");
+// With the ImGuiColorEditFlags.NoInputs flag you can hide all the slider/text inputs
+// With the ImGuiColorEditFlags.NoLabel flag you can pass a non-empty label which will only be used for the tooltip and picker popup
+float4 color = new float4(0.2f, 0.8f, 0.4f, 1.0f);
+ImGui.ColorEdit4("MyColor##3", ref color, ImGuiColorEditFlags.Float | ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel);
 ```
 
 ### Collapsing Header
@@ -99,6 +123,39 @@ string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
 if (ImGui.Combo("Easing##ZoomOut", ref _selectedValue, easingNames, easingNames.Length))
 {
   // Value updated
+}
+```
+
+### Combobox with filter example
+
+```csharp
+// Note: _itemFilter should be a class-level field initialized as: private ImGuiTextFilter _itemFilter = new ImGuiTextFilter(); or some stateful field that has a lifetime scoped to the combo box usage or broader
+string[] items = { "Item 1", "Item 2", "Item 3" };
+int selectedItemIndex = 0;
+string previewValue = items[selectedItemIndex];
+
+if (ImGui.BeginCombo("Select Item##combo", previewValue))
+{
+    if (ImGui.IsWindowAppearing())
+    {
+        ImGui.SetKeyboardFocusHere();
+        _itemFilter.Clear();
+    }
+    ImGui.SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F);
+    _itemFilter.Draw("##Filter", -float.MaxValue);
+
+    for (int n = 0; n < items.Length; n++)
+    {
+        bool isSelected = selectedItemIndex == n;
+        if (_itemFilter.PassFilter(items[n]))
+        {
+            if (ImGui.Selectable(items[n], isSelected))
+            {
+                selectedItemIndex = n;
+            }
+        }
+    }
+    ImGui.EndCombo();
 }
 ```
 
