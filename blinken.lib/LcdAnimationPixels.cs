@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace mod;
+namespace MeowSci.BlinkenLib;
 
 /// <summary>
 /// Contains the pixel data for the LCD scrolling animation.

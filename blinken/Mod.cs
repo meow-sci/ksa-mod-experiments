@@ -6,8 +6,10 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using MeowSci.BlinkenLib;
+using MeowSci.KsaAbstractions;
 
-namespace mod;
+namespace MeowSci.Blinken;
 
 [StarMapMod]
 public class Mod
@@ -18,26 +20,14 @@ public class Mod
   private bool _isDisposed = false;
   private bool _windowVisible = false;
 
-  // pixel grid: key = (row, col), value = (partA, partB) — the a/b engine pair for each pixel
-  private readonly Dictionary<(int row, int col), (Part a, Part b)> _pixelGrid = new();
-  // cached EngineControllers per pixel — resolved once at scan time, used every frame
-  private readonly Dictionary<(int row, int col), EngineController[]> _pixelEngines = new();
+  private PixelGrid? _pixelGrid = null;
+  private readonly LcdAnimation _lcdAnimation = new();
   private object? _lastVehicle = null;
   private bool _vehicleDebugDumped = false;
   private EngineController? _testEngineController = null;
   private bool _testEngineActive = false;
 
-  // ─── LCD scroll animation state ───
   private bool _lcdAnimationActive = false;
-  private float _lcdScrollOffset = 0f;        // current scroll position (fractional columns)
-  private float _lcdScrollSpeed = 3f;          // columns per second
-  private int _lcdLastScrollCol = -1;          // last integer column applied (dirty check)
-  private int _gridRows = 0;                   // physical grid height  (from scanned parts)
-  private int _gridCols = 0;                   // physical grid width   (from scanned parts)
-  private int _imageWidth = 0;                 // source image width    (from pixel data)
-  private int _imageHeight = 0;                // source image height   (from pixel data)
-  private HashSet<(int x, int y)> _lcdPixelSet = new(); // fast lookup for source pixels
-  private int _lcdTotalScroll = 0;             // imageWidth + gap before repeat
 
 
   [StarMapImmediateLoad]
@@ -68,8 +58,8 @@ public class Mod
       if (!_isInitialized || _isDisposed) return;
 
       // Advance LCD scroll animation
-      if (_lcdAnimationActive && _gridCols > 0)
-        UpdateLcdAnimation(dt);
+      if (_lcdAnimationActive && _pixelGrid != null && _pixelGrid.Cols > 0)
+        _lcdAnimation.Update(dt);
 
       if (ImGui.IsKeyPressed(ImGuiKey.F11))
         _windowVisible = !_windowVisible;
@@ -314,71 +304,9 @@ public class Mod
     }
   }
 
-  // Scans vehicle parts for pixel_ engine pairs and populates _pixelGrid.
-  // Id format: pixel_{row}_{col}_a / pixel_{row}_{col}_b
-  private void RefreshPixelGrid(object vehicle)
-  {
-    _pixelGrid.Clear();
+  // ─── Engine helpers (work directly with Part/EngineController) ───
 
-    var partA = new Dictionary<(int row, int col), Part>();
-    var partB = new Dictionary<(int row, int col), Part>();
-
-    foreach (var part in Program.ControlledVehicle!.Parts.Parts)
-    {
-      // Debug dump vehicle-wide PartTree — one time only
-      if (!_vehicleDebugDumped)
-      {
-        _vehicleDebugDumped = true;
-        // DebugDumpVehicle(Program.ControlledVehicle);
-      }
-
-      // Capture EngineController for pixel_2_0_a — one time only
-      if (_testEngineController == null && part.Id == "pixel_2_0_a")
-      {
-        var controllers = part.SubtreeModules.Get<EngineController>();
-        if (controllers.Length > 0)
-        {
-          _testEngineController = controllers[0];
-          _testEngineActive = _testEngineController.IsActive;
-          Console.WriteLine($"blinken: captured EngineController for pixel_2_0_a (IsActive={_testEngineActive})");
-        }
-      }
-
-      if (!part.Id.StartsWith("pixel_")) continue;
-
-      // Expected segments: ["pixel", row, col, "a"|"b"]
-      var segments = part.Id.Split('_');
-      if (segments.Length != 4) continue;
-      if (!int.TryParse(segments[1], out int row)) continue;
-      if (!int.TryParse(segments[2], out int col)) continue;
-
-      var key = (row, col);
-      if (segments[3] == "a") partA[key] = part;
-      else if (segments[3] == "b") partB[key] = part;
-    }
-
-    foreach (var key in partA.Keys)
-      if (partB.TryGetValue(key, out var pb))
-        _pixelGrid[key] = (partA[key], pb);
-
-    // Cache EngineControllers per pixel so we never call Get<T>() in the hot loop
-    _pixelEngines.Clear();
-    foreach (var (key, (a, b)) in _pixelGrid)
-    {
-      var list = new List<EngineController>();
-      foreach (var part in new[] { a, b })
-      {
-        var controllers = part.SubtreeModules.Get<EngineController>();
-        for (int i = 0; i < controllers.Length; i++)
-          list.Add(controllers[i]);
-      }
-      _pixelEngines[key] = list.ToArray();
-    }
-
-    Console.WriteLine($"blinken: found {_pixelGrid.Count} pixel pairs, cached {_pixelEngines.Values.Sum(e => e.Length)} engine controllers");
-  }
-
-  // Set the Active state on an engine pair (both a and b).
+  // Set the Active state on an engine pair (both a and b) via SubtreeModules.
   private static void SetEngineActive(Part partA, Part partB, bool active)
   {
     foreach (var part in new[] { partA, partB })
@@ -389,7 +317,7 @@ public class Mod
     }
   }
 
-  // Set active state using cached controllers (no reflection per call)
+  // Set active state using cached controllers (no per-call reflection).
   private static void SetEngineActiveCached(EngineController[] controllers, bool active)
   {
     for (int i = 0; i < controllers.Length; i++)
@@ -411,28 +339,18 @@ public class Mod
     }
     Console.WriteLine($"blinken: deactivated {count} engine controllers");
   }
-  
+
   private void SetupMinThrottle(Vehicle vehicle, float minThrottle)
   {
     int count = 0;
     var engineControllers = vehicle.Parts.Modules.Get<EngineController>();
-    
+
     foreach (var controller in engineControllers)
     {
       count++;
       controller.MinimumThrottle = minThrottle;
     }
-    
-    //
-    // foreach (var part in vehicle.Parts.Parts)
-    // {
-    //   var controllers = part.SubtreeComponents.Get<EngineController>();
-    //   for (int i = 0; i < controllers.Length; i++)
-    //   {
-    //     controllers[i].MinimumThrottle = minThrottle;
-    //     count++;
-    //   }
-    // }
+
     if (count > 0)
     {
       Console.WriteLine($"blinken: set MinimumThrottle={minThrottle} on {count} engine controllers");
@@ -440,96 +358,20 @@ public class Mod
     }
   }
 
-  // ─── LCD scroll animation logic ───
-
-  private void InitLcdAnimation()
-  {
-    // Compute physical grid dimensions from scanned pixel parts
-    _gridRows = _pixelGrid.Keys.Max(k => k.row) + 1;
-    _gridCols = _pixelGrid.Keys.Max(k => k.col) + 1;
-
-    // Compute source image dimensions from pixel data
-    var pixels = LcdAnimationPixels.Pixels;
-    if (pixels.Length == 0)
-    {
-      _imageWidth = 0;
-      _imageHeight = 0;
-      Console.WriteLine("blinken: LCD animation has no pixel data");
-      return;
-    }
-
-    _imageWidth  = pixels.Max(p => p.x) + 1;
-    _imageHeight = pixels.Max(p => p.y) + 1;
-
-    // Build fast lookup set
-    _lcdPixelSet = new HashSet<(int x, int y)>(pixels);
-
-    // Total scroll distance: image width + half-grid-width gap
-    _lcdTotalScroll = _imageWidth + (_gridCols / 2);
-
-    _lcdScrollOffset = 0f;
-    _lcdLastScrollCol = -1; // force first frame to apply
-
-    // One-time throttle setup so we don't do it every frame
-    var vehicle = Program.ControlledVehicle;
-    if (vehicle != null)
-      SetupMinThrottle(vehicle, 0.0001f);
-
-    Console.WriteLine($"blinken: LCD init — grid {_gridCols}x{_gridRows}, image {_imageWidth}x{_imageHeight}, totalScroll {_lcdTotalScroll}");
-  }
-
-  private void UpdateLcdAnimation(double dt)
-  {
-    _lcdScrollOffset += _lcdScrollSpeed * (float)dt;
-
-    // Wrap around when we've scrolled the full cycle
-    if (_lcdScrollOffset >= _lcdTotalScroll)
-      _lcdScrollOffset -= _lcdTotalScroll;
-
-    int scrollCol = (int)_lcdScrollOffset;
-
-    // Skip update if we haven't moved to a new integer column
-    if (scrollCol == _lcdLastScrollCol) return;
-    _lcdLastScrollCol = scrollCol;
-
-    // Directly update cached engine controllers — no reflection, no lambda, no SetupMinThrottle
-    foreach (var (key, engines) in _pixelEngines)
-    {
-      int srcX = scrollCol + key.col;
-      int srcY = key.row;
-
-      bool on = srcX >= 0 && srcX < _imageWidth
-             && srcY >= 0 && srcY < _imageHeight
-             && _lcdPixelSet.Contains((srcX, srcY));
-
-      SetEngineActiveCached(engines, on);
-    }
-  }
-
   // Apply a pixel pattern:
-  //   1. Vehicle-wide shutdown (resets all running engines)
+  //   1. Set MinimumThrottle so engines can fire at any throttle level
   //   2. Set Active per pixel according to selector
-  //   3. Vehicle-wide ignite (only Active engines will fire)
+  //   2. Set Active per pixel according to selector
   // Pass ignite=false to just shut everything down.
   private void ApplyPattern(bool ignite, System.Func<(int row, int col), bool> selector)
   {
-    var vehicle = Program.ControlledVehicle;
-    if (vehicle == null) return;
+    var vehicle = VehicleProvider.GetControlledVehicle();
+    if (vehicle == null || _pixelGrid == null) return;
 
     SetupMinThrottle(vehicle, 0.0001f);
 
-    // Step 1: shutdown all engines
-    // vehicle.SetEnum(VehicleEngine.MainShutdown);
-
-    // Step 2: set active state per pixel
-    foreach (var (key, (a, b)) in _pixelGrid)
+    foreach (var (key, (a, b)) in _pixelGrid.Grid)
       SetEngineActive(a, b, selector(key));
-
-    // Step 3: re-ignite so active engines fire
-    if (ignite)
-    {
-      // vehicle.SetEnum(VehicleEngine.MainIgnite);
-    }
   }
 
   private void RenderWindow()
@@ -541,7 +383,7 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "blinken — pixel engine grid");
       ImGui.Separator();
 
-      var vehicle = Program.ControlledVehicle;
+      var vehicle = VehicleProvider.GetControlledVehicle();
       if (vehicle == null)
       {
         ImGui.TextDisabled("No controlled vehicle");
@@ -552,10 +394,25 @@ public class Mod
         if (!ReferenceEquals(vehicle, _lastVehicle))
         {
           _lastVehicle = vehicle;
-          RefreshPixelGrid(vehicle);
+          _pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
+
+          // Debug dump — one time only
+          if (!_vehicleDebugDumped)
+            _vehicleDebugDumped = true;
+
+          // Capture test EngineController for pixel_2_0_a — one time only
+          if (_testEngineController == null)
+          {
+            _testEngineController = _pixelGrid.GetFirstController(2, 0);
+            if (_testEngineController != null)
+            {
+              _testEngineActive = _testEngineController.IsActive;
+              Console.WriteLine($"blinken: captured EngineController for pixel_2_0_a (IsActive={_testEngineActive})");
+            }
+          }
         }
 
-        if (_pixelGrid.Count == 0)
+        if (_pixelGrid == null || _pixelGrid.Count == 0)
         {
           ImGui.TextDisabled("No pixel_ engine parts found on vehicle");
         }
@@ -566,26 +423,19 @@ public class Mod
 
           // --- On patterns ---
           if (ImGui.Button("All On"))
-            ApplyPattern(ignite: true, _ => true);
+            ApplyPattern(ignite: true, PixelPatterns.AllOn);
 
           ImGui.SameLine();
           if (ImGui.Button("Every Other"))
-          {
-            // Odd rows are offset by 1 so the checkerboard staggers
-            ApplyPattern(ignite: true, key =>
-            {
-              bool rowOffset = (key.row % 2) == 1;
-              return ((key.col + (rowOffset ? 1 : 0)) % 2) == 0;
-            });
-          }
+            ApplyPattern(ignite: true, PixelPatterns.Checkerboard);
 
           ImGui.SameLine();
           if (ImGui.Button("Alt Rows"))
-            ApplyPattern(ignite: true, key => (key.row % 2) == 0);
+            ApplyPattern(ignite: true, PixelPatterns.AlternatingRows);
 
           ImGui.SameLine();
           if (ImGui.Button("Alt Cols"))
-            ApplyPattern(ignite: true, key => (key.col % 2) == 0);
+            ApplyPattern(ignite: true, PixelPatterns.AlternatingCols);
 
           // --- Off ---
           ImGui.Separator();
@@ -605,7 +455,9 @@ public class Mod
             _lcdAnimationActive = !_lcdAnimationActive;
             if (_lcdAnimationActive)
             {
-              InitLcdAnimation();
+              var v = VehicleProvider.GetControlledVehicle();
+              if (v != null) SetupMinThrottle(v, 0.0001f);
+              _lcdAnimation.Init(_pixelGrid);
               Console.WriteLine("blinken: LCD scroll animation started");
             }
             else
@@ -618,11 +470,13 @@ public class Mod
 
           ImGui.SameLine();
           ImGui.SetNextItemWidth(120);
-          ImGui.SliderFloat("Speed", ref _lcdScrollSpeed, 0.5f, 20f);
+          var speed = _lcdAnimation.ScrollSpeed;
+          ImGui.SliderFloat("Speed", ref speed, 0.5f, 20f);
+          _lcdAnimation.ScrollSpeed = speed;
 
           if (_lcdAnimationActive)
           {
-            ImGui.Text($"Grid: {_gridCols}x{_gridRows}  Image: {_imageWidth}x{_imageHeight}  Offset: {_lcdScrollOffset:F1}");
+            ImGui.Text($"Grid: {_lcdAnimation.GridCols}x{_lcdAnimation.GridRows}  Image: {_lcdAnimation.ImageWidth}x{_lcdAnimation.ImageHeight}  Offset: {_lcdAnimation.ScrollOffset:F1}");
           }
 
           // --- Test: toggle pixel_2_0_a engine ---
