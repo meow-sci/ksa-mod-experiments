@@ -3,7 +3,8 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <!-- <TargetFramework>net10.0</TargetFramework> -->
-    <AssemblyName>zippo</AssemblyName>
+    <AssemblyName>MeowSci.Zippo</AssemblyName>
+    <RootNamespace>MeowSci.Zippo</RootNamespace>
     <!-- <LangVersion>13</LangVersion> -->
     <!-- <Nullable>enable</Nullable> -->
     <!-- <ImplicitUsings>disable</ImplicitUsings> -->
@@ -14,7 +15,7 @@
   
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
-    <ProjectReference Include="..\example-lib-project\example-lib-project.csproj" />
+    <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
   </ItemGroup>
 
 
