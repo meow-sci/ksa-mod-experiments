@@ -52,6 +52,18 @@ public static class LightController
         return val is float f ? f : 1.0f;
     }
 
+    public static float3 ReadColor(PartTemplate t)
+    {
+        var lights = GetLightComponents(t);
+        if (lights.Count == 0) return new float3(1f, 1f, 1f);
+        var colorRef = ReflectionHelpers.GetFieldValue(lights[0], "Color");
+        if (colorRef == null) return new float3(1f, 1f, 1f);
+        var r = ReflectionHelpers.GetFieldValue(colorRef, "R") is float rf ? rf : 1f;
+        var g = ReflectionHelpers.GetFieldValue(colorRef, "G") is float gf ? gf : 1f;
+        var b = ReflectionHelpers.GetFieldValue(colorRef, "B") is float bf ? bf : 1f;
+        return new float3(r, g, b);
+    }
+
     public static void WriteIntensity(List<object> lights, float intensity)
     {
         foreach (var light in lights)

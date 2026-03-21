@@ -33,6 +33,7 @@ public class Mod
   private float _savedIntensity = 1.0f;
   private bool _lightEnabled = true;
   private int _colorComboIdx = 0;
+  private float4 _currentColor = new float4(1.0f, 1.0f, 1.0f, 1.0f);
 
   // ── StarMap lifecycle ──
 
@@ -144,6 +145,8 @@ public class Mod
     var ls = part.LightSwitch ?? part.FullPart.LightSwitch;
     _lightEnabled = ls == null || ls.LightIsActive;
     _colorComboIdx = 0;
+    var color3 = LightController.ReadColor(part.Template);
+    _currentColor = new float4(color3.X, color3.Y, color3.Z, 1.0f);
   }
 
   // ── UI ──
@@ -238,7 +241,20 @@ public class Mod
         if (ImGui.Combo("Color##zippo", ref _colorComboIdx, colorItems, colorItems.Length))
         {
           if (_colorComboIdx > 0)
-            LightController.ApplyColor(selectedPart, LightController.GetPresetColor(_colorComboIdx));
+          {
+            var presetColor = LightController.GetPresetColor(_colorComboIdx);
+            _currentColor = new float4(presetColor.X, presetColor.Y, presetColor.Z, 1.0f);
+            LightController.ApplyColor(selectedPart, presetColor);
+          }
+        }
+
+        // Manual color picker - synced with current light color
+        ImGui.SetNextItemWidth(-1f);
+        if (ImGui.ColorEdit4("##color_picker_zippo", ref _currentColor, ImGuiColorEditFlags.NoLabel))
+        {
+          var color3 = new float3(_currentColor.X, _currentColor.Y, _currentColor.Z);
+          LightController.ApplyColor(selectedPart, color3);
+          _colorComboIdx = 0; // Clear preset selection when manually editing
         }
       }
 
