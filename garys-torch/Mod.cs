@@ -25,6 +25,25 @@ public class Mod
   private float _pendingScale = 1f;
   private bool _pendingLockRotation = true;
   private string? _weldError = null;
+  private int _selectedPresetIndex = 0;
+
+  private struct WeldPreset
+  {
+    public string Name;
+    public float3 Position;
+    public float3 Rotation;
+    public float Scale;
+    public bool LockRotation;
+  }
+
+  private readonly WeldPreset[] _presets = new[]
+  {
+    new WeldPreset { Name = "Ridin' Dirty 1", Position = new float3(-0.375f, 0f, -1.894f), Rotation = new float3(0f, 0f, 0f), Scale = 1f, LockRotation = true },
+    new WeldPreset { Name = "Ridin' Dirty 2", Position = new float3(-1.287f, 0f, -1.894f), Rotation = new float3(0f, 0f, 0f), Scale = 1f, LockRotation = true },
+    new WeldPreset { Name = "Ridin' Dirty 3", Position = new float3(-2.215f, 0f, -1.894f), Rotation = new float3(0f, 0f, 0f), Scale = 1f, LockRotation = true },
+    new WeldPreset { Name = "Shotgun", Position = new float3(5.675f, 0.413f, -0.125f), Rotation = new float3(0f, 0f, 0f), Scale = 1f, LockRotation = true },
+    new WeldPreset { Name = "Not Shotgun", Position = new float3(5.675f, -0.413f, -0.125f), Rotation = new float3(0f, 0f, 0f), Scale = 1f, LockRotation = true },
+  };
 
   private class WeldEntry
   {
@@ -165,23 +184,25 @@ public class Mod
             ImGui.TextColored(new float4(1, 0.4f, 0.4f, 1), _weldError);
           if (ImGui.Button("Create Weld##addweld"))
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
-          ImGui.SameLine(0, 20);
+          
+          ImGui.Text("Preset:");
+          ImGui.SameLine();
+          
+          var presetNames = new string[_presets.Length];
+          for (int i = 0; i < _presets.Length; i++)
+            presetNames[i] = _presets[i].Name;
+          
+          ImGui.SetNextItemWidth(-340f);
+          ImGui.Combo("##presetcombo", ref _selectedPresetIndex, presetNames, presetNames.Length);
+          ImGui.SameLine();
+          
           ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.HotPink));
           ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(1f, 1f, 1f, 1f)));
-          if (ImGui.Button("Ridin' Dirty 1##rd1"))
-            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-0.375f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
-          ImGui.PopStyleColor(2);
-          ImGui.SameLine();
-          ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.CanaryYellow));
-          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
-          if (ImGui.Button("Ridin' Dirty 2##rd2"))
-            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-1.287f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
-          ImGui.PopStyleColor(2);
-          ImGui.SameLine();
-          ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.BrightLightBlue));
-          ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0f, 0f, 0f, 1f)));
-          if (ImGui.Button("Ridin' Dirty 3##rd3"))
-            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], new float3(-2.215f, 0f, -1.894f), new float3(0f, 0f, 0f), 1f, true);
+          if (ImGui.Button("I'm feeling lucky##ifl"))
+          {
+            var preset = _presets[_selectedPresetIndex];
+            InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex], preset.Position, preset.Rotation, preset.Scale, preset.LockRotation);
+          }
           ImGui.PopStyleColor(2);
         }
       }
