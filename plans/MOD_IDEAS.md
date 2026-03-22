@@ -10,6 +10,7 @@ needs some smarts to intelligently default to the bounding edges of the bodies s
 
 # glass
 
+- fov change for camera
 
 
  
@@ -30,5 +31,3 @@ some ideas:
 - Tricks should be assignable to hotkeys.  We need a Hotkey Assignments feature that pops up a Window to manage hotkey assignments.  When a hotkey assignment is active the mod needs to have code in its game loop code to detect keypresses using the imgui skill for reference how to do that
 
 
-
-dffghnjn
