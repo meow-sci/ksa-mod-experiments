@@ -37,9 +37,16 @@ public static class LcdGridBuilder
         }
 
         // ── Lookup PartTemplate ──────────────────────────────────────────────────
-        if (!ModLibrary.TryGet<PartTemplate>(config.EnginePartId, out var template) || template == null)
+        // NOTE: TryGet<PartTemplate> is NOT supported by ModLibrary — only Get<PartTemplate> works.
+        // Get throws NullReferenceException if the id is unknown, so we catch that.
+        PartTemplate? template;
+        try
         {
-            Console.WriteLine($"blinky: PartTemplate '{config.EnginePartId}' not found in ModLibrary");
+            template = ModLibrary.Get<PartTemplate>(config.EnginePartId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"blinky: PartTemplate '{config.EnginePartId}' not found in ModLibrary: {ex.Message}");
             return null;
         }
 
