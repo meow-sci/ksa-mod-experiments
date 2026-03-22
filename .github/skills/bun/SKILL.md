@@ -43,6 +43,7 @@ Bun provides:
 
 ### Scripting, Commands, And Processes
 
+- [Parse CLI args](docs/parse-args.md)
 - [Shell (bun shell template literal API)](docs/shell.md)
 - [Spawn (Bun.spawn and Bun.spawnSync)](docs/spawn.md)
 - [Console (Bun-native console behavior)](docs/console.md)
