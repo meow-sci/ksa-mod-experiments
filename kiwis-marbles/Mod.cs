@@ -31,6 +31,9 @@ public class Mod
   private readonly Dictionary<int, (float3 proxy, int scaleIndex)> _weldEditState =
       new Dictionary<int, (float3, int)>();
 
+  private ImGuiTextFilter _sourceFilter = new ImGuiTextFilter();
+  private ImGuiTextFilter _targetFilter = new ImGuiTextFilter();
+
   private static readonly string[] OffsetScaleLabels = { "m", "km", "Mm", "Gm" };
   private static readonly double[] OffsetScaleFactors = { 1.0, 1_000.0, 1_000_000.0, 1_000_000_000.0 };
 
@@ -125,9 +128,29 @@ public class Mod
 
         _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, celestials.Count - 1);
 
+        string sourcePrev = celestialIds[_pendingSourceIndex];
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.SetNextItemWidth(-130f);
-        ImGui.Combo("##kmsrc", ref _pendingSourceIndex, celestialIds, celestialIds.Length);
+        ImGui.SetNextItemWidth(-185f);
+        if (ImGui.BeginCombo("##kmsrc", sourcePrev, ImGuiComboFlags.HeightRegular))
+        {
+          if (ImGui.IsWindowAppearing())
+          {
+            ImGui.SetKeyboardFocusHere();
+            _sourceFilter.Clear();
+          }
+          _sourceFilter.Draw("##kmsrcfilter", -1f);
+          for (int i = 0; i < celestials.Count; i++)
+          {
+            if (_sourceFilter.PassFilter(celestialIds[i]))
+            {
+              bool sel = _pendingSourceIndex == i;
+              if (ImGui.Selectable(celestialIds[i], sel))
+                _pendingSourceIndex = i;
+              if (sel) ImGui.SetItemDefaultFocus();
+            }
+          }
+          ImGui.EndCombo();
+        }
         ImGui.PopStyleColor();
         ImGui.SameLine();
         ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Source (planet/moon)");
@@ -139,20 +162,71 @@ public class Mod
 
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, orbiters.Count - 1);
 
+        string targetPrev = orbiterIds[_pendingTargetIndex];
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.SetNextItemWidth(-130f);
-        ImGui.Combo("##kmtgt", ref _pendingTargetIndex, orbiterIds, orbiterIds.Length);
+        ImGui.SetNextItemWidth(-185f);
+        if (ImGui.BeginCombo("##kmtgt", targetPrev, ImGuiComboFlags.HeightRegular))
+        {
+          if (ImGui.IsWindowAppearing())
+          {
+            ImGui.SetKeyboardFocusHere();
+            _targetFilter.Clear();
+          }
+          _targetFilter.Draw("##kmtgtfilter", -1f);
+          for (int i = 0; i < orbiters.Count; i++)
+          {
+            if (_targetFilter.PassFilter(orbiterIds[i]))
+            {
+              bool sel = _pendingTargetIndex == i;
+              if (ImGui.Selectable(orbiterIds[i], sel))
+                _pendingTargetIndex = i;
+              if (sel) ImGui.SetItemDefaultFocus();
+            }
+          }
+          ImGui.EndCombo();
+        }
         ImGui.PopStyleColor();
         ImGui.SameLine();
         ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Target (any orbiter)");
 
+        var selectedSource = celestials[_pendingSourceIndex];
+        var selectedTarget = orbiters[_pendingTargetIndex];
+
+        // Surface placement helper
+        if (selectedTarget is Celestial targetCelestialPreview && (IOrbiter)selectedSource != selectedTarget)
+        {
+          double tR = targetCelestialPreview.MeanRadius;
+          double sR = selectedSource.MeanRadius;
+          double surfaceDist = tR + sR;
+          ImGui.Spacing();
+          ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
+            $"  Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}   Center dist (surface): {FormatKm(surfaceDist)}");
+          if (ImGui.Button("Place on Surface (along X+)##kmsurfX"))
+          {
+            double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+            _pendingOffset = new float3((float)(surfaceDist / s), 0f, 0f);
+          }
+          ImGui.SameLine();
+          if (ImGui.Button("Place on Surface (along Y+)##kmsurfY"))
+          {
+            double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+            _pendingOffset = new float3(0f, (float)(surfaceDist / s), 0f);
+          }
+          ImGui.SameLine();
+          if (ImGui.Button("Place on Surface (along Z+)##kmsurfZ"))
+          {
+            double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+            _pendingOffset = new float3(0f, 0f, (float)(surfaceDist / s));
+          }
+        }
+
         // CCI offset input with unit scale selector
         ImGui.Spacing();
         ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-        ImGui.SetNextItemWidth(-90f);
+        ImGui.SetNextItemWidth(-100f);
         ImGui.DragFloat3("##kmoffset", ref _pendingOffset, 1f, 0f, 0f);
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(60f);
+        ImGui.SetNextItemWidth(82f);
         ImGui.Combo("##kmunit", ref _pendingOffsetScaleIndex, OffsetScaleLabels, OffsetScaleLabels.Length);
 
         // Show computed offset in meters for verification
@@ -166,9 +240,6 @@ public class Mod
             $"  = ({computedOffset.X:G5}, {computedOffset.Y:G5}, {computedOffset.Z:G5}) m");
 
         ImGui.Separator();
-
-        var selectedSource = celestials[_pendingSourceIndex];
-        var selectedTarget = orbiters[_pendingTargetIndex];
 
         if ((IOrbiter)selectedSource == selectedTarget)
         {
@@ -226,7 +297,7 @@ public class Mod
           // Unit scale selector (rescales the proxy on change)
           ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
           ImGui.SameLine();
-          ImGui.SetNextItemWidth(60f);
+          ImGui.SetNextItemWidth(82f);
           if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
           {
             double newSf = OffsetScaleFactors[scaleIdx];
@@ -317,6 +388,13 @@ public class Mod
     foreach (var w in sorted)
       _welds.Add(w);
     _weldEditState.Clear();
+  }
+
+  private static string FormatKm(double meters)
+  {
+    if (meters >= 1e9) return $"{meters / 1e9:G4} Gm";
+    if (meters >= 1e6) return $"{meters / 1e6:G4} Mm";
+    return $"{meters / 1e3:G4} km";
   }
 }
 
