@@ -1,251 +1,58 @@
-# Fixme-Mod-Name - Template Mod Structure
+# Kiwi's Marbles
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+A KSA mod for repositioning celestial bodies (planets, moons) by "welding" them to follow other celestial bodies or vehicles at user-defined offsets.
 
 ## Overview
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+Kiwi's Marbles lets you attach a planet or moon to any orbiter (another celestial body or vehicle). Once welded, the source body is teleported on every game tick to maintain its position relative to the target — effectively overriding physics for that body. Multiple welds are supported and processed in dependency order via topological sort.
 
-## What This Mod Contains
+Toggle the window with **F9**.
 
-### Files
+## Features
 
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `kiwis-marbles.csproj` | Main mod project |
-| `kiwis-marbles.lib/KiwisMarblesLib.cs` | Library class (headless logic) |
+- **Celestial welding**: Weld any planet or moon to any other orbiter (celestial or vehicle)
+- **Offset in CCI frame**: Specify an XYZ offset in the CCI (inertial) frame of the target's parent body
+- **Unit scale selector**: Enter offsets in m / km / Mm / Gm for convenience; computed double-precision offset is displayed
+- **Live offset editing**: Adjust the weld offset in real-time from the active welds panel, with a per-weld unit selector
+- **Cross-parent welding**: Source body's parent automatically changes via `SetOrbit()` when target has a different parent
+- **Multiple welds**: Create as many welds as needed; processed in topological order so weld chains work correctly
+- **Unweld**: Remove any active weld instantly
 
-### Mod Lifecycle
+## Usage
 
-```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
-  ↓
-OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
-  ↓
-Unload()                 → Cleanup, remove patches
-```
+1. Press **F9** to open the Kiwi's Marbles window.
+2. Choose a **Source** (the planet/moon to move) from the first dropdown.
+3. Choose a **Target** (anything it should follow — another planet, moon, or vehicle).
+4. Enter an **offset** (X / Y / Z) and pick a scale unit (m / km / Mm / Gm).
+5. Click **Create Weld**. The source body will immediately begin following the target.
+6. Use the **Active Welds** panel to adjust the offset in real-time or click **Unweld** to detach.
+
+### Offset Conventions
+
+- Offsets are in the **CCI (Celestial-Centered Inertial)** frame of the target's parent body.
+- X ≈ along the major axis (roughly sunward/anti-sunward), Y and Z are transverse.
+- Planetary distances are typically millions to billions of meters — use Mm or Gm units.
+- Example: offset `(384.4, 0, 0) km` ≈ Moon–Earth distance.
 
 ## Architecture
 
-### Mod.cs
-Entry point for the mod with lifecycle management.
+| Component | Purpose |
+|-----------|---------|
+| `kiwis-marbles/Mod.cs` | ImGui UI: create/manage welds, per-frame update loop |
+| `kiwis-marbles.lib/CelestialWeldEntry.cs` | Data class: Source (Celestial), Target (IOrbiter), Offset (double3) |
+| `kiwis-marbles.lib/CelestialWeldEngine.cs` | Per-frame repositioning via `SetOrbit` + `UpdatePerFrameData`; topological sort |
+| `ksa-abstractions.lib/CelestialProvider.cs` | `GetAllCelestials()` and `GetAllOrbiters()` from `Universe.CurrentSystem` |
 
-```csharp
-public class Mod : StarMapMod
-{
-    public override void OnImmediateLoad()
-    {
-        // First initialization
-        Console.WriteLine("Fixme-Mod-Name: OnImmediateLoad");
-    }
-    
-    public override void OnFullyLoaded()
-    {
-        // All mods ready, initialize partnerships
-        Patcher.Initialize();
-    }
-    
-    public override void OnAfterUi()
-    {
-        // Render ImGui window every frame
-        RenderWindow();
-    }
-    
-    public override void Unload()
-    {
-        // Cleanup patches and resources
-        Patcher.Cleanup();
-    }
-    
-    private void RenderWindow()
-    {
-        if (!showWindow) return;
-        
-        ImGui.SetNextWindowSize(new Vector2(400, 200), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Fixme-Mod-Name", ref showWindow))
-        {
-            ImGui.Text("Hello, World!");
-            if (ImGui.Button("Click Me!"))
-            {
-                Console.WriteLine("Button clicked!");
-            }
-            ImGui.End();
-        }
-    }
-}
-```
+## Key Game APIs
 
-### Patcher.cs
-Harmony-based runtime method patching initialization.
+- `Celestial.SetOrbit(Orbit)` — replaces orbit and auto-re-parents via `SetParent()`
+- `Celestial.UpdatePerFrameData()` — refreshes cached CCI/CCE position and transform data
+- `Orbit.CreateFromStateCci(parent, time, posCci, velCci, color)` — creates new orbit from state vectors
+- `CelestialSystem.All.GetList()` — returns all `Astronomical` objects (filter with `OfType<Celestial>()`)
 
-```csharp
-public static class Patcher
-{
-    private static Harmony harmony;
-    
-    public static void Initialize()
-    {
-        harmony = new Harmony("MeowSci.KiwisMarbles");
-        harmony.PatchAll();  // Patches defined in assembly
-    }
-    
-    public static void Cleanup()
-    {
-        harmony?.UnpatchAll();
-    }
-}
-```
+## Notes
 
-### Library Project (optional)
-Separate `.lib` project for reusable, headless logic:
-
-```csharp
-public static class KiwisMarblesLib
-{
-    public static void DoSomething()
-    {
-        // Reusable functionality
-    }
-}
-```
-
-## Getting Started with This Template
-
-### Step 1: Rename
-```
-kiwis-marbles → your-cool-mod
-KiwisMarbles → YourCoolMod
-MeowSci.KiwisMarbles → MeowSci.YourCoolMod
-```
-
-### Step 2: Update Project Files
-- Rename `.csproj` files
-- Update assembly names
-- Update namespace declarations
-
-### Step 3: Implement Mod Logic
-Replace template code with actual mod features:
-- Define what should happen in each lifecycle method
-- Add ImGui controls in `RenderWindow()`
-- Implement Harmony patches in `Patcher.cs`
-
-### Step 4: Document
-Refer to this README structure and update with:
-- Mod overview
-- Features
-- Architecture explanation
-- Usage examples
-- Implementation details
-
-## Standard Mod Pattern
-
-Most mods follow this pattern:
-
-1. **Mod.cs**: UI + Lifecycle (StarMapMod subclass)
-2. **Patcher.cs**: Runtime patches (Harmony setup)
-3. **Lib project**: Reusable logic (separate assembly)
-4. **README.md**: Documentation (what you're reading)
-
-## ImGui Window Pattern
-
-Standard toggle pattern:
-
-```csharp
-private bool showWindow = false;
-
-public override void OnAfterUi()
-{
-    // F11 toggles window visibility
-    if (Input.GetKeyDown(KeyCode.F11))
-        showWindow = !showWindow;
-    
-    if (!showWindow) return;
-    
-    ImGui.SetNextWindowSize(new Vector2(400, 300), ImGuiCond.FirstUseEver);
-    if (ImGui.Begin("Mod Name", ref showWindow))
-    {
-        // Render content here
-        ImGui.End();
-    }
-}
-```
-
-## Harmony Patching Pattern
-
-Basic patch structure:
-
-```csharp
-[HarmonyPatch(typeof(TargetClass), nameof(TargetClass.TargetMethod))]
-public static class TargetMethodPatch
-{
-    public static bool Prefix(/* method parameters */)
-    {
-        // Prefix runs before original, return false to skip original
-        Console.WriteLine("Before TargetMethod");
-        return true;
-    }
-    
-    public static void Postfix(/* method parameters */)
-    {
-        // Postfix runs after original
-        Console.WriteLine("After TargetMethod");
-    }
-}
-```
-
-## Key Files for Reference
-
-When developing from this template, refer to:
-
-1. **[REPOSITORY_INDEX.md](../REPOSITORY_INDEX.md)** - All mods documentation
-2. **sibling mod READMEs** - Similar mods for reference implementation
-3. **HarmonyLib docs** - Runtime patching patterns
-4. **ImGui API docs** - UI widget reference
-
-## Next Steps
-
-1. Copy this entire folder
-2. Rename appropriately
-3. Implement your feature logic
-4. Test with `dotnet build`
-5. Update this README with your mod's actual purpose and features
-
-## Testing
-
-Build the solution:
-```bash
-dotnet build
-```
-
-Check for compilation errors before continuing with implementation.
-
-## Common Issues
-
-- **Namespace mismatches**: Update everywhere (csproj, Mod.cs, Patcher.cs)
-- **Project references**: Add library project reference to main mod
-- **Harmony ID conflicts**: Each Harmony instance needs unique ID string
-- **ImGui crashes**: Ensure ImGui calls only happen in OnAfterUi
-
-## Notes for Developers
-
-- Keep UI separate from logic (UI in Mod.cs, logic in Lib project)
-- Use Console.WriteLine for debugging
-- Test Harmony patches carefully—they affect game runtime
-- Document your Harmony patches explaining what they do
-- Consider performance impact of per-frame operations
-
-## Related Mods
-
-See similar template mods:
-- [grant](../grant) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
-- Other mods for inspiration on complete implementations
+- Stars (`StellarBody`) cannot be sources — they have no orbit and always sit at origin.
+- Source body's children (moons of the moved planet) automatically follow since their orbits are defined relative to their parent.
+- Weld chains (Moon → Earth → Mars) work correctly: the engine sorts welds topologically so Earth is moved before Moon's weld is applied.
+- Welds are not persisted across mod reloads.
