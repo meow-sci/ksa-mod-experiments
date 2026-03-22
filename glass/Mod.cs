@@ -24,7 +24,7 @@ public class Mod
 
     private static readonly (string Name, float Fov)[] Presets = new[]
     {
-        ("Game Default", 0f),
+        ("Game Default", 50f),
         ("Super Telephoto (200mm)", 15f),
         ("Telephoto (135mm)", 20f),
         ("Portrait (85mm)", 30f),
@@ -71,7 +71,8 @@ public class Mod
             {
                 try
                 {
-                    Program.GetCamera().SetFieldOfView(Patcher.OverrideFovDegrees);
+                    float clampedFov = MathF.Max(1f, MathF.Min(179f, Patcher.OverrideFovDegrees));
+                    Program.GetCamera().SetFieldOfView(clampedFov);
                 }
                 catch (Exception ex)
                 {
@@ -123,16 +124,8 @@ public class Mod
                 {
                     _selectedPreset = i;
                     _manualMode = false;
-                    if (i == 0)
-                    {
-                        // Game Default
-                        Patcher.IsOverrideActive = false;
-                    }
-                    else
-                    {
-                        Patcher.OverrideFovDegrees = Presets[i].Fov;
-                        Patcher.IsOverrideActive = true;
-                    }
+                    Patcher.OverrideFovDegrees = Presets[i].Fov;
+                    Patcher.IsOverrideActive = true;
                 }
             }
             ImGui.Separator();
@@ -152,8 +145,10 @@ public class Mod
             }
             if (_manualMode)
             {
-                if (ImGui.SliderFloat("FOV°", ref _manualFov, 15f, 120f))
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("FOV°", ref _manualFov, 0.25f, 1f, 179f))
                 {
+                    _manualFov = MathF.Max(1f, MathF.Min(179f, _manualFov));
                     Patcher.OverrideFovDegrees = _manualFov;
                     Patcher.IsOverrideActive = true;
                 }
@@ -165,7 +160,8 @@ public class Mod
             {
                 _selectedPreset = 0;
                 _manualMode = false;
-                Patcher.IsOverrideActive = false;
+                Patcher.OverrideFovDegrees = 50f;
+                Patcher.IsOverrideActive = true;
             }
         }
         ImGui.End();
