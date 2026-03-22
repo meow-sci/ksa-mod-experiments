@@ -27,8 +27,6 @@
     <Project Path="i-feel-seen.lib/i-feel-seen.lib.csproj" />
     <Project Path="grant/grant.csproj" />
     <Project Path="ksa-abstractions.lib/ksa-abstractions.lib.csproj" />
-    <Project Path="my-mod/my-mod.csproj" />
-    <Project Path="my-mod.lib/my-mod.lib.csproj" />
     
     
 </Solution>
