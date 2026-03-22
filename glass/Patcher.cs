@@ -10,11 +10,17 @@ internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("glass");
 
+    internal static bool IsOverrideActive = false;
+    internal static float OverrideFovDegrees = 50f;
+
+    private static System.Reflection.FieldInfo? _fovRadiansField;
+
     public static void Patch()
     {
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
+            _fovRadiansField = AccessTools.Field(typeof(Camera), "_fovRadians");
         }
         catch (Exception ex)
         {
@@ -35,4 +41,22 @@ internal static class Patcher
         }
     }
 
+    [HarmonyPatch(typeof(Camera), "ChangeFieldOfView")]
+    [HarmonyPrefix]
+    private static bool ChangeFieldOfView_Prefix(Camera __instance)
+    {
+        if (!IsOverrideActive) return true; // let game handle it
+        // Block game's FOV input — we control FOV
+        return false;
+    }
+
+    [HarmonyPatch(typeof(Camera), "UpdateProjection")]
+    [HarmonyPrefix]
+    private static void UpdateProjection_Prefix(Camera __instance)
+    {
+        if (!IsOverrideActive) return;
+        if (_fovRadiansField == null) return;
+        float targetRadians = (float)(OverrideFovDegrees * (Math.PI / 180.0));
+        _fovRadiansField.SetValue(__instance, targetRadians);
+    }
 }
