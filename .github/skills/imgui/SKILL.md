@@ -28,6 +28,14 @@ if (ImGui.Button("Click me!")) {
 
 The entire ImGui API should be exposed via this Brutal C# wrapper, so use your knowledge of the official ImGui
 
+## ImGui demo app examples
+
+For the imgui c++ demo app examples you can find the table of contents at [./examples-toc.md](./examples-toc.md) which links to the individual example files in [./examples/](./examples/).  These examples can be used as a reference for how to use ImGui to achieve various UI features and patterns.
+
+IMPORTANT NOTE - these are the original C++ examples.  The examples must be adapted to the KSA Brutal C# ImGui wrapper which is 1:1 but using C# syntax and conventions instead of C++.
+
+
+
 ## Examples
 
 These are some examples using Brutal ImGui API calls to demonstrate common ImGui features.
