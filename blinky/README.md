@@ -1,33 +1,69 @@
-# Fixme-Mod-Name - Template Mod Structure
+# blinky — Dynamic LCD Engine Pixel Grid
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+A KSA mod that dynamically creates an LCD pixel grid of engine parts at runtime and attaches it to an existing vehicle. Provides the same runtime animation and pattern control as blinken, but without requiring a pre-built vehicle.
 
 ## Overview
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+**blinky** builds an NxM grid of engine parts on demand by:
+1. Looking up an engine `PartTemplate` from `ModLibrary`
+2. Creating `Part` instances via `new Part(name, template)` for each grid cell
+3. Attaching them to the vehicle's root part via `PartTree.Merge()`
+4. Naming them `pixel_{row}_{col}_{a|b}` so that blinken's `PixelGrid.ScanFromVehicle()` can be reused
+5. Enabling the scrolling LCD animation using blinken.lib's `LcdAnimation`
 
-## What This Mod Contains
+Resource graph recomputation is suppressed during batch part creation (Harmony patch on `PartTree.RecomputeAllDerivedData`) and called only once after all parts are added.
 
-### Files
+## Controls
 
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `blinky.csproj` | Main mod project |
-| `blinky.lib/BlinkyLib.cs` | Library class (headless logic) |
+- **F11** — Toggle the blinky window
 
-### Mod Lifecycle
+## Window Sections
+
+| Section | Description |
+|---------|-------------|
+| **Grid Configuration** | Width, height, spacing, position offset, engine template quick-select |
+| **Build Control** | Build/Destroy buttons with status |
+| **Patterns** | All On, All Off, Checkerboard, Alt Rows, Alt Cols |
+| **Animation** | Scrolling LCD animation with adjustable speed |
+| **Debug** | Runtime dump buttons for vehicle/part/grid inspection |
+
+## Grid Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Width (cols) | 16 | Number of pixel columns |
+| Height (rows) | 8 | Number of pixel rows |
+| Spacing (m) | 0.5 | Metres between pixel centres |
+| Offset X/Y/Z | 0, 5, 2 | Offset from vehicle root origin |
+| Engine template | EngineA1 | Part template ID (A1–A6 quick-select) |
+
+## Project Structure
 
 ```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
+blinky/                   ← Mod entry point (ImGui UI + lifecycle)
+├── Mod.cs                ← Main mod class (F11 window, pattern/anim controls)
+├── Patcher.cs            ← Harmony patch: suppresses RecomputeAllDerivedData during batch build
+├── blinky.csproj
+└── mod.toml
+
+blinky.lib/               ← Core reusable logic (headless)
+├── LcdGridConfig.cs      ← Grid configuration data class
+├── LcdGridBuilder.cs     ← Runtime Part creation and PartTree.Merge orchestration
+├── BlinkyPixelGrid.cs    ← PixelGrid wrapper with owned-parts lifecycle
+├── ResourceGraphSuppressor.cs  ← Static suppression flag for Harmony patch
+└── blinky.lib.csproj
+```
+
+## Dependencies
+
+- `blinken.lib` — Reuses `PixelGrid`, `LcdAnimation`, `PixelPatterns`
+- `ksa-abstractions.lib` — `VehicleProvider`, `PartHelpers`
+
+## Known Limitations
+
+- Phase 0 debugging: use the **Debug** buttons in the blinky window to dump runtime state after running in game. If `PartTree.Merge` returns false or `PixelGrid.ScanFromVehicle` finds 0 parts, check the console log for diagnostic output.
+- The engine grid stays attached to the vehicle until **Destroy Grid** is pressed. Switching vehicles resets the grid reference but does NOT automatically remove the parts.
+
   ↓
 OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
   ↓

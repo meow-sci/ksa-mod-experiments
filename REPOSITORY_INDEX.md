@@ -85,11 +85,24 @@ G-force recorder and display. Monitors acceleration forces (g-forces) acting on 
 ## Animation & Visual Effects Mods
 
 ### [blinken](blinken) / [blinken.lib](blinken.lib)
-LCD display animation system. Provides pixel grid rendering and text scrolling animations for display panels.
-- Pixel grid (LCD) rendering
-- Text scrolling animations
-- Animation controller
-- Engine controller integration
+LCD display animation system for pre-built pixel engine grids. Scans vehicles for parts named `pixel_{row}_{col}_{a|b}` and animates them as an LCD scrolling display.
+- Pixel grid (LCD) rendering via engine on/off control
+- Scrolling text/image animation with configurable speed
+- Engine controller caching for per-frame O(1) access
+- Pattern presets: All On, Checkerboard, Alt Rows/Cols
+- `PixelGrid.ScanFromVehicle()` — scans vehicle for pixel engine pairs
+- `LcdAnimation` — manages scroll state and updates engine active states
+
+### [blinky](blinky) / [blinky.lib](blinky.lib)
+Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle.
+- Runtime part creation via `PartTree.Merge()` — no pre-built vehicle needed
+- Configurable grid size (1–64 cols × 1–32 rows)
+- Configurable spacing (0.1–5.0 m between pixels) and XYZ offset from vehicle root
+- Engine template quick-select (EngineA1–A6)
+- Batch creation with Harmony-suppressed resource graph recomputation (N→1 recomputes)
+- Same pattern and animation controls as blinken (reuses blinken.lib)
+- Build/Destroy grid at any time; destruction splits pixel parts back out of the vehicle
+- Debug panel: runtime dump of vehicle parts type, root part, engine templates list
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages animations for the kitten avatar character with frame-by-frame updates.
