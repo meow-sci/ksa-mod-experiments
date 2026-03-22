@@ -4,7 +4,7 @@ using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
 
-namespace MeowSci.FixmeModName;
+namespace MeowSci.Glass;
 
 [StarMapMod]
 public class Mod
@@ -29,7 +29,7 @@ public class Mod
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"fixme-mod-name: Error during initialization: {ex.Message}");
+      Console.WriteLine($"glass: Error during initialization: {ex.Message}");
     }
   }
 
@@ -51,7 +51,7 @@ public class Mod
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"fixme-mod-name: Error in OnAfterUi: {ex.Message}");
+      Console.WriteLine($"glass: Error in OnAfterUi: {ex.Message}");
     }
   }
 
@@ -65,7 +65,7 @@ public class Mod
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"fixme-mod-name: Error during unload: {ex.Message}");
+      Console.WriteLine($"glass: Error during unload: {ex.Message}");
     }
   }
 
@@ -75,10 +75,10 @@ public class Mod
     ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
 
     // Begin window
-    if (ImGui.Begin("fixme-mod-name Mod", ref _windowVisible))
+    if (ImGui.Begin("glass Mod", ref _windowVisible))
     {
       // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "fixme-mod-name");
+      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "glass");
       ImGui.Separator();
 
       // Zoom Out Animation Configuration

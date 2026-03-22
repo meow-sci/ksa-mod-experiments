@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.GlassLib</AssemblyName>
+    <RootNamespace>MeowSci.GlassLib</RootNamespace>
+    <Description>Example lib</Description>
+    <PackageId>MeowSci.GlassLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>

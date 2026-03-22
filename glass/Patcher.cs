@@ -3,12 +3,12 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 
-namespace MeowSci.FixmeModName;
+namespace MeowSci.Glass;
 
 [HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("fixme-mod-name");
+    private static Harmony? _harmony = new Harmony("glass");
 
     public static void Patch()
     {
@@ -18,7 +18,7 @@ internal static class Patcher
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"fixme-mod-name: Error applying patches: {ex.Message}");
+            Console.WriteLine($"glass: Error applying patches: {ex.Message}");
         }
     }
 
@@ -26,12 +26,12 @@ internal static class Patcher
     {
         try
         {
-            _harmony?.UnpatchAll("fixme-mod-name");
+            _harmony?.UnpatchAll("glass");
             _harmony = null;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"fixme-mod-name: Error removing patches: {ex.Message}");
+            Console.WriteLine($"glass: Error removing patches: {ex.Message}");
         }
     }
 

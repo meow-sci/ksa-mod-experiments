@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MeowSci.ExampleLib</AssemblyName>
-    <RootNamespace>MeowSci.ExampleLib</RootNamespace>
+    <AssemblyName>MeowSci.FixmeModNameLib</AssemblyName>
+    <RootNamespace>MeowSci.FixmeModNameLib</RootNamespace>
     <Description>Example lib</Description>
-    <PackageId>MeowSci.ExampleLib</PackageId>
+    <PackageId>MeowSci.FixmeModNameLib</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

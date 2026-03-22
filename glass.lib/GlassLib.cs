@@ -1,11 +1,11 @@
 using System;
 
-namespace MeowSci.ExampleLib;
+namespace MeowSci.GlassLib;
 
 /// <summary>
 /// Example library code.
 /// </summary>
-public sealed class ExampleLibCode
+public sealed class FixmeModLib
 {
   public static void Thing()
   {
