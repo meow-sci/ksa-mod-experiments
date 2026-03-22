@@ -119,6 +119,19 @@ Bring Your Own Music - Custom music player. Plays audio playlists from defined a
 
 ---
 
+## UI & Customization Mods
+
+### [skittles](skittles) / [skittles.lib](skittles.lib)
+Global ImGui theme manager. Provides a theme picker and a full style editor that affect every window and control across the entire application, using `ImGui.GetStyle()` — no Harmony patching required.
+- Theme picker with filterable combobox (F11 toggle)
+- Built-in themes: Game Default, Dark, Light, Classic, Inanimate Carbon Rod
+- Full theme editor wrapping `ImGui.ShowStyleEditor()` — 60 color slots + all style vars
+- Save/load custom themes as TOML files to/from disk
+- Persistent theme selection across game sessions; restores game default on unload
+- **skittles.lib**: `ThemeDefinition` (60-color + style POCO), `ThemeSerializer` (Tomlyn TOML I/O), `ThemeManager` (load/save/apply/list), `BuiltInThemes` (Inanimate Carbon Rod preset)
+
+---
+
 ## Template/Placeholder Mods
 
 ### [fixme-mod-name](fixme-mod-name) / [fixme-mod-name.lib](fixme-mod-name.lib)
