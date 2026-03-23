@@ -54,26 +54,18 @@ public static class LcdGridBuilder
 
         var createdParts = new List<Part>(config.TotalParts);
 
-        // ── Batch creation with suppressed recomputes ────────────────────────────
+        // ── Batch creation (each Merge triggers its own recompute) ───────────────
         var swCreate = Stopwatch.StartNew();
-        ResourceGraphSuppressor.Suppress();
-        try
+        for (int row = 0; row < config.Height; row++)
         {
-            for (int row = 0; row < config.Height; row++)
+            for (int col = 0; col < config.Width; col++)
             {
-                for (int col = 0; col < config.Width; col++)
-                {
-                    var partA = CreateAndMergePixelPart(vehicle, root, template, row, col, "a", config);
-                    var partB = CreateAndMergePixelPart(vehicle, root, template, row, col, "b", config);
+                var partA = CreateAndMergePixelPart(vehicle, root, template, row, col, "a", config);
+                var partB = CreateAndMergePixelPart(vehicle, root, template, row, col, "b", config);
 
-                    if (partA != null) createdParts.Add(partA);
-                    if (partB != null) createdParts.Add(partB);
-                }
+                if (partA != null) createdParts.Add(partA);
+                if (partB != null) createdParts.Add(partB);
             }
-        }
-        finally
-        {
-            ResourceGraphSuppressor.Unsuppress();
         }
         swCreate.Stop();
         Console.WriteLine($"blinky: created {createdParts.Count} parts in {swCreate.ElapsedMilliseconds}ms");
@@ -84,15 +76,9 @@ public static class LcdGridBuilder
             return null;
         }
 
-        // ── Set MinimumThrottle before final recompute ───────────────────────────
-        // This ensures engines can fire even at very low vehicle throttle settings.
+        // ── Set MinimumThrottle after recompute so EngineControllers are initialized ──
+        // Engines can fire even at very low vehicle throttle settings.
         SetMinimumThrottle(createdParts, 0.0001f);
-
-        // ── Single final recompute ───────────────────────────────────────────────
-        var swRecompute = Stopwatch.StartNew();
-        vehicle.Parts.RecomputeAllDerivedData();
-        swRecompute.Stop();
-        Console.WriteLine($"blinky: final RecomputeAllDerivedData took {swRecompute.ElapsedMilliseconds}ms");
 
         // ── Scan vehicle to build PixelGrid ──────────────────────────────────────
         var pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
@@ -112,27 +98,17 @@ public static class LcdGridBuilder
 
         Console.WriteLine($"blinky: destroying grid — removing {grid.OwnedParts.Count} parts");
 
-        ResourceGraphSuppressor.Suppress();
-        try
+        foreach (var part in grid.OwnedParts)
         {
-            foreach (var part in grid.OwnedParts)
+            try
             {
-                try
-                {
-                    vehicle.Parts.Split(part);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"blinky: error splitting part '{part.Id}': {ex.Message}");
-                }
+                vehicle.Parts.Split(part);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"blinky: error splitting part '{part.Id}': {ex.Message}");
             }
         }
-        finally
-        {
-            ResourceGraphSuppressor.Unsuppress();
-        }
-
-        vehicle.Parts.RecomputeAllDerivedData();
         Console.WriteLine("blinky: grid destroyed and recomputed");
     }
 

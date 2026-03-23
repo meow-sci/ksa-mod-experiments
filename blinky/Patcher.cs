@@ -1,8 +1,5 @@
 using System;
 using HarmonyLib;
-using Brutal.Numerics;
-using KSA;
-using MeowSci.BlinkyLib;
 
 namespace MeowSci.Blinky;
 
@@ -36,21 +33,7 @@ internal static class Patcher
         }
     }
 
-    /// <summary>
-    /// Suppresses PartTree.RecomputeAllDerivedData() during batch part creation.
-    /// This prevents N² recomputations when adding N pixel engine parts to the vehicle.
-    /// The mod calls RecomputeAllDerivedData() manually once after all parts are added.
-    /// </summary>
-    [HarmonyPatch(typeof(PartTree), "RecomputeAllDerivedData")]
-    [HarmonyPrefix]
-    private static bool SuppressRecomputeAllDerivedData()
-    {
-        if (ResourceGraphSuppressor.IsSuppressed)
-        {
-            Console.WriteLine("blinky: suppressed RecomputeAllDerivedData() call");
-            return false; // skip original
-        }
-        return true; // let it run
-    }
+    // RecomputeAllDerivedData suppression removed — letting each Merge trigger it normally.
+    // Re-enable as an optimisation once the basic part-creation flow is confirmed working.
 }
 
