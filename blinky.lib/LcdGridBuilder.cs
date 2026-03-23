@@ -14,8 +14,10 @@ namespace MeowSci.BlinkyLib;
 /// Each pixel position gets two engine parts (a/b pair) following blinken's naming convention
 /// <c>pixel_{row}_{col}_{a|b}</c>, so that <see cref="PixelGrid.ScanFromVehicle"/> can be reused directly.
 ///
-/// All pixel parts are attached as children of the vehicle's root part via <c>PartTree.Merge()</c>.
-/// Resource graph recomputation is suppressed during batch creation and called once at the end.
+/// All pixel parts are attached as children of the vehicle's root part via manual
+/// <c>TreeParent</c>/<c>TreeChildren</c> assignment.  The <c>PartTree</c> is rebuilt once
+/// at the end with <c>PartTree.CreateFromNewPartTree()</c>, avoiding the per-part
+/// <c>RecomputeAllDerivedData()</c> cost that <c>PartTree.Merge()</c> would trigger.
 /// </summary>
 public static class LcdGridBuilder
 {
@@ -29,6 +31,9 @@ public static class LcdGridBuilder
         if (vehicle == null) throw new ArgumentNullException(nameof(vehicle));
         if (config == null) throw new ArgumentNullException(nameof(config));
 
+        var swTotal = Stopwatch.StartNew();
+        var timings = new List<(string Label, long Ms)>();
+
         // ── Find attachment root ─────────────────────────────────────────────────
         var root = vehicle.Parts.Root;
         if (root == null)
@@ -41,6 +46,7 @@ public static class LcdGridBuilder
         // NOTE: TryGet<PartTemplate> is NOT supported by ModLibrary — only Get<PartTemplate> works.
         // Get throws NullReferenceException if the id is unknown, so we catch that.
         PartTemplate? template;
+        var sw = Stopwatch.StartNew();
         try
         {
             template = ModLibrary.Get<PartTemplate>(config.EnginePartId);
@@ -50,13 +56,16 @@ public static class LcdGridBuilder
             Console.WriteLine($"blinky: PartTemplate '{config.EnginePartId}' not found in ModLibrary: {ex.Message}");
             return null;
         }
+        timings.Add(("ModLibrary.Get<PartTemplate>", sw.ElapsedMilliseconds));
 
         // ── Find a fuel-carrying part to connect pixel engines to ─────────────
         // The ResourceManager walks Part.Connections (not the tree hierarchy) to
         // find tanks.  Without a connection from each pixel engine to a part that
         // has Tank modules the resource graph is empty and ResourceAvailable()
         // returns false → engine never fires.
+        sw.Restart();
         var fuelPart = FindFuelPart(vehicle);
+        timings.Add(("FindFuelPart", sw.ElapsedMilliseconds));
         if (fuelPart != null)
             Console.WriteLine($"blinky: will connect pixel engines to fuel part '{fuelPart.Id}'");
         else
@@ -66,29 +75,19 @@ public static class LcdGridBuilder
 
         var createdParts = new List<Part>(config.TotalParts);
 
-        // ── Batch creation (each Merge triggers its own recompute) ───────────────
-        var swCreate = Stopwatch.StartNew();
+        // ── Part instantiation — new Part() + position/rotation/scale ───────────
+        sw.Restart();
         for (int row = 0; row < config.Height; row++)
         {
             for (int col = 0; col < config.Width; col++)
             {
-                var partA = CreateAndMergePixelPart(vehicle, root, template, row, col, "a", config);
-                var partB = CreateAndMergePixelPart(vehicle, root, template, row, col, "b", config);
-
-                if (partA != null)
-                {
-                    createdParts.Add(partA);
-                    if (fuelPart != null) ConnectToFuel(partA, fuelPart);
-                }
-                if (partB != null)
-                {
-                    createdParts.Add(partB);
-                    if (fuelPart != null) ConnectToFuel(partB, fuelPart);
-                }
+                var partA = CreatePixelPartInstance(template, row, col, "a", config);
+                var partB = CreatePixelPartInstance(template, row, col, "b", config);
+                if (partA != null) createdParts.Add(partA);
+                if (partB != null) createdParts.Add(partB);
             }
         }
-        swCreate.Stop();
-        Console.WriteLine($"blinky: created {createdParts.Count} parts in {swCreate.ElapsedMilliseconds}ms");
+        timings.Add(($"Part instantiation ({createdParts.Count} parts)", sw.ElapsedMilliseconds));
 
         if (createdParts.Count == 0)
         {
@@ -96,65 +95,135 @@ public static class LcdGridBuilder
             return null;
         }
 
-        // ── Set MinimumThrottle after recompute so EngineControllers are initialized ──
-        // Engines can fire even at very low vehicle throttle settings.
+        // ── Tree wiring — TreeParent / TreeChildren ──────────────────────────────
+        sw.Restart();
+        foreach (var part in createdParts)
+        {
+            part.TreeParent = root;
+            root.TreeChildren.Add(part);
+        }
+        timings.Add(($"Tree wiring ({createdParts.Count} parts)", sw.ElapsedMilliseconds));
+
+        // ── Fuel connections — Part.Connection.Connect ───────────────────────────
+        if (fuelPart != null)
+        {
+            sw.Restart();
+            foreach (var part in createdParts)
+                ConnectToFuel(part, fuelPart);
+            timings.Add(($"Fuel connections ({createdParts.Count})", sw.ElapsedMilliseconds));
+        }
+
+        // ── PartTree rebuild — CreateFromNewPartTree ─────────────────────────────
+        // Walks full TreeChildren hierarchy from root, registers all modules/states,
+        // and calls RecomputeAllDerivedData exactly once.
+        sw.Restart();
+        vehicle.Parts = PartTree.CreateFromNewPartTree(root);
+        timings.Add(("PartTree.CreateFromNewPartTree", sw.ElapsedMilliseconds));
+
+        // ── UpdateAfterPartTreeModification — resync FlightComputer ─────────────
+        // Rebuilds FlightComputer.VehicleConfig (Gimbals, Engines, etc.) from the
+        // new part tree.  Without this the flight computer holds stale GimbalController
+        // references and crashes with an index-out-of-range in UpdateTvcParams.
+        sw.Restart();
+        vehicle.UpdateAfterPartTreeModification();
+        timings.Add(("UpdateAfterPartTreeModification", sw.ElapsedMilliseconds));
+
+        // ── SetMinimumThrottle — iterate EngineControllers ──────────────────────
+        sw.Restart();
         SetMinimumThrottle(createdParts, 0.0001f);
+        timings.Add(("SetMinimumThrottle", sw.ElapsedMilliseconds));
 
-        // ── Recompute after connections established ──────────────────────────────
-        // Merge() already calls RecomputeAllDerivedData, but we also need it after
-        // Part.Connection.Connect() so the ResourceManager graph picks up the new
-        // connections to fuel tanks.
-        vehicle.Parts.RecomputeAllDerivedData();
-
-        // ── Scan vehicle to build PixelGrid ──────────────────────────────────────
+        // ── PixelGrid.ScanFromVehicle ────────────────────────────────────────────
+        sw.Restart();
         var pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
+        timings.Add(($"PixelGrid.ScanFromVehicle ({pixelGrid.Count} pairs)", sw.ElapsedMilliseconds));
         if (pixelGrid.Count == 0)
             Console.WriteLine("blinky: WARNING — PixelGrid scan found 0 pixel pairs after creation");
-        // The initial scan may run before engine modules are fully initialized in the vehicle's
-        // state lists (Modules.Get<EngineController>() on individual parts can return empty
-        // immediately after Merge). RefreshEngineControllers re-queries the already-located
-        // parts so the cached Engines dictionary is populated for animation use.
+
+        // ── RefreshEngineControllers ─────────────────────────────────────────────
+        sw.Restart();
         pixelGrid.RefreshEngineControllers();
+        timings.Add(("RefreshEngineControllers", sw.ElapsedMilliseconds));
+
+        // ── Print timing summary ─────────────────────────────────────────────────
+        swTotal.Stop();
+        Console.WriteLine($"blinky: BuildGrid timing ({config.Width}x{config.Height}, {createdParts.Count} parts, total={swTotal.ElapsedMilliseconds}ms):");
+        foreach (var (label, ms) in timings)
+            Console.WriteLine($"blinky:   {label,-45} {ms,6}ms");
+
         return new BlinkyPixelGrid(pixelGrid, createdParts);
     }
 
     /// <summary>
-    /// Removes all dynamically created pixel parts from the vehicle, then recomputes once.
+    /// Removes all dynamically created pixel parts from the vehicle.
+    /// Uses manual tree unlinking + single <c>CreateFromNewPartTree</c> rebuild,
+    /// mirroring the BuildGrid approach to avoid N per-part <c>RecomputeAllDerivedData</c> calls.
     /// Only operates on owned (blinky-built) grids.
     /// </summary>
     public static void DestroyGrid(Vehicle vehicle, BlinkyPixelGrid grid)
     {
         if (vehicle == null || grid == null || !grid.IsOwned) return;
 
-        Console.WriteLine($"blinky: destroying grid — removing {grid.OwnedParts.Count} parts");
+        int partCount = grid.OwnedParts.Count;
+        Console.WriteLine($"blinky: destroying grid — removing {partCount} parts");
+        var swTotal = Stopwatch.StartNew();
+        var timings = new List<(string Label, long Ms)>();
+        var sw = Stopwatch.StartNew();
 
+        // ── Disconnect fuel connections ──────────────────────────────────────────
         foreach (var part in grid.OwnedParts)
         {
-            try
+            foreach (var conn in part.Connections.ToArray())
             {
-                // Disconnect resource connections before splitting
-                foreach (var conn in part.Connections.ToArray())
-                {
-                    try { conn.Disconnect(); } catch { }
-                }
-                vehicle.Parts.Split(part);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"blinky: error splitting part '{part.Id}': {ex.Message}");
+                try { conn.Disconnect(); } catch { }
             }
         }
-        Console.WriteLine("blinky: grid destroyed and recomputed");
+        timings.Add(($"Disconnect fuel connections ({partCount} parts)", sw.ElapsedMilliseconds));
+
+        // ── Manually unlink all pixel parts from the tree ────────────────────────
+        // Mirrors BuildGrid: set TreeParent=null and remove from parent's TreeChildren
+        // without calling Split (which triggers RecomputeAllDerivedData per part).
+        sw.Restart();
+        foreach (var part in grid.OwnedParts)
+        {
+            var parent = part.TreeParent;
+            if (parent != null)
+            {
+                parent.TreeChildren.Remove(part);
+                part.TreeParent = null;
+            }
+        }
+        timings.Add(($"Tree unlink ({partCount} parts)", sw.ElapsedMilliseconds));
+
+        // ── Rebuild vehicle PartTree once from the now-clean root ────────────────
+        // CreateFromNewPartTree walks only the remaining (non-pixel) tree children,
+        // so the pixel parts are simply gone, and recompute runs exactly once.
+        var root = vehicle.Parts.Root;
+        sw.Restart();
+        vehicle.Parts = PartTree.CreateFromNewPartTree(root);
+        timings.Add(("PartTree.CreateFromNewPartTree", sw.ElapsedMilliseconds));
+
+        // ── UpdateAfterPartTreeModification — resync FlightComputer ─────────────
+        // Same reason as BuildGrid: rebuilds FlightComputer.VehicleConfig so it no
+        // longer references the now-removed pixel engine GimbalControllers.
+        sw.Restart();
+        vehicle.UpdateAfterPartTreeModification();
+        timings.Add(("UpdateAfterPartTreeModification", sw.ElapsedMilliseconds));
+
+        swTotal.Stop();
+        Console.WriteLine($"blinky: DestroyGrid timing ({partCount} parts, total={swTotal.ElapsedMilliseconds}ms):");
+        foreach (var (label, ms) in timings)
+            Console.WriteLine($"blinky:   {label,-45} {ms,6}ms");
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Creates a single pixel engine part at the correct grid position and merges it into the vehicle.
+    /// Creates and configures a single pixel engine part (position, rotation, scale).
+    /// Does NOT wire it into any tree — caller handles <c>TreeParent</c>/<c>TreeChildren</c>.
     /// </summary>
-    private static Part? CreateAndMergePixelPart(
-        Vehicle vehicle, Part attachTo, PartTemplate template,
-        int row, int col, string slot, LcdGridConfig config)
+    private static Part? CreatePixelPartInstance(
+        PartTemplate template, int row, int col, string slot, LcdGridConfig config)
     {
         try
         {
@@ -179,15 +248,7 @@ public static class LcdGridBuilder
                 : new doubleQuat(0, -s, 0, s);  // Y = -90°
 
             // Scale down to match blinken's convention (blinken XML uses Scale=0.1).
-            // Full-size engines at the same position are visually massive; small scale gives clean pixel dots.
             part.Scale = new double3(config.PartScale, config.PartScale, config.PartScale);
-
-            bool merged = vehicle.Parts.Merge(attachTo, part);
-            if (!merged)
-            {
-                Console.WriteLine($"blinky: Merge returned false for part '{partId}'");
-                return null;
-            }
 
             return part;
         }

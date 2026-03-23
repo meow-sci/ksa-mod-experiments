@@ -95,11 +95,11 @@ LCD display animation system for pre-built pixel engine grids. Scans vehicles fo
 
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
 Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle.
-- Runtime part creation via `PartTree.Merge()` — no pre-built vehicle needed
+- Runtime part creation via manual `TreeParent`/`TreeChildren` wiring — no pre-built vehicle needed
 - Configurable grid size (1–64 cols × 1–32 rows)
 - Configurable spacing (0.1–5.0 m between pixels) and XYZ offset from vehicle root
 - Engine template quick-select (EngineA1–A6)
-- Batch creation with Harmony-suppressed resource graph recomputation (N→1 recomputes)
+- Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
 - Same pattern and animation controls as blinken (reuses blinken.lib)
 - Build/Destroy grid at any time; destruction splits pixel parts back out of the vehicle
 - Debug panel: runtime dump of vehicle parts type, root part, engine templates list

@@ -7,11 +7,12 @@ A KSA mod that dynamically creates an LCD pixel grid of engine parts at runtime 
 **blinky** builds an NxM grid of engine parts on demand by:
 1. Looking up an engine `PartTemplate` from `ModLibrary`
 2. Creating `Part` instances via `new Part(name, template)` for each grid cell
-3. Attaching them to the vehicle's root part via `PartTree.Merge()`
-4. Naming them `pixel_{row}_{col}_{a|b}` so that blinken's `PixelGrid.ScanFromVehicle()` can be reused
-5. Enabling the scrolling LCD animation using blinken.lib's `LcdAnimation`
+3. Wiring them to the vehicle's root part via manual `TreeParent`/`TreeChildren` assignment
+4. Rebuilding the `PartTree` once with `PartTree.CreateFromNewPartTree()` after all parts are added
+5. Naming them `pixel_{row}_{col}_{a|b}` so that blinken's `PixelGrid.ScanFromVehicle()` can be reused
+6. Enabling the scrolling LCD animation using blinken.lib's `LcdAnimation`
 
-Resource graph recomputation is suppressed during batch part creation (Harmony patch on `PartTree.RecomputeAllDerivedData`) and called only once after all parts are added.
+The `PartTree` is rebuilt only once at the end, avoiding the per-part `RecomputeAllDerivedData()` cost that `Merge()` would trigger.
 
 ## Controls
 
@@ -42,15 +43,14 @@ Resource graph recomputation is suppressed during batch part creation (Harmony p
 ```
 blinky/                   ← Mod entry point (ImGui UI + lifecycle)
 ├── Mod.cs                ← Main mod class (F11 window, pattern/anim controls)
-├── Patcher.cs            ← Harmony patch: suppresses RecomputeAllDerivedData during batch build
+├── Patcher.cs            ← Harmony patch setup (currently empty)
 ├── blinky.csproj
 └── mod.toml
 
 blinky.lib/               ← Core reusable logic (headless)
 ├── LcdGridConfig.cs      ← Grid configuration data class
-├── LcdGridBuilder.cs     ← Runtime Part creation and PartTree.Merge orchestration
+├── LcdGridBuilder.cs     ← Runtime Part creation and manual tree wiring
 ├── BlinkyPixelGrid.cs    ← PixelGrid wrapper with owned-parts lifecycle
-├── ResourceGraphSuppressor.cs  ← Static suppression flag for Harmony patch
 └── blinky.lib.csproj
 ```
 
