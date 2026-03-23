@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
@@ -158,17 +159,42 @@ public class Mod
         ImGui.SetNextWindowSize(new float2(700, 800), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("Skittles — Theme Editor", ref _editorVisible))
         {
-            // Save button / input area
+            // Determine if a custom (non-built-in) theme is currently active
+            ThemeEntry? activeEntry = _themeManager.AvailableThemes
+                .FirstOrDefault(t => t.Name == _themeManager.ActiveThemeName && !t.IsBuiltIn);
+            bool isCustom = activeEntry is not null;
+
             if (!_showSaveInput)
             {
-                if (ImGui.Button("Save Current Style as Theme..."))
+                if (isCustom)
                 {
-                    _showSaveInput = true;
-                    _themeNameInput.Clear();
+                    // Quick-save overwrites the existing file
+                    if (ImGui.Button($"Save \"{activeEntry!.Name}\""))
+                    {
+                        _themeManager.SaveCurrentAsTheme(activeEntry.Name);
+                        Console.WriteLine($"skittles: Saved theme '{activeEntry.Name}'");
+                        UpdateSelectedIndex();
+                    }
+                    ImGui.SameLine();
+                    if (ImGui.Button("Save as New..."))
+                    {
+                        _showSaveInput = true;
+                        _themeNameInput.Clear();
+                    }
+                }
+                else
+                {
+                    // Built-in or game default — only save as new makes sense
+                    if (ImGui.Button("Save as New Theme..."))
+                    {
+                        _showSaveInput = true;
+                        _themeNameInput.Clear();
+                    }
                 }
             }
             else
             {
+                // Save-as-new input row
                 ImGui.Text("Theme Name:");
                 ImGui.SameLine();
                 ImGui.SetNextItemWidth(250);
