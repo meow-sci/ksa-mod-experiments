@@ -1,10 +1,27 @@
 namespace MeowSci.BlinkyLib;
 
+/// <summary>Grid layout mode for the LCD pixel engine grid.</summary>
+public enum GridLayout
+{
+    /// <summary>Flat plane layout — columns along X, rows along -Y.</summary>
+    Flat,
+
+    /// <summary>
+    /// Cylinder (sides only) — columns wrap around the circumference,
+    /// rows stack vertically along the cylinder axis (Y).
+    /// Radius is derived from <c>(Width × Spacing) / (2π)</c>.
+    /// </summary>
+    Cylinder,
+}
+
 /// <summary>
 /// Configuration for the dynamically built LCD pixel engine grid.
 /// </summary>
 public class LcdGridConfig
 {
+    /// <summary>Layout mode — flat plane or cylinder surface.</summary>
+    public GridLayout Layout { get; set; } = GridLayout.Flat;
+
     /// <summary>Number of pixel columns (width of the display).</summary>
     public int Width { get; set; } = 16;
 

@@ -105,6 +105,7 @@ LCD display animation system for pre-built pixel engine grids. Scans vehicles fo
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
 Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle.
 - Runtime part creation via manual `TreeParent`/`TreeChildren` wiring — no pre-built vehicle needed
+- Layout modes: Flat (plane) or Cylinder (sides only, radius auto-calculated from width × spacing)
 - Configurable grid size (1–64 cols × 1–32 rows)
 - Configurable spacing (0.1–5.0 m between pixels) and XYZ offset from vehicle root
 - Engine template quick-select (EngineA1–A6)

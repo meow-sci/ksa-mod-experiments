@@ -30,6 +30,7 @@ public class Mod
     private float _configOffsetZ = 2f;
     private float _configPartScale = 0.010f;
     private string _enginePartId = "CorePropulsionA_Prefab_EngineA1";
+    private int _configLayoutIndex = 0; // 0=Flat, 1=Cylinder
 
     // Runtime state
     private BlinkyPixelGrid? _blinkyGrid = null;
@@ -158,6 +159,16 @@ public class Mod
             ImGui.DragInt("Width (cols)##blinky", ref _configWidth, 1, 1, 256);
             ImGui.DragInt("Height (rows)##blinky", ref _configHeight, 1, 1, 256);
             ImGui.Text($"Total parts: {_configWidth * _configHeight * 2}  (= {_configWidth} x {_configHeight} x 2 a/b pairs)");
+
+            ImGui.Spacing();
+            if (ImGui.RadioButton("Flat##blinky", _configLayoutIndex == 0)) _configLayoutIndex = 0;
+            ImGui.SameLine(0, 8);
+            if (ImGui.RadioButton("Cylinder##blinky", _configLayoutIndex == 1)) _configLayoutIndex = 1;
+            if (_configLayoutIndex == 1)
+            {
+                double cylRadius = (_configWidth * _configSpacing) / (2.0 * System.Math.PI);
+                ImGui.TextDisabled($"Cylinder radius: {cylRadius:F2} m  (circumference = {_configWidth} x {_configSpacing:F2} m)");
+            }
 
             ImGui.Spacing();
             ImGui.DragFloat("Spacing (m)##blinky", ref _configSpacing, 0.01f, 0.0f, 10.0f);
@@ -361,6 +372,7 @@ public class Mod
                 OffsetZ = _configOffsetZ,
                 PartScale = _configPartScale,
                 EnginePartId = _enginePartId,
+                Layout = _configLayoutIndex == 1 ? GridLayout.Cylinder : GridLayout.Flat,
             };
 
             _blinkyGrid = LcdGridBuilder.BuildGrid(vehicle, config);

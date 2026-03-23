@@ -73,7 +73,7 @@ public static class LcdGridBuilder
         else
             Console.WriteLine("blinky: WARNING — no fuel parts found; engines may not fire");
 
-        Console.WriteLine($"blinky: building {config.Width}x{config.Height} grid using '{config.EnginePartId}' — {config.TotalParts} total parts");
+        Console.WriteLine($"blinky: building {config.Width}x{config.Height} {config.Layout} grid using '{config.EnginePartId}' — {config.TotalParts} total parts");
 
         var createdParts = new List<Part>(config.TotalParts);
 
@@ -235,22 +235,39 @@ public static class LcdGridBuilder
             string partId = $"pixel_{row}_{col}_{slot}";
             var part = new Part(partId, template);
 
-            // Columns along +X, rows down along -Y.
-            // Both 'a' and 'b' occupy the same position — they oppose each other via rotation.
-            double px = config.OffsetX + col * config.Spacing;
-            double py = config.OffsetY - row * config.Spacing;
-            double pz = config.OffsetZ;
+            double px, py, pz;
+            double rotAngle; // Y-axis rotation angle in radians
+
+            if (config.Layout == GridLayout.Cylinder)
+            {
+                // Cylinder: columns wrap around circumference, rows stack along Y.
+                // Circumference = Width * Spacing  →  radius = (Width * Spacing) / (2π)
+                double radius = (config.Width * config.Spacing) / (2.0 * System.Math.PI);
+                double theta = col * 2.0 * System.Math.PI / config.Width;
+
+                px = config.OffsetX + radius * System.Math.Sin(theta);
+                py = config.OffsetY - row * config.Spacing;
+                pz = config.OffsetZ + radius * System.Math.Cos(theta);
+
+                // Engine a/b fire radially (in/out from cylinder centre).
+                // Flat case uses ±π/2; cylinder adds θ to rotate with the surface.
+                rotAngle = slot == "b" ? theta + System.Math.PI / 2.0 : theta - System.Math.PI / 2.0;
+            }
+            else
+            {
+                // Flat: columns along +X, rows down along -Y.
+                px = config.OffsetX + col * config.Spacing;
+                py = config.OffsetY - row * config.Spacing;
+                pz = config.OffsetZ;
+
+                // a rotates Y=-90°, b rotates Y=+90° (nozzles fire ±X, cancelling thrust).
+                rotAngle = slot == "b" ? System.Math.PI / 2.0 : -System.Math.PI / 2.0;
+            }
 
             part.PositionParentAsmb = new double3(px, py, pz);
 
-            // Mirror blinken's XML convention: pixel_*_a rotates Y=-90°, pixel_*_b rotates Y=+90°.
-            // This places the two nozzles firing in exactly opposite horizontal directions,
-            // cancelling all net thrust while both engine glows remain visible.
-            // Quaternion for rotation around Y by θ: (0, sin(θ/2), 0, cos(θ/2))
-            const double s = 0.7071067811865476; // sin/cos of ±45° = 1/√2
-            part.Asmb2ParentAsmb = slot == "b"
-                ? new doubleQuat(0,  s, 0, s)   // Y = +90°
-                : new doubleQuat(0, -s, 0, s);  // Y = -90°
+            double halfAngle = rotAngle / 2.0;
+            part.Asmb2ParentAsmb = new doubleQuat(0, System.Math.Sin(halfAngle), 0, System.Math.Cos(halfAngle));
 
             // Scale down to match blinken's convention (blinken XML uses Scale=0.1).
             part.Scale = new double3(config.PartScale, config.PartScale, config.PartScale);

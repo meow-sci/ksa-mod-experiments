@@ -22,7 +22,7 @@ The `PartTree` is rebuilt only once at the end, avoiding the per-part `Recompute
 
 | Section | Description |
 |---------|-------------|
-| **Grid Configuration** | Width, height, spacing, position offset, engine template quick-select |
+| **Grid Configuration** | Width, height, spacing, layout mode, position offset, engine template quick-select |
 | **Build Control** | Build/Destroy buttons with status |
 | **Patterns** | All On, All Off, Checkerboard, Alt Rows, Alt Cols |
 | **Animation** | Scrolling LCD animation with adjustable speed |
@@ -34,8 +34,9 @@ The `PartTree` is rebuilt only once at the end, avoiding the per-part `Recompute
 |-----------|---------|-------------|
 | Width (cols) | 16 | Number of pixel columns |
 | Height (rows) | 8 | Number of pixel rows |
-| Spacing (m) | 0.5 | Metres between pixel centres |
-| Offset X/Y/Z | 0, 5, 2 | Offset from vehicle root origin |
+| Layout | Flat | Flat plane or Cylinder (sides only) |
+| Spacing (m) | 0.5 | Metres between pixel centres (arc-length for cylinder) |
+| Offset X/Y/Z | 0, 5, 2 | Offset from vehicle root origin (cylinder centre for cylinder mode) |
 | Engine template | EngineA1 | Part template ID (A1–A6 quick-select) |
 
 ## Project Structure
