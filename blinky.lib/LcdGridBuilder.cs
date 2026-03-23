@@ -161,14 +161,26 @@ public static class LcdGridBuilder
             string partId = $"pixel_{row}_{col}_{slot}";
             var part = new Part(partId, template);
 
-            // Columns along +X, rows down along -Y, forward along +Z.
-            // 'b' is offset 0.05 m in Z to prevent exact overlap with 'a'.
+            // Columns along +X, rows down along -Y.
+            // Both 'a' and 'b' occupy the same position — they oppose each other via rotation.
             double px = config.OffsetX + col * config.Spacing;
             double py = config.OffsetY - row * config.Spacing;
-            double pz = config.OffsetZ + (slot == "b" ? 0.05 : 0.0);
+            double pz = config.OffsetZ;
 
             part.PositionParentAsmb = new double3(px, py, pz);
-            part.Asmb2ParentAsmb = new doubleQuat(0, 0, 0, 1); // identity
+
+            // Mirror blinken's XML convention: pixel_*_a rotates Y=-90°, pixel_*_b rotates Y=+90°.
+            // This places the two nozzles firing in exactly opposite horizontal directions,
+            // cancelling all net thrust while both engine glows remain visible.
+            // Quaternion for rotation around Y by θ: (0, sin(θ/2), 0, cos(θ/2))
+            const double s = 0.7071067811865476; // sin/cos of ±45° = 1/√2
+            part.Asmb2ParentAsmb = slot == "b"
+                ? new doubleQuat(0,  s, 0, s)   // Y = +90°
+                : new doubleQuat(0, -s, 0, s);  // Y = -90°
+
+            // Scale down to match blinken's convention (blinken XML uses Scale=0.1).
+            // Full-size engines at the same position are visually massive; small scale gives clean pixel dots.
+            part.Scale = new double3(config.PartScale, config.PartScale, config.PartScale);
 
             bool merged = vehicle.Parts.Merge(attachTo, part);
             if (!merged)

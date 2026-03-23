@@ -28,6 +28,7 @@ public class Mod
     private float _configOffsetX = 0f;
     private float _configOffsetY = 5f;
     private float _configOffsetZ = 2f;
+    private float _configPartScale = 0.1f;
     private string _enginePartId = "CorePropulsionA_Prefab_EngineA1";
 
     // Runtime state
@@ -160,6 +161,8 @@ public class Mod
 
             ImGui.Spacing();
             ImGui.SliderFloat("Spacing (m)##blinky", ref _configSpacing, 0.1f, 5.0f);
+            ImGui.SliderFloat("Part scale##blinky", ref _configPartScale, 0.01f, 1.0f);
+            ImGui.TextDisabled("(blinken uses 0.1 — full size engines visually overlap)");
 
             ImGui.Spacing();
             ImGui.Text("Offset from vehicle root (m):");
@@ -356,6 +359,7 @@ public class Mod
                 OffsetX = _configOffsetX,
                 OffsetY = _configOffsetY,
                 OffsetZ = _configOffsetZ,
+                PartScale = _configPartScale,
                 EnginePartId = _enginePartId,
             };
 
@@ -379,33 +383,27 @@ public class Mod
         if (_blinkyGrid == null) return;
         _animActive = false;
 
-        // Walk OwnedParts directly so we always get live controllers regardless
-        // of whether the PixelGrid's cached Engines dictionary is populated.
-        int setOn = 0, setOff = 0;
-        foreach (var part in _blinkyGrid.OwnedParts)
+        // Use the PixelGrid's Engines dictionary: each key is one logical pixel (row,col)
+        // and its value is the combined controller array for both the 'a' and 'b' engines.
+        // This ensures a/b are always toggled together as a single pixel, matching blinken's model.
+        var engines = _blinkyGrid.Grid.Engines;
+        if (engines.Count == 0)
         {
-            if (!TryParsePixelKey(part.Id, out var key)) continue;
+            Console.WriteLine("blinky: ApplyPattern — no engines cached (try Rescan Grid)");
+            return;
+        }
+
+        int setOn = 0, setOff = 0;
+        foreach (var (key, controllers) in engines)
+        {
             bool on = selector(key);
-            var controllers = part.SubtreeModules.Get<EngineController>();
             for (int i = 0; i < controllers.Length; i++)
             {
                 controllers[i].SetIsActive(null, on);
                 if (on) setOn++; else setOff++;
             }
         }
-        Console.WriteLine($"blinky: ApplyPattern -> {setOn} on, {setOff} off");
-    }
-
-    private static bool TryParsePixelKey(string id, out (int row, int col) key)
-    {
-        key = default;
-        if (!id.StartsWith("pixel_")) return false;
-        var seg = id.Split('_');
-        if (seg.Length != 4) return false;
-        if (!int.TryParse(seg[1], out int row)) return false;
-        if (!int.TryParse(seg[2], out int col)) return false;
-        key = (row, col);
-        return true;
+        Console.WriteLine($"blinky: ApplyPattern -> {setOn} on, {setOff} off across {engines.Count} pixels");
     }
 
     // ── Debug Helpers ─────────────────────────────────────────────────────────────

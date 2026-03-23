@@ -29,6 +29,13 @@ public class LcdGridConfig
     /// </summary>
     public string EnginePartId { get; set; } = "CorePropulsionA_Prefab_EngineA1";
 
+    /// <summary>
+    /// Uniform scale applied to each pixel engine part.
+    /// Blinken uses 0.1 (10% of full size). At scale 1 the engines are full-size and visually massive.
+    /// For a pixel display, keep this small (0.05 – 0.2).
+    /// </summary>
+    public double PartScale { get; set; } = 0.1;
+
     /// <summary>Total number of Part objects that will be created (Width × Height × 2 for a/b pairs).</summary>
     public int TotalParts => Width * Height * 2;
 }
