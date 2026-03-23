@@ -29,6 +29,9 @@
     <Project Path="ksa-abstractions.lib/ksa-abstractions.lib.csproj" />
     <Project Path="blinky/blinky.csproj" />
     <Project Path="blinky.lib/blinky.lib.csproj" />
+    <Project Path="eternal-flame/eternal-flame.csproj" />
+    <Project Path="eternal-flame.lib/eternal-flame.lib.csproj" />
+    
     
     
 </Solution>

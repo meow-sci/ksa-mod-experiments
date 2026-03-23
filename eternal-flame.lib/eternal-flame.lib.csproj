@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.EternalFlameLib</AssemblyName>
+    <RootNamespace>MeowSci.EternalFlameLib</RootNamespace>
+    <Description>Infinite fuel hack library - core refill logic</Description>
+    <PackageId>MeowSci.EternalFlameLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">
+      <HintPath>$(KSAFolder)KSA.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -15,6 +15,15 @@ Shared library with common abstractions used across multiple mods. Provides util
 
 ## Vehicle Manipulation Mods
 
+### [eternal-flame](eternal-flame) / [eternal-flame.lib](eternal-flame.lib)
+Infinite fuel hack. Monitors selected vehicles and periodically refills their consumables at a configurable interval.
+- Filterable vehicle combo box for selection
+- Add/remove vehicles to a monitored list
+- Per-vehicle active/inactive toggle
+- Configurable refill interval (0–1000ms drag slider)
+- Background refill loop runs independently of UI visibility
+- F11 window toggle
+
 ### [garys-torch](garys-torch) / [garys-torch.lib](garys-torch.lib)
 Vehicle welding system. Attaches one vehicle to another with support for position offsets, rotation, and uniform scaling. Welds persist per-frame.
 - Vehicle-to-vehicle welding with position offset (XYZ in body frame)
