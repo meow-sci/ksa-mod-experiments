@@ -246,6 +246,13 @@ public class Mod
                 ImGui.TextColored(msgColor, _buildMessage);
             }
 
+            ImGui.Spacing();
+            bool showEngines = Patcher.RenderPixelParts;
+            if (ImGui.Checkbox("Show engine meshes##blinky", ref showEngines))
+                Patcher.RenderPixelParts = showEngines;
+            ImGui.SameLine(0, 8);
+            ImGui.TextDisabled("(off = better perf)");
+
             ImGui.Unindent();
         }
 
