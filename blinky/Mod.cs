@@ -317,6 +317,21 @@ public class Mod
             if (_blinkyGrid != null && ImGui.Button("Dump grid engines##blinky"))
                 DumpGridEngines(_blinkyGrid.Grid);
 
+            if (_blinkyGrid != null && ImGui.Button("Dump Engine Active States##blinky"))
+                DumpEngineActiveStates(_blinkyGrid);
+
+            if (ImGui.Button("Force SetIsActive All On##blinky"))
+                ForceSetIsActiveAllOn(vehicle);
+
+            if (_blinkyGrid != null && ImGui.Button("Rescan Grid##blinky"))
+                RescanGrid(vehicle);
+
+            if (ImGui.Button("Compare Engines##blinky"))
+            {
+                try { DumpEngineComparison(vehicle); }
+                catch (Exception ex) { Console.WriteLine($"blinky dbg compare error: {ex}"); }
+            }
+
             ImGui.Unindent();
         }
 
@@ -364,12 +379,33 @@ public class Mod
         if (_blinkyGrid == null) return;
         _animActive = false;
 
-        foreach (var (key, engines) in _blinkyGrid.Grid.Engines)
+        // Walk OwnedParts directly so we always get live controllers regardless
+        // of whether the PixelGrid's cached Engines dictionary is populated.
+        int setOn = 0, setOff = 0;
+        foreach (var part in _blinkyGrid.OwnedParts)
         {
+            if (!TryParsePixelKey(part.Id, out var key)) continue;
             bool on = selector(key);
-            for (int i = 0; i < engines.Length; i++)
-                engines[i].SetIsActive(null, on);
+            var controllers = part.SubtreeModules.Get<EngineController>();
+            for (int i = 0; i < controllers.Length; i++)
+            {
+                controllers[i].SetIsActive(null, on);
+                if (on) setOn++; else setOff++;
+            }
         }
+        Console.WriteLine($"blinky: ApplyPattern -> {setOn} on, {setOff} off");
+    }
+
+    private static bool TryParsePixelKey(string id, out (int row, int col) key)
+    {
+        key = default;
+        if (!id.StartsWith("pixel_")) return false;
+        var seg = id.Split('_');
+        if (seg.Length != 4) return false;
+        if (!int.TryParse(seg[1], out int row)) return false;
+        if (!int.TryParse(seg[2], out int col)) return false;
+        key = (row, col);
+        return true;
     }
 
     // ── Debug Helpers ─────────────────────────────────────────────────────────────
@@ -461,6 +497,142 @@ public class Mod
                 Console.WriteLine($"  ({key.row},{key.col}) -> {engines.Length} controllers, MinThrottle={engines[0].MinimumThrottle}");
         }
         Console.WriteLine($"blinky dbg: {total} total engine controllers");
+    }
+
+    // ── New Debug Helpers ─────────────────────────────────────────────────────────
+
+    // Prints IsActive for up to 10 pixel engines from OwnedParts (always fresh, never cached).
+    private static void DumpEngineActiveStates(BlinkyPixelGrid grid)
+    {
+        Console.WriteLine("blinky dbg: DumpEngineActiveStates (first 10 pixel parts):");
+        int shown = 0;
+        int total = 0;
+        foreach (var part in grid.OwnedParts)
+        {
+            var controllers = part.SubtreeModules.Get<EngineController>();
+            total += controllers.Length;
+            if (shown < 10)
+            {
+                for (int i = 0; i < controllers.Length; i++)
+                    Console.WriteLine($"  {part.Id}[{i}]: IsActive={controllers[i].IsActive}, MinThrottle={controllers[i].MinimumThrottle}");
+                shown++;
+            }
+        }
+        Console.WriteLine($"blinky dbg: saw {total} total controllers across {grid.OwnedParts.Count} owned parts");
+    }
+
+    // Calls SetIsActive(null, true) on every EngineController in the vehicle's module list
+    // (vehicle.Parts.Modules is the authoritative flat list of all merged parts' modules).
+    // Also checks root.SubtreeModules as a diagnostic comparison.
+    private static void ForceSetIsActiveAllOn(Vehicle vehicle)
+    {
+        // root.SubtreeModules only covers structural sub-parts of root, not TreeChildren.
+        var root = vehicle.Parts.Root;
+        int rootCount = root != null ? root.SubtreeModules.Get<EngineController>().Length : 0;
+        Console.WriteLine($"blinky dbg: root.SubtreeModules engine controllers = {rootCount}");
+
+        // vehicle.Parts.Modules is the true flat list of all modules from all merged parts.
+        var allControllers = vehicle.Parts.Modules.Get<EngineController>();
+        Console.WriteLine($"blinky dbg: vehicle.Parts.Modules engine controllers = {allControllers.Length}");
+
+        int count = 0;
+        for (int i = 0; i < allControllers.Length; i++)
+        {
+            allControllers[i].SetIsActive(null, true);
+            count++;
+        }
+        Console.WriteLine($"blinky dbg: Force SetIsActive All On: set {count} engines active");
+    }
+
+    // Re-populates PixelGrid's cached engine controllers from the live part SubtreeModules.
+    // Useful when the initial scan ran before controllers were fully initialized.
+    private void RescanGrid(Vehicle vehicle)
+    {
+        if (_blinkyGrid == null) return;
+        _blinkyGrid.Grid.RefreshEngineControllers();
+        int total = 0;
+        foreach (var engines in _blinkyGrid.Grid.Engines.Values)
+            total += engines.Length;
+        Console.WriteLine($"blinky dbg: RescanGrid done — grid {_blinkyGrid.Grid.Cols}x{_blinkyGrid.Grid.Rows}, {total} cached engine controllers");
+    }
+
+    private static readonly BindingFlags AllFlags =
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+    private static void DumpAllFields(object obj, string label, string indent = "")
+    {
+        var type = obj.GetType();
+        Console.WriteLine($"blinky dbg: === {label} ({type.FullName}) ===");
+        while (type != null && type != typeof(object))
+        {
+            foreach (var f in type.GetFields(AllFlags | BindingFlags.DeclaredOnly))
+            {
+                object? val = null;
+                try { val = f.GetValue(obj); } catch { val = "<error>"; }
+                string valStr = val is System.Collections.ICollection col
+                    ? $"[Count={col.Count}]" : val?.ToString() ?? "null";
+                Console.WriteLine($"blinky dbg: {indent}[{type.Name}] {f.Name} ({f.FieldType.Name}) = {valStr}");
+            }
+            type = type.BaseType;
+        }
+    }
+
+    private static void DumpEngineComparison(Vehicle vehicle)
+    {
+        var all = vehicle.Parts.Modules.Get<EngineController>();
+        Console.WriteLine($"blinky dbg: compare — total controllers: {all.Length}");
+
+        EngineController? builtIn = null;
+        EngineController? pixel = null;
+        foreach (var ec in all)
+        {
+            if (pixel == null && ec.Parent.Id.StartsWith("pixel_"))
+                pixel = ec;
+            else if (builtIn == null && !ec.Parent.Id.StartsWith("pixel_"))
+                builtIn = ec;
+            if (pixel != null && builtIn != null) break;
+        }
+
+        if (builtIn != null)
+            DumpSingleEngine(builtIn, "BUILT-IN");
+        else
+            Console.WriteLine("blinky dbg compare: no built-in engine found");
+
+        if (pixel != null)
+            DumpSingleEngine(pixel, "PIXEL");
+        else
+            Console.WriteLine("blinky dbg compare: no pixel engine found");
+    }
+
+    private static void DumpSingleEngine(EngineController ec, string label)
+    {
+        Console.WriteLine($"blinky dbg: ===== {label} ENGINE =====");
+        DumpAllFields(ec, $"{label} EngineController");
+
+        if (ec.Cores != null)
+        {
+            for (int i = 0; i < ec.Cores.Length; i++)
+            {
+                var core = ec.Cores[i];
+                DumpAllFields(core, $"{label} RocketCore[{i}]");
+                if (core.Rocket != null)
+                    DumpAllFields(core.Rocket, $"{label} RocketCore[{i}].Rocket");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"blinky dbg: [{label}] Cores is null");
+        }
+
+        var part = ec.Parent;
+        Console.WriteLine($"blinky dbg: [{label}] Part.Id                  = {part.Id}");
+        Console.WriteLine($"blinky dbg: [{label}] Part.Stage               = {part.Stage}");
+        Console.WriteLine($"blinky dbg: [{label}] Part.IsSubPart           = {part.IsSubPart}");
+        Console.WriteLine($"blinky dbg: [{label}] Part.Template.Id         = {part.Template?.Id ?? "(null)"}");
+        Console.WriteLine($"blinky dbg: [{label}] Part.TreeChildren.Count  = {part.TreeChildren?.Count ?? -1}");
+        var subPartsField = typeof(Part).GetField("_subParts", BindingFlags.Instance | BindingFlags.NonPublic);
+        var subParts = subPartsField?.GetValue(part) as System.Collections.ICollection;
+        Console.WriteLine($"blinky dbg: [{label}] Part._subParts.Count     = {subParts?.Count ?? -1}");
     }
 
     // ── Utilities ─────────────────────────────────────────────────────────────────

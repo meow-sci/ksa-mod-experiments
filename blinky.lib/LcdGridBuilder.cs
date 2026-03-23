@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.BlinkenLib;
@@ -50,6 +51,17 @@ public static class LcdGridBuilder
             return null;
         }
 
+        // ── Find a fuel-carrying part to connect pixel engines to ─────────────
+        // The ResourceManager walks Part.Connections (not the tree hierarchy) to
+        // find tanks.  Without a connection from each pixel engine to a part that
+        // has Tank modules the resource graph is empty and ResourceAvailable()
+        // returns false → engine never fires.
+        var fuelPart = FindFuelPart(vehicle);
+        if (fuelPart != null)
+            Console.WriteLine($"blinky: will connect pixel engines to fuel part '{fuelPart.Id}'");
+        else
+            Console.WriteLine("blinky: WARNING — no fuel part found; engines may not fire");
+
         Console.WriteLine($"blinky: building {config.Width}x{config.Height} grid using '{config.EnginePartId}' — {config.TotalParts} total parts");
 
         var createdParts = new List<Part>(config.TotalParts);
@@ -63,8 +75,16 @@ public static class LcdGridBuilder
                 var partA = CreateAndMergePixelPart(vehicle, root, template, row, col, "a", config);
                 var partB = CreateAndMergePixelPart(vehicle, root, template, row, col, "b", config);
 
-                if (partA != null) createdParts.Add(partA);
-                if (partB != null) createdParts.Add(partB);
+                if (partA != null)
+                {
+                    createdParts.Add(partA);
+                    if (fuelPart != null) ConnectToFuel(partA, fuelPart);
+                }
+                if (partB != null)
+                {
+                    createdParts.Add(partB);
+                    if (fuelPart != null) ConnectToFuel(partB, fuelPart);
+                }
             }
         }
         swCreate.Stop();
@@ -80,11 +100,21 @@ public static class LcdGridBuilder
         // Engines can fire even at very low vehicle throttle settings.
         SetMinimumThrottle(createdParts, 0.0001f);
 
+        // ── Recompute after connections established ──────────────────────────────
+        // Merge() already calls RecomputeAllDerivedData, but we also need it after
+        // Part.Connection.Connect() so the ResourceManager graph picks up the new
+        // connections to fuel tanks.
+        vehicle.Parts.RecomputeAllDerivedData();
+
         // ── Scan vehicle to build PixelGrid ──────────────────────────────────────
         var pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
         if (pixelGrid.Count == 0)
             Console.WriteLine("blinky: WARNING — PixelGrid scan found 0 pixel pairs after creation");
-
+        // The initial scan may run before engine modules are fully initialized in the vehicle's
+        // state lists (Modules.Get<EngineController>() on individual parts can return empty
+        // immediately after Merge). RefreshEngineControllers re-queries the already-located
+        // parts so the cached Engines dictionary is populated for animation use.
+        pixelGrid.RefreshEngineControllers();
         return new BlinkyPixelGrid(pixelGrid, createdParts);
     }
 
@@ -102,6 +132,11 @@ public static class LcdGridBuilder
         {
             try
             {
+                // Disconnect resource connections before splitting
+                foreach (var conn in part.Connections.ToArray())
+                {
+                    try { conn.Disconnect(); } catch { }
+                }
                 vehicle.Parts.Split(part);
             }
             catch (Exception ex)
@@ -148,6 +183,47 @@ public static class LcdGridBuilder
         {
             Console.WriteLine($"blinky: error creating pixel_{row}_{col}_{slot}: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Finds the first part on the vehicle that has Tank modules (fuel/oxidizer).
+    /// The pixel engines need a Part.Connection to a tank-carrying part so the
+    /// ResourceManager graph can discover propellant.
+    /// </summary>
+    private static Part? FindFuelPart(Vehicle vehicle)
+    {
+        foreach (var part in vehicle.Parts.Parts)
+        {
+            var tanks = part.SubtreeModules.Get<Tank>();
+            if (tanks.Length > 0 && !part.IsSubPart)
+                return part;
+        }
+        // Fallback: accept sub-parts too
+        foreach (var part in vehicle.Parts.Parts)
+        {
+            var tanks = part.SubtreeModules.Get<Tank>();
+            if (tanks.Length > 0)
+                return part;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Creates a Part.Connection between a pixel engine part and the fuel part.
+    /// This lets ResourceManager.PopulateGraph() discover the fuel tanks.
+    /// </summary>
+    private static void ConnectToFuel(Part pixelPart, Part fuelPart)
+    {
+        try
+        {
+            bool connected = Part.Connection.Connect(pixelPart, fuelPart);
+            if (!connected)
+                Console.WriteLine($"blinky: Connection.Connect returned false for '{pixelPart.Id}'");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"blinky: error connecting '{pixelPart.Id}' to fuel: {ex.Message}");
         }
     }
 

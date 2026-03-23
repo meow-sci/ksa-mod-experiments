@@ -132,6 +132,161 @@ vehicle.Parts.RecomputeAllDerivedData();
 
 For engine control details see [vehicle-api.md](vehicle-api.md).
 
+## Dynamically Adding Parts at Runtime
+
+Parts can be created and merged into a live vehicle's part tree at runtime using `PartTree.Merge()`. This is the same mechanism the vehicle editor uses, so the game handles it correctly.
+
+### Basic Part Creation and Merge
+
+```csharp
+// 1. Look up the PartTemplate from ModLibrary. 
+//    IMPORTANT: Use Get<PartTemplate>(), NOT TryGet<PartTemplate>()
+//    TryGet does NOT support PartTemplate and always returns false.
+//    Get throws NullReferenceException if the id is unknown.
+PartTemplate template;
+try { template = ModLibrary.Get<PartTemplate>("CorePropulsionA_Prefab_EngineA2"); }
+catch (Exception ex) { Console.WriteLine($"template not found: {ex.Message}"); return; }
+
+// 2. Create the Part with a unique string id and the template
+var part = new Part("my_part_id", template);
+
+// 3. Set position relative to the parent part (in parent's assembly frame)
+part.PositionParentAsmb = new double3(x, y, z);
+part.Asmb2ParentAsmb = new doubleQuat(0, 0, 0, 1); // identity = no rotation
+
+// 4. Merge into the vehicle tree under a parent part
+//    Merge() internally calls RecomputeAllDerivedData() once.
+//    Returns false if the merge failed.
+Part parentPart = vehicle.Parts.Root;  // or any other valid Part
+bool ok = vehicle.Parts.Merge(parentPart, part);
+```
+
+The part template ID is the exact string key used in the game's XML — e.g. `CorePropulsionA_Prefab_EngineA2`. List available IDs with the debug reflection approach shown in debug.md.
+
+### Adding Engine Parts (Resource Consumers)
+
+Engines require **two extra steps** beyond a basic Merge, or they will never fire:
+
+**The problem:** `PartTree.Merge()` wires the tree hierarchy but does NOT create `Part.Connection` objects. The game's `ResourceManager` builds its propellant-flow graph by walking `Part.Connections` (not the tree). Without a connection from the engine to a fuel-carrying part, `ResourceManager.ResourceAvailable()` always returns `false` and the engine is starved every tick — `IsActive` is irrelevant.
+
+**Step 1 — Establish a fuel connection:**
+
+`Part` implements `IConnector`, so you can create a direct resource connection between two parts:
+
+```csharp
+// Find a part on the vehicle that has Tank modules (fuel / oxidizer)
+Part? FindFuelPart(Vehicle vehicle)
+{
+    foreach (var p in vehicle.Parts.Parts)
+        if (p.SubtreeModules.Get<Tank>().Length > 0 && !p.IsSubPart)
+            return p;
+    return null;
+}
+
+// After Merge(), connect the new engine part to the fuel part
+Part? fuelPart = FindFuelPart(vehicle);
+if (fuelPart != null)
+{
+    bool connected = Part.Connection.Connect(enginePart, fuelPart);
+    // Part.Connection.Connect() is static and takes two IConnector arguments.
+    // Part itself implements IConnector so you can pass Parts directly.
+    // Returns false if either side is already connected or blocked.
+}
+```
+
+`Part.Connection.Connect()` adds the connection to both parts' `Connections` lists. After this,  `ResourceManager.PopulateGraph()` (called inside `RecomputeAllDerivedData`) walks those connections and discovers the fuel tanks.
+
+**Step 2 — Recompute after all connections are established:**
+
+Each `Merge()` call already triggers `RecomputeAllDerivedData()`, but that runs *before* you call `Part.Connection.Connect()`. Call it explicitly once more after all connections are wired:
+
+```csharp
+vehicle.Parts.RecomputeAllDerivedData();
+```
+
+This rebuilds every `ResourceManager` graph, now including the new connections. Without this the engines will still be starved.
+
+**Step 3 — Set MinimumThrottle after recompute:**
+
+The `EngineController.MinimumThrottle` field prevents firing below a threshold. The default is `1.0` (full throttle only for SRBs) or `0.1` for liquid engines. You can lower it, but only after `Merge()` + `RecomputeAllDerivedData()` because `SubtreeModules.Get<EngineController>()` returns empty for a part that hasn't been through recompute yet:
+
+```csharp
+var controllers = enginePart.SubtreeModules.Get<EngineController>();
+foreach (var c in controllers)
+    c.MinimumThrottle = 0.0001f; // fire at any throttle above zero
+```
+
+**Step 4 — Activate with SetIsActive:**
+
+```csharp
+var controllers = vehicle.Parts.Modules.Get<EngineController>();
+foreach (var c in controllers)
+    if (c.Parent.Id.StartsWith("my_prefix_"))
+        c.SetIsActive(null, true);
+```
+
+`SetIsActive` first argument is a nullable `Vehicle?` (not a "caller" object), pass `null`.
+
+### Complete Dynamic Engine Add Pattern
+
+```csharp
+// 1. Template lookup
+PartTemplate template;
+try { template = ModLibrary.Get<PartTemplate>(enginePartId); }
+catch { return; }
+
+// 2. Create + position
+var enginePart = new Part(uniqueId, template);
+enginePart.PositionParentAsmb = new double3(x, y, z);
+enginePart.Asmb2ParentAsmb = new doubleQuat(0, 0, 0, 1);
+
+// 3. Merge into vehicle tree (triggers RecomputeAllDerivedData internally)
+bool merged = vehicle.Parts.Merge(vehicle.Parts.Root, enginePart);
+if (!merged) return;
+
+// 4. Wire the resource connection so the engine can find fuel
+Part? fuelPart = FindFuelPart(vehicle);  // finds first part with Tank modules
+if (fuelPart != null)
+    Part.Connection.Connect(enginePart, fuelPart);
+
+// 5. Recompute AGAIN after connections are wired — this rebuilds ResourceManager graphs
+vehicle.Parts.RecomputeAllDerivedData();
+
+// 6. Now SubtreeModules is fully populated — set throttle limits
+foreach (var c in enginePart.SubtreeModules.Get<EngineController>())
+    c.MinimumThrottle = 0.0001f;
+
+// 7. Activate
+foreach (var c in enginePart.SubtreeModules.Get<EngineController>())
+    c.SetIsActive(null, true);
+```
+
+### Removing Dynamically Added Parts
+
+Disconnect resource connections first, then split the part from the tree:
+
+```csharp
+// Disconnect resource connections (prevents dangling graph references)
+foreach (var conn in enginePart.Connections.ToList())
+{
+    try { conn.Disconnect(); } catch { }
+}
+// Split removes the part from the PartTree and triggers RecomputeAllDerivedData
+vehicle.Parts.Split(enginePart);
+```
+
+### Resource Flow Architecture (Reference)
+
+Understanding this prevents future mistakes:
+
+- `Part.Connections` — list of `Part.Connection` objects; each connection links two `IConnector`s
+- `Part.Connection.Connect(IConnector a, IConnector b)` — static factory; `Part` itself implements `IConnector`
+- `ResourceManager` — created fresh per `RocketCore` during `RecomputeAllDerivedData()`
+- `ResourceManager.PopulateGraph()` — starts at the engine's `FullPart` (= `PartParent ?? self`) and does a BFS over `Part.Connections` to discover `Tank` modules
+- `FlowRule.NearestToFurtherestSameStage` — used for `EngineController`; only considers tanks in the same stage
+- `ResourceAvailable()` — returns `false` if the graph is empty (no connections → no tanks found → engine always starved)
+- The tree hierarchy (`TreeParent` / `TreeChildren`) is **irrelevant** to fuel flow — only `Connections` matter
+
 ## KittenEva (EVA Kitten/Kerbal)
 
 `KittenEva` is a special vehicle subtype. Detect it via:

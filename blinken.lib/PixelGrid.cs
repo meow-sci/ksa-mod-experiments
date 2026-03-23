@@ -32,6 +32,28 @@ public class PixelGrid
         return null;
     }
 
+    /// <summary>
+    /// Re-queries engine controllers from the Part objects already cached in this grid.
+    /// Call this after the vehicle has finished merging and recomputing derived data,
+    /// if the initial scan captured the parts before their modules were fully initialized.
+    /// </summary>
+    public void RefreshEngineControllers()
+    {
+        foreach (var (key, (a, b)) in _grid)
+        {
+            var list = new List<EngineController>();
+            foreach (var part in new[] { a, b })
+            {
+                var controllers = part.SubtreeModules.Get<EngineController>();
+                for (int i = 0; i < controllers.Length; i++)
+                    list.Add(controllers[i]);
+            }
+            _engines[key] = list.ToArray();
+        }
+        int total = _engines.Values.Sum(e => e.Length);
+        Console.WriteLine($"blinken: RefreshEngineControllers — {total} controllers across {_grid.Count} cells");
+    }
+
     /// <summary>Scans all vehicle parts for pixel engine pairs and returns a populated PixelGrid.</summary>
     public static PixelGrid ScanFromVehicle(Vehicle vehicle)
     {
