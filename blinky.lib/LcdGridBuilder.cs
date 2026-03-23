@@ -58,18 +58,20 @@ public static class LcdGridBuilder
         }
         timings.Add(("ModLibrary.Get<PartTemplate>", sw.ElapsedMilliseconds));
 
-        // ── Find a fuel-carrying part to connect pixel engines to ─────────────
-        // The ResourceManager walks Part.Connections (not the tree hierarchy) to
-        // find tanks.  Without a connection from each pixel engine to a part that
-        // has Tank modules the resource graph is empty and ResourceAvailable()
-        // returns false → engine never fires.
+        // ── Find all fuel-carrying parts to use as connection anchors ──────────────
+        // PERFORMANCE: With N pixel engines all connected to 1 fuel part, each
+        // ResourceManager's PopulateGraph DFS traverses all N+1 nodes using
+        // O(N) List.Contains visited checks → O(N²) per engine → O(N³) total.
+        // By distributing engines across K fuel parts (round-robin), each DFS
+        // only sees N/K nodes → O(N/K)² per engine → O(N³/K²) total.
+        // With K=4 fuel parts on a 1444-engine grid: 3B → ~188M ops (~16× faster).
         sw.Restart();
-        var fuelPart = FindFuelPart(vehicle);
-        timings.Add(("FindFuelPart", sw.ElapsedMilliseconds));
-        if (fuelPart != null)
-            Console.WriteLine($"blinky: will connect pixel engines to fuel part '{fuelPart.Id}'");
+        var fuelParts = FindAllFuelParts(vehicle);
+        timings.Add(($"FindAllFuelParts ({fuelParts.Count} found)", sw.ElapsedMilliseconds));
+        if (fuelParts.Count > 0)
+            Console.WriteLine($"blinky: found {fuelParts.Count} fuel part(s) for partitioned connections: {string.Join(", ", fuelParts.Select(p => p.Id))}");
         else
-            Console.WriteLine("blinky: WARNING — no fuel part found; engines may not fire");
+            Console.WriteLine("blinky: WARNING — no fuel parts found; engines may not fire");
 
         Console.WriteLine($"blinky: building {config.Width}x{config.Height} grid using '{config.EnginePartId}' — {config.TotalParts} total parts");
 
@@ -104,13 +106,16 @@ public static class LcdGridBuilder
         }
         timings.Add(($"Tree wiring ({createdParts.Count} parts)", sw.ElapsedMilliseconds));
 
-        // ── Fuel connections — Part.Connection.Connect ───────────────────────────
-        if (fuelPart != null)
+        // ── Fuel connections — round-robin across all fuel parts ─────────────────
+        // Each engine is assigned to exactly one fuel part (by index mod K).
+        // This creates K isolated subgraphs of ~N/K engines each, reducing the
+        // O(N³) PopulateGraph cost to O(N³/K²).
+        if (fuelParts.Count > 0)
         {
             sw.Restart();
-            foreach (var part in createdParts)
-                ConnectToFuel(part, fuelPart);
-            timings.Add(($"Fuel connections ({createdParts.Count})", sw.ElapsedMilliseconds));
+            for (int i = 0; i < createdParts.Count; i++)
+                ConnectToFuel(createdParts[i], fuelParts[i % fuelParts.Count]);
+            timings.Add(($"Fuel connections ({createdParts.Count} parts, {fuelParts.Count} anchors)", sw.ElapsedMilliseconds));
         }
 
         // ── PartTree rebuild — CreateFromNewPartTree ─────────────────────────────
@@ -260,26 +265,31 @@ public static class LcdGridBuilder
     }
 
     /// <summary>
-    /// Finds the first part on the vehicle that has Tank modules (fuel/oxidizer).
-    /// The pixel engines need a Part.Connection to a tank-carrying part so the
-    /// ResourceManager graph can discover propellant.
+    /// Collects ALL parts on the vehicle that carry Tank modules (fuel/oxidizer),
+    /// preferring non-sub-parts. Used for round-robin partitioned fuel connections
+    /// to reduce ResourceManager.PopulateGraph cost from O(N³) to O(N³/K²).
     /// </summary>
-    private static Part? FindFuelPart(Vehicle vehicle)
+    private static List<Part> FindAllFuelParts(Vehicle vehicle)
     {
+        var result = new List<Part>();
         foreach (var part in vehicle.Parts.Parts)
         {
-            var tanks = part.SubtreeModules.Get<Tank>();
-            if (tanks.Length > 0 && !part.IsSubPart)
-                return part;
-        }
-        // Fallback: accept sub-parts too
-        foreach (var part in vehicle.Parts.Parts)
-        {
+            if (part.IsSubPart) continue;
             var tanks = part.SubtreeModules.Get<Tank>();
             if (tanks.Length > 0)
-                return part;
+                result.Add(part);
         }
-        return null;
+        // Fallback: accept sub-parts if nothing found at top level
+        if (result.Count == 0)
+        {
+            foreach (var part in vehicle.Parts.Parts)
+            {
+                var tanks = part.SubtreeModules.Get<Tank>();
+                if (tanks.Length > 0)
+                    result.Add(part);
+            }
+        }
+        return result;
     }
 
     /// <summary>

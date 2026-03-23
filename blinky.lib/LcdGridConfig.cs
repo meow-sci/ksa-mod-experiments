@@ -12,7 +12,7 @@ public class LcdGridConfig
     public int Height { get; set; } = 8;
 
     /// <summary>Spacing in metres between adjacent pixel positions.</summary>
-    public float Spacing { get; set; } = 0.5f;
+    public float Spacing { get; set; } = 5.0f;
 
     /// <summary>X offset in metres from the attachment part's origin (positive = right).</summary>
     public float OffsetX { get; set; } = 0f;
@@ -34,7 +34,7 @@ public class LcdGridConfig
     /// Blinken uses 0.1 (10% of full size). At scale 1 the engines are full-size and visually massive.
     /// For a pixel display, keep this small (0.05 – 0.2).
     /// </summary>
-    public double PartScale { get; set; } = 0.1;
+    public double PartScale { get; set; } = 0.010;
 
     /// <summary>Total number of Part objects that will be created (Width × Height × 2 for a/b pairs).</summary>
     public int TotalParts => Width * Height * 2;
