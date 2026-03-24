@@ -297,6 +297,26 @@ var configDirectory = Path.Combine(userlandModsDir, "fixme-mod-name");
 return Path.Combine(configDirectory, "FIXME_FILENAME_HERE");
 ```
 
+# Input Chain & Focus Traps
+
+The game processes keyboard input through a short-circuit chain in `Program.cs`:
+
+```
+GameSettings.OnKeyAll → Popup.OnKeyAll → ConsoleWindow.OnKey → ConsoleWindow.IsOpen → Editor?.OnKey → ...
+```
+
+If any handler returns `true`, all downstream handlers are skipped. This means a Harmony prefix on `GameSettings.OnKeyAll` that returns `true` will **block the in-game console** (`\` toggle, `Enter` submit) and all other handlers.
+
+## Blocking Game Hotkeys for Mod Text Inputs
+
+When a mod has `InputText` widgets, typing triggers game hotkeys. To block them **only** for your mod:
+
+1. **Patch `GameSettings.OnKeyAll`** with a prefix that checks a mod-scoped flag
+2. **Set the flag per-frame** inside your `Begin`/`End` blocks using `ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) && ImGui.GetIO().WantTextInput`
+3. **Never use `WantTextInput` alone** — it's a global flag that's `true` for any active text input, including the game's in-game console
+
+See the ImGui skill for the full implementation pattern.
+
 # TOML
 
 How to use tomlyn with KSA
