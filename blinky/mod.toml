@@ -1,0 +1,7 @@
+name = "blinky"
+description = "blinky"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.Blinky"
