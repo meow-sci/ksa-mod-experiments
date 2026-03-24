@@ -102,4 +102,38 @@ public class PixelGrid
         Console.WriteLine($"blinken: found {result._grid.Count} pixel pairs, cached {result._engines.Values.Sum(e => e.Length)} engine controllers");
         return result;
     }
+
+    /// <summary>
+    /// Creates a PixelGrid from pre-built part groups (e.g., recovered from save-loaded parts
+    /// that lost their pixel_* IDs but were identified by template and spatial analysis).
+    /// </summary>
+    public static PixelGrid BuildFromPartGroups(Dictionary<(int row, int col), (Part a, Part b)> partGroups)
+    {
+        var result = new PixelGrid();
+
+        foreach (var (key, parts) in partGroups)
+            result._grid[key] = parts;
+
+        foreach (var (key, (a, b)) in result._grid)
+        {
+            var list = new List<EngineController>();
+            foreach (var part in new[] { a, b })
+            {
+                var controllers = part.SubtreeModules.Get<EngineController>();
+                for (int i = 0; i < controllers.Length; i++)
+                    list.Add(controllers[i]);
+            }
+            result._engines[key] = list.ToArray();
+        }
+
+        if (result._grid.Count > 0)
+        {
+            result.Rows = result._grid.Keys.Max(k => k.row) + 1;
+            result.Cols = result._grid.Keys.Max(k => k.col) + 1;
+        }
+
+        int total = result._engines.Values.Sum(e => e.Length);
+        Console.WriteLine($"blinken: BuildFromPartGroups — {result._grid.Count} cells, {total} controllers, {result.Cols}x{result.Rows} grid");
+        return result;
+    }
 }

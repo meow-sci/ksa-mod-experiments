@@ -245,8 +245,7 @@ public class Mod
                     try
                     {
                         vs.AnimActive = false;
-                        if (vs.Grid.IsOwned)
-                            LcdGridBuilder.DestroyGrid(vehicle, vs.Grid);
+                        LcdGridBuilder.DestroyGrid(vehicle, vs.Grid);
                         vs.Grid = null;
                         SetBuildMessage(vs, "Grid destroyed", false);
                     }
@@ -263,7 +262,11 @@ public class Mod
                     DoBuildGrid(vehicle, vs);
 
                 ImGui.SameLine(0, 10);
-                ImGui.TextDisabled($"Will create {_configWidth * _configHeight * 2} parts");
+                if (ImGui.Button("Scan Vehicle##blinky"))
+                    DoScanVehicle(vehicle, vs);
+
+                ImGui.SameLine(0, 10);
+                ImGui.TextDisabled($"Build: {_configWidth * _configHeight * 2} parts | Scan: find existing");
             }
 
             if (!string.IsNullOrEmpty(vs.BuildMessage))
@@ -443,6 +446,45 @@ public class Mod
         {
             SetBuildMessage(vs, $"Build error: {ex.Message}", true);
             Console.WriteLine($"blinky: Build error: {ex}");
+        }
+    }
+
+    // ── Scan Vehicle ───────────────────────────────────────────────────────────────
+
+    private void DoScanVehicle(Vehicle vehicle, VehicleState vs)
+    {
+        try
+        {
+            // First: try ID-based scan (works when pixel_* names are preserved)
+            Console.WriteLine("blinky: scanning vehicle for existing pixel engine grid...");
+            var pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
+
+            if (pixelGrid.Count > 0)
+            {
+                pixelGrid.RefreshEngineControllers();
+                vs.Grid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
+                SetBuildMessage(vs, $"Scanned {pixelGrid.Cols}x{pixelGrid.Rows} grid ({pixelGrid.Count} pixel pairs) [by ID]", false);
+                return;
+            }
+
+            // Fallback: template + spatial scan (for save/load where Part.Id is lost)
+            Console.WriteLine("blinky: ID scan found nothing, trying template-based scan...");
+            var scannedGrid = LcdGridBuilder.ScanExistingGrid(vehicle, _enginePartId);
+
+            if (scannedGrid != null)
+            {
+                vs.Grid = scannedGrid;
+                SetBuildMessage(vs, $"Scanned {scannedGrid.Grid.Cols}x{scannedGrid.Grid.Rows} grid ({scannedGrid.Grid.Count} pixel pairs) [by template]", false);
+            }
+            else
+            {
+                SetBuildMessage(vs, $"No pixel grid found (tried ID + template '{_enginePartId}' scan)", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetBuildMessage(vs, $"Scan error: {ex.Message}", true);
+            Console.WriteLine($"blinky: Scan error: {ex}");
         }
     }
 

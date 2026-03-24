@@ -160,23 +160,40 @@ public static class LcdGridBuilder
     }
 
     /// <summary>
-    /// Removes all dynamically created pixel parts from the vehicle.
+    /// Removes pixel parts from the vehicle.
+    /// Works for both owned (blinky-built) and scanned (save-loaded) grids.
     /// Uses manual tree unlinking + single <c>CreateFromNewPartTree</c> rebuild,
     /// mirroring the BuildGrid approach to avoid N per-part <c>RecomputeAllDerivedData</c> calls.
-    /// Only operates on owned (blinky-built) grids.
     /// </summary>
     public static void DestroyGrid(Vehicle vehicle, BlinkyPixelGrid grid)
     {
-        if (vehicle == null || grid == null || !grid.IsOwned) return;
+        if (vehicle == null || grid == null) return;
 
-        int partCount = grid.OwnedParts.Count;
-        Console.WriteLine($"blinky: destroying grid — removing {partCount} parts");
+        // Collect parts to remove: owned parts if available, otherwise extract from PixelGrid
+        var partsToRemove = new List<Part>();
+        if (grid.IsOwned)
+        {
+            partsToRemove.AddRange(grid.OwnedParts);
+        }
+        else
+        {
+            foreach (var (a, b) in grid.Grid.Grid.Values)
+            {
+                partsToRemove.Add(a);
+                partsToRemove.Add(b);
+            }
+        }
+
+        if (partsToRemove.Count == 0) return;
+
+        int partCount = partsToRemove.Count;
+        Console.WriteLine($"blinky: destroying grid — removing {partCount} parts (owned={grid.IsOwned})");
         var swTotal = Stopwatch.StartNew();
         var timings = new List<(string Label, long Ms)>();
         var sw = Stopwatch.StartNew();
 
         // ── Disconnect fuel connections ──────────────────────────────────────────
-        foreach (var part in grid.OwnedParts)
+        foreach (var part in partsToRemove)
         {
             foreach (var conn in part.Connections.ToArray())
             {
@@ -186,10 +203,8 @@ public static class LcdGridBuilder
         timings.Add(($"Disconnect fuel connections ({partCount} parts)", sw.ElapsedMilliseconds));
 
         // ── Manually unlink all pixel parts from the tree ────────────────────────
-        // Mirrors BuildGrid: set TreeParent=null and remove from parent's TreeChildren
-        // without calling Split (which triggers RecomputeAllDerivedData per part).
         sw.Restart();
-        foreach (var part in grid.OwnedParts)
+        foreach (var part in partsToRemove)
         {
             var parent = part.TreeParent;
             if (parent != null)
@@ -325,6 +340,107 @@ public static class LcdGridBuilder
         {
             Console.WriteLine($"blinky: error connecting '{pixelPart.Id}' to fuel: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Scans an existing vehicle for engine parts that match a blinky grid (e.g., after save/load
+    /// when Part.Id names are lost). Identifies pixel parts by template ID and small scale, then
+    /// reconstructs the grid layout from spatial analysis of part positions.
+    /// </summary>
+    public static BlinkyPixelGrid? ScanExistingGrid(Vehicle vehicle, string engineTemplateId)
+    {
+        if (vehicle == null) return null;
+
+        Console.WriteLine($"blinky: scanning for existing grid (template={engineTemplateId})...");
+
+        // 1. Collect candidate parts: match template and small scale (blinky uses ~0.01)
+        var candidates = new List<Part>();
+        foreach (var part in PartHelpers.GetAllParts(vehicle))
+        {
+            if (part.Template?.Id != engineTemplateId) continue;
+            double maxScale = Math.Max(Math.Max(part.Scale.X, part.Scale.Y), part.Scale.Z);
+            if (maxScale >= 0.5) continue;
+            candidates.Add(part);
+        }
+
+        Console.WriteLine($"blinky: found {candidates.Count} candidate parts (template={engineTemplateId}, scale<0.5)");
+        if (candidates.Count < 2) return null;
+
+        // 2. Group by position proximity (a/b pairs share the same position)
+        var used = new HashSet<int>();
+        var pairs = new List<(Part first, Part second)>();
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (used.Contains(i)) continue;
+            var posI = candidates[i].PositionParentAsmb;
+
+            for (int j = i + 1; j < candidates.Count; j++)
+            {
+                if (used.Contains(j)) continue;
+                var posJ = candidates[j].PositionParentAsmb;
+                double dx = posI.X - posJ.X;
+                double dy = posI.Y - posJ.Y;
+                double dz = posI.Z - posJ.Z;
+                double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist < 0.1)
+                {
+                    pairs.Add((candidates[i], candidates[j]));
+                    used.Add(i);
+                    used.Add(j);
+                    break;
+                }
+            }
+        }
+
+        Console.WriteLine($"blinky: grouped into {pairs.Count} position pairs");
+        if (pairs.Count == 0) return null;
+
+        // 3. Determine grid layout from positions
+        //    Rows: unique Y values sorted descending (higher Y = row 0)
+        //    Cols: unique X (flat) or angle (cylinder) sorted ascending
+        var uniqueY = pairs
+            .Select(p => Math.Round(p.first.PositionParentAsmb.Y, 1))
+            .Distinct().OrderByDescending(y => y).ToList();
+
+        var uniqueZ = pairs
+            .Select(p => Math.Round(p.first.PositionParentAsmb.Z, 1))
+            .Distinct().ToList();
+        bool isCylinder = uniqueZ.Count > 1;
+
+        Func<Part, double> colKeyFn;
+        if (isCylinder)
+        {
+            double centerX = pairs.Average(p => p.first.PositionParentAsmb.X);
+            double centerZ = pairs.Average(p => p.first.PositionParentAsmb.Z);
+            colKeyFn = p => Math.Round(Math.Atan2(
+                p.PositionParentAsmb.X - centerX,
+                p.PositionParentAsmb.Z - centerZ), 3);
+        }
+        else
+        {
+            colKeyFn = p => Math.Round(p.PositionParentAsmb.X, 1);
+        }
+
+        var uniqueCol = pairs.Select(p => colKeyFn(p.first)).Distinct().OrderBy(c => c).ToList();
+
+        // 4. Build grid dictionary
+        var gridDict = new Dictionary<(int row, int col), (Part a, Part b)>();
+
+        foreach (var (first, second) in pairs)
+        {
+            int row = uniqueY.IndexOf(Math.Round(first.PositionParentAsmb.Y, 1));
+            int col = uniqueCol.IndexOf(colKeyFn(first));
+
+            if (row >= 0 && col >= 0)
+                gridDict[(row, col)] = (first, second);
+        }
+
+        if (gridDict.Count == 0) return null;
+
+        var pixelGrid = PixelGrid.BuildFromPartGroups(gridDict);
+        return new BlinkyPixelGrid(pixelGrid, new List<Part>());
     }
 
     /// <summary>Sets MinimumThrottle on all EngineControllers of the given parts.</summary>
