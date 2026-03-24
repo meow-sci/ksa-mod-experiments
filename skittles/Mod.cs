@@ -12,6 +12,8 @@ public class Mod
 {
     public bool ImmediateUnload => false;
 
+    internal static bool SkittlesHasFocusedTextInput;
+
     private bool _isInitialized = false;
     private bool _isDisposed = false;
     private bool _windowVisible = false;
@@ -57,11 +59,15 @@ public class Mod
             if (ImGui.IsKeyPressed(ImGuiKey.F11))
                 _windowVisible = !_windowVisible;
 
+            bool anySkittlesTextInput = false;
+
             if (_windowVisible)
-                RenderMainWindow();
+                anySkittlesTextInput |= RenderMainWindow();
 
             if (_editorVisible)
-                RenderEditorWindow();
+                anySkittlesTextInput |= RenderEditorWindow();
+
+            SkittlesHasFocusedTextInput = anySkittlesTextInput;
         }
         catch (Exception ex)
         {
@@ -84,11 +90,13 @@ public class Mod
         }
     }
 
-    private void RenderMainWindow()
+    private bool RenderMainWindow()
     {
+        bool hasFocusedText = false;
         ImGui.SetNextWindowSize(new float2(420, 360), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("Skittles — Theme Manager", ref _windowVisible))
         {
+            hasFocusedText = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) && ImGui.GetIO().WantTextInput;
             // Header
             ImGui.TextColored(new float4(0.17f, 0.98f, 0.12f, 1.0f), "Skittles");
             ImGui.SameLine();
@@ -152,13 +160,16 @@ public class Mod
             if (ImGui.Button("Reset"))   { _themeManager.ApplyTheme("Game Default");         UpdateSelectedIndex(); }
         }
         ImGui.End();
+        return hasFocusedText;
     }
 
-    private void RenderEditorWindow()
+    private bool RenderEditorWindow()
     {
+        bool hasFocusedText = false;
         ImGui.SetNextWindowSize(new float2(700, 800), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("Skittles — Theme Editor", ref _editorVisible))
         {
+            hasFocusedText = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) && ImGui.GetIO().WantTextInput;
             // Determine if a custom (non-built-in) theme is currently active
             ThemeEntry? activeEntry = _themeManager.AvailableThemes
                 .FirstOrDefault(t => t.Name == _themeManager.ActiveThemeName && !t.IsBuiltIn);
@@ -229,6 +240,7 @@ public class Mod
             ImGui.ShowStyleEditor();
         }
         ImGui.End();
+        return hasFocusedText;
     }
 
     private void UpdateSelectedIndex()

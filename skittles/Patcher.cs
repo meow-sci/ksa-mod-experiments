@@ -1,5 +1,4 @@
 using System;
-using Brutal.ImGuiApi;
 using HarmonyLib;
 using KSA;
 
@@ -37,15 +36,15 @@ internal static class Patcher
 
 }
 
-// Block game hotkeys while any ImGui text input has keyboard focus.
-// ImGui.GetIO().WantTextInput is a per-frame flag set automatically by ImGui;
-// it resets each frame so it can never get stuck like a manual static bool.
+// Block game hotkeys while a Skittles text input has keyboard focus.
+// Uses a per-frame flag set by Mod during rendering, scoped to only
+// Skittles windows so the in-game console and other handlers are unaffected.
 [HarmonyPatch(typeof(GameSettings), nameof(GameSettings.OnKeyAll))]
 static class PatchGameSettingsOnKeyAll
 {
     static bool Prefix(ref bool __result)
     {
-        if (ImGui.GetIO().WantTextInput)
+        if (Mod.SkittlesHasFocusedTextInput)
         {
             __result = true;
             return false; // skip original, hotkey is blocked
