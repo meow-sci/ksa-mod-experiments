@@ -31,6 +31,11 @@
     <Project Path="kiwis-marbles.lib/kiwis-marbles.lib.csproj" />
     <Project Path="skittles/skittles.csproj" />
     <Project Path="skittles.lib/skittles.lib.csproj" />
+    <Project Path="blinky/blinky.csproj" />
+    <Project Path="blinky.lib/blinky.lib.csproj" />
+    <Project Path="eternal-flame/eternal-flame.csproj" />
+    <Project Path="eternal-flame.lib/eternal-flame.lib.csproj" />
+    
     
     
 </Solution>
