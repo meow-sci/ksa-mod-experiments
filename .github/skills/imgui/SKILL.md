@@ -231,3 +231,69 @@ ImGui.DragInt4("drag int4", vec4i, 1, 0, 255);
 // drag only
 ImGui.SliderInt4("slider int4", vec4i, 0, 255);
 ```
+
+### Focus Trap — Blocking Game Hotkeys During Text Input
+
+When a mod has `InputText` or other text-entry widgets, typing in them will also trigger game hotkeys (e.g. `\` toggles the in-game console, `Enter` submits console commands). To prevent this, use a **scoped focus trap** pattern.
+
+**Critical rules:**
+
+1. **Never use `ImGui.GetIO().WantTextInput` globally** — it is `true` whenever *any* ImGui text input has focus, including the game's own in-game console. Blocking hotkeys based on this flag will break the console (can't close it, can't press Enter).
+2. **Check focus per-window** using `ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows)` — this scopes the check to only your mod's windows.
+3. **The focus check must be inside the `Begin`/`End` block** — after `ImGui.End()` there is no valid window context and `IsWindowFocused` won't return correct results.
+
+**Pattern — render method returns focus state:**
+
+```csharp
+// In the Mod class, expose a static flag for the Harmony patch to read
+internal static bool ModHasFocusedTextInput;
+
+[StarMapAfterGui]
+public void OnAfterUi(double dt)
+{
+    bool anyTextInput = false;
+
+    if (_windowVisible)
+        anyTextInput |= RenderMyWindow();
+
+    ModHasFocusedTextInput = anyTextInput;
+}
+
+// Each render method checks focus INSIDE the Begin/End block and returns it
+private bool RenderMyWindow()
+{
+    bool hasFocusedText = false;
+    ImGui.SetNextWindowSize(new float2(400, 300), ImGuiCond.FirstUseEver);
+    if (ImGui.Begin("My Window", ref _windowVisible))
+    {
+        // Check INSIDE Begin/End — this is where the window context is valid
+        hasFocusedText = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows)
+                      && ImGui.GetIO().WantTextInput;
+
+        ImGui.InputText("##name", _nameInput);
+        // ... other widgets ...
+    }
+    ImGui.End();
+    return hasFocusedText;
+}
+```
+
+**Harmony patch — block game hotkeys only for this mod:**
+
+```csharp
+[HarmonyPatch(typeof(GameSettings), nameof(GameSettings.OnKeyAll))]
+static class PatchGameSettingsOnKeyAll
+{
+    static bool Prefix(ref bool __result)
+    {
+        if (Mod.ModHasFocusedTextInput)
+        {
+            __result = true;
+            return false; // skip original — hotkey is consumed
+        }
+        return true; // run original
+    }
+}
+```
+
+**Why this works:** `GameSettings.OnKeyAll` is the first handler in the game's input chain (`Program.cs`). If it returns `true`, all downstream handlers (including `ConsoleWindow.OnKey`) are short-circuited. By scoping the check to only your mod's windows, the in-game console and other input handlers remain functional.

@@ -7,9 +7,11 @@ This document serves as a comprehensive index of all mods and libraries in this 
 
 ### [ksa-abstractions.lib](ksa-abstractions.lib)
 Shared library with common abstractions used across multiple mods. Provides utility classes and base functionality.
-- Reusable abstractions for various mods
-- Common vehicle operations
-- Utility classes for mod development
+- `VehicleProvider` — get all vehicles or the controlled vehicle from `Universe.CurrentSystem`
+- `CelestialProvider` — get all celestial bodies (`Celestial`) or all orbiters (`IOrbiter`) from `Universe.CurrentSystem`
+- `SimTimeProvider` — wrapper for `Universe.GetElapsedSimTime()`
+- `ReflectionHelpers` — utility for safe field/property access via reflection
+- `PartHelpers` — recursive part tree helpers
 
 ---
 
@@ -32,6 +34,16 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Rotation lock toggle and auto-unweld on parent mismatch
 - Multiple simultaneous welds
 - ImGui control panel with preset system
+
+### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
+Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, updating it every game tick.
+- Weld any planet or moon to any orbiter (celestial or vehicle)
+- CCI-frame offset input with unit scale selector (m / km / Mm / Gm)
+- Live offset editing per active weld
+- Cross-parent welding via `Celestial.SetOrbit()` auto-reparenting
+- Multiple welds with topological sort for correct weld chain ordering
+- ImGui control panel (F9 toggle)
+- **kiwis-marbles.lib**: `CelestialWeldEntry` (Source/Target/Offset) and `CelestialWeldEngine` (per-frame repositioning + Kahn's topological sort)
 
 ### [zippo](zippo) / [zippo.lib](zippo.lib)
 Light control system. Selects vehicles and light parts, then controls their intensity and color using XKCD color palette.
@@ -127,6 +139,19 @@ Bring Your Own Music - Custom music player. Plays audio playlists from defined a
 - Asset-driven music integration
 - ImGui music control panel
 - Multi-sound support
+
+---
+
+## UI & Customization Mods
+
+### [skittles](skittles) / [skittles.lib](skittles.lib)
+Global ImGui theme manager. Provides a theme picker and a full style editor that affect every window and control across the entire application, using `ImGui.GetStyle()` — no Harmony patching required.
+- Theme picker with filterable combobox (F11 toggle)
+- Built-in themes: Game Default, Dark, Light, Classic, Inanimate Carbon Rod
+- Full theme editor wrapping `ImGui.ShowStyleEditor()` — 60 color slots + all style vars
+- Save/load custom themes as TOML files to/from disk
+- Persistent theme selection across game sessions; restores game default on unload
+- **skittles.lib**: `ThemeDefinition` (60-color + style POCO), `ThemeSerializer` (Tomlyn TOML I/O), `ThemeManager` (load/save/apply/list), `BuiltInThemes` (Inanimate Carbon Rod preset)
 
 ---
 
