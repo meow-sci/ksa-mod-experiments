@@ -29,6 +29,8 @@
     <Project Path="ksa-abstractions.lib/ksa-abstractions.lib.csproj" />
     <Project Path="kiwis-marbles/kiwis-marbles.csproj" />
     <Project Path="kiwis-marbles.lib/kiwis-marbles.lib.csproj" />
+    <Project Path="skittles/skittles.csproj" />
+    <Project Path="skittles.lib/skittles.lib.csproj" />
     
     
 </Solution>

@@ -4,7 +4,7 @@ description: details about how to implement a mod
 ---
 
 
-- MUST after each task is complete, use the git-commit skill to commit the changes before moving on to the next task
+- MUST after each task is complete, use the git-commit skill to commit the changes BEFORE moving on to the next task
 - MUST use fixme-mod-name and fixme-mod-name.lib folders to start with for each mod + mod.lib csproj (unless the folders were pre-created before this agent run)
 - when using the fixme-mod-name and fixme-mod-name.lib templates, replace "fixme-mod-name" with the hyphenated name of the mod and replace "FixmeModName" with the PascalCase name of the mod in the csproj files and any code files, the hypenated name also must be fixed in the csproj filename
 - MUST update the ksa-mod-experiments.slnx file to reference the new mod and mod.lib csproj files
