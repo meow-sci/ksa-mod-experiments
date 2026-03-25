@@ -4,13 +4,15 @@
     <OutputType>Library</OutputType>
     <AssemblyName>MeowSci.GlassLib</AssemblyName>
     <RootNamespace>MeowSci.GlassLib</RootNamespace>
-    <Description>Example lib</Description>
+    <Description>Glass mod library — camera FOV control</Description>
     <PackageId>MeowSci.GlassLib</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
-    
+    <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">
+      <HintPath>$(KSAFolder)KSA.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
-
 
 </Project>
