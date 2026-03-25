@@ -1,251 +1,103 @@
-# Fixme-Mod-Name - Template Mod Structure
+# Unladen Swallow � HTTP RPC Server Mod
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+An HTTP RPC server embedded in a KSA mod that exposes game mod functionality over a REST API. Named after Monty Python and the Holy Grail ("what is the airspeed velocity of an unladen swallow?").
 
-## Overview
+Provides an ImGui control window (F11) with an enable/disable checkbox to start and stop the embedded GenHTTP server on `http://0.0.0.0:7887`.
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+## Features
 
-## What This Mod Contains
+- **ImGui control window** (F11 toggle)
+- **Enable/disable HTTP server** via checkbox � start/stop without restarting the game
+- **Live status indicator** � shows Running/Stopped with the server URL
+- **Camera FOV control** via `GET /fov` and `POST /fov`
+- **Health check** via `GET /health`
 
-### Files
+## API Endpoints
 
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `unladen-swallow.csproj` | Main mod project |
-| `unladen-swallow.lib/UnladenSwallowLib.cs` | Library class (headless logic) |
+### `GET /health`
 
-### Mod Lifecycle
+Server liveness probe.
 
+```json
+{ "status": "ok" }
 ```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
-  ↓
-OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
-  ↓
-Unload()                 → Cleanup, remove patches
+
+### `GET /fov`
+
+Returns the current camera FOV state.
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "currentFovDegrees": 50.0,
+    "overrideFovDegrees": 50.0,
+    "isOverrideActive": false
+  }
+}
+```
+
+### `POST /fov`
+
+Sets the camera FOV override. Send `fov` > 0 to activate override, or `fov` <= 0 to disable it and return control to the game.
+
+**Request:**
+```json
+{ "fov": 30.0 }
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "data": {
+    "currentFovDegrees": 30.0,
+    "overrideFovDegrees": 30.0,
+    "isOverrideActive": true
+  }
+}
+```
+
+**Disable override:**
+```json
+{ "fov": 0 }
 ```
 
 ## Architecture
 
-### Mod.cs
-Entry point for the mod with lifecycle management.
+```
+unladen-swallow (mod)
+  -- ImGui window: F11 toggle, enable/disable checkbox, status display
+  -- OnBeforeUi: drains GameThread queue (HTTP -> game thread work items)
+  -- references unladen-swallow.lib
 
-```csharp
-public class Mod : StarMapMod
-{
-    public override void OnImmediateLoad()
-    {
-        // First initialization
-        Console.WriteLine("Fixme-Mod-Name: OnImmediateLoad");
-    }
-    
-    public override void OnFullyLoaded()
-    {
-        // All mods ready, initialize partnerships
-        Patcher.Initialize();
-    }
-    
-    public override void OnAfterUi()
-    {
-        // Render ImGui window every frame
-        RenderWindow();
-    }
-    
-    public override void Unload()
-    {
-        // Cleanup patches and resources
-        Patcher.Cleanup();
-    }
-    
-    private void RenderWindow()
-    {
-        if (!showWindow) return;
-        
-        ImGui.SetNextWindowSize(new Vector2(400, 200), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Fixme-Mod-Name", ref showWindow))
-        {
-            ImGui.Text("Hello, World!");
-            if (ImGui.Button("Click Me!"))
-            {
-                Console.WriteLine("Button clicked!");
-            }
-            ImGui.End();
-        }
-    }
-}
+unladen-swallow.lib
+  -- SwallowServer: GenHTTP host on 0.0.0.0:7887
+  -- FovEndpoint: GET/POST /fov (game-thread-safe via GameThread.Scheduler)
+  -- ApiTypes: ApiResponse<T>, FovRequest, FovState records
+  -- references glass.lib (FovController)
+  -- references ksa-abstractions.lib (GameThread)
+
+glass.lib
+  -- FovController: static FOV state + SetFov/ApplyFov/DisableOverride
+
+ksa-abstractions.lib
+  -- GameThread / GameStateQueue / IGameStateScheduler
 ```
 
-### Patcher.cs
-Harmony-based runtime method patching initialization.
+### Thread Safety
 
-```csharp
-public static class Patcher
-{
-    private static Harmony harmony;
-    
-    public static void Initialize()
-    {
-        harmony = new Harmony("MeowSci.UnladenSwallow");
-        harmony.PatchAll();  // Patches defined in assembly
-    }
-    
-    public static void Cleanup()
-    {
-        harmony?.UnpatchAll();
-    }
-}
-```
+HTTP request handlers run on GenHTTP worker threads. All game state interactions must happen on the game thread. `GameThread.Scheduler.Schedule(...)` enqueues a work item and returns a `Task<T>` that resolves when the game thread executes it in `OnBeforeUi`.
 
-### Library Project (optional)
-Separate `.lib` project for reusable, headless logic:
+### Server Lifecycle
 
-```csharp
-public static class UnladenSwallowLib
-{
-    public static void DoSomething()
-    {
-        // Reusable functionality
-    }
-}
-```
+The server is NOT auto-started. Use the ImGui checkbox to start/stop. On mod unload, the server is stopped if running.
 
-## Getting Started with This Template
+## Files
 
-### Step 1: Rename
-```
-unladen-swallow → your-cool-mod
-UnladenSwallow → YourCoolMod
-MeowSci.UnladenSwallow → MeowSci.YourCoolMod
-```
-
-### Step 2: Update Project Files
-- Rename `.csproj` files
-- Update assembly names
-- Update namespace declarations
-
-### Step 3: Implement Mod Logic
-Replace template code with actual mod features:
-- Define what should happen in each lifecycle method
-- Add ImGui controls in `RenderWindow()`
-- Implement Harmony patches in `Patcher.cs`
-
-### Step 4: Document
-Refer to this README structure and update with:
-- Mod overview
-- Features
-- Architecture explanation
-- Usage examples
-- Implementation details
-
-## Standard Mod Pattern
-
-Most mods follow this pattern:
-
-1. **Mod.cs**: UI + Lifecycle (StarMapMod subclass)
-2. **Patcher.cs**: Runtime patches (Harmony setup)
-3. **Lib project**: Reusable logic (separate assembly)
-4. **README.md**: Documentation (what you're reading)
-
-## ImGui Window Pattern
-
-Standard toggle pattern:
-
-```csharp
-private bool showWindow = false;
-
-public override void OnAfterUi()
-{
-    // F11 toggles window visibility
-    if (Input.GetKeyDown(KeyCode.F11))
-        showWindow = !showWindow;
-    
-    if (!showWindow) return;
-    
-    ImGui.SetNextWindowSize(new Vector2(400, 300), ImGuiCond.FirstUseEver);
-    if (ImGui.Begin("Mod Name", ref showWindow))
-    {
-        // Render content here
-        ImGui.End();
-    }
-}
-```
-
-## Harmony Patching Pattern
-
-Basic patch structure:
-
-```csharp
-[HarmonyPatch(typeof(TargetClass), nameof(TargetClass.TargetMethod))]
-public static class TargetMethodPatch
-{
-    public static bool Prefix(/* method parameters */)
-    {
-        // Prefix runs before original, return false to skip original
-        Console.WriteLine("Before TargetMethod");
-        return true;
-    }
-    
-    public static void Postfix(/* method parameters */)
-    {
-        // Postfix runs after original
-        Console.WriteLine("After TargetMethod");
-    }
-}
-```
-
-## Key Files for Reference
-
-When developing from this template, refer to:
-
-1. **[REPOSITORY_INDEX.md](../REPOSITORY_INDEX.md)** - All mods documentation
-2. **sibling mod READMEs** - Similar mods for reference implementation
-3. **HarmonyLib docs** - Runtime patching patterns
-4. **ImGui API docs** - UI widget reference
-
-## Next Steps
-
-1. Copy this entire folder
-2. Rename appropriately
-3. Implement your feature logic
-4. Test with `dotnet build`
-5. Update this README with your mod's actual purpose and features
-
-## Testing
-
-Build the solution:
-```bash
-dotnet build
-```
-
-Check for compilation errors before continuing with implementation.
-
-## Common Issues
-
-- **Namespace mismatches**: Update everywhere (csproj, Mod.cs, Patcher.cs)
-- **Project references**: Add library project reference to main mod
-- **Harmony ID conflicts**: Each Harmony instance needs unique ID string
-- **ImGui crashes**: Ensure ImGui calls only happen in OnAfterUi
-
-## Notes for Developers
-
-- Keep UI separate from logic (UI in Mod.cs, logic in Lib project)
-- Use Console.WriteLine for debugging
-- Test Harmony patches carefully—they affect game runtime
-- Document your Harmony patches explaining what they do
-- Consider performance impact of per-frame operations
-
-## Related Mods
-
-See similar template mods:
-- [grant](../grant) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
-- Other mods for inspiration on complete implementations
+| File | Purpose |
+|------|---------|
+| `Mod.cs` | Mod entry point: lifecycle, game-thread draining, ImGui window |
+| `Patcher.cs` | Harmony setup (no patches currently needed) |
+| `unladen-swallow.csproj` | Mod project |
+| `mod.toml` | StarMap mod descriptor |
