@@ -87,7 +87,9 @@ ksa-abstractions.lib
 
 ### Thread Safety
 
-HTTP request handlers run on GenHTTP worker threads. All game state interactions must happen on the game thread. `GameThread.Scheduler.Schedule(...)` enqueues a work item and returns a `Task<T>` that resolves when the game thread executes it in `OnBeforeUi`.
+HTTP request handlers run on GenHTTP worker threads. All game state mutations must happen on the game thread.   `GameThread.Scheduler.Schedule(...)` enqueues a work item and returns a `Task<T>` that resolves when the game thread executes it in `OnBeforeUi`.
+
+Reading game state DOES NOT need to run on a game thread and can run on the the web server thread handling the request
 
 ### Server Lifecycle
 
