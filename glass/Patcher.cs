@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.GlassLib;
 
 namespace MeowSci.Glass;
 
@@ -9,9 +10,6 @@ namespace MeowSci.Glass;
 internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("glass");
-
-    internal static bool IsOverrideActive = false;
-    internal static float OverrideFovDegrees = 50f;
 
     private static System.Reflection.FieldInfo? _fovRadiansField;
 
@@ -45,7 +43,7 @@ internal static class Patcher
     [HarmonyPrefix]
     private static bool ChangeFieldOfView_Prefix(Camera __instance)
     {
-        if (!IsOverrideActive) return true; // let game handle it
+        if (!FovController.IsOverrideActive) return true; // let game handle it
         // Block game's FOV input — we control FOV
         return false;
     }
@@ -54,9 +52,9 @@ internal static class Patcher
     [HarmonyPrefix]
     private static void UpdateProjection_Prefix(Camera __instance)
     {
-        if (!IsOverrideActive) return;
+        if (!FovController.IsOverrideActive) return;
         if (_fovRadiansField == null) return;
-        float targetRadians = (float)(OverrideFovDegrees * (Math.PI / 180.0));
+        float targetRadians = (float)(FovController.OverrideFovDegrees * (Math.PI / 180.0));
         _fovRadiansField.SetValue(__instance, targetRadians);
     }
 }
