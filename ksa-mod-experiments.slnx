@@ -35,7 +35,7 @@
     <Project Path="blinky.lib/blinky.lib.csproj" />
     <Project Path="eternal-flame/eternal-flame.csproj" />
     <Project Path="eternal-flame.lib/eternal-flame.lib.csproj" />
-    
-    
+    <Project Path="unladen-swallow/unladen-swallow.csproj" />
+    <Project Path="unladen-swallow.lib/unladen-swallow.lib.csproj" />
     
 </Solution>
