@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.UnladenSwallowLib</AssemblyName>
+    <RootNamespace>MeowSci.UnladenSwallowLib</RootNamespace>
+    <Description>Example lib</Description>
+    <PackageId>MeowSci.UnladenSwallowLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>
