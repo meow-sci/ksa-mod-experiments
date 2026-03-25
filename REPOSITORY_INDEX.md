@@ -117,16 +117,19 @@ LCD display animation system for pre-built pixel engine grids. Scans vehicles fo
 - `LcdAnimation` — manages scroll state and updates engine active states
 
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
-Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle.
+Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle. Self-contained — does NOT depend on blinken.lib.
 - Runtime part creation via manual `TreeParent`/`TreeChildren` wiring — no pre-built vehicle needed
 - Layout modes: Flat (plane) or Cylinder (sides only, radius auto-calculated from width × spacing)
-- Configurable grid size (1–64 cols × 1–32 rows)
-- Configurable spacing (0.1–5.0 m between pixels) and XYZ offset from vehicle root
-- Engine template quick-select (EngineA1–A6)
+- Configurable grid size, spacing, offset, and engine template
 - Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
-- Same pattern and animation controls as blinken (reuses blinken.lib)
+- **BlinkyGridManager** — static singleton managing per-vehicle grids, shared with RPC endpoints
+- **Scroll animation** — scrolls user-supplied or built-in pixel art across the grid at configurable speed
+- **Static display** — paints a set of pixels with optional intelligent diff (reset mode)
+- **Off** — turns off all pixels and stops any running scroll
+- Pattern presets: All On, Checkerboard, Alt Rows, Alt Cols
 - Build/Destroy grid at any time; destruction splits pixel parts back out of the vehicle
 - Debug panel: runtime dump of vehicle parts type, root part, engine templates list
+- **blinky.lib**: `BlinkyGridManager` (scroll/static/off/pattern APIs), `ScrollAnimation`, `PixelGrid`, `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages animations for the kitten avatar character with frame-by-frame updates.
@@ -160,14 +163,17 @@ Global ImGui theme manager. Provides a theme picker and a full style editor that
 ## HTTP RPC Mods
 
 ### [unladen-swallow](unladen-swallow) / [unladen-swallow.lib](unladen-swallow.lib)
-HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Currently exposes camera FOV control via `glass.lib`.
+HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib` and blinky pixel grid control via `blinky.lib`.
 - F11 toggle ImGui window
 - Enable/disable HTTP server via checkbox
 - Live server status indicator (Running/Stopped)
 - `GET /health` — server liveness check
 - `GET /fov` — returns current FOV state (current, override, isActive)
 - `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint` (GET/POST /fov with game-thread scheduling), `ApiResponse<T>` / `FovRequest` / `FovState` types. References `glass.lib` and `ksa-abstractions.lib`.
+- `POST /blinky/animate` — starts a scrolling animation on a vehicle's pixel grid (`{ "vehicleId": "...", "pixels": [...], "speed": 1.0 }`)
+- `POST /blinky/static` — displays a static pixel pattern on a vehicle's grid (`{ "vehicleId": "...", "pixels": [...], "reset": true }`)
+- `POST /blinky/off` — turns off all pixels and stops scroll on a vehicle's grid (`{ "vehicleId": "..." }`)
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, and `ksa-abstractions.lib`.
 
 ---
 

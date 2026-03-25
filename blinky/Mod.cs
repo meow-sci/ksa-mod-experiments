@@ -5,25 +5,19 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
-using MeowSci.BlinkenLib;
 using MeowSci.BlinkyLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.Blinky;
 
 /// <summary>
-/// Per-vehicle state container. Each vehicle with an active blinky grid gets its own instance.
+/// Per-vehicle UI state. Grid/animation state lives in BlinkyGridManager.
 /// </summary>
-internal class VehicleState
+internal class VehicleUiState
 {
-    public readonly Vehicle Vehicle;
-    public BlinkyPixelGrid? Grid;
-    public readonly LcdAnimation Animation = new();
-    public bool AnimActive;
     public string BuildMessage = "";
     public bool BuildMessageIsError;
-
-    public VehicleState(Vehicle vehicle) => Vehicle = vehicle;
+    public float ScrollSpeed = 3f;
 }
 
 [StarMapMod]
@@ -37,8 +31,8 @@ public class Mod
     private bool _isDisposed = false;
     private bool _windowVisible = false;
 
-    // Per-vehicle state, keyed by Vehicle reference
-    private readonly Dictionary<Vehicle, VehicleState> _vehicleStates = new();
+    // Per-vehicle UI state, keyed by vehicle ID
+    private readonly Dictionary<string, VehicleUiState> _uiStates = new();
 
     // Grid configuration (global — applies to next build on any vehicle)
     private int _configWidth = 16;
@@ -92,8 +86,8 @@ public class Mod
         {
             if (!_isInitialized || _isDisposed) return;
 
-            // Tick animations on ALL vehicles, not just the focused one
-            TickAllAnimations(dt);
+            // Tick scroll animations on ALL vehicles via the shared manager
+            BlinkyGridManager.TickAll(dt);
 
             if (ImGui.IsKeyPressed(ImGuiKey.F11))
                 _windowVisible = !_windowVisible;
@@ -113,7 +107,8 @@ public class Mod
         try
         {
             Patcher.Unload();
-            _vehicleStates.Clear();
+            BlinkyGridManager.Clear();
+            _uiStates.Clear();
             _isDisposed = true;
         }
         catch (Exception ex)
@@ -122,25 +117,14 @@ public class Mod
         }
     }
 
-    // ── Animation Tick ────────────────────────────────────────────────────────────
+    // ── Per-Vehicle UI State Lookup ───────────────────────────────────────────────
 
-    private void TickAllAnimations(double dt)
+    private VehicleUiState GetOrCreateUiState(string vehicleId)
     {
-        foreach (var state in _vehicleStates.Values)
+        if (!_uiStates.TryGetValue(vehicleId, out var state))
         {
-            if (state.AnimActive && state.Grid?.Grid != null && state.Grid.Grid.Cols > 0)
-                state.Animation.Update(dt);
-        }
-    }
-
-    // ── Per-Vehicle State Lookup ──────────────────────────────────────────────────
-
-    private VehicleState GetOrCreateState(Vehicle vehicle)
-    {
-        if (!_vehicleStates.TryGetValue(vehicle, out var state))
-        {
-            state = new VehicleState(vehicle);
-            _vehicleStates[vehicle] = state;
+            state = new VehicleUiState();
+            _uiStates[vehicleId] = state;
         }
         return state;
     }
@@ -173,10 +157,12 @@ public class Mod
             return;
         }
 
-        var vs = GetOrCreateState(vehicle);
+        var vehicleId = vehicle.Id;
+        var ui = GetOrCreateUiState(vehicleId);
+        var gridState = BlinkyGridManager.Get(vehicleId);
 
-        ImGui.Text($"Vehicle: {vehicle.Id}");
-        ImGui.Text($"Grid: {(vs.Grid != null ? $"{vs.Grid.Grid.Cols}x{vs.Grid.Grid.Rows} ({vs.Grid.OwnedParts.Count} parts)" : "not built")}");
+        ImGui.Text($"Vehicle: {vehicleId}");
+        ImGui.Text($"Grid: {(gridState != null ? $"{gridState.BlinkyGrid.Grid.Cols}x{gridState.BlinkyGrid.Grid.Rows} ({gridState.BlinkyGrid.OwnedParts.Count} parts)" : "not built")}");
         ImGui.Separator();
 
         // ── Grid Configuration ──────────────────────────────────────────────────
@@ -235,23 +221,23 @@ public class Mod
         {
             ImGui.Indent();
 
-            bool hasGrid = vs.Grid != null;
+            bool hasGrid = gridState != null;
 
             if (hasGrid)
             {
-                ImGui.TextColored(new float4(0.2f, 1f, 0.5f, 1f), $"Grid active: {vs.Grid!.Grid.Cols}x{vs.Grid.Grid.Rows}");
+                ImGui.TextColored(new float4(0.2f, 1f, 0.5f, 1f), $"Grid active: {gridState!.BlinkyGrid.Grid.Cols}x{gridState.BlinkyGrid.Grid.Rows}");
                 if (ImGui.Button("Destroy Grid##blinky"))
                 {
                     try
                     {
-                        vs.AnimActive = false;
-                        LcdGridBuilder.DestroyGrid(vehicle, vs.Grid);
-                        vs.Grid = null;
-                        SetBuildMessage(vs, "Grid destroyed", false);
+                        BlinkyGridManager.TurnOff(vehicleId);
+                        LcdGridBuilder.DestroyGrid(vehicle, gridState.BlinkyGrid);
+                        BlinkyGridManager.Unregister(vehicleId);
+                        SetBuildMessage(ui, "Grid destroyed", false);
                     }
                     catch (Exception ex)
                     {
-                        SetBuildMessage(vs, $"Destroy failed: {ex.Message}", true);
+                        SetBuildMessage(ui, $"Destroy failed: {ex.Message}", true);
                         Console.WriteLine($"blinky: Destroy error: {ex}");
                     }
                 }
@@ -259,22 +245,22 @@ public class Mod
             else
             {
                 if (ImGui.Button("Build Grid##blinky"))
-                    DoBuildGrid(vehicle, vs);
+                    DoBuildGrid(vehicle, ui);
 
                 ImGui.SameLine(0, 10);
                 if (ImGui.Button("Scan Vehicle##blinky"))
-                    DoScanVehicle(vehicle, vs);
+                    DoScanVehicle(vehicle, ui);
 
                 ImGui.SameLine(0, 10);
                 ImGui.TextDisabled($"Build: {_configWidth * _configHeight * 2} parts | Scan: find existing");
             }
 
-            if (!string.IsNullOrEmpty(vs.BuildMessage))
+            if (!string.IsNullOrEmpty(ui.BuildMessage))
             {
-                var msgColor = vs.BuildMessageIsError
+                var msgColor = ui.BuildMessageIsError
                     ? new float4(1f, 0.3f, 0.3f, 1f)
                     : new float4(0.4f, 1f, 0.4f, 1f);
-                ImGui.TextColored(msgColor, vs.BuildMessage);
+                ImGui.TextColored(msgColor, ui.BuildMessage);
             }
 
             ImGui.Spacing();
@@ -290,59 +276,67 @@ public class Mod
         ImGui.Separator();
 
         // ── Pattern Control ─────────────────────────────────────────────────────
-        if (vs.Grid != null)
+        if (gridState != null)
         {
             if (ImGui.CollapsingHeader("Patterns", ImGuiTreeNodeFlags.DefaultOpen))
             {
                 ImGui.Indent();
 
                 if (ImGui.Button("All On##blinky"))
-                    ApplyPattern(vs, PixelPatterns.AllOn);
+                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.AllOn);
                 ImGui.SameLine(0, 8);
                 if (ImGui.Button("All Off##blinky"))
-                    ApplyPattern(vs, _ => false);
+                    BlinkyGridManager.TurnOff(vehicleId);
                 ImGui.SameLine(0, 8);
                 if (ImGui.Button("Checkerboard##blinky"))
-                    ApplyPattern(vs, PixelPatterns.Checkerboard);
+                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.Checkerboard);
                 ImGui.SameLine(0, 8);
                 if (ImGui.Button("Alt Rows##blinky"))
-                    ApplyPattern(vs, PixelPatterns.AlternatingRows);
+                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.AlternatingRows);
                 ImGui.SameLine(0, 8);
                 if (ImGui.Button("Alt Cols##blinky"))
-                    ApplyPattern(vs, PixelPatterns.AlternatingCols);
+                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.AlternatingCols);
 
                 ImGui.Unindent();
             }
 
             ImGui.Separator();
 
-            // ── Animation ──────────────────────────────────────────────────────
-            if (ImGui.CollapsingHeader("Animation", ImGuiTreeNodeFlags.DefaultOpen))
+            // ── Scroll Animation ───────────────────────────────────────────────
+            if (ImGui.CollapsingHeader("Scroll", ImGuiTreeNodeFlags.DefaultOpen))
             {
                 ImGui.Indent();
 
-                if (ImGui.Button(vs.AnimActive ? "Stop##blinky" : "Start##blinky"))
+                bool isScrolling = gridState.Scroll.IsActive;
+                if (ImGui.Button(isScrolling ? "Stop##blinky" : "Start##blinky"))
                 {
-                    vs.AnimActive = !vs.AnimActive;
-                    if (vs.AnimActive)
-                        vs.Animation.Init(vs.Grid.Grid);
+                    if (isScrolling)
+                    {
+                        BlinkyGridManager.TurnOff(vehicleId);
+                    }
+                    else
+                    {
+                        BlinkyGridManager.StartBuiltInScroll(vehicleId, ui.ScrollSpeed);
+                    }
                 }
 
                 ImGui.SameLine(0, 10);
-                float speed = vs.Animation.ScrollSpeed;
                 ImGui.SetNextItemWidth(200);
-                if (ImGui.SliderFloat("Speed##blinky", ref speed, 0.5f, 30f))
-                    vs.Animation.ScrollSpeed = speed;
+                if (ImGui.SliderFloat("Speed##blinky", ref ui.ScrollSpeed, 0.5f, 30f))
+                {
+                    if (gridState.Scroll.IsActive)
+                        gridState.Scroll.ScrollSpeed = ui.ScrollSpeed;
+                }
 
-                if (vs.AnimActive)
+                if (gridState.Scroll.IsActive)
                 {
                     ImGui.TextColored(
                         new float4(0.2f, 1f, 0.5f, 1f),
-                        $"Scrolling  offset={vs.Animation.ScrollOffset:F1}  image {vs.Animation.ImageWidth}x{vs.Animation.ImageHeight}");
+                        $"Scrolling  offset={gridState.Scroll.ScrollOffset:F1}  image {gridState.Scroll.ImageWidth}x{gridState.Scroll.ImageHeight}");
                 }
                 else
                 {
-                    ImGui.TextDisabled("Animation stopped");
+                    ImGui.TextDisabled("Scroll stopped");
                 }
 
                 ImGui.Unindent();
@@ -371,17 +365,17 @@ public class Mod
             if (ImGui.Button("List engine templates##blinky"))
                 ListEngineTemplates();
 
-            if (vs.Grid != null && ImGui.Button("Dump grid engines##blinky"))
-                DumpGridEngines(vs.Grid.Grid);
+            if (gridState != null && ImGui.Button("Dump grid engines##blinky"))
+                DumpGridEngines(gridState.BlinkyGrid.Grid);
 
-            if (vs.Grid != null && ImGui.Button("Dump Engine Active States##blinky"))
-                DumpEngineActiveStates(vs.Grid);
+            if (gridState != null && ImGui.Button("Dump Engine Active States##blinky"))
+                DumpEngineActiveStates(gridState.BlinkyGrid);
 
             if (ImGui.Button("Force SetIsActive All On##blinky"))
                 ForceSetIsActiveAllOn(vehicle);
 
-            if (vs.Grid != null && ImGui.Button("Rescan Grid##blinky"))
-                RescanGrid(vs);
+            if (gridState != null && ImGui.Button("Rescan Grid##blinky"))
+                RescanGrid(gridState);
 
             if (ImGui.Button("Compare Engines##blinky"))
             {
@@ -401,25 +395,23 @@ public class Mod
 
     // ── Active Vehicles Summary ───────────────────────────────────────────────────
 
-    private void RenderActiveVehiclesSummary()
+    private static void RenderActiveVehiclesSummary()
     {
-        // Count vehicles with grids or active animations
-        int withGrids = 0;
-        int withAnims = 0;
-        foreach (var state in _vehicleStates.Values)
+        var grids = BlinkyGridManager.Grids;
+        if (grids.Count > 0)
         {
-            if (state.Grid != null) withGrids++;
-            if (state.AnimActive) withAnims++;
-        }
-        if (withGrids > 0)
-        {
-            ImGui.TextDisabled($"Tracked: {withGrids} vehicle(s) with grids, {withAnims} animating");
+            int withScrolls = 0;
+            foreach (var state in grids.Values)
+            {
+                if (state.Scroll.IsActive) withScrolls++;
+            }
+            ImGui.TextDisabled($"Tracked: {grids.Count} vehicle(s) with grids, {withScrolls} scrolling");
         }
     }
 
     // ── Grid Build ────────────────────────────────────────────────────────────────
 
-    private void DoBuildGrid(Vehicle vehicle, VehicleState vs)
+    private void DoBuildGrid(Vehicle vehicle, VehicleUiState ui)
     {
         try
         {
@@ -436,22 +428,27 @@ public class Mod
                 Layout = _configLayoutIndex == 1 ? GridLayout.Cylinder : GridLayout.Flat,
             };
 
-            vs.Grid = LcdGridBuilder.BuildGrid(vehicle, config);
-            if (vs.Grid != null)
-                SetBuildMessage(vs, $"Built {vs.Grid.Grid.Cols}x{vs.Grid.Grid.Rows} grid ({vs.Grid.OwnedParts.Count} parts)", false);
+            var grid = LcdGridBuilder.BuildGrid(vehicle, config);
+            if (grid != null)
+            {
+                BlinkyGridManager.Register(vehicle, grid);
+                SetBuildMessage(ui, $"Built {grid.Grid.Cols}x{grid.Grid.Rows} grid ({grid.OwnedParts.Count} parts)", false);
+            }
             else
-                SetBuildMessage(vs, "Build failed \u2014 check console log", true);
+            {
+                SetBuildMessage(ui, "Build failed \u2014 check console log", true);
+            }
         }
         catch (Exception ex)
         {
-            SetBuildMessage(vs, $"Build error: {ex.Message}", true);
+            SetBuildMessage(ui, $"Build error: {ex.Message}", true);
             Console.WriteLine($"blinky: Build error: {ex}");
         }
     }
 
     // ── Scan Vehicle ───────────────────────────────────────────────────────────────
 
-    private void DoScanVehicle(Vehicle vehicle, VehicleState vs)
+    private void DoScanVehicle(Vehicle vehicle, VehicleUiState ui)
     {
         try
         {
@@ -462,8 +459,9 @@ public class Mod
             if (pixelGrid.Count > 0)
             {
                 pixelGrid.RefreshEngineControllers();
-                vs.Grid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
-                SetBuildMessage(vs, $"Scanned {pixelGrid.Cols}x{pixelGrid.Rows} grid ({pixelGrid.Count} pixel pairs) [by ID]", false);
+                var blinkyGrid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
+                BlinkyGridManager.Register(vehicle, blinkyGrid);
+                SetBuildMessage(ui, $"Scanned {pixelGrid.Cols}x{pixelGrid.Rows} grid ({pixelGrid.Count} pixel pairs) [by ID]", false);
                 return;
             }
 
@@ -473,46 +471,19 @@ public class Mod
 
             if (scannedGrid != null)
             {
-                vs.Grid = scannedGrid;
-                SetBuildMessage(vs, $"Scanned {scannedGrid.Grid.Cols}x{scannedGrid.Grid.Rows} grid ({scannedGrid.Grid.Count} pixel pairs) [by template]", false);
+                BlinkyGridManager.Register(vehicle, scannedGrid);
+                SetBuildMessage(ui, $"Scanned {scannedGrid.Grid.Cols}x{scannedGrid.Grid.Rows} grid ({scannedGrid.Grid.Count} pixel pairs) [by template]", false);
             }
             else
             {
-                SetBuildMessage(vs, $"No pixel grid found (tried ID + template '{_enginePartId}' scan)", true);
+                SetBuildMessage(ui, $"No pixel grid found (tried ID + template '{_enginePartId}' scan)", true);
             }
         }
         catch (Exception ex)
         {
-            SetBuildMessage(vs, $"Scan error: {ex.Message}", true);
+            SetBuildMessage(ui, $"Scan error: {ex.Message}", true);
             Console.WriteLine($"blinky: Scan error: {ex}");
         }
-    }
-
-    // ── Pattern Helpers ───────────────────────────────────────────────────────────
-
-    private static void ApplyPattern(VehicleState vs, System.Func<(int row, int col), bool> selector)
-    {
-        if (vs.Grid == null) return;
-        vs.AnimActive = false;
-
-        var engines = vs.Grid.Grid.Engines;
-        if (engines.Count == 0)
-        {
-            Console.WriteLine("blinky: ApplyPattern — no engines cached (try Rescan Grid)");
-            return;
-        }
-
-        int setOn = 0, setOff = 0;
-        foreach (var (key, controllers) in engines)
-        {
-            bool on = selector(key);
-            for (int i = 0; i < controllers.Length; i++)
-            {
-                controllers[i].SetIsActive(null, on);
-                if (on) setOn++; else setOff++;
-            }
-        }
-        Console.WriteLine($"blinky: ApplyPattern -> {setOn} on, {setOff} off across {engines.Count} pixels");
     }
 
     // ── Debug Helpers ─────────────────────────────────────────────────────────────
@@ -641,14 +612,13 @@ public class Mod
         Console.WriteLine($"blinky dbg: Force SetIsActive All On: set {count} engines active");
     }
 
-    private static void RescanGrid(VehicleState vs)
+    private static void RescanGrid(GridState gs)
     {
-        if (vs.Grid == null) return;
-        vs.Grid.Grid.RefreshEngineControllers();
+        gs.BlinkyGrid.Grid.RefreshEngineControllers();
         int total = 0;
-        foreach (var engines in vs.Grid.Grid.Engines.Values)
+        foreach (var engines in gs.BlinkyGrid.Grid.Engines.Values)
             total += engines.Length;
-        Console.WriteLine($"blinky dbg: RescanGrid done — grid {vs.Grid.Grid.Cols}x{vs.Grid.Grid.Rows}, {total} cached engine controllers");
+        Console.WriteLine($"blinky dbg: RescanGrid done — grid {gs.BlinkyGrid.Grid.Cols}x{gs.BlinkyGrid.Grid.Rows}, {total} cached engine controllers");
     }
 
     private static readonly BindingFlags AllFlags =
@@ -732,10 +702,10 @@ public class Mod
 
     // ── Utilities ─────────────────────────────────────────────────────────────────
 
-    private static void SetBuildMessage(VehicleState vs, string msg, bool isError)
+    private static void SetBuildMessage(VehicleUiState ui, string msg, bool isError)
     {
-        vs.BuildMessage = msg;
-        vs.BuildMessageIsError = isError;
+        ui.BuildMessage = msg;
+        ui.BuildMessageIsError = isError;
         Console.WriteLine($"blinky: {msg}");
     }
 }

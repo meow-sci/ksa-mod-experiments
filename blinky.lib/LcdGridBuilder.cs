@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using Brutal.Numerics;
 using KSA;
-using MeowSci.BlinkenLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.BlinkyLib;

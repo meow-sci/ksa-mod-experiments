@@ -76,6 +76,14 @@ public sealed class SwallowServer
         api.Add("vehicle", Layout.Create()
             .Add("actions", vehicleActions));
 
+        // POST /blinky/animate
+        // POST /blinky/static
+        // POST /blinky/off
+        api.Add("blinky", Layout.Create()
+            .Add("animate", BlinkyAnimateEndpoint.Create())
+            .Add("static", BlinkyStaticEndpoint.Create())
+            .Add("off", BlinkyOffEndpoint.Create()));
+
         // CORS — allow all origins
         api.Add(CorsPolicy.Permissive());
 
