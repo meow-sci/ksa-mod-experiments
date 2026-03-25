@@ -4,13 +4,32 @@
     <OutputType>Library</OutputType>
     <AssemblyName>MeowSci.UnladenSwallowLib</AssemblyName>
     <RootNamespace>MeowSci.UnladenSwallowLib</RootNamespace>
-    <Description>Example lib</Description>
+    <Description>HTTP RPC server library for the unladen-swallow KSA mod</Description>
     <PackageId>MeowSci.UnladenSwallowLib</PackageId>
+    <PrunePackageReference>false</PrunePackageReference>
   </PropertyGroup>
 
   <ItemGroup>
-    
+    <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+    <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="GenHTTP.Core" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Conversion" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Functional" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Layouting" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Practices" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Security" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.ErrorHandling" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.IO" Version="10.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">
+      <HintPath>$(KSAFolder)KSA.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 
 </Project>
