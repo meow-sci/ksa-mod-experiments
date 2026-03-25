@@ -3,6 +3,7 @@
     "dotnet build": true,
     "dotnet clean": true,
     "git add": true,
-    "git commit": true
+    "git commit": true,
+    "bun": true
   }
 }
