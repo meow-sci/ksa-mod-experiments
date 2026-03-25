@@ -18,6 +18,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GenHTTP.Core" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Conversion" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Functional" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Layouting" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Practices" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.Security" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.ErrorHandling" Version="10.5.0" />
+    <PackageReference Include="GenHTTP.Modules.IO" Version="10.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="Brutal.Core.Common" Condition="Exists('$(KSAFolder)Brutal.Core.Common.dll')">
       <HintPath>$(KSAFolder)Brutal.Core.Common.dll</HintPath>
       <Private>false</Private>
