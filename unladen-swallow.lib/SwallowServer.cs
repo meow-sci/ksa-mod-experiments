@@ -9,6 +9,7 @@ using GenHTTP.Modules.ErrorHandling;
 using GenHTTP.Modules.Functional;
 using GenHTTP.Modules.IO;
 using GenHTTP.Modules.Layouting;
+using GenHTTP.Modules.Layouting.Provider;
 using GenHTTP.Modules.Practices;
 using GenHTTP.Modules.Security;
 
@@ -32,20 +33,7 @@ public sealed class SwallowServer
         if (_host is not null) return;
 
         var api = Layout.Create();
-
-        // /health
-        var health = Inline.Create()
-                           .Get(() => new { status = "ok" });
-        api.Add("health", health);
-
-        // /fov
-        api.Add("fov", FovEndpoint.Create());
-
-        // CORS — allow all origins
-        api.Add(CorsPolicy.Permissive());
-
-        // JSON error responses
-        api.Add(ErrorHandler.From(new JsonErrorMapper()));
+        RegisterRoutes(api);
 
         _host = await Host.Create()
                           .Handler(api)
@@ -67,6 +55,35 @@ public sealed class SwallowServer
 
         Console.WriteLine("unladen-swallow: server stopped.");
     }
+
+    // ── Route registry ────────────────────────────────────────────────────────
+    // All endpoints are registered here. Add new routes to this method.
+
+    private static void RegisterRoutes(LayoutBuilder api)
+    {
+        // GET /health
+        api.Add("health", Inline.Create().Get(() => new { status = "ok" }));
+
+        // GET /fov, POST /fov
+        api.Add("fov", FovEndpoint.Create());
+
+        // POST /vehicle/actions/ignite
+        // POST /vehicle/actions/shutdown
+        var vehicleActions = Layout.Create()
+            .Add("ignite", ActionIgnite.Create())
+            .Add("shutdown", ActionShutdown.Create());
+
+        api.Add("vehicle", Layout.Create()
+            .Add("actions", vehicleActions));
+
+        // CORS — allow all origins
+        api.Add(CorsPolicy.Permissive());
+
+        // JSON error responses
+        api.Add(ErrorHandler.From(new JsonErrorMapper()));
+    }
+
+    // ── Error handling ────────────────────────────────────────────────────────
 
     private sealed class JsonErrorMapper : IErrorMapper<Exception>
     {
