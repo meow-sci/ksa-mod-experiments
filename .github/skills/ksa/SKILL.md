@@ -51,6 +51,48 @@ When decompiled source field names don't match the actual binary (reflection ret
 
 See [debug.md](debug.md) for complete helper code, the `DumpPartsWithComponents` pattern, and a worked example of how `LightModule+TemplateData` was discovered inside `PartTemplate.Components`.
 
+## Cross-Mod Assembly Sharing
+
+StarMap loads each mod into its own `AssemblyLoadContext` (ALC). By default, two mods that both compile against the same `.lib` project will each get **independent copies** of that assembly with **separate static state**.
+
+To share an assembly (and its static state) across mods, declare a dependency in `mod.toml`:
+
+```toml
+[[StarMap.ModDependencies]]
+ModId = "blinky"
+Optional = true
+ImportedAssemblies = [
+    "MeowSci.BlinkyLib"
+]
+```
+
+When the dependent mod's ALC tries to load an assembly whose name appears in `ImportedAssemblies`, it **delegates to the dependency mod's ALC** — returning the exact same `Assembly` object. Same Assembly → same `Type` objects → same static fields → shared singleton state.
+
+The dependency mod can optionally declare which assemblies it exposes:
+
+```toml
+# in the dependency mod's mod.toml
+[StarMap]
+ExportedAssemblies = ["MeowSci.BlinkyLib"]
+```
+
+### Resolution Matrix
+
+| Dependent sets `ImportedAssemblies` | Dependency sets `ExportedAssemblies` | Shared assemblies |
+|---|---|---|
+| No | No | Entry assembly only |
+| **Yes** | No | Exactly what `ImportedAssemblies` lists |
+| No | Yes | Everything in `ExportedAssemblies` |
+| Yes | Yes | Intersection of both lists |
+
+### Architecture Rules
+
+1. **Shared state goes in `.lib` assemblies only** — the mod entry assembly (e.g. `MeowSci.Blinky`) is private and never imported by other mods.
+2. **`ImportedAssemblies` lists `.lib` assembly names** — e.g. `"MeowSci.BlinkyLib"`, not `"MeowSci.Blinky"`.
+3. **Use `Optional = true`** so each mod remains independently installable. Guard code paths that depend on the other mod being present.
+4. **Transitive `.lib` deps may need importing too** — if `blinky.lib` → `ksa-abstractions.lib` and both mods need the same `GameThread` static state, import `MeowSci.KsaAbstractions` as well.
+5. **Build-time references still needed** — the `.csproj` `<ProjectReference>` to the `.lib` project provides compile-time types. At runtime, `ImportedAssemblies` redirects the load to the dependency's ALC instead of loading the local copy.
+
 # Universe & Vehicles
 
 ```csharp
