@@ -337,7 +337,7 @@ public class Mod
             ImGui.SetNextItemWidth(-1f);
             bool lonChanged = ImGui.DragFloat($"Longitude (left/right)##{i}", ref curLon, 0.3f, -360f, 360f, "%.1f deg");
             ImGui.SetNextItemWidth(-1f);
-            bool latChanged = ImGui.DragFloat($"Latitude (up/down)##{i}", ref curLat, 0.3f, -90f, 90f, "%.1f deg");
+            bool latChanged = ImGui.DragFloat($"Latitude (up/down)##{i}", ref curLat, 0.3f, -360f, 360f, "%.1f deg");
             ImGui.SetNextItemWidth(-1f);
             bool radChanged = ImGui.DragFloat($"Altitude offset (in/out)##{i}", ref curRadialKm, 1f, -float.MaxValue, float.MaxValue, "%.1f km");
 
