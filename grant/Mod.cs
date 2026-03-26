@@ -19,6 +19,8 @@ public class Mod
 
     private readonly List<IGrantSubmod> _submods = new();
     private readonly Dictionary<string, bool> _submodVisibility = new();
+    private bool _collapseAll;
+    private bool _expandAll;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -126,14 +128,18 @@ public class Mod
 
         if (ImGui.Begin("grant Mod", ref _windowVisible))
         {
-            // Header with gear button
-            ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "grant");
-            ImGui.SameLine();
-            float gearX = ImGui.GetWindowWidth() - 40f;
-            if (gearX > ImGui.GetCursorPosX())
+            // Min/Max/Mods buttons in top-right
+            float buttonsX = ImGui.GetWindowWidth() - 160f;
+            if (buttonsX > ImGui.GetCursorPosX())
             {
-                ImGui.SetCursorPosX(gearX);
-                if (ImGui.Button("\u2699##grant_gear"))
+                ImGui.SetCursorPosX(buttonsX);
+                if (ImGui.Button("min##grant_min"))
+                    _collapseAll = true;
+                ImGui.SameLine();
+                if (ImGui.Button("max##grant_max"))
+                    _expandAll = true;
+                ImGui.SameLine();
+                if (ImGui.Button("mods##grant_mods"))
                     ImGui.OpenPopup("##grant_context");
             }
 
@@ -145,7 +151,7 @@ public class Mod
                 foreach (var submod in _submods)
                 {
                     bool visible = _submodVisibility[submod.Name];
-                    if (ImGui.MenuItem(submod.Name, "", ref visible))
+                    if (ImGui.Checkbox(submod.Name, ref visible))
                         _submodVisibility[submod.Name] = visible;
                 }
                 ImGui.EndPopup();
@@ -158,6 +164,11 @@ public class Mod
             {
                 if (!_submodVisibility[submod.Name]) continue;
 
+                if (_expandAll)
+                    ImGui.SetNextItemOpen(true, ImGuiCond.Always);
+                else if (_collapseAll)
+                    ImGui.SetNextItemOpen(false, ImGuiCond.Always);
+
                 if (ImGui.CollapsingHeader(submod.Name, ImGuiTreeNodeFlags.DefaultOpen))
                 {
                     ImGui.Indent();
@@ -167,6 +178,8 @@ public class Mod
                 }
                 ImGui.Separator();
             }
+            _collapseAll = false;
+            _expandAll = false;
 
             // Close button
             ImGui.Spacing();
