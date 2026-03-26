@@ -205,11 +205,11 @@ internal sealed class BlinkySubmod : IGrantSubmod
             {
                 ImGui.Indent();
 
-                if (ImGui.Button("All On##blinky"))
-                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.AllOn);
-                ImGui.SameLine(0, 8);
                 if (ImGui.Button("All Off##blinky"))
                     BlinkyGridManager.TurnOff(vehicleId);
+                ImGui.SameLine(0, 8);
+                if (ImGui.Button("All On##blinky"))
+                    BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.AllOn);
                 ImGui.SameLine(0, 8);
                 if (ImGui.Button("Checkerboard##blinky"))
                     BlinkyGridManager.ApplyPattern(vehicleId, PixelPatterns.Checkerboard);

@@ -126,7 +126,7 @@ public class Mod
     {
         ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin("grant Mod", ref _windowVisible))
+        if (ImGui.Begin("Grants Toolbox", ref _windowVisible))
         {
             // Min/Max/Mods buttons — right-aligned
             {

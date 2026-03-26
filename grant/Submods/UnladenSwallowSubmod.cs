@@ -8,7 +8,7 @@ namespace MeowSci.Grant.Submods;
 
 internal sealed class UnladenSwallowSubmod : IGrantSubmod
 {
-    public string Name => "Unladen Swallow";
+    public string Name => "Unladen Swallow \u2014 RPC Server";
 
     private SwallowServer? _server;
     private bool _serverEnabled;
