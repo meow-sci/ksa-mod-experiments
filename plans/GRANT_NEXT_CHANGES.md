@@ -10,3 +10,5 @@ the goal here is that each mod-a and mod-a.lib pair largely contain all the logi
 but grant supermod contains *all* of the submod functionality together in a single ImGui window collected under collapsible headers that can be toggled on/off for visibility
 
 # MINOR
+
+- the submod popup for visibility should have two buttons added to the top row "all" and "none" aligned to the right.  when "all" is pressed make all visible, when "none" is pressed make none visible.  use imgui horizontal layout patterns and not hardcoded offsets

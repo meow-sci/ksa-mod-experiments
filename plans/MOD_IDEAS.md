@@ -1,16 +1,13 @@
-# kiwi sharks marbles
+# con-man
 
-like garrys-torch but tailored for celestial bodies (planets, moons, etc).
-needs to be able to quickly arrange celestials to stack up like a snow man
+game ui layout manager.  can save the current game ui state to disk under a inputtable name.
 
-have presets to do body, torso, head and eyes?
+can select saved layouts from a combobox and apply them.
 
-needs some smarts to intelligently default to the bounding edges of the bodies since the distance scales are big. and the drag float sliders probably need to have scaling options (e.g. change between a 10x, 100x, 1000x, 10,000x multiplier when dragged)
+allow selecting a "startup default" value, when the mod initially starts, apply it if set. should also be un-settable.
 
+all comboboxes should be filtered and values sorted case-insensitive alphanumerically (cache this so its not re-computed on every game tick render)
 
-# glass
-
-- fov change for camera
 
 
  
