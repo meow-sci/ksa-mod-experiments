@@ -2,9 +2,7 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using KSA;
 using MeowSci.UnladenSwallowLib;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.UnladenSwallow;
 
@@ -13,11 +11,10 @@ public class Mod
 {
     public bool ImmediateUnload => false;
 
-    private bool _isInitialized = false;
-    private bool _isDisposed = false;
-    private bool _windowVisible = false;
-    private bool _serverEnabled = false;
-    private SwallowServer? _server;
+    private bool _isInitialized;
+    private bool _isDisposed;
+    private bool _windowVisible;
+    private UnladenSwallowSubmod _submod = null!;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -27,8 +24,9 @@ public class Mod
     {
         try
         {
-            _server = new SwallowServer();
+            _submod = new UnladenSwallowSubmod();
             Patcher.Patch();
+            _submod.Initialize();
             _isInitialized = true;
             Console.WriteLine("unladen-swallow: initialized.");
         }
@@ -42,7 +40,7 @@ public class Mod
     public void OnBeforeUi(double dt)
     {
         if (!_isInitialized || _isDisposed) return;
-        GameThread.DrainOnGameThread();
+        _submod.Update(dt);
     }
 
     [StarMapAfterGui]
@@ -51,12 +49,8 @@ public class Mod
         try
         {
             if (!_isInitialized || _isDisposed) return;
-
-            if (ImGui.IsKeyPressed(ImGuiKey.F11))
-                _windowVisible = !_windowVisible;
-
-            if (_windowVisible)
-                RenderWindow();
+            if (ImGui.IsKeyPressed(ImGuiKey.F11)) _windowVisible = !_windowVisible;
+            if (_windowVisible) RenderWindow();
         }
         catch (Exception ex)
         {
@@ -69,9 +63,7 @@ public class Mod
     {
         try
         {
-            if (_server is not null && _server.IsRunning)
-                _server.StopAsync().GetAwaiter().GetResult();
-
+            _submod.Dispose();
             Patcher.Unload();
             _isDisposed = true;
             Console.WriteLine("unladen-swallow: unloaded.");
@@ -85,45 +77,9 @@ public class Mod
     private void RenderWindow()
     {
         ImGui.SetNextWindowSize(new float2(400, 120), ImGuiCond.FirstUseEver);
-
+        // No close button on this window
         if (ImGui.Begin("Unladen Swallow"))
-        {
-            ImGui.TextColored(new float4(1.0f, 0.84f, 0.0f, 1.0f), "Unladen Swallow");
-            ImGui.SeparatorText("HTTP RPC Server");
-
-            if (ImGui.Checkbox("Enable HTTP Server", ref _serverEnabled))
-            {
-                if (_serverEnabled)
-                {
-                    try
-                    {
-                        _server!.StartAsync().GetAwaiter().GetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"unladen-swallow: Failed to start server: {ex.Message}");
-                        _serverEnabled = false;
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        _server!.StopAsync().GetAwaiter().GetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"unladen-swallow: Failed to stop server: {ex.Message}");
-                    }
-                }
-            }
-
-            if (_server is not null && _server.IsRunning)
-                ImGui.TextColored(new float4(0.0f, 1.0f, 0.4f, 1.0f), "Server: Running on http://0.0.0.0:7887");
-            else
-                ImGui.TextDisabled("Server: Stopped");
-        }
+            _submod.RenderContent();
         ImGui.End();
     }
 }
-

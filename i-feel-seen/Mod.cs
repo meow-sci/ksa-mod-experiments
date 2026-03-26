@@ -3,130 +3,76 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using MeowSci.IFeelSeenLib;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.IFeelSeen;
 
 [StarMapMod]
 public class Mod
 {
-  public bool ImmediateUnload => false;
+    public bool ImmediateUnload => false;
 
-  private bool _isInitialized = false;
-  private bool _isDisposed = false;
-  private bool _windowVisible = false;
+    private bool _isInitialized;
+    private bool _isDisposed;
+    private bool _windowVisible;
+    private IFeelSeenSubmod _submod = null!;
 
-  private int _pendingVehicleIndex = 0;
+    [StarMapImmediateLoad]
+    public void OnImmediateLoad() { }
 
-  private readonly VehicleTracker _tracker = new();
-
-  [StarMapImmediateLoad]
-  public void OnImmediateLoad() { }
-
-  [StarMapAllModsLoaded]
-  public void OnFullyLoaded()
-  {
-    try
+    [StarMapAllModsLoaded]
+    public void OnFullyLoaded()
     {
-      Patcher.Patch(_tracker);
-      _isInitialized = true;
+        try
+        {
+            _submod = new IFeelSeenSubmod();
+            _submod.Initialize();
+            Patcher.Patch(_submod.Tracker);
+            _isInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"i-feel-seen: Error during initialization: {ex.Message}");
+        }
     }
-    catch (Exception ex)
+
+    [StarMapBeforeGui]
+    public void OnBeforeUi(double dt) { }
+
+    [StarMapAfterGui]
+    public void OnAfterUi(double dt)
     {
-      Console.WriteLine($"i-feel-seen: Error during initialization: {ex.Message}");
+        try
+        {
+            if (!_isInitialized || _isDisposed) return;
+            if (ImGui.IsKeyPressed(ImGuiKey.F11)) _windowVisible = !_windowVisible;
+            if (_windowVisible) RenderWindow();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"i-feel-seen: Error in OnAfterUi: {ex.Message}");
+        }
     }
-  }
 
-  [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
-
-  [StarMapAfterGui]
-  public void OnAfterUi(double dt)
-  {
-    try
+    [StarMapUnload]
+    public void Unload()
     {
-      if (!_isInitialized || _isDisposed) return;
-
-      if (ImGui.IsKeyPressed(ImGuiKey.F11))
-        _windowVisible = !_windowVisible;
-
-      if (_windowVisible)
-        RenderWindow();
+        try
+        {
+            _submod.Dispose();
+            Patcher.Unload();
+            _isDisposed = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"i-feel-seen: Error during unload: {ex.Message}");
+        }
     }
-    catch (Exception ex)
+
+    private void RenderWindow()
     {
-      Console.WriteLine($"i-feel-seen: Error in OnAfterUi: {ex.Message}");
+        ImGui.SetNextWindowSize(new float2(400, 350), ImGuiCond.FirstUseEver);
+        if (ImGui.Begin("I Feel Seen###i-feel-seen", ref _windowVisible))
+            _submod.RenderContent();
+        ImGui.End();
     }
-  }
-
-  [StarMapUnload]
-  public void Unload()
-  {
-    try
-    {
-      _tracker.Clear();
-      Patcher.Unload();
-      _isDisposed = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"i-feel-seen: Error during unload: {ex.Message}");
-    }
-  }
-
-  private void RenderWindow()
-  {
-    ImGui.SetNextWindowSize(new float2(400, 350), ImGuiCond.FirstUseEver);
-
-    if (ImGui.Begin("I Feel Seen###i-feel-seen", ref _windowVisible))
-    {
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "Vehicle Render Distance Override");
-      ImGui.Separator();
-
-      // Tracked vehicles list
-      TrackedVehicle? toRemove = null;
-      var tracked = _tracker.Tracked;
-      for (int i = 0; i < tracked.Count; i++)
-      {
-        var entry = tracked[i];
-        ImGui.PushID(i);
-
-        bool seeMe = entry.SeeMe;
-        if (ImGui.Checkbox($"{entry.Vehicle.Id}", ref seeMe))
-          entry.SeeMe = seeMe;
-
-        ImGui.SameLine();
-        if (ImGui.Button("Remove"))
-          toRemove = entry;
-
-        ImGui.PopID();
-      }
-
-      if (toRemove != null)
-        _tracker.RemoveVehicle(toRemove.Vehicle);
-
-      ImGui.Separator();
-
-      // Add vehicle
-      var vehicles = VehicleProvider.GetAllVehicles();
-      if (vehicles.Count > 0)
-      {
-        var vehicleIds = new string[vehicles.Count];
-        for (int i = 0; i < vehicles.Count; i++)
-          vehicleIds[i] = vehicles[i].Id;
-
-        _pendingVehicleIndex = Math.Clamp(_pendingVehicleIndex, 0, vehicles.Count - 1);
-        ImGui.Combo("Vehicle", ref _pendingVehicleIndex, vehicleIds, vehicleIds.Length);
-
-        if (ImGui.Button("Add Vehicle"))
-          _tracker.AddVehicle(vehicles[_pendingVehicleIndex]);
-      }
-      else
-      {
-        ImGui.Text("No vehicles available.");
-      }
-    }
-    ImGui.End();
-  }
 }
-

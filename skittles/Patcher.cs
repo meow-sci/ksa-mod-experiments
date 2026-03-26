@@ -1,54 +1,23 @@
 using System;
 using HarmonyLib;
-using KSA;
+using MeowSci.SkittlesLib;
 
 namespace MeowSci.Skittles;
 
-[HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("skittles");
+    private static Harmony? _harmony;
 
-    public static void Patch()
+    public static void Patch(Func<bool> hasFocusedTextInput)
     {
-        try
-        {
-            _harmony?.PatchAll(typeof(Patcher).Assembly);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"skittles: Error applying patches: {ex.Message}");
-        }
+        _harmony = new Harmony("MeowSci.Skittles");
+        SkittlesPatches.Apply(_harmony, hasFocusedTextInput);
     }
 
     public static void Unload()
     {
-        try
-        {
-            _harmony?.UnpatchAll("skittles");
-            _harmony = null;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"skittles: Error removing patches: {ex.Message}");
-        }
-    }
-
-}
-
-// Block game hotkeys while a Skittles text input has keyboard focus.
-// Uses a per-frame flag set by Mod during rendering, scoped to only
-// Skittles windows so the in-game console and other handlers are unaffected.
-[HarmonyPatch(typeof(GameSettings), nameof(GameSettings.OnKeyAll))]
-static class PatchGameSettingsOnKeyAll
-{
-    static bool Prefix(ref bool __result)
-    {
-        if (Mod.SkittlesHasFocusedTextInput)
-        {
-            __result = true;
-            return false; // skip original, hotkey is blocked
-        }
-        return true; // run original
+        if (_harmony != null)
+            SkittlesPatches.Remove(_harmony);
+        _harmony = null;
     }
 }
