@@ -3,6 +3,7 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using MeowSci.GlassLib;
 
 namespace MeowSci.Glass;
 
@@ -67,18 +68,8 @@ public class Mod
             if (_windowVisible)
                 RenderWindow();
 
-            if (Patcher.IsOverrideActive)
-            {
-                try
-                {
-                    float clampedFov = MathF.Max(1f, MathF.Min(179f, Patcher.OverrideFovDegrees));
-                    Program.GetCamera().SetFieldOfView(clampedFov);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"glass: Error applying FOV override: {ex.Message}");
-                }
-            }
+            try { FovController.ApplyFov(); }
+            catch (Exception ex) { Console.WriteLine($"glass: Error applying FOV override: {ex.Message}"); }
         }
         catch (Exception ex)
         {
@@ -124,8 +115,8 @@ public class Mod
                 {
                     _selectedPreset = i;
                     _manualMode = false;
-                    Patcher.OverrideFovDegrees = Presets[i].Fov;
-                    Patcher.IsOverrideActive = true;
+                    FovController.OverrideFovDegrees = Presets[i].Fov;
+                    FovController.IsOverrideActive = true;
                 }
             }
             ImGui.Separator();
@@ -139,8 +130,8 @@ public class Mod
                 if (_manualMode)
                 {
                     _selectedPreset = -1;
-                    Patcher.OverrideFovDegrees = _manualFov;
-                    Patcher.IsOverrideActive = true;
+                    FovController.OverrideFovDegrees = _manualFov;
+                    FovController.IsOverrideActive = true;
                 }
             }
             if (_manualMode)
@@ -149,8 +140,8 @@ public class Mod
                 if (ImGui.DragFloat("FOV°", ref _manualFov, 0.25f, 1f, 179f))
                 {
                     _manualFov = MathF.Max(1f, MathF.Min(179f, _manualFov));
-                    Patcher.OverrideFovDegrees = _manualFov;
-                    Patcher.IsOverrideActive = true;
+                    FovController.OverrideFovDegrees = _manualFov;
+                    FovController.IsOverrideActive = true;
                 }
             }
             ImGui.Separator();
@@ -160,8 +151,8 @@ public class Mod
             {
                 _selectedPreset = 0;
                 _manualMode = false;
-                Patcher.OverrideFovDegrees = 50f;
-                Patcher.IsOverrideActive = true;
+                FovController.OverrideFovDegrees = 50f;
+                FovController.IsOverrideActive = true;
             }
         }
         ImGui.End();

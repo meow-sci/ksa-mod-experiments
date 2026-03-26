@@ -35,6 +35,17 @@ Each preset represents a real camera lens focal length:
 
 ## Architecture
 
+### FOV State (`glass.lib/FovController`)
+
+FOV state and control logic lives in `glass.lib` as `FovController` (namespace `MeowSci.GlassLib`), not in the mod itself. This allows other projects (e.g. `unladen-swallow.lib`) to control camera FOV by referencing `glass.lib` without depending on the `glass` mod.
+
+Key API:
+- `FovController.SetFov(float degrees)` — clamps to [1°, 179°] and activates override
+- `FovController.DisableOverride()` — returns control to the game
+- `FovController.ApplyFov()` — applies current override to the camera (call on game thread)
+- `FovController.GetCurrentFovDegrees()` — reads live camera FOV (game thread)
+- `FovController.IsOverrideActive` / `FovController.OverrideFovDegrees` — state properties
+
 ### UI (Mod.cs)
 
 ImGui window with:

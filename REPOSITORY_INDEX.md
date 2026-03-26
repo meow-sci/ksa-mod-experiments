@@ -12,6 +12,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `SimTimeProvider` — wrapper for `Universe.GetElapsedSimTime()`
 - `ReflectionHelpers` — utility for safe field/property access via reflection
 - `PartHelpers` — recursive part tree helpers
+- `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
 
 ---
 
@@ -81,6 +82,7 @@ Camera FOV control. Provides 8 lens presets (from super telephoto at 15° to fis
 - Real-time FOV adjustment
 - Camera.FieldOfView and Camera.UpdateProjection patching
 - Game default preset (50°)
+- **glass.lib**: `FovController` — programmatic camera FOV control; `SetFov()`, `DisableOverride()`, `ApplyFov()`, `GetCurrentFovDegrees()`. Used by `unladen-swallow.lib` to expose FOV control over HTTP.
 
 ---
 
@@ -152,6 +154,20 @@ Global ImGui theme manager. Provides a theme picker and a full style editor that
 - Save/load custom themes as TOML files to/from disk
 - Persistent theme selection across game sessions; restores game default on unload
 - **skittles.lib**: `ThemeDefinition` (60-color + style POCO), `ThemeSerializer` (Tomlyn TOML I/O), `ThemeManager` (load/save/apply/list), `BuiltInThemes` (Inanimate Carbon Rod preset)
+
+---
+
+## HTTP RPC Mods
+
+### [unladen-swallow](unladen-swallow) / [unladen-swallow.lib](unladen-swallow.lib)
+HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Currently exposes camera FOV control via `glass.lib`.
+- F11 toggle ImGui window
+- Enable/disable HTTP server via checkbox
+- Live server status indicator (Running/Stopped)
+- `GET /health` — server liveness check
+- `GET /fov` — returns current FOV state (current, override, isActive)
+- `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint` (GET/POST /fov with game-thread scheduling), `ApiResponse<T>` / `FovRequest` / `FovState` types. References `glass.lib` and `ksa-abstractions.lib`.
 
 ---
 

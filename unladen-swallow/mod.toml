@@ -1,0 +1,7 @@
+name = "unladen-swallow"
+description = "unladen-swallow"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.UnladenSwallow"
