@@ -133,15 +133,9 @@ internal sealed class BlinkySubmod : IGrantSubmod
                 ImGui.EndCombo();
             }
 
-            ImGui.Unindent();
-        }
-
-        ImGui.Separator();
-
-        // ── Build / Destroy ─────────────────────────────────────────────────────
-        if (ImGui.CollapsingHeader("Build Control", ImGuiTreeNodeFlags.DefaultOpen))
-        {
-            ImGui.Indent();
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
 
             bool hasGrid = gridState != null;
 
