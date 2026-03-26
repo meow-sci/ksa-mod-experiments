@@ -5,3 +5,10 @@ author = "meow sci"
 
 [StarMap]
 EntryAssembly = "MeowSci.UnladenSwallow"
+
+# [[StarMap.ModDependencies]]
+# ModId = "blinky"
+# Optional = false
+# ImportedAssemblies = [
+#     "MeowSci.BlinkyLib"
+# ]
