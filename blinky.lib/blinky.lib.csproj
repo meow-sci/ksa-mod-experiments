@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
-    <ProjectReference Include="..\blinken.lib\blinken.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

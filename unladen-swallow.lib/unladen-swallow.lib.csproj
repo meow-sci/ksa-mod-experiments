@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
+    <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

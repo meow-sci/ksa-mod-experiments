@@ -15,19 +15,26 @@
   <ItemGroup>
     <ProjectReference Include="..\average-twr.lib\average-twr.lib.csproj" />
     <ProjectReference Include="..\blinken.lib\blinken.lib.csproj" />
+    <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
     <ProjectReference Include="..\byo-music.lib\byo-music.lib.csproj" />
     <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />
+    <ProjectReference Include="..\eternal-flame.lib\eternal-flame.lib.csproj" />
     <ProjectReference Include="..\garys-torch.lib\garys-torch.lib.csproj" />
     <ProjectReference Include="..\geeforce.lib\geeforce.lib.csproj" />
+    <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
     <ProjectReference Include="..\kitten-animations.lib\kitten-animations.lib.csproj" />
+    <ProjectReference Include="..\kiwis-marbles.lib\kiwis-marbles.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+    <ProjectReference Include="..\skittles.lib\skittles.lib.csproj" />
+    <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
     <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
     <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,6 +79,38 @@
       <FilesToCopy Include="$(OutputPath)$(AssemblyName).deps.json" />
     </ItemGroup>
     <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(DistDir)" />
+    <ItemGroup>
+      <MeowSciAssemblies Include="$(TargetDir)MeowSci.*.dll;$(TargetDir)MeowSci.*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MeowSciAssemblies)" DestinationFolder="$(DistDir)" Condition="'@(MeowSciAssemblies)' != ''" />
+    <Copy SourceFiles="$(TargetDir)Tomlyn.dll" DestinationFolder="$(DistDir)" Condition="Exists('$(TargetDir)Tomlyn.dll')" />
+
+    <!-- Dynamically discover GenHTTP.*.dll files -->
+    <ItemGroup>
+      <GenHttpAssemblies Include="$(TargetDir)GenHTTP.*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(GenHttpAssemblies)"
+          DestinationFolder="$(DistDir)"
+          Condition="'@(GenHttpAssemblies)' != ''" />
+
+    <!-- Transitive dependencies required by GenHTTP at runtime -->
+    <ItemGroup>
+      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.ObjectPool.dll" />
+      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.Logging.Abstractions.dll" />
+      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Data.Sqlite.dll" /> -->
+      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" /> -->
+      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.core.dll" /> -->
+      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" /> -->
+      <GenHttpTransitiveDeps Include="$(TargetDir)Cottle.dll" />
+      <GenHttpTransitiveDeps Include="$(TargetDir)YamlDotNet.dll" />
+      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.CodeAnalysis.dll" />
+      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.CodeAnalysis.CSharp.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(GenHttpTransitiveDeps)"
+          DestinationFolder="$(DistDir)"
+          Condition="'@(GenHttpTransitiveDeps)' != ''" />
+
     <Message Text="Copied mod files to $(DistDir)" Importance="high" />
   </Target>
 

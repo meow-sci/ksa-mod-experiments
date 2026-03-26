@@ -5,3 +5,6 @@ author = "meow sci"
 
 [StarMap]
 EntryAssembly = "MeowSci.Blinky"
+# ExportedAssemblies = [
+# 	"MeowSci.BlinkyLib"
+# ]
