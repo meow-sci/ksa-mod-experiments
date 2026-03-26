@@ -10,6 +10,9 @@ internal static class Patcher
 {
     private static Harmony? _harmony = new Harmony("MeowSci.Grant");
 
+    /// <summary>When false, pixel-engine meshes are hidden for better performance.</summary>
+    public static bool RenderPixelParts = false;
+
     public static void Patch()
     {
         try
