@@ -128,11 +128,16 @@ public class Mod
 
         if (ImGui.Begin("grant Mod", ref _windowVisible))
         {
-            // Min/Max/Mods buttons in top-right
-            float buttonsX = ImGui.GetWindowWidth() - 160f;
-            if (buttonsX > ImGui.GetCursorPosX())
+            // Min/Max/Mods buttons — right-aligned
             {
-                ImGui.SetCursorPosX(buttonsX);
+                var style = ImGui.GetStyle();
+                float pad = style.FramePadding.X * 2f;
+                float spacing = style.ItemSpacing.X;
+                float w1 = ImGui.CalcTextSize("min").X + pad;
+                float w2 = ImGui.CalcTextSize("max").X + pad;
+                float w3 = ImGui.CalcTextSize("mods").X + pad;
+                float totalW = w1 + w2 + w3 + spacing * 2f;
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - totalW);
                 if (ImGui.Button("min##grant_min"))
                     _collapseAll = true;
                 ImGui.SameLine();

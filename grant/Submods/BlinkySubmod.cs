@@ -24,8 +24,10 @@ internal sealed class BlinkySubmod : IGrantSubmod
     private float _configOffsetY = 5f;
     private float _configOffsetZ = 2f;
     private float _configPartScale = 0.010f;
-    private string _enginePartId = "CorePropulsionA_Prefab_EngineA1";
+    private string _enginePartId = "CorePropulsionA_Prefab_EngineA3";
     private int _configLayoutIndex = 0; // 0=Flat, 1=Cylinder
+    private int _enginePresetIndex = 2;
+    private ImGuiTextFilter _engineFilter = new();
 
     // Known engine part IDs for quick-select buttons
     private static readonly string[] EnginePresets = new[]
@@ -106,14 +108,30 @@ internal sealed class BlinkySubmod : IGrantSubmod
             ImGui.DragFloat("Z##blinkyOZ", ref _configOffsetZ, 0.1f);
 
             ImGui.Spacing();
-            ImGui.Text($"Engine template: {_enginePartId}");
-            ImGui.Text("Quick select:");
-            for (int i = 0; i < EnginePresets.Length; i++)
+            ImGui.Text("Engine template:");
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.BeginCombo("##blinky_engine", _enginePartId))
             {
-                if (i > 0) ImGui.SameLine(0, 4);
-                string label = $"A{i + 1}";
-                if (ImGui.SmallButton(label))
-                    _enginePartId = EnginePresets[i];
+                if (ImGui.IsWindowAppearing())
+                {
+                    ImGui.SetKeyboardFocusHere();
+                    _engineFilter.Clear();
+                }
+                _engineFilter.Draw("##blinky_engine_filter", -1f);
+                for (int i = 0; i < EnginePresets.Length; i++)
+                {
+                    if (_engineFilter.PassFilter(EnginePresets[i]))
+                    {
+                        bool sel = _enginePresetIndex == i;
+                        if (ImGui.Selectable(EnginePresets[i], sel))
+                        {
+                            _enginePresetIndex = i;
+                            _enginePartId = EnginePresets[i];
+                        }
+                        if (sel) ImGui.SetItemDefaultFocus();
+                    }
+                }
+                ImGui.EndCombo();
             }
 
             ImGui.Unindent();

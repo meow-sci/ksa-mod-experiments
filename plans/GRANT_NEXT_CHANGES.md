@@ -11,7 +11,5 @@ but grant supermod contains *all* of the submod functionality together in a sing
 
 # MINOR
 
-- for the visibility popup, dont hide the popup when clicking menu items if possible
-- change the visibility popup button to say "mods"
-- the area with the mods popup button should have three buttons: "min" "max" and "mods" where min/max collapse and expand all top-level mod collapsible header sections and "mods" is the mods visibility popup
-- remove the "grant" label at the same line as the min/max/mods button (redundant its in the window title)
+- the min/max/mods buttons are cut off on the right side.  use imgui horizontal layout helpers to make this work reliably so it sticks to the right side.
+- for blinky, i want the engine template selection to be a filterable combo box and default to the A3 engine type (CorePropulsionA_Prefab_EngineA3), and should NOT be un-selectable
