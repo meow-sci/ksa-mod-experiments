@@ -4,7 +4,17 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
-using MeowSci.Grant.Submods;
+using MeowSci.KsaAbstractions;
+using MeowSci.AverageTwrLib;
+using MeowSci.BlinkyLib;
+using MeowSci.EternalFlameLib;
+using MeowSci.GarysTorchLib;
+using MeowSci.GlassLib;
+using MeowSci.IFeelSeenLib;
+using MeowSci.KiwisMarblesLib;
+using MeowSci.SkittlesLib;
+using MeowSci.UnladenSwallowLib;
+using MeowSci.ZippoLib;
 
 namespace MeowSci.Grant;
 
@@ -17,7 +27,7 @@ public class Mod
     private bool _isDisposed = false;
     private bool _windowVisible = false;
 
-    private readonly List<IGrantSubmod> _submods = new();
+    private readonly List<ISubmod> _submods = new();
     private readonly Dictionary<string, bool> _submodVisibility = new();
     private bool _collapseAll;
     private bool _expandAll;
@@ -45,21 +55,18 @@ public class Mod
             _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new ZippoSubmod());
 
-            // Wire up Patcher dependencies before patching
-            Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
-            Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
-
-            Patcher.Patch();
-
-            // Initialize all submods
+            // Initialize all submods so Tracker is populated before patching
             foreach (var submod in _submods)
             {
                 submod.Initialize();
                 _submodVisibility[submod.Name] = true;
             }
 
-            // Re-set tracker after Initialize (VehicleTracker created in Initialize)
+            // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
+            Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
+
+            Patcher.Patch();
 
             _isInitialized = true;
             Console.WriteLine($"grant: Initialized with {_submods.Count} submods");
