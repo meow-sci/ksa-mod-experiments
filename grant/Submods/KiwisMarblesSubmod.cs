@@ -19,6 +19,7 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
     private int _pendingOffsetScaleIndex = 1; // 0=m, 1=km, 2=Mm, 3=Gm
     private string? _weldError;
     private readonly Dictionary<int, (float3 proxy, int scaleIndex)> _weldEditState = new();
+    private readonly Dictionary<int, (float lon, float lat, float radialKm, bool surfaceMode)> _weldSurfaceState = new();
     private ImGuiTextFilter _sourceFilter = new();
     private ImGuiTextFilter _targetFilter = new();
 
@@ -229,26 +230,98 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
                 }
 
                 var (proxy, scaleIdx) = _weldEditState[i];
+                bool targetIsCelestial = weld.Target is Celestial;
 
-                // Unit scale selector
-                ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-                ImGui.SameLine();
-                ImGui.SetNextItemWidth(82f);
-                if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
+                // Initialize surface state if needed
+                if (targetIsCelestial && !_weldSurfaceState.ContainsKey(i))
                 {
-                    double newSf = OffsetScaleFactors[scaleIdx];
-                    proxy = new float3(
-                        (float)(weld.Offset.X / newSf),
-                        (float)(weld.Offset.Y / newSf),
-                        (float)(weld.Offset.Z / newSf)
-                    );
+                    var (initLon, initLat) = OffsetToLonLat(weld.Offset);
+                    _weldSurfaceState[i] = (initLon, initLat, 0f, false);
                 }
 
-                ImGui.SetNextItemWidth(-1f);
-                if (ImGui.DragFloat3($"##kmwoffset{i}", ref proxy, 1f, 0f, 0f))
+                bool surfMode = targetIsCelestial && _weldSurfaceState.ContainsKey(i) && _weldSurfaceState[i].surfaceMode;
+                bool newSurfMode = surfMode;
+
+                if (targetIsCelestial)
+                    ImGui.Checkbox($"Surface Orbit Mode##{i}", ref newSurfMode);
+
+                if (targetIsCelestial && newSurfMode)
                 {
-                    double sf = OffsetScaleFactors[scaleIdx];
-                    weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
+                    var targetCel = (Celestial)weld.Target;
+                    double dist = targetCel.MeanRadius + weld.Source.MeanRadius;
+
+                    float curLon = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f;
+                    float curLat = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f;
+                    float curRadialKm = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f;
+
+                    // If just switched into surface mode, initialize angles from current offset
+                    if (!surfMode)
+                    {
+                        var (initLon2, initLat2) = OffsetToLonLat(weld.Offset);
+                        curLon = initLon2;
+                        curLat = initLat2;
+                        curRadialKm = 0f;
+                    }
+
+                    double actualDist = dist + curRadialKm * 1_000.0;
+                    ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
+                        $"  Surface dist: {FormatKm(dist)}  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
+
+                    ImGui.SetNextItemWidth(-1f);
+                    bool lonChanged = ImGui.DragFloat($"Longitude (left/right)##{i}", ref curLon, 0.3f, -360f, 360f, "%.1f deg");
+                    ImGui.SetNextItemWidth(-1f);
+                    bool latChanged = ImGui.DragFloat($"Latitude (up/down)##{i}", ref curLat, 0.3f, -360f, 360f, "%.1f deg");
+                    ImGui.SetNextItemWidth(-1f);
+                    bool radChanged = ImGui.DragFloat($"Altitude offset (in/out)##{i}", ref curRadialKm, 1f, -float.MaxValue, float.MaxValue, "%.1f km");
+
+                    if (lonChanged || latChanged || radChanged || !surfMode)
+                    {
+                        actualDist = dist + curRadialKm * 1_000.0;
+                        double lonRad = curLon * Math.PI / 180.0;
+                        double latRad = curLat * Math.PI / 180.0;
+                        weld.Offset = new double3(
+                            actualDist * Math.Cos(latRad) * Math.Cos(lonRad),
+                            actualDist * Math.Cos(latRad) * Math.Sin(lonRad),
+                            actualDist * Math.Sin(latRad)
+                        );
+                        double sf2 = OffsetScaleFactors[scaleIdx];
+                        proxy = new float3(
+                            (float)(weld.Offset.X / sf2),
+                            (float)(weld.Offset.Y / sf2),
+                            (float)(weld.Offset.Z / sf2)
+                        );
+                    }
+
+                    _weldSurfaceState[i] = (curLon, curLat, curRadialKm, true);
+                }
+                else
+                {
+                    // Raw CCI offset controls
+                    ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
+                    ImGui.SameLine();
+                    ImGui.SetNextItemWidth(82f);
+                    if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
+                    {
+                        double newSf = OffsetScaleFactors[scaleIdx];
+                        proxy = new float3(
+                            (float)(weld.Offset.X / newSf),
+                            (float)(weld.Offset.Y / newSf),
+                            (float)(weld.Offset.Z / newSf)
+                        );
+                    }
+
+                    ImGui.SetNextItemWidth(-1f);
+                    if (ImGui.DragFloat3($"##kmwoffset{i}", ref proxy, 1f, 0f, 0f))
+                    {
+                        double sf = OffsetScaleFactors[scaleIdx];
+                        weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
+                    }
+
+                    if (targetIsCelestial)
+                        _weldSurfaceState[i] = (_weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f,
+                                                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f,
+                                                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f,
+                                                false);
                 }
 
                 _weldEditState[i] = (proxy, scaleIdx);
@@ -284,7 +357,7 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
         }
 
         _weldError = null;
-        _welds.Add(new CelestialWeldEntry { Source = source, Target = target, Offset = offset });
+        _welds.Add(new CelestialWeldEntry { Source = source, Target = target, Offset = offset, OriginalOrbit = source.Orbit });
         _pendingOffset = new float3(0f, 0f, 0f);
         SortWelds();
         Console.WriteLine($"grant/kiwis-marbles: Welded {source.Id} to {target.Id}");
@@ -294,6 +367,20 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
     {
         int idx = _welds.IndexOf(entry);
         _welds.Remove(entry);
+
+        if (entry.OriginalOrbit != null)
+        {
+            try
+            {
+                entry.Source.SetOrbit(entry.OriginalOrbit);
+                entry.Source.UpdatePerFrameData();
+                Console.WriteLine($"grant/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"grant/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+            }
+        }
 
         _weldEditState.Remove(idx);
         var shifted = new Dictionary<int, (float3, int)>();
@@ -306,6 +393,17 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
         foreach (var kv in shifted)
             _weldEditState[kv.Key] = kv.Value;
 
+        _weldSurfaceState.Remove(idx);
+        var shiftedSurf = new Dictionary<int, (float, float, float, bool)>();
+        foreach (var kv in _weldSurfaceState)
+        {
+            int newKey = kv.Key > idx ? kv.Key - 1 : kv.Key;
+            shiftedSurf[newKey] = kv.Value;
+        }
+        _weldSurfaceState.Clear();
+        foreach (var kv in shiftedSurf)
+            _weldSurfaceState[kv.Key] = kv.Value;
+
         Console.WriteLine($"grant/kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
     }
 
@@ -316,6 +414,16 @@ internal sealed class KiwisMarblesSubmod : IGrantSubmod
         foreach (var w in sorted)
             _welds.Add(w);
         _weldEditState.Clear();
+        _weldSurfaceState.Clear();
+    }
+
+    private static (float lon, float lat) OffsetToLonLat(double3 offset)
+    {
+        double len = Math.Sqrt(offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z);
+        if (len < 1e-10) return (0f, 0f);
+        double lat = Math.Asin(Math.Clamp(offset.Z / len, -1.0, 1.0)) * (180.0 / Math.PI);
+        double lon = Math.Atan2(offset.Y, offset.X) * (180.0 / Math.PI);
+        return ((float)lon, (float)lat);
     }
 
     private static string FormatKm(double meters)

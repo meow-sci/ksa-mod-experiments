@@ -18,4 +18,7 @@ public class CelestialWeldEntry
     /// Use large values — planetary distances are typically millions to billions of meters.
     /// </summary>
     public double3 Offset;
+
+    /// <summary>The source's orbit captured at weld-creation time, used to restore the body when unwelded.</summary>
+    public Orbit? OriginalOrbit;
 }
