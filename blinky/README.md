@@ -87,3 +87,4 @@ blinky.lib/                   ← Core reusable logic (headless, no blinken.lib 
 - **BlinkyGridManager** is a static singleton shared between the mod UI and RPC endpoints
 - Grids are registered by vehicle ID and discoverable from any consumer
 - The mod UI (`Mod.cs`) is a thin ImGui layer that delegates all logic to `BlinkyGridManager`
+- **`BlinkySubmod`** lives in `blinky.lib` and implements `ISubmod` from `ksa-abstractions.lib`; it is instantiated directly by the grant supermod

@@ -26,11 +26,12 @@ A unified supermod that consolidates 10 standalone KSA mods into a single ImGui 
 
 ## Architecture
 
-- **`IGrantSubmod`** interface defines the submod contract: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
-- **`Mod.cs`** orchestrates all submods — creates them, calls `Update()` every frame for all (even hidden), renders only visible ones
-- **`Patcher.cs`** consolidates Harmony patches from blinky (render-skip), glass (FOV override), i-feel-seen (render distance), and skittles (hotkey blocking)
-- Submod files live in **`grant/Submods/`**, each wrapping `.lib` business logic with ImGui UI
-- All business logic stays in the existing `.lib` projects — no duplication
+- **`ISubmod`** interface (from `ksa-abstractions.lib`) defines the submod contract: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
+- **`Mod.cs`** orchestrates all submods — instantiates lib submod classes directly, calls `Update()` every frame for all (even hidden), renders only visible ones
+- **`Patcher.cs`** consolidates Harmony patches from blinky (render-skip), glass (FOV override), i-feel-seen (render distance), and skittles (hotkey blocking), delegating to patch helpers in each lib
+- Submod implementations live in their respective **`.lib` projects** (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` + `BlinkyPatchState` in `blinky.lib`)
+- **`grant/Submods/`** directory has been removed — no intermediate wrapper layer
+- Each lib submod owns its own ImGui `RenderContent()` — grant just calls it
 
 ## Dependencies
 
