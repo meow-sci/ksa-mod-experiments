@@ -10,6 +10,3 @@ the goal here is that each mod-a and mod-a.lib pair largely contain all the logi
 but grant supermod contains *all* of the submod functionality together in a single ImGui window collected under collapsible headers that can be toggled on/off for visibility
 
 # MINOR
-
-- the min/max/mods buttons are cut off on the right side.  use imgui horizontal layout helpers to make this work reliably so it sticks to the right side.
-- for blinky, i want the engine template selection to be a filterable combo box and default to the A3 engine type (CorePropulsionA_Prefab_EngineA3), and should NOT be un-selectable
