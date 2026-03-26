@@ -31,6 +31,10 @@ public class Mod
   private readonly Dictionary<int, (float3 proxy, int scaleIndex)> _weldEditState =
       new Dictionary<int, (float3, int)>();
 
+  // Per-weld surface orbit state: lon/lat angles in degrees, radial offset in km, whether surface mode is active
+  private readonly Dictionary<int, (float lon, float lat, float radialKm, bool surfaceMode)> _weldSurfaceState =
+      new Dictionary<int, (float, float, float, bool)>();
+
   private ImGuiTextFilter _sourceFilter = new ImGuiTextFilter();
   private ImGuiTextFilter _targetFilter = new ImGuiTextFilter();
 
@@ -128,9 +132,10 @@ public class Mod
 
         _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, celestials.Count - 1);
 
+        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Source (planet/moon)");
         string sourcePrev = celestialIds[_pendingSourceIndex];
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.SetNextItemWidth(-185f);
+        ImGui.SetNextItemWidth(-1f);
         if (ImGui.BeginCombo("##kmsrc", sourcePrev, ImGuiComboFlags.HeightRegular))
         {
           if (ImGui.IsWindowAppearing())
@@ -152,8 +157,6 @@ public class Mod
           ImGui.EndCombo();
         }
         ImGui.PopStyleColor();
-        ImGui.SameLine();
-        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Source (planet/moon)");
 
         // Target dropdown (any orbiter: celestials + vehicles)
         var orbiterIds = new string[orbiters.Count];
@@ -162,9 +165,10 @@ public class Mod
 
         _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, orbiters.Count - 1);
 
+        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Target (any orbiter)");
         string targetPrev = orbiterIds[_pendingTargetIndex];
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-        ImGui.SetNextItemWidth(-185f);
+        ImGui.SetNextItemWidth(-1f);
         if (ImGui.BeginCombo("##kmtgt", targetPrev, ImGuiComboFlags.HeightRegular))
         {
           if (ImGui.IsWindowAppearing())
@@ -186,8 +190,6 @@ public class Mod
           ImGui.EndCombo();
         }
         ImGui.PopStyleColor();
-        ImGui.SameLine();
-        ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Target (any orbiter)");
 
         var selectedSource = celestials[_pendingSourceIndex];
         var selectedTarget = orbiters[_pendingTargetIndex];
@@ -199,20 +201,20 @@ public class Mod
           double sR = selectedSource.MeanRadius;
           double surfaceDist = tR + sR;
           ImGui.Spacing();
-          ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
-            $"  Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}   Center dist (surface): {FormatKm(surfaceDist)}");
+          var dimGreen = new float4(0.6f, 0.8f, 0.6f, 1f);
+          ImGui.TextColored(dimGreen, $"  Target r: {FormatKm(tR)}");
+          ImGui.TextColored(dimGreen, $"  Source r: {FormatKm(sR)}");
+          ImGui.TextColored(dimGreen, $"  Surface center dist: {FormatKm(surfaceDist)}");
           if (ImGui.Button("Place on Surface (along X+)##kmsurfX"))
           {
             double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
             _pendingOffset = new float3((float)(surfaceDist / s), 0f, 0f);
           }
-          ImGui.SameLine();
           if (ImGui.Button("Place on Surface (along Y+)##kmsurfY"))
           {
             double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
             _pendingOffset = new float3(0f, (float)(surfaceDist / s), 0f);
           }
-          ImGui.SameLine();
           if (ImGui.Button("Place on Surface (along Z+)##kmsurfZ"))
           {
             double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
@@ -223,10 +225,10 @@ public class Mod
         // CCI offset input with unit scale selector
         ImGui.Spacing();
         ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-        ImGui.SetNextItemWidth(-100f);
+        ImGui.SetNextItemWidth(-131f);
         ImGui.DragFloat3("##kmoffset", ref _pendingOffset, 1f, 0f, 0f);
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(82f);
+        ImGui.SetNextItemWidth(123f);
         ImGui.Combo("##kmunit", ref _pendingOffsetScaleIndex, OffsetScaleLabels, OffsetScaleLabels.Length);
 
         // Show computed offset in meters for verification
@@ -281,10 +283,10 @@ public class Mod
           ImGui.TextColored(new float4(0.5f, 0.8f, 1f, 1f), $"Source parent: {parentName}");
           ImGui.Separator();
 
-          // Ensure edit state exists for this weld index
+          // Ensure raw edit state exists
           if (!_weldEditState.ContainsKey(i))
           {
-            int si = 1; // default km
+            int si = 1;
             double sf = OffsetScaleFactors[si];
             _weldEditState[i] = (
               new float3((float)(weld.Offset.X / sf), (float)(weld.Offset.Y / sf), (float)(weld.Offset.Z / sf)),
@@ -293,33 +295,106 @@ public class Mod
           }
 
           var (proxy, scaleIdx) = _weldEditState[i];
+          bool targetIsCelestial = weld.Target is Celestial;
 
-          // Unit scale selector (rescales the proxy on change)
-          ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-          ImGui.SameLine();
-          ImGui.SetNextItemWidth(82f);
-          if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
+          // Initialize surface state if needed
+          if (targetIsCelestial && !_weldSurfaceState.ContainsKey(i))
           {
-            double newSf = OffsetScaleFactors[scaleIdx];
-            proxy = new float3(
+            var (initLon, initLat) = OffsetToLonLat(weld.Offset);
+            _weldSurfaceState[i] = (initLon, initLat, 0f, false);
+          }
+
+          bool surfMode = targetIsCelestial && _weldSurfaceState.ContainsKey(i) && _weldSurfaceState[i].surfaceMode;
+          bool newSurfMode = surfMode;
+
+          if (targetIsCelestial)
+          {
+            ImGui.Checkbox($"Surface Orbit Mode##{i}", ref newSurfMode);
+          }
+
+          if (targetIsCelestial && newSurfMode)
+          {
+            var targetCel = (Celestial)weld.Target;
+            double dist = targetCel.MeanRadius + weld.Source.MeanRadius;
+
+            float curLon = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f;
+            float curLat = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f;
+            float curRadialKm = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f;
+
+            // If just switched into surface mode, initialize angles from current offset
+            if (!surfMode)
+            {
+              var (initLon2, initLat2) = OffsetToLonLat(weld.Offset);
+              curLon = initLon2;
+              curLat = initLat2;
+              curRadialKm = 0f;
+            }
+
+            double actualDist = dist + curRadialKm * 1_000.0;
+            ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
+              $"  Surface dist: {FormatKm(dist)}  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
+
+            ImGui.SetNextItemWidth(-1f);
+            bool lonChanged = ImGui.DragFloat($"Longitude (left/right)##{i}", ref curLon, 0.3f, -360f, 360f, "%.1f deg");
+            ImGui.SetNextItemWidth(-1f);
+            bool latChanged = ImGui.DragFloat($"Latitude (up/down)##{i}", ref curLat, 0.3f, -90f, 90f, "%.1f deg");
+            ImGui.SetNextItemWidth(-1f);
+            bool radChanged = ImGui.DragFloat($"Altitude offset (in/out)##{i}", ref curRadialKm, 1f, -float.MaxValue, float.MaxValue, "%.1f km");
+
+            if (lonChanged || latChanged || radChanged || !surfMode)
+            {
+              actualDist = dist + curRadialKm * 1_000.0;
+              double lonRad = curLon * Math.PI / 180.0;
+              double latRad = curLat * Math.PI / 180.0;
+              weld.Offset = new double3(
+                actualDist * Math.Cos(latRad) * Math.Cos(lonRad),
+                actualDist * Math.Cos(latRad) * Math.Sin(lonRad),
+                actualDist * Math.Sin(latRad)
+              );
+              double sf2 = OffsetScaleFactors[scaleIdx];
+              proxy = new float3(
+                (float)(weld.Offset.X / sf2),
+                (float)(weld.Offset.Y / sf2),
+                (float)(weld.Offset.Z / sf2)
+              );
+            }
+
+            _weldSurfaceState[i] = (curLon, curLat, curRadialKm, true);
+          }
+          else
+          {
+            // Raw CCI offset controls
+            ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(123f);
+            if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
+            {
+              double newSf = OffsetScaleFactors[scaleIdx];
+              proxy = new float3(
                 (float)(weld.Offset.X / newSf),
                 (float)(weld.Offset.Y / newSf),
                 (float)(weld.Offset.Z / newSf)
-            );
-          }
+              );
+            }
 
-          ImGui.SetNextItemWidth(-1f);
-          if (ImGui.DragFloat3($"##kmwoffset{i}", ref proxy, 1f, 0f, 0f))
-          {
-            double sf = OffsetScaleFactors[scaleIdx];
-            weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.DragFloat3($"##kmwoffset{i}", ref proxy, 1f, 0f, 0f))
+            {
+              double sf = OffsetScaleFactors[scaleIdx];
+              weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
+            }
+
+            if (targetIsCelestial)
+              _weldSurfaceState[i] = (_weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f,
+                                      _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f,
+                                      _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f,
+                                      false);
           }
 
           _weldEditState[i] = (proxy, scaleIdx);
 
-          // Show actual offset in meters for reference
           ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
-              $"  = ({weld.Offset.X:G5}, {weld.Offset.Y:G5}, {weld.Offset.Z:G5}) m");
+            $"  = ({weld.Offset.X:G5}, {weld.Offset.Y:G5}, {weld.Offset.Z:G5}) m");
 
           ImGui.Separator();
           if (ImGui.Button($"Unweld##{i}"))
@@ -353,6 +428,7 @@ public class Mod
       Source = source,
       Target = target,
       Offset = offset,
+      OriginalOrbit = source.Orbit,
     });
 
     _pendingOffset = new float3(0f, 0f, 0f);
@@ -366,6 +442,20 @@ public class Mod
     int idx = _welds.IndexOf(entry);
     _welds.Remove(entry);
 
+    if (entry.OriginalOrbit != null)
+    {
+      try
+      {
+        entry.Source.SetOrbit(entry.OriginalOrbit);
+        entry.Source.UpdatePerFrameData();
+        Console.WriteLine($"kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+      }
+    }
+
     // Rebuild edit state indices, shifting keys > idx down by 1
     _weldEditState.Remove(idx);
     var shifted = new Dictionary<int, (float3, int)>();
@@ -378,6 +468,17 @@ public class Mod
     foreach (var kv in shifted)
       _weldEditState[kv.Key] = kv.Value;
 
+    _weldSurfaceState.Remove(idx);
+    var shiftedSurf = new Dictionary<int, (float, float, float, bool)>();
+    foreach (var kv in _weldSurfaceState)
+    {
+      int newKey = kv.Key > idx ? kv.Key - 1 : kv.Key;
+      shiftedSurf[newKey] = kv.Value;
+    }
+    _weldSurfaceState.Clear();
+    foreach (var kv in shiftedSurf)
+      _weldSurfaceState[kv.Key] = kv.Value;
+
     Console.WriteLine($"kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
   }
 
@@ -388,6 +489,16 @@ public class Mod
     foreach (var w in sorted)
       _welds.Add(w);
     _weldEditState.Clear();
+    _weldSurfaceState.Clear();
+  }
+
+  private static (float lon, float lat) OffsetToLonLat(double3 offset)
+  {
+    double len = Math.Sqrt(offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z);
+    if (len < 1e-10) return (0f, 0f);
+    double lat = Math.Asin(Math.Clamp(offset.Z / len, -1.0, 1.0)) * (180.0 / Math.PI);
+    double lon = Math.Atan2(offset.Y, offset.X) * (180.0 / Math.PI);
+    return ((float)lon, (float)lat);
   }
 
   private static string FormatKm(double meters)
