@@ -69,12 +69,12 @@ Vehicle render distance override. Allows tracking and toggling render visibility
 ## Camera & View Control Mods
 
 ### [camera-controller-override](camera-controller-override) / [camera-controller-override.lib](camera-controller-override.lib)
-Advanced camera animation system. Provides configurable zoom, pan, and spiral animations with easing functions for orbit and fly camera modes.
-- Zoom in/out animations with configurable duration and easing
-- Zoom to offset position (orbital tracking)
-- Spiral zoom animation
-- OrbitController and FlyController patching
-- Easing function support
+Advanced camera animation system. Provides 8 configurable animation types (zoom, spiral, orbit, shake) with easing functions and keyframe sequencing for orbit and fly camera modes.
+- Zoom in/out, zoom to offset, spiral zoom in/out, standard orbit, loopy orbit, shake animations
+- Keyframe sequence player — chain animations with configurable duration and easing
+- Linear, Ease In, Ease Out, Ease In-Out easing with power control
+- OrbitController and FlyController patching via `CameraControllerOverridePatches` (Apply/Remove)
+- **camera-controller-override.lib**: `CameraControllerOverrideSubmod` (ISubmod — all 30+ config fields, full animation UI in RenderContent), `CameraControllerOverridePatches` (shared Apply/Remove Harmony patches for sequence playback), `KeyframeSequencePlayer`, `KeyframeSequencePanel`, 8 animation implementations, `AnimationHelpers`
 
 ### [glass](glass) / [glass.lib](glass.lib)
 Camera FOV control. Provides 8 lens presets (from super telephoto at 15° to fisheye at 120°) and manual FOV adjustment.
@@ -97,12 +97,12 @@ TWR (Thrust-to-Weight Ratio) calculator and display. Shows real-time TWR and max
 - ImGui display window (F11 toggle)
 
 ### [geeforce](geeforce) / [geeforce.lib](geeforce.lib)
-G-force recorder and display. Monitors acceleration forces (g-forces) acting on the controlled vehicle at 40 Hz sample rate.
-- G-force acceleration measurement
-- 40 Hz sampling rate (25ms intervals)
-- GForceRecorder with configurable capacity
-- ImGui display window
-- Real-time acceleration data collection
+G-force recorder and display. Monitors acceleration forces (g-forces) acting on the controlled vehicle at 40 Hz sample rate with ring-buffer history, peak/jerk detection, and interactive scrub slider.
+- 40 Hz sampling rate (25ms intervals) with ring-buffer history (30s–1h)
+- Per-axis (X/Y/Z body frame) acceleration, jerk, kill-gee breach detection
+- Interactive scrub slider for reviewing history; live/paused modes
+- Configurable history window and kill-gee/jerk thresholds
+- **geeforce.lib**: `GeeForceSubmod` (ISubmod — owns sampling loop + delegates to GForceUI.RenderContent), `GForceRecorder` (ring-buffer + stats), `GForceUI` (static graph/UI — `RenderContent()` for embedded use, `Render()` for standalone window)
 
 ---
 
@@ -133,11 +133,12 @@ Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dy
 - **blinky.lib**: `BlinkyGridManager` (scroll/static/off/pattern APIs), `ScrollAnimation`, `PixelGrid`, `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
-Kitten avatar animation controller. Manages animations for the kitten avatar character with frame-by-frame updates.
-- Character animation control
-- Kitten avatar integration
-- Animation updates per frame
-- Avatar accessor for state queries
+Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.
+- 7 MMU body movement animations (idle, move in 6 directions)
+- 5 facial expressions (angry, awe, happy, sad, scared) with configurable duration (1–5s)
+- 2 walking animations (running, walking)
+- Smooth 250ms quadratic ease-in for expression weight blending
+- **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — owns KittenAnimationController and all animation UI in RenderContent), `KittenAnimationController` (expression state + timers + playback), `KittenAvatarAccessor` (reflection-based avatar access)
 
 ### [byo-music](byo-music) / [byo-music.lib](byo-music.lib)
 Bring Your Own Music - Custom music player. Plays audio playlists from defined assets (e.g., SabotageMusic playlist).
@@ -181,15 +182,15 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 ## Unified Supermod
 
 ### [grant](grant)
-Unified supermod that consolidates 10 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
-- F11 window toggle with unified panel for all 10 submods
-- Submods: Average TWR, Blinky, Eternal Flame, Gary's Torch, Glass, I Feel Seen, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
+Unified supermod that consolidates 13 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
+- F11 window toggle with unified panel for all 13 submods
+- Submods: Average TWR, Blinky, Camera Controller Override, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
-- Consolidated Harmony patches: blinky render-skip, glass FOV override, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, eternal-flame.lib, garys-torch.lib, glass.lib, i-feel-seen.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, i-feel-seen render distance, skittles hotkey blocking
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

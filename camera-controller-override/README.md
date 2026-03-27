@@ -47,6 +47,30 @@ Main playback engine that manages animation sequence execution.
 Base interface for all animation implementations.
 
 ```csharp
+#### CameraControllerOverrideSubmod
+ISubmod implementation that owns all animation configuration state and UI.
+
+**Architecture**:
+- Implements `ISubmod` (from `ksa-abstractions.lib`): `Name="Camera Controller Override"`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
+- Owns all 30+ config fields (speed, duration, easing, easing power, degrees, offsets per animation type)
+- Owns `KeyframeSequencePlayer _sequencePlayer` instance; exposes it via `SequencePlayer` property for patch wiring
+- `RenderContent()` renders all 8 animation configuration CollapsingHeaders and the Keyframe Sequence panel — no window framing
+- Used standalone via `camera-controller-override/Mod.cs` (thin shell) and embedded in grant's collapsible header
+
+#### CameraControllerOverridePatches
+Shared Harmony patch class (Apply/Remove pattern) in `camera-controller-override.lib`.
+
+**Architecture**:
+- `SequencePlayer` static property — set by caller before `Apply()`
+- `Apply(Harmony)` — manually patches `OrbitController.OnFrame` and `FlyController.OnFrame` with a prefix
+- `Remove(Harmony)` — unpatches all
+- Prefix: if sequence is playing, calls `SequencePlayer.Update()` and returns false to skip normal camera update
+- Used by both standalone `camera-controller-override/Patcher.cs` and `grant/Patcher.cs`
+
+#### IKeyframeAnimation Interface
+Base interface for all animation implementations.
+
+```csharp
 public interface IKeyframeAnimation
 {
     float Duration { get; }
