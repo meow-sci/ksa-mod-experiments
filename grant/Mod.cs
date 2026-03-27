@@ -12,6 +12,7 @@ using MeowSci.GarysTorchLib;
 using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
+using MeowSci.KittenAnimationsLib;
 using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
 using MeowSci.UnladenSwallowLib;
@@ -52,6 +53,7 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
+            _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
             _submods.Add(new UnladenSwallowSubmod());
