@@ -166,7 +166,24 @@ public class Mod
             // Context menu popup
             if (ImGui.BeginPopup("##grant_context"))
             {
+                // Header row: label left, buttons right
                 ImGui.TextDisabled("Submod Visibility");
+                ImGui.SameLine();
+                {
+                    var style = ImGui.GetStyle();
+                    float pad = style.FramePadding.X * 2f;
+                    float spacing = style.ItemSpacing.X;
+                    float wOn = ImGui.CalcTextSize("all on").X + pad;
+                    float wOff = ImGui.CalcTextSize("all off").X + pad;
+                    ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - wOn - spacing - wOff);
+                    if (ImGui.SmallButton("all on##grant_vis_on"))
+                        foreach (var submod in _submods)
+                            _submodVisibility[submod.Name] = true;
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("all off##grant_vis_off"))
+                        foreach (var submod in _submods)
+                            _submodVisibility[submod.Name] = false;
+                }
                 ImGui.Separator();
                 foreach (var submod in _submods)
                 {
