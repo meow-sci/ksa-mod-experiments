@@ -12,6 +12,7 @@ using MeowSci.GarysTorchLib;
 using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
+using MeowSci.CameraControllerOverrideLib;
 using MeowSci.KittenAnimationsLib;
 using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
@@ -45,9 +46,11 @@ public class Mod
             // Create all submods in display order
             var iFeelSeen = new IFeelSeenSubmod();
             var skittles = new SkittlesSubmod();
+            var cameraOverride = new CameraControllerOverrideSubmod();
 
             _submods.Add(new AverageTwrSubmod());
             _submods.Add(new BlinkySubmod());
+            _submods.Add(cameraOverride);
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new GarysTorchSubmod());
             _submods.Add(new GlassSubmod());
@@ -69,6 +72,7 @@ public class Mod
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
             Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
+            Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
 
             Patcher.Patch();
 

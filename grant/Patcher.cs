@@ -1,6 +1,8 @@
 using System;
 using HarmonyLib;
 using MeowSci.BlinkyLib;
+using MeowSci.CameraControllerOverrideLib;
+using MeowSci.CameraControllerOverrideLib.Animation;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.SkittlesLib;
@@ -13,6 +15,7 @@ internal static class Patcher
 
     public static VehicleTracker? IFeelSeenTracker { private get; set; }
     public static Func<bool>? SkittlesHasFocusedTextInput { private get; set; }
+    public static KeyframeSequencePlayer? CameraSequencePlayer { private get; set; }
 
     public static void Patch()
     {
@@ -20,6 +23,8 @@ internal static class Patcher
         {
             _harmony = new Harmony("MeowSci.Grant");
             BlinkyPatches.Apply(_harmony);
+            CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
+            CameraControllerOverridePatches.Apply(_harmony);
             GlassPatches.Apply(_harmony);
             IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
             SkittlesPatches.Apply(_harmony, SkittlesHasFocusedTextInput!);
@@ -38,6 +43,7 @@ internal static class Patcher
             if (_harmony != null)
             {
                 BlinkyPatches.Remove(_harmony);
+                CameraControllerOverridePatches.Remove(_harmony);
                 GlassPatches.Remove(_harmony);
                 IFeelSeenPatches.Remove(_harmony);
                 SkittlesPatches.Remove(_harmony);
@@ -45,6 +51,7 @@ internal static class Patcher
             _harmony = null;
             IFeelSeenTracker = null;
             SkittlesHasFocusedTextInput = null;
+            CameraSequencePlayer = null;
         }
         catch (Exception ex)
         {
