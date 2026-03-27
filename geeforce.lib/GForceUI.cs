@@ -64,6 +64,13 @@ public static class GForceUI
             return;
         }
 
+        RenderContent(recorder, sampleIntervalSec);
+
+        ImGui.End();
+    }
+
+    public static void RenderContent(GForceRecorder recorder, double sampleIntervalSec)
+    {
         // --- Stats row ---
         float4 currentColor = GetGForceColor(recorder.Latest.Magnitude);
         ImGui.TextColored(currentColor, $"Current: {recorder.Latest.Magnitude:F2} g");
@@ -104,8 +111,6 @@ public static class GForceUI
 
         // --- Controls row ---
         DrawControls(recorder, sampleIntervalSec);
-
-        ImGui.End();
     }
 
     private static void DrawScrubSlider(GForceRecorder recorder)

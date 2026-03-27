@@ -9,6 +9,7 @@ using MeowSci.AverageTwrLib;
 using MeowSci.BlinkyLib;
 using MeowSci.EternalFlameLib;
 using MeowSci.GarysTorchLib;
+using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.KiwisMarblesLib;
@@ -49,6 +50,7 @@ public class Mod
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new GarysTorchSubmod());
             _submods.Add(new GlassSubmod());
+            _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
