@@ -89,7 +89,9 @@ public sealed class ConManSubmod : ISubmod
             ? names[_selectedLayoutIndex]
             : "Select a layout...";
 
-        ImGui.SetNextItemWidth(-80);
+        var style = ImGui.GetStyle();
+        float applyW = ImGui.CalcTextSize("Apply").X + style.FramePadding.X * 2f;
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - applyW - style.ItemSpacing.X);
         if (ImGui.BeginCombo("##cm_layout_select", preview))
         {
             ImGui.SetNextItemWidth(-1);
@@ -130,7 +132,9 @@ public sealed class ConManSubmod : ISubmod
         ImGui.TextDisabled("Save Current Layout");
         ImGui.Spacing();
 
-        ImGui.SetNextItemWidth(-80);
+        var style = ImGui.GetStyle();
+        float saveW = ImGui.CalcTextSize("Save").X + style.FramePadding.X * 2f;
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - saveW - style.ItemSpacing.X);
         ImGui.InputText("##cm_save_name", _saveNameInput);
 
         ImGui.SameLine();
@@ -155,10 +159,7 @@ public sealed class ConManSubmod : ISubmod
         }
 
         if (!string.IsNullOrEmpty(_saveStatus))
-        {
-            ImGui.SameLine();
             ImGui.TextDisabled(_saveStatus);
-        }
     }
 
     // --- Startup Default Section ---
@@ -188,10 +189,10 @@ public sealed class ConManSubmod : ISubmod
             ? "(None)"
             : (_selectedDefaultIndex - 1 < layoutNames.Length ? layoutNames[_selectedDefaultIndex - 1] : "(None)");
 
-        ImGui.SetNextItemWidth(-1);
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         if (ImGui.BeginCombo("##cm_default_select", defaultPreview))
         {
-            ImGui.SetNextItemWidth(-1);
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
             ImGui.InputText("##cm_default_filter", _defaultFilter);
             ImGui.Separator();
 

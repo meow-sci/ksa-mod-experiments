@@ -18,6 +18,7 @@ public static class BlinkyPatches
 
     public static void Apply(Harmony harmony)
     {
+        
         _partModelPrefix = typeof(BlinkyPatches).GetMethod(nameof(PartModelModulePrefix), BindingFlags.NonPublic | BindingFlags.Static)!;
         _partModelDynamicPrefix = typeof(BlinkyPatches).GetMethod(nameof(PartModelDynamicModulePrefix), BindingFlags.NonPublic | BindingFlags.Static)!;
         _partModelGlassPrefix = typeof(BlinkyPatches).GetMethod(nameof(PartModelGlassModulePrefix), BindingFlags.NonPublic | BindingFlags.Static)!;

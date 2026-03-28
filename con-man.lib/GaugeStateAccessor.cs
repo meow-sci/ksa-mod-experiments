@@ -12,6 +12,9 @@ public sealed class GaugeStateAccessor
     private readonly FieldInfo? _enabledField;
     private readonly FieldInfo? _offsetField;
     private readonly FieldInfo? _scaleField;
+    private readonly FieldInfo? _windowPositionField;
+    private readonly FieldInfo? _windowSizeField;
+    private readonly FieldInfo? _windowTitleField;
 
     public bool IsValid { get; }
 
@@ -26,6 +29,9 @@ public sealed class GaugeStateAccessor
             _enabledField = typeof(GaugeCanvas).GetField("_enabled", instanceFlags)!;
             _offsetField = typeof(GaugeCanvas).GetField("_customOffset", instanceFlags)!;
             _scaleField = typeof(GaugeCanvas).GetField("_customScale", instanceFlags)!;
+            _windowPositionField = typeof(GaugeCanvas).GetField("_windowPosition", instanceFlags);
+            _windowSizeField = typeof(GaugeCanvas).GetField("_windowSize", instanceFlags);
+            _windowTitleField = typeof(GaugeCanvas).GetField("_windowTitle", instanceFlags);
 
             IsValid = _canvasesField != null && _enabledField != null
                    && _offsetField != null && _scaleField != null;
@@ -41,6 +47,9 @@ public sealed class GaugeStateAccessor
             _enabledField = null;
             _offsetField = null;
             _scaleField = null;
+            _windowPositionField = null;
+            _windowSizeField = null;
+            _windowTitleField = null;
         }
     }
 
@@ -77,5 +86,20 @@ public sealed class GaugeStateAccessor
     public void SetCustomScale(GaugeCanvas canvas, float2 value)
     {
         _scaleField?.SetValue(canvas, value);
+    }
+
+    public float2 GetWindowPosition(GaugeCanvas canvas)
+    {
+        return (float2)(_windowPositionField?.GetValue(canvas) ?? float2.Zero);
+    }
+
+    public float2 GetWindowSize(GaugeCanvas canvas)
+    {
+        return (float2)(_windowSizeField?.GetValue(canvas) ?? new float2(100f, 100f));
+    }
+
+    public string? GetWindowTitle(GaugeCanvas canvas)
+    {
+        return _windowTitleField?.GetValue(canvas) as string;
     }
 }

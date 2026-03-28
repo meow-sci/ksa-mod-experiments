@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Brutal.Numerics;
+using Brutal.ImGuiApi;
 using KSA;
 
 namespace MeowSci.ConManLib;
@@ -145,9 +146,30 @@ public sealed class LayoutManager
         {
             if (!layout.TryGetValue(canvas.Id, out var state)) continue;
 
+            // Read the current base position/size BEFORE setting new offsets.
+            // These represent the game's resolution-aware base values:
+            //   _windowPosition = ImGui.GetWindowPos() - _customOffset
+            //   _windowSize = ImGui.GetWindowSize() / _customScale
+            var basePos = _accessor.GetWindowPosition(canvas);
+            var baseSize = _accessor.GetWindowSize(canvas);
+
+            // Set the saved delta values via reflection
             _accessor.SetEnabled(canvas, state.Enabled);
             _accessor.SetCustomOffset(canvas, new float2(state.OffsetX, state.OffsetY));
             _accessor.SetCustomScale(canvas, new float2(state.ScaleX, state.ScaleY));
+
+            // Force-reposition the ImGui window directly.
+            // SetNextWindowPos/Size with ImGuiCond.Appearing only fires once (first appear),
+            // so we must use SetWindowPos/Size by name to move already-visible windows.
+            var windowTitle = _accessor.GetWindowTitle(canvas);
+            if (!string.IsNullOrEmpty(windowTitle))
+            {
+                var targetPos = basePos + new float2(state.OffsetX, state.OffsetY);
+                var targetSize = baseSize * new float2(state.ScaleX, state.ScaleY);
+                ImGui.SetWindowPos(windowTitle, in targetPos, ImGuiCond.Always);
+                ImGui.SetWindowSize(windowTitle, in targetSize, ImGuiCond.Always);
+            }
+
             applied++;
         }
 
