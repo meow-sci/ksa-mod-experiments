@@ -1,222 +1,53 @@
-# Fixme-Mod-Name - Template Mod Structure
+# Con-Man — Layout Manager
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+Game UI layout manager for KSA gauge canvases. Save and restore HUD gauge visibility, position, and scale to named layouts.
 
-## Overview
+## Features
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
-
-## What This Mod Contains
-
-### Files
-
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `con-man.csproj` | Main mod project |
-| `con-man.lib/ConManLib.cs` | Library class (headless logic) |
-
-### Mod Lifecycle
-
-```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
-  ↓
-OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
-  ↓
-Unload()                 → Cleanup, remove patches
-```
+- **Save layouts** — Capture current gauge state (enabled, position offset, scale) for all gauge canvases
+- **Load layouts** — Apply saved layouts to instantly restore gauge positions and visibility
+- **Startup default** — Set a layout to automatically apply when the game starts
+- **Delete layouts** — Remove saved layouts with confirmation dialog
+- **Filtered selectors** — All comboboxes support text filtering for quick selection
+- **Live gauge summary** — Collapsible table showing real-time state of all GaugeCanvas instances
 
 ## Architecture
 
-### Mod.cs
-Entry point for the mod with lifecycle management.
+| File | Purpose |
+|------|---------|
+| `con-man/Mod.cs` | Standalone mod entry point — thin window shim around `ConManSubmod` |
+| `con-man.lib/ConManSubmod.cs` | `ISubmod` implementation with full ImGui UI |
+| `con-man.lib/LayoutManager.cs` | Orchestrates save/load/delete/apply operations and startup default |
+| `con-man.lib/GaugeStateAccessor.cs` | Reflection wrapper for GaugeCanvas private fields |
+| `con-man.lib/LayoutSerializer.cs` | TOML serialization for layout files and config |
 
-```csharp
-public class Mod : StarMapMod
-{
-    public override void OnImmediateLoad()
-    {
-        // First initialization
-        Console.WriteLine("Fixme-Mod-Name: OnImmediateLoad");
-    }
-    
-    public override void OnFullyLoaded()
-    {
-        // All mods ready, initialize partnerships
-        Patcher.Initialize();
-    }
-    
-    public override void OnAfterUi()
-    {
-        // Render ImGui window every frame
-        RenderWindow();
-    }
-    
-    public override void Unload()
-    {
-        // Cleanup patches and resources
-        Patcher.Cleanup();
-    }
-    
-    private void RenderWindow()
-    {
-        if (!showWindow) return;
-        
-        ImGui.SetNextWindowSize(new Vector2(400, 200), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Fixme-Mod-Name", ref showWindow))
-        {
-            ImGui.Text("Hello, World!");
-            if (ImGui.Button("Click Me!"))
-            {
-                Console.WriteLine("Button clicked!");
-            }
-            ImGui.End();
-        }
-    }
-}
+## Data Storage
+
+Layouts and configuration are stored in:
+
+```
+Documents/My Games/Kitten Space Agency/.con-man/
+  config.toml          # startup default setting
+  layouts/
+    my-layout.toml     # saved gauge layouts
 ```
 
-### Patcher.cs
-Harmony-based runtime method patching initialization.
+## How It Works
 
-```csharp
-public static class Patcher
-{
-    private static Harmony harmony;
-    
-    public static void Initialize()
-    {
-        harmony = new Harmony("MeowSci.ConMan");
-        harmony.PatchAll();  // Patches defined in assembly
-    }
-    
-    public static void Cleanup()
-    {
-        harmony?.UnpatchAll();
-    }
-}
-```
+Each `GaugeCanvas` in the game has private fields controlling its appearance:
+- `_enabled` (bool) — whether the gauge is visible
+- `_customOffset` (float2) — drag offset from base position
+- `_customScale` (float2) — resize scale relative to base size
 
-### Library Project (optional)
-Separate `.lib` project for reusable, headless logic:
+Con-man uses reflection (via `GaugeStateAccessor`) to read and write these fields. Layouts are identified by the stable `SerializedId.Id` property, so they persist across game sessions.
 
-```csharp
-public static class ConManLib
-{
-    public static void DoSomething()
-    {
-        // Reusable functionality
-    }
-}
-```
+## Controls
 
-## Getting Started with This Template
+- **F11** — Toggle window visibility (standalone mode)
 
-### Step 1: Rename
-```
-con-man → your-cool-mod
-ConMan → YourCoolMod
-MeowSci.ConMan → MeowSci.YourCoolMod
-```
+## Usage in Grant Supermod
 
-### Step 2: Update Project Files
-- Rename `.csproj` files
-- Update assembly names
-- Update namespace declarations
-
-### Step 3: Implement Mod Logic
-Replace template code with actual mod features:
-- Define what should happen in each lifecycle method
-- Add ImGui controls in `RenderWindow()`
-- Implement Harmony patches in `Patcher.cs`
-
-### Step 4: Document
-Refer to this README structure and update with:
-- Mod overview
-- Features
-- Architecture explanation
-- Usage examples
-- Implementation details
-
-## Standard Mod Pattern
-
-Most mods follow this pattern:
-
-1. **Mod.cs**: UI + Lifecycle (StarMapMod subclass)
-2. **Patcher.cs**: Runtime patches (Harmony setup)
-3. **Lib project**: Reusable logic (separate assembly)
-4. **README.md**: Documentation (what you're reading)
-
-## ImGui Window Pattern
-
-Standard toggle pattern:
-
-```csharp
-private bool showWindow = false;
-
-public override void OnAfterUi()
-{
-    // F11 toggles window visibility
-    if (Input.GetKeyDown(KeyCode.F11))
-        showWindow = !showWindow;
-    
-    if (!showWindow) return;
-    
-    ImGui.SetNextWindowSize(new Vector2(400, 300), ImGuiCond.FirstUseEver);
-    if (ImGui.Begin("Mod Name", ref showWindow))
-    {
-        // Render content here
-        ImGui.End();
-    }
-}
-```
-
-## Harmony Patching Pattern
-
-Basic patch structure:
-
-```csharp
-[HarmonyPatch(typeof(TargetClass), nameof(TargetClass.TargetMethod))]
-public static class TargetMethodPatch
-{
-    public static bool Prefix(/* method parameters */)
-    {
-        // Prefix runs before original, return false to skip original
-        Console.WriteLine("Before TargetMethod");
-        return true;
-    }
-    
-    public static void Postfix(/* method parameters */)
-    {
-        // Postfix runs after original
-        Console.WriteLine("After TargetMethod");
-    }
-}
-```
-
-## Key Files for Reference
-
-When developing from this template, refer to:
-
-1. **[REPOSITORY_INDEX.md](../REPOSITORY_INDEX.md)** - All mods documentation
-2. **sibling mod READMEs** - Similar mods for reference implementation
-3. **HarmonyLib docs** - Runtime patching patterns
-4. **ImGui API docs** - UI widget reference
-
-## Next Steps
-
-1. Copy this entire folder
-2. Rename appropriately
-3. Implement your feature logic
-4. Test with `dotnet build`
+Con-man is available as a submod in the Grant unified toolbox. All functionality lives in `con-man.lib` and is shared between the standalone mod and the grant supermod via the `ISubmod` interface.
 5. Update this README with your mod's actual purpose and features
 
 ## Testing

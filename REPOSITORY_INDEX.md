@@ -160,6 +160,17 @@ Global ImGui theme manager. Provides a theme picker and a full style editor that
 - Persistent theme selection across game sessions; restores game default on unload
 - **skittles.lib**: `ThemeDefinition` (60-color + style POCO), `ThemeSerializer` (Tomlyn TOML I/O), `ThemeManager` (load/save/apply/list), `BuiltInThemes` (Inanimate Carbon Rod preset)
 
+### [con-man](con-man) / [con-man.lib](con-man.lib)
+Game UI layout manager for gauge canvases. Saves and restores HUD gauge visibility, position, and scale to named layouts stored as TOML files.
+- Save current gauge layout to named TOML file
+- Load/apply saved layouts with filtered combobox selector
+- Set a startup default layout (auto-applied on game launch)
+- Delete layouts with confirmation
+- Live gauge summary table showing all GaugeCanvas state (name, id, enabled, offset, scale)
+- Persistence in Documents/My Games/Kitten Space Agency/.con-man/layouts/
+- F11 window toggle (standalone mode)
+- **con-man.lib**: `ConManSubmod` (ISubmod — layout selector/save/delete/startup default UI), `LayoutManager` (save/load/delete/apply/list layouts, startup default), `GaugeStateAccessor` (reflection-based access to GaugeCanvas private fields), `LayoutSerializer` (Tomlyn TOML I/O for layouts and config)
+
 ---
 
 ## HTTP RPC Mods
@@ -182,15 +193,15 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 ## Unified Supermod
 
 ### [grant](grant)
-Unified supermod that consolidates 13 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
-- F11 window toggle with unified panel for all 13 submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
+Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
+- F11 window toggle with unified panel for all 14 submods
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 
