@@ -13,12 +13,7 @@ all comboboxes should be filtered and values sorted case-insensitive alphanumeri
 - honk
 
 
-# bugs
 
-- in blinky, destroying a grid should first ensure all engines are shutdown.  bug in KSA that engine sound keeps playing.
-
-
- 
 # action hero
 
 this mod will reference many other mod libraries to reuse their functionality
