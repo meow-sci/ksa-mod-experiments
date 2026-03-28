@@ -8,6 +8,14 @@ allow selecting a "startup default" value, when the mod initially starts, apply 
 
 all comboboxes should be filtered and values sorted case-insensitive alphanumerically (cache this so its not re-computed on every game tick render)
 
+# soundboard (name TBD)
+
+- honk
+
+
+# bugs
+
+- in blinky, destroying a grid should first ensure all engines are shutdown.  bug in KSA that engine sound keeps playing.
 
 
  
