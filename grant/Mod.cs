@@ -13,6 +13,7 @@ using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.CameraControllerOverrideLib;
+using MeowSci.ConManLib;
 using MeowSci.KittenAnimationsLib;
 using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
@@ -51,6 +52,7 @@ public class Mod
             _submods.Add(new AverageTwrSubmod());
             _submods.Add(new BlinkySubmod());
             _submods.Add(cameraOverride);
+            _submods.Add(new ConManSubmod());
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new GarysTorchSubmod());
             _submods.Add(new GlassSubmod());
