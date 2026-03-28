@@ -2,105 +2,82 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using KSA;
+using MeowSci.ConManLib;
 
 namespace MeowSci.ConMan;
 
 [StarMapMod]
 public class Mod
 {
-  public bool ImmediateUnload => false;
+    public bool ImmediateUnload => false;
 
-  private bool _isInitialized = false;
-  private bool _isDisposed = false;
-  private bool _windowVisible = false;
+    private bool _isInitialized;
+    private bool _isDisposed;
+    private bool _windowVisible;
+    private ConManSubmod _submod = null!;
 
+    [StarMapImmediateLoad]
+    public void OnImmediateLoad() { }
 
-  [StarMapImmediateLoad]
-  public void OnImmediateLoad() { }
-
-  [StarMapAllModsLoaded]
-  public void OnFullyLoaded()
-  {
-    try
+    [StarMapAllModsLoaded]
+    public void OnFullyLoaded()
     {
-      Patcher.Patch();
-      _isInitialized = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"con-man: Error during initialization: {ex.Message}");
-    }
-  }
-
-  [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
-
-  [StarMapAfterGui]
-  public void OnAfterUi(double dt)
-  {
-    try
-    {
-      if (!_isInitialized || _isDisposed) return;
-
-      if (ImGui.IsKeyPressed(ImGuiKey.F11))
-        _windowVisible = !_windowVisible;
-
-      if (_windowVisible)
-        RenderWindow();
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"con-man: Error in OnAfterUi: {ex.Message}");
-    }
-  }
-
-  [StarMapUnload]
-  public void Unload()
-  {
-    try
-    {
-      Patcher.Unload();
-      _isDisposed = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"con-man: Error during unload: {ex.Message}");
-    }
-  }
-
-  private void RenderWindow()
-  {
-    // Set initial window size
-    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
-
-    // Begin window
-    if (ImGui.Begin("con-man Mod", ref _windowVisible))
-    {
-      // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "con-man");
-      ImGui.Separator();
-
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
-      {
-        ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
+        try
         {
-          Console.WriteLine("button pressed!");
+            _submod = new ConManSubmod();
+            _submod.Initialize();
+            _isInitialized = true;
+            Console.WriteLine("con-man: Initialized successfully");
         }
-        
-        ImGui.Unindent();
-      }
-      
-      // Close button
-      if (ImGui.Button("Close"))
-      {
-        _windowVisible = false;
-      }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"con-man: Error during initialization: {ex.Message}");
+        }
     }
-    ImGui.End();
-  }
+
+    [StarMapBeforeGui]
+    public void OnBeforeUi(double dt)
+    {
+        if (!_isInitialized || _isDisposed) return;
+        try { _submod.Update(dt); }
+        catch (Exception ex) { Console.WriteLine($"con-man: Update error: {ex.Message}"); }
+    }
+
+    [StarMapAfterGui]
+    public void OnAfterUi(double dt)
+    {
+        try
+        {
+            if (!_isInitialized || _isDisposed) return;
+            if (ImGui.IsKeyPressed(ImGuiKey.F11)) _windowVisible = !_windowVisible;
+            if (_windowVisible) RenderWindow();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"con-man: Error in OnAfterUi: {ex.Message}");
+        }
+    }
+
+    [StarMapUnload]
+    public void Unload()
+    {
+        try
+        {
+            _submod?.Dispose();
+            _isDisposed = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"con-man: Error during unload: {ex.Message}");
+        }
+    }
+
+    private void RenderWindow()
+    {
+        ImGui.SetNextWindowSize(new float2(500, 600), ImGuiCond.FirstUseEver);
+        if (ImGui.Begin("Con-Man \u2014 Layout Manager", ref _windowVisible))
+            _submod.RenderContent();
+        ImGui.End();
+    }
 }
 

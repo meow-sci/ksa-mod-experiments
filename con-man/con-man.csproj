@@ -14,7 +14,10 @@
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\con-man.lib\con-man.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
