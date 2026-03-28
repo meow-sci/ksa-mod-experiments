@@ -1,19 +1,18 @@
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using MeowSci.IFeelSeenLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.IFeelSeenLib;
 
-internal sealed class IFeelSeenSubmod : IGrantSubmod
+public sealed class IFeelSeenSubmod : ISubmod
 {
     public string Name => "I Feel Seen";
 
     private VehicleTracker _tracker = null!;
     private int _pendingVehicleIndex;
 
-    /// <summary>Exposed so the grant Patcher can reference it for Harmony patches.</summary>
+    /// <summary>Exposed so Harmony patches can reference it for vehicle render distance overrides.</summary>
     public VehicleTracker Tracker => _tracker;
 
     public void Initialize()

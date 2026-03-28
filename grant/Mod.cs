@@ -4,7 +4,21 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
-using MeowSci.Grant.Submods;
+using MeowSci.KsaAbstractions;
+using MeowSci.AverageTwrLib;
+using MeowSci.BlinkyLib;
+using MeowSci.EternalFlameLib;
+using MeowSci.GarysTorchLib;
+using MeowSci.GeeForceLib;
+using MeowSci.GlassLib;
+using MeowSci.IFeelSeenLib;
+using MeowSci.CameraControllerOverrideLib;
+using MeowSci.ConManLib;
+using MeowSci.KittenAnimationsLib;
+using MeowSci.KiwisMarblesLib;
+using MeowSci.SkittlesLib;
+using MeowSci.UnladenSwallowLib;
+using MeowSci.ZippoLib;
 
 namespace MeowSci.Grant;
 
@@ -17,7 +31,7 @@ public class Mod
     private bool _isDisposed = false;
     private bool _windowVisible = false;
 
-    private readonly List<IGrantSubmod> _submods = new();
+    private readonly List<ISubmod> _submods = new();
     private readonly Dictionary<string, bool> _submodVisibility = new();
     private bool _collapseAll;
     private bool _expandAll;
@@ -33,33 +47,36 @@ public class Mod
             // Create all submods in display order
             var iFeelSeen = new IFeelSeenSubmod();
             var skittles = new SkittlesSubmod();
+            var cameraOverride = new CameraControllerOverrideSubmod();
 
             _submods.Add(new AverageTwrSubmod());
             _submods.Add(new BlinkySubmod());
+            _submods.Add(cameraOverride);
+            _submods.Add(new ConManSubmod());
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new GarysTorchSubmod());
             _submods.Add(new GlassSubmod());
+            _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
+            _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
             _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new ZippoSubmod());
 
-            // Wire up Patcher dependencies before patching
-            Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
-            Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
-
-            Patcher.Patch();
-
-            // Initialize all submods
+            // Initialize all submods so Tracker is populated before patching
             foreach (var submod in _submods)
             {
                 submod.Initialize();
                 _submodVisibility[submod.Name] = true;
             }
 
-            // Re-set tracker after Initialize (VehicleTracker created in Initialize)
+            // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
+            Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
+            Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
+
+            Patcher.Patch();
 
             _isInitialized = true;
             Console.WriteLine($"grant: Initialized with {_submods.Count} submods");
@@ -151,7 +168,24 @@ public class Mod
             // Context menu popup
             if (ImGui.BeginPopup("##grant_context"))
             {
+                // Header row: label left, buttons right
                 ImGui.TextDisabled("Submod Visibility");
+                ImGui.SameLine();
+                {
+                    var style = ImGui.GetStyle();
+                    float pad = style.FramePadding.X * 2f;
+                    float spacing = style.ItemSpacing.X;
+                    float wOn = ImGui.CalcTextSize("all on").X + pad;
+                    float wOff = ImGui.CalcTextSize("all off").X + pad;
+                    ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - wOn - spacing - wOff);
+                    if (ImGui.SmallButton("all on##grant_vis_on"))
+                        foreach (var submod in _submods)
+                            _submodVisibility[submod.Name] = true;
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("all off##grant_vis_off"))
+                        foreach (var submod in _submods)
+                            _submodVisibility[submod.Name] = false;
+                }
                 ImGui.Separator();
                 foreach (var submod in _submods)
                 {

@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.KiwisMarblesLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.KiwisMarblesLib;
 
-internal sealed class KiwisMarblesSubmod : IGrantSubmod
+public sealed class KiwisMarblesSubmod : ISubmod
 {
     public string Name => "Kiwi's Marbles";
 

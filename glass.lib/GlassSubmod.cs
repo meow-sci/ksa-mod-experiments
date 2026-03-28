@@ -2,11 +2,11 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.GlassLib;
+using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.GlassLib;
 
-internal sealed class GlassSubmod : IGrantSubmod
+public sealed class GlassSubmod : ISubmod
 {
     public string Name => "Glass \u2014 Camera Lens";
 

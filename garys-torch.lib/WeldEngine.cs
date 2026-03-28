@@ -26,6 +26,22 @@ public static class WeldEngine
         double3 tgtVelCci = entry.Target.GetVelocityCci();
         doubleQuat tgtBody2Cci = entry.Target.GetBody2Cci();
 
+        // Guard against NaN target state — target vehicle may be mid-physics-blowup
+        if (double.IsNaN(tgtPosCci.X) || double.IsNaN(tgtPosCci.Y) || double.IsNaN(tgtPosCci.Z) ||
+            double.IsNaN(tgtVelCci.X) || double.IsNaN(tgtVelCci.Y) || double.IsNaN(tgtVelCci.Z))
+        {
+            Console.WriteLine("garys-torch: NaN detected in target vehicle state, skipping weld update");
+            return true;
+        }
+
+        // Normalize target orientation — denormalized quaternion would corrupt offset transform
+        tgtBody2Cci = tgtBody2Cci.NormalizedOrZero();
+        if (tgtBody2Cci == default)
+        {
+            Console.WriteLine("garys-torch: zero/NaN quaternion in target orientation, skipping weld update");
+            return true;
+        }
+
         // Compute positional offset from the 3D body-frame position
         double3 offsetInBodyFrame = new double3(entry.Position.X, entry.Position.Y, entry.Position.Z);
         double3 offsetCci = offsetInBodyFrame.Transform(tgtBody2Cci);
@@ -47,7 +63,7 @@ public static class WeldEngine
         else
         {
             // Rotation unlocked — preserve source's current orientation and body rates
-            doubleQuat srcBody2Cci = entry.Source.GetBody2Cci();
+            doubleQuat srcBody2Cci = entry.Source.GetBody2Cci().NormalizedOrZero();
             newSrcBody2Cce = doubleQuat.Concatenate(srcBody2Cci, cci2Cce).NormalizedOrZero();
             newBodyRates = entry.Source.BodyRates;
 

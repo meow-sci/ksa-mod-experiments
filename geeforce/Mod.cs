@@ -2,92 +2,83 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using KSA;
 using MeowSci.GeeForceLib;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GeeForce;
 
 [StarMapMod]
 public class Mod
 {
-  public bool ImmediateUnload => false;
+    public bool ImmediateUnload => false;
 
-  private bool _isInitialized = false;
-  private bool _isDisposed = false;
-  private bool _windowVisible = false;
+    private bool _isInitialized;
+    private bool _isDisposed;
+    private bool _windowVisible;
+    private GeeForceSubmod _submod = null!;
 
-  private const double SampleIntervalSec = 0.025; // 25ms → 40 Hz
-  private double _accumulator = 0.0;
-  private GForceRecorder _recorder = null!;
+    [StarMapImmediateLoad]
+    public void OnImmediateLoad() { }
 
-  [StarMapImmediateLoad]
-  public void OnImmediateLoad() { }
-
-  [StarMapAllModsLoaded]
-  public void OnFullyLoaded()
-  {
-    try
+    [StarMapAllModsLoaded]
+    public void OnFullyLoaded()
     {
-      Patcher.Patch();
-      int capacity = GForceUI.GetRequiredCapacity(SampleIntervalSec);
-      _recorder = new GForceRecorder(capacity, SampleIntervalSec);
-      _isInitialized = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"geeforce: Error during initialization: {ex.Message}");
-    }
-  }
-
-  [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
-
-  [StarMapAfterGui]
-  public void OnAfterUi(double dt)
-  {
-    try
-    {
-      if (!_isInitialized || _isDisposed) return;
-
-      if (ImGui.IsKeyPressed(ImGuiKey.F11))
-        _windowVisible = !_windowVisible;
-
-      // Accumulate time and sample at fixed interval
-      _accumulator += dt;
-      while (_accumulator >= SampleIntervalSec)
-      {
-        _accumulator -= SampleIntervalSec;
-
-        var vehicle = VehicleProvider.GetControlledVehicle();
-        if (vehicle != null)
+        try
         {
-          double simTime = SimTimeProvider.GetElapsedTime().Seconds();
-          _recorder.RecordSample(vehicle, simTime);
+            _submod = new GeeForceSubmod();
+            Patcher.Patch();
+            _submod.Initialize();
+            _isInitialized = true;
         }
-      }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"geeforce: Error during initialization: {ex.Message}");
+        }
+    }
 
-      if (_windowVisible)
-        GForceUI.Render(ref _windowVisible, _recorder, SampleIntervalSec);
-    }
-    catch (Exception ex)
+    [StarMapBeforeGui]
+    public void OnBeforeUi(double dt)
     {
-      Console.WriteLine($"geeforce: Error in OnAfterUi: {ex.Message}");
+        if (!_isInitialized || _isDisposed) return;
+        _submod.Update(dt);
     }
-  }
 
-  [StarMapUnload]
-  public void Unload()
-  {
-    try
+    [StarMapAfterGui]
+    public void OnAfterUi(double dt)
     {
-      Patcher.Unload();
-      _isDisposed = true;
+        try
+        {
+            if (!_isInitialized || _isDisposed) return;
+            if (ImGui.IsKeyPressed(ImGuiKey.F11)) _windowVisible = !_windowVisible;
+            if (_windowVisible) RenderWindow();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"geeforce: Error in OnAfterUi: {ex.Message}");
+        }
     }
-    catch (Exception ex)
+
+    [StarMapUnload]
+    public void Unload()
     {
-      Console.WriteLine($"geeforce: Error during unload: {ex.Message}");
+        try
+        {
+            _submod.Dispose();
+            Patcher.Unload();
+            _isDisposed = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"geeforce: Error during unload: {ex.Message}");
+        }
     }
-  }
+
+    private void RenderWindow()
+    {
+        ImGui.SetNextWindowSize(new float2(520, 440), ImGuiCond.FirstUseEver);
+        if (ImGui.Begin("G-Force Monitor", ref _windowVisible))
+            _submod.RenderContent();
+        ImGui.End();
+    }
 }
+
 

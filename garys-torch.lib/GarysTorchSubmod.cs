@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.GarysTorchLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.GarysTorchLib;
 
-internal sealed class GarysTorchSubmod : IGrantSubmod
+public sealed class GarysTorchSubmod : ISubmod
 {
     public string Name => "Gary's Torch";
 

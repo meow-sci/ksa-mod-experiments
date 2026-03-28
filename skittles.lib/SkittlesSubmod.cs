@@ -2,11 +2,11 @@ using System;
 using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using MeowSci.SkittlesLib;
+using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.SkittlesLib;
 
-internal sealed class SkittlesSubmod : IGrantSubmod
+public sealed class SkittlesSubmod : ISubmod
 {
     public string Name => "Skittles \u2014 Theme Manager";
 
@@ -17,7 +17,7 @@ internal sealed class SkittlesSubmod : IGrantSubmod
     private bool _showSaveInput;
     private bool _editorVisible;
 
-    /// <summary>Read by the grant Patcher to block game hotkeys when text inputs are focused.</summary>
+    /// <summary>Read by Harmony patches to block game hotkeys when text inputs are focused.</summary>
     public bool HasFocusedTextInput { get; private set; }
 
     public void Initialize()

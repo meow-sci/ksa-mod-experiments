@@ -37,5 +37,7 @@
     <Project Path="eternal-flame.lib/eternal-flame.lib.csproj" />
     <Project Path="unladen-swallow/unladen-swallow.csproj" />
     <Project Path="unladen-swallow.lib/unladen-swallow.lib.csproj" />
+    <Project Path="con-man/con-man.csproj" />
+    <Project Path="con-man.lib/con-man.lib.csproj" />
     
 </Solution>

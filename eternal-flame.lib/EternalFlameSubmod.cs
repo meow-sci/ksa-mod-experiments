@@ -3,11 +3,11 @@ using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.EternalFlameLib;
+using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.EternalFlameLib;
 
-internal sealed class EternalFlameSubmod : IGrantSubmod
+public sealed class EternalFlameSubmod : ISubmod
 {
     public string Name => "Eternal Flame \u2014 Infinite Fuel";
 

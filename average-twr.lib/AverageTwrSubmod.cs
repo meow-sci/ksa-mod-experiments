@@ -1,11 +1,10 @@
 using System;
 using Brutal.ImGuiApi;
-using MeowSci.AverageTwrLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.AverageTwrLib;
 
-internal sealed class AverageTwrSubmod : IGrantSubmod
+public sealed class AverageTwrSubmod : ISubmod
 {
     public string Name => "Average TWR";
 

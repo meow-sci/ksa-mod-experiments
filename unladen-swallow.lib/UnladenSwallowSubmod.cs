@@ -1,12 +1,11 @@
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using MeowSci.UnladenSwallowLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.UnladenSwallowLib;
 
-internal sealed class UnladenSwallowSubmod : IGrantSubmod
+public sealed class UnladenSwallowSubmod : ISubmod
 {
     public string Name => "Unladen Swallow \u2014 RPC Server";
 

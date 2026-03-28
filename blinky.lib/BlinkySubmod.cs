@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.BlinkyLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.BlinkyLib;
 
-internal sealed class BlinkySubmod : IGrantSubmod
+public sealed class BlinkySubmod : ISubmod
 {
     public string Name => "Blinky \u2014 Dynamic LCD Grid";
 
@@ -28,6 +27,11 @@ internal sealed class BlinkySubmod : IGrantSubmod
     private int _enginePresetIndex = 2;
     private ImGuiTextFilter _engineFilter = new();
 
+    // Deferred action runner: each item carries how many seconds to wait *before* it executes.
+    // ScheduleDeferred() appends an item; Update() counts down and fires one at a time.
+    private readonly Queue<(double delayBefore, Action action)> _deferredActions = new();
+    private double _deferredTimer = 0;
+
     // Known engine part IDs for quick-select buttons
     private static readonly string[] EnginePresets = new[]
     {
@@ -43,7 +47,31 @@ internal sealed class BlinkySubmod : IGrantSubmod
 
     public void Update(double dt)
     {
+        if (_deferredActions.Count > 0)
+        {
+            _deferredTimer -= dt;
+            if (_deferredTimer <= 0)
+            {
+                var (_, action) = _deferredActions.Dequeue();
+                action();
+                // Prime the timer for the next item (if any) the moment this one finishes.
+                _deferredTimer = _deferredActions.Count > 0 ? _deferredActions.Peek().delayBefore : 0;
+            }
+        }
+
         BlinkyGridManager.TickAll(dt);
+    }
+
+    /// <summary>
+    /// Schedules an action to run after <paramref name="delaySeconds"/> have elapsed following the
+    /// previous action (or immediately if the queue is empty and delaySeconds is 0).
+    /// </summary>
+    private void ScheduleDeferred(double delaySeconds, Action action)
+    {
+        bool wasEmpty = _deferredActions.Count == 0;
+        _deferredActions.Enqueue((delaySeconds, action));
+        if (wasEmpty)
+            _deferredTimer = delaySeconds;
     }
 
     public void RenderContent()
@@ -144,18 +172,36 @@ internal sealed class BlinkySubmod : IGrantSubmod
                 ImGui.TextColored(new float4(0.2f, 1f, 0.5f, 1f), $"Grid active: {gridState!.BlinkyGrid.Grid.Cols}x{gridState.BlinkyGrid.Grid.Rows}");
                 if (ImGui.Button("Destroy Grid##blinky"))
                 {
-                    try
+                    var capturedVehicleId = vehicleId;
+                    var capturedVehicle = vehicle;
+                    var capturedGrid = gridState.BlinkyGrid;
+
+                    // If engines are potentially on, wait 1 second after shutting them down
+                    // before removing parts so the audio system can fully process the stop.
+                    bool enginesLikelyOn = gridState.ActivePixels.Count > 0 || gridState.Scroll.IsActive;
+                    double destroyDelay = enginesLikelyOn ? 1.0 : 0;
+
+                    ScheduleDeferred(0, () =>
                     {
-                        BlinkyGridManager.TurnOff(vehicleId);
-                        LcdGridBuilder.DestroyGrid(vehicle, gridState.BlinkyGrid);
-                        BlinkyGridManager.Unregister(vehicleId);
-                        SetBuildMessage(ui, "Grid destroyed", false);
-                    }
-                    catch (Exception ex)
+                        Console.WriteLine("blinky: destroy step 1 — shutting down engines");
+                        BlinkyGridManager.TurnOff(capturedVehicleId);
+                    });
+                    ScheduleDeferred(destroyDelay, () =>
                     {
-                        SetBuildMessage(ui, $"Destroy failed: {ex.Message}", true);
-                        Console.WriteLine($"blinky: Destroy error: {ex}");
-                    }
+                        try
+                        {
+                            Console.WriteLine($"blinky: destroy step 2 — removing parts (waited {destroyDelay:F1}s)");
+                            LcdGridBuilder.DestroyGrid(capturedVehicle, capturedGrid);
+                            BlinkyGridManager.Unregister(capturedVehicleId);
+                            SetBuildMessage(GetOrCreateUiState(capturedVehicleId), "Grid destroyed", false);
+                        }
+                        catch (Exception ex)
+                        {
+                            SetBuildMessage(GetOrCreateUiState(capturedVehicleId), $"Destroy failed: {ex.Message}", true);
+                            Console.WriteLine($"blinky: Destroy error: {ex}");
+                        }
+                    });
+                    SetBuildMessage(ui, enginesLikelyOn ? "Destroying... (waiting 1s for audio)" : "Destroying...", false);
                 }
             }
             else
@@ -180,9 +226,9 @@ internal sealed class BlinkySubmod : IGrantSubmod
             }
 
             ImGui.Spacing();
-            bool showEngines = Patcher.RenderPixelParts;
+            bool showEngines = BlinkyPatchState.RenderPixelParts;
             if (ImGui.Checkbox("Show engine meshes##blinky", ref showEngines))
-                Patcher.RenderPixelParts = showEngines;
+                BlinkyPatchState.RenderPixelParts = showEngines;
             ImGui.SameLine(0, 8);
             ImGui.TextDisabled("(off = better perf)");
 

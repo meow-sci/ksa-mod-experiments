@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.ZippoLib;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.Grant.Submods;
+namespace MeowSci.ZippoLib;
 
-internal sealed class ZippoSubmod : IGrantSubmod
+public sealed class ZippoSubmod : ISubmod
 {
     public string Name => "Zippo \u2014 Light Control";
 

@@ -1,16 +1,20 @@
-# con-man
-
-game ui layout manager.  can save the current game ui state to disk under a inputtable name.
-
-can select saved layouts from a combobox and apply them.
-
-allow selecting a "startup default" value, when the mod initially starts, apply it if set. should also be un-settable.
-
-all comboboxes should be filtered and values sorted case-insensitive alphanumerically (cache this so its not re-computed on every game tick render)
 
 
 
- 
+# soundboard (name TBD)
+
+- honk
+
+
+# mr smith
+
+spawn lots of kitten evas .. lots and lots
+
+# colony (name?)
+
+kittens riding rocket sleds in a fifth element like highway
+
+
 # action hero
 
 this mod will reference many other mod libraries to reuse their functionality

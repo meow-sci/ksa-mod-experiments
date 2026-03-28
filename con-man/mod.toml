@@ -1,0 +1,7 @@
+name = "con-man"
+description = "con-man"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.ConMan"
