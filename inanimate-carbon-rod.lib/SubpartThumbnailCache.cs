@@ -1,10 +1,17 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using Brutal.VulkanApi;
+using Brutal.VulkanApi.Abstractions;
+using KSA;
+using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
 
 namespace MeowSci.InanimateCarbonRodLib;
 
 /// <summary>
-/// 24 Z-axis rotation views (every 15 degrees) for a single subpart.
+/// Z-axis rotation views for a single subpart (count varies by generation settings).
 /// </summary>
 public sealed class SubpartThumbnailEntry
 {
@@ -37,6 +44,42 @@ public static class SubpartThumbnailCache
     internal static void Store(string id, SubpartThumbnailEntry entry)
         => _thumbnails[id] = entry;
 
-    internal static void Clear()
-        => _thumbnails.Clear();
+    /// <summary>
+    /// Disposes all GPU resources, clears subpart.Thumbnail references, and empties the cache.
+    /// </summary>
+    internal static void DestroyAll()
+    {
+        if (_thumbnails.Count == 0) return;
+
+        // Wait for all GPU work to finish before destroying Vulkan resources
+        Program.GetRenderer().Device.WaitIdle();
+
+        // Clear the subpart.Thumbnail references we set during generation
+        List<PartTemplate> allParts = GetAllParts();
+        foreach (var kvp in _thumbnails)
+        {
+            var subpart = allParts.FirstOrDefault(p => p.Id == kvp.Key);
+            if (subpart != null && kvp.Value.Views.Length > 0 && subpart.Thumbnail == kvp.Value.Views[0])
+                subpart.Thumbnail = null;
+
+            foreach (var view in kvp.Value.Views)
+                view?.Dispose();
+        }
+        _thumbnails.Clear();
+    }
+
+    private static List<PartTemplate> GetAllParts()
+    {
+        FieldInfo? field = typeof(ModLibrary).GetField("AllParts",
+            BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        if (field == null) return new List<PartTemplate>();
+
+        object? collection = field.GetValue(null);
+        if (collection == null) return new List<PartTemplate>();
+
+        MethodInfo? getList = collection.GetType().GetMethod("GetList");
+        if (getList == null) return new List<PartTemplate>();
+
+        return (List<PartTemplate>)getList.Invoke(collection, null)!;
+    }
 }

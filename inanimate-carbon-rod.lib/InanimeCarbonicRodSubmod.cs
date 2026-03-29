@@ -13,13 +13,22 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     public string Name => "Inanimate Carbon Rod";
 
     private readonly SubpartThumbnailGenerator _generator = new();
-    private int _thumbDisplaySize = 128;
+    private int _thumbDisplaySize = 256;
     private readonly ImInputString _thumbFilter = new ImInputString(256);
+
+    // Generation settings
+    private int _viewCount = 32;
+    private int _thumbImageSizeIndex = 2; // 256
+    private static readonly int[] ThumbImageSizes = { 64, 128, 256, 512 };
+    private static readonly string[] ThumbImageSizeLabels = { "64", "128", "256", "512" };
+
+    // Display settings
+    private int _animTickMs = 75;
 
     // Animation: global timer drives all animated previews in sync
     private double _animTimer;
 
-    // Indices into the 24-view array for the 4 static cardinal views (0°, 90°, 180°, 270°)
+    // Indices into the view array for the 4 static cardinal views (0°, 90°, 180°, 270°)
     private static readonly int[] CardinalIndices = { 0, 6, 12, 18 };
 
     // Virtual rendering: track which entries currently have ImGui descriptors registered
@@ -56,6 +65,20 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     {
 
         ImGui.TextColored(new float4(1f, 0.85f, 0.1f, 1f), "Subpart Thumbnail Generator");
+        ImGui.SameLine();
+        ImGui.TextDisabled("(?)");
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 22f);
+            ImGui.TextWrapped(
+                "Generating subpart thumbnails is GPU-intensive. The number of views and image " +
+                "resolution directly affect VRAM usage and generation time.\n\n" +
+                "Reduce \"Views Per Subpart\" and \"Image Size\" on lower-end hardware or if you " +
+                "experience long generation times or out-of-memory errors.");
+            ImGui.PopTextWrapPos();
+            ImGui.EndTooltip();
+        }
         ImGui.Spacing();
 
         // Status display
@@ -84,7 +107,11 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         bool canGenerate = _generator.State == GenerationState.Idle;
         if (!canGenerate) ImGui.BeginDisabled();
         if (ImGui.Button("Generate Subpart Thumbnails"))
+        {
+            _generator.ViewCount = _viewCount;
+            _generator.ThumbnailImageSize = ThumbImageSizes[_thumbImageSizeIndex];
             _generator.GenerateAll();
+        }
         if (!canGenerate) ImGui.EndDisabled();
 
         // Reset button if already done or failed
@@ -92,7 +119,10 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         {
             ImGui.SameLine();
             if (ImGui.Button("Reset"))
+            {
+                _registeredEntries.Clear();
                 _generator.Reset();
+            }
         }
 
         // Progress bar while generating
@@ -103,8 +133,16 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
                 $"{_generator.ProgressCurrent}/{_generator.ProgressTotal}");
         }
 
-        ImGui.Separator();
-        ImGui.SliderInt("Thumbnail Size", ref _thumbDisplaySize, 32, 256);
+        ImGui.SeparatorText("Generation Settings");
+        bool isGenerating = _generator.State == GenerationState.Generating;
+        if (isGenerating) ImGui.BeginDisabled();
+        ImGui.DragInt("Views Per Subpart", ref _viewCount, 0.1f, 2, 32);
+        ImGui.Combo("Image Size", ref _thumbImageSizeIndex, ThumbImageSizeLabels, ThumbImageSizeLabels.Length);
+        if (isGenerating) ImGui.EndDisabled();
+
+        ImGui.SeparatorText("Display Settings");
+        ImGui.DragInt("Animation Tick (ms)", ref _animTickMs, 1, 25, 1000);
+        ImGui.DragInt("Display Size", ref _thumbDisplaySize, 1, 32, 256);
         ImGui.InputText("##thumb_filter", _thumbFilter);
         RenderThumbnailGrid();
     }
@@ -167,8 +205,8 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
             return true;
         });
 
-        // Compute which animation frame to show (50ms per frame, 24 frames)
-        int animFrame = (int)(_animTimer / 0.05) % 24;
+        // Compute which animation frame to show
+        int animFrame = (int)(_animTimer / (_animTickMs / 1000.0));
 
         // Spacer for rows above visible range
         if (firstVisible > 0)
@@ -202,7 +240,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
             ImGui.BeginGroup();
 
-            // Animated preview (cycles through all 24 frames)
+            // Animated preview (cycles through all views)
             ImGui.Image(entry.Views[animIdx].ImGuiImageRef, new float2(thumbSize));
 
             // 4 static cardinal views

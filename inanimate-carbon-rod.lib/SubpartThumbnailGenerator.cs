@@ -26,12 +26,19 @@ public sealed class SubpartThumbnailGenerator : IDisposable
     public int ProgressTotal { get; private set; }
     public string? LastError { get; private set; }
 
+    /// <summary>Number of rotation views to render per subpart.</summary>
+    public int ViewCount { get; set; } = 8;
+
+    /// <summary>Pixel size for rendered thumbnail images.</summary>
+    public int ThumbnailImageSize { get; set; } = 512;
+
     // Active generation state (non-null only while State == Generating)
     private List<PartTemplate>? _subparts;
     private int _currentIndex;
     private ThumbnailPart? _root;
     private ThumbnailRenderer? _thumbRenderer;
     private int _frameIndex;
+    private ushort _savedThumbnailSize;
 
     /// <summary>
     /// Starts the generation process. Actual rendering happens in Update(),
@@ -90,6 +97,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
     public void Reset()
     {
         if (State == GenerationState.Generating) return;
+        SubpartThumbnailCache.DestroyAll();
         State = GenerationState.Idle;
         ProgressCurrent = 0;
         ProgressTotal = 0;
@@ -120,6 +128,10 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         }
 
         Console.WriteLine($"inanimate-carbon-rod: Generating thumbnails for {_subparts.Count} subparts...");
+
+        // Override game thumbnail size for our custom resolution
+        _savedThumbnailSize = GameSettings.Current.Graphics.PartThumbnailSize;
+        GameSettings.Current.Graphics.PartThumbnailSize = (ushort)ThumbnailImageSize;
 
         // Create render infrastructure (kept alive across frames)
         Renderer renderer = Program.GetRenderer();
@@ -172,7 +184,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
             {
                 try
                 {
-                    RenderOneSubpart(_subparts[i], _root, _thumbRenderer, renderer, viewport, camera, ref _frameIndex);
+                    RenderOneSubpart(_subparts[i], _root, _thumbRenderer, renderer, viewport, camera, ref _frameIndex, ViewCount);
                 }
                 catch (Exception ex)
                 {
@@ -209,6 +221,9 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         _root = null;
         _thumbRenderer = null;
         _subparts = null;
+
+        // Restore original game thumbnail size setting
+        GameSettings.Current.Graphics.PartThumbnailSize = _savedThumbnailSize;
     }
 
     private static void RenderOneSubpart(
@@ -218,7 +233,8 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         Renderer renderer,
         Viewport viewport,
         Camera camera,
-        ref int frameIndex)
+        ref int frameIndex,
+        int viewCount)
     {
         // Build ThumbnailPart child for this subpart's mesh
         var syntheticInstance = new PartInstance { InstanceOf = subpart.Id };
@@ -235,12 +251,11 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
-        // Render 24 views at Z-axis rotations: 0° to 345° in 15° increments
-        int viewCount = 24;
+        // Render N views at evenly-spaced Z-axis rotations
         var views = new ThumbnailReference[viewCount];
         for (int v = 0; v < viewCount; v++)
         {
-            double roll = v * Math.PI / 12.0;
+            double roll = v * 2.0 * Math.PI / viewCount;
             root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, roll);
             views[v] = RenderViewToImage($"Thumb_V{v}_{subpart.Id}", subpart,
                 root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
