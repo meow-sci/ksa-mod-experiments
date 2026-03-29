@@ -295,19 +295,17 @@ public sealed class BlinkySubmod : ISubmod
             var capturedVehicle = vehicle;
             var capturedGrid = gs.BlinkyGrid;
 
-            bool enginesLikelyOn = gs.ActivePixels.Count > 0 || gs.Scroll.IsActive;
-            double destroyDelay = enginesLikelyOn ? 1.0 : 0;
-
+            // Always shut down grid and wait 2s before destroying to prevent stuck-on engine sounds.
             ScheduleDeferred(0, () =>
             {
-                Console.WriteLine($"blinky: destroy step 1 — shutting down engines for grid '{capturedGridName}'");
+                Console.WriteLine($"blinky: destroy step 1 — shutting down grid '{capturedGridName}'");
                 BlinkyGridManager.TurnOff(capturedVehicleId, capturedGridName);
             });
-            ScheduleDeferred(destroyDelay, () =>
+            ScheduleDeferred(2.0, () =>
             {
                 try
                 {
-                    Console.WriteLine($"blinky: destroy step 2 — removing parts (waited {destroyDelay:F1}s)");
+                    Console.WriteLine($"blinky: destroy step 2 — removing parts for grid '{capturedGridName}'");
                     LcdGridBuilder.DestroyGrid(capturedVehicle, capturedGrid);
                     BlinkyGridManager.Unregister(capturedVehicleId, capturedGridName);
                     _createMessage = $"Grid '{capturedGridName}' destroyed";
@@ -405,6 +403,7 @@ public sealed class BlinkySubmod : ISubmod
             {
                 BlinkyGridManager.Register(vehicle, gridName, grid);
                 SetCreateMessage($"Built grid '{gridName}': {grid.Grid.Cols}x{grid.Grid.Rows} ({grid.OwnedParts.Count} parts)", false);
+                _newGridName.Clear();
             }
             else
             {
@@ -438,6 +437,7 @@ public sealed class BlinkySubmod : ISubmod
                 var blinkyGrid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
                 BlinkyGridManager.Register(vehicle, gridName, blinkyGrid);
                 SetCreateMessage($"Scanned grid '{gridName}': {pixelGrid.Cols}x{pixelGrid.Rows} ({pixelGrid.Count} pixel pairs) [by ID]", false);
+                _newGridName.Clear();
                 return;
             }
 
@@ -448,6 +448,7 @@ public sealed class BlinkySubmod : ISubmod
             {
                 BlinkyGridManager.Register(vehicle, gridName, scannedGrid);
                 SetCreateMessage($"Scanned grid '{gridName}': {scannedGrid.Grid.Cols}x{scannedGrid.Grid.Rows} ({scannedGrid.Grid.Count} pixel pairs) [by template]", false);
+                _newGridName.Clear();
             }
             else
             {
