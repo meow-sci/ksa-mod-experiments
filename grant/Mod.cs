@@ -144,60 +144,43 @@ public class Mod
     {
         ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin("Grants Toolbox", ref _windowVisible))
+        if (ImGui.Begin("Grants Toolbox", ref _windowVisible, ImGuiWindowFlags.MenuBar))
         {
-            // Min/Max/Mods buttons — right-aligned
+            // Menu bar
+            if (ImGui.BeginMenuBar())
             {
-                var style = ImGui.GetStyle();
-                float pad = style.FramePadding.X * 2f;
-                float spacing = style.ItemSpacing.X;
-                float w1 = ImGui.CalcTextSize("min").X + pad;
-                float w2 = ImGui.CalcTextSize("max").X + pad;
-                float w3 = ImGui.CalcTextSize("mods").X + pad;
-                float totalW = w1 + w2 + w3 + spacing * 2f;
-                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - totalW);
-                if (ImGui.Button("min##grant_min"))
+                if (ImGui.BeginMenu("View"))
+                {
+                    ImGui.PushItemFlag(ImGuiItemFlags.AutoClosePopups, false);
+
+                    if (ImGui.MenuItem("Show All"))
+                        foreach (var s in _submods)
+                            _submodVisibility[s.Name] = true;
+                    if (ImGui.MenuItem("Hide All"))
+                        foreach (var s in _submods)
+                            _submodVisibility[s.Name] = false;
+                    ImGui.Separator();
+
+                    var sorted = new List<ISubmod>(_submods);
+                    sorted.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                    foreach (var s in sorted)
+                    {
+                        bool visible = _submodVisibility[s.Name];
+                        if (ImGui.MenuItem(s.Name, "", ref visible))
+                            _submodVisibility[s.Name] = visible;
+                    }
+
+                    ImGui.PopItemFlag();
+                    ImGui.EndMenu();
+                }
+
+                if (ImGui.MenuItem("Collapse"))
                     _collapseAll = true;
-                ImGui.SameLine();
-                if (ImGui.Button("max##grant_max"))
+                if (ImGui.MenuItem("Expand"))
                     _expandAll = true;
-                ImGui.SameLine();
-                if (ImGui.Button("mods##grant_mods"))
-                    ImGui.OpenPopup("##grant_context");
-            }
 
-            // Context menu popup
-            if (ImGui.BeginPopup("##grant_context"))
-            {
-                // Header row: label left, buttons right
-                ImGui.TextDisabled("Submod Visibility");
-                ImGui.SameLine();
-                {
-                    var style = ImGui.GetStyle();
-                    float pad = style.FramePadding.X * 2f;
-                    float spacing = style.ItemSpacing.X;
-                    float wOn = ImGui.CalcTextSize("all on").X + pad;
-                    float wOff = ImGui.CalcTextSize("all off").X + pad;
-                    ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - wOn - spacing - wOff);
-                    if (ImGui.SmallButton("all on##grant_vis_on"))
-                        foreach (var submod in _submods)
-                            _submodVisibility[submod.Name] = true;
-                    ImGui.SameLine();
-                    if (ImGui.SmallButton("all off##grant_vis_off"))
-                        foreach (var submod in _submods)
-                            _submodVisibility[submod.Name] = false;
-                }
-                ImGui.Separator();
-                foreach (var submod in _submods)
-                {
-                    bool visible = _submodVisibility[submod.Name];
-                    if (ImGui.Checkbox(submod.Name, ref visible))
-                        _submodVisibility[submod.Name] = visible;
-                }
-                ImGui.EndPopup();
+                ImGui.EndMenuBar();
             }
-
-            ImGui.Separator();
 
             // Render visible submods
             foreach (var submod in _submods)
