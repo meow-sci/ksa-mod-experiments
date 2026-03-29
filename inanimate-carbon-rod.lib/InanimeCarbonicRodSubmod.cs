@@ -14,7 +14,10 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     public void Initialize() { }
 
-    public void Update(double dt) { }
+    public void Update(double dt)
+    {
+        _generator.Update();
+    }
 
     public void RenderContent()
     {
@@ -41,13 +44,6 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         };
 
         ImGui.TextColored(statusColor, statusText);
-
-        // Warning about frame freeze
-        if (_generator.State == GenerationState.Idle)
-        {
-            ImGui.TextColored(new float4(1f, 0.6f, 0.2f, 1f),
-                "Warning: Generation will briefly freeze the game while GPU work completes.");
-        }
 
         ImGui.Spacing();
 
@@ -132,7 +128,6 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     public void Dispose()
     {
-        // ThumbnailReference GPU resources are owned by PartTemplate.Thumbnail
-        // SubpartThumbnailCache is static and lives for the process lifetime
+        _generator.Dispose();
     }
 }

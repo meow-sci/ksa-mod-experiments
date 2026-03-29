@@ -16,17 +16,26 @@ namespace MeowSci.InanimateCarbonRodLib;
 
 public enum GenerationState { Idle, Generating, Done, Failed }
 
-public sealed class SubpartThumbnailGenerator
+public sealed class SubpartThumbnailGenerator : IDisposable
 {
+    /// <summary>Number of thumbnails to render per game frame.</summary>
+    private const int BatchSize = 1;
+
     public GenerationState State { get; private set; } = GenerationState.Idle;
     public int ProgressCurrent { get; private set; }
     public int ProgressTotal { get; private set; }
     public string? LastError { get; private set; }
 
+    // Active generation state (non-null only while State == Generating)
+    private List<PartTemplate>? _subparts;
+    private int _currentIndex;
+    private ThumbnailPart? _root;
+    private ThumbnailRenderer? _thumbRenderer;
+    private int _frameIndex;
+
     /// <summary>
-    /// Synchronously generates thumbnails for all subparts that don't have one yet.
-    /// Must be called from the main game thread (e.g., from ImGui callback).
-    /// Briefly stalls the frame while GPU work completes.
+    /// Starts the generation process. Actual rendering happens in Update(),
+    /// one small batch per game frame, to avoid overwhelming the GPU.
     /// </summary>
     public void GenerateAll()
     {
@@ -41,20 +50,37 @@ public sealed class SubpartThumbnailGenerator
             return;
         }
 
-        State = GenerationState.Generating;
-        LastError = null;
-
         try
         {
-            RunGenerationPass();
-            State = GenerationState.Done;
-            Console.WriteLine($"inanimate-carbon-rod: Generated {SubpartThumbnailCache.All.Count} subpart thumbnails.");
+            BeginGeneration();
         }
         catch (Exception ex)
         {
             LastError = ex.Message;
             State = GenerationState.Failed;
-            Console.WriteLine($"inanimate-carbon-rod: GenerateAll failed — {ex}");
+            Console.WriteLine($"inanimate-carbon-rod: BeginGeneration failed - {ex}");
+            CleanupGenerationResources();
+        }
+    }
+
+    /// <summary>
+    /// Must be called every frame. Renders the next batch of thumbnails
+    /// if generation is in progress.
+    /// </summary>
+    public void Update()
+    {
+        if (State != GenerationState.Generating) return;
+
+        try
+        {
+            StepGeneration();
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            State = GenerationState.Failed;
+            Console.WriteLine($"inanimate-carbon-rod: StepGeneration failed - {ex}");
+            CleanupGenerationResources();
         }
     }
 
@@ -70,32 +96,59 @@ public sealed class SubpartThumbnailGenerator
         LastError = null;
     }
 
-    private void RunGenerationPass()
+    public void Dispose()
     {
-        // Collect candidates: subparts without thumbnails
-        // ModLibrary.AllParts is internal — access via reflection
+        CleanupGenerationResources();
+    }
+
+    private void BeginGeneration()
+    {
         List<PartTemplate> allParts = GetAllParts();
-        List<PartTemplate> subparts = allParts
+        _subparts = allParts
             .Where(p => p.IsSubPart && !p.IsHidden && p.Thumbnail == null)
             .ToList();
 
+        _currentIndex = 0;
         ProgressCurrent = 0;
-        ProgressTotal = subparts.Count;
+        ProgressTotal = _subparts.Count;
 
-        if (subparts.Count == 0)
+        if (_subparts.Count == 0)
         {
             Console.WriteLine("inanimate-carbon-rod: No subparts need thumbnail generation.");
+            State = GenerationState.Done;
             return;
         }
 
-        Console.WriteLine($"inanimate-carbon-rod: Generating thumbnails for {subparts.Count} subparts...");
+        Console.WriteLine($"inanimate-carbon-rod: Generating thumbnails for {_subparts.Count} subparts...");
 
-        // Get rendering infrastructure (mirrors ThumbnailCreator.PreparePartThumbnails)
+        // Create render infrastructure (kept alive across frames)
+        Renderer renderer = Program.GetRenderer();
+        _thumbRenderer = new ThumbnailRenderer(renderer);
+
+        Viewport viewport = Program.RenderedViewport;
+        Camera camera = viewport.GetCamera();
+        _root = new ThumbnailPart(camera);
+        _frameIndex = 0;
+
+        State = GenerationState.Generating;
+        LastError = null;
+    }
+
+    /// <summary>
+    /// Renders the next batch of thumbnails. Called once per frame.
+    /// Saves/restores camera and viewport state around the thumbnail work
+    /// so the game's normal rendering is not affected between frames.
+    /// </summary>
+    private void StepGeneration()
+    {
+        if (_subparts == null || _root == null || _thumbRenderer == null)
+            return;
+
         Renderer renderer = Program.GetRenderer();
         Viewport viewport = Program.RenderedViewport;
         Camera camera = viewport.GetCamera();
 
-        // Save camera/viewport state to restore after
+        // Save camera/viewport state (changes each frame from gameplay)
         int2 savedFramebufferSize = camera.FramebufferSize;
         int2 savedViewportSize = viewport.Size;
         IFollowable? savedFollowing = camera.Following;
@@ -110,41 +163,52 @@ public sealed class SubpartThumbnailGenerator
         camera.LocalScale = double3.One;
         camera.OnFrame(1.0 / 60.0);
 
-        // Create render infrastructure
-        ThumbnailPart root = new ThumbnailPart(camera);
-        using ThumbnailRenderer thumbRenderer = new ThumbnailRenderer(renderer);
-        PartModelRenderer.ColorData.BeginThumbnailPass(thumbRenderer.RenderPass, thumbRenderer.SampleCount);
-
-        int frameIndex = 0;
+        PartModelRenderer.ColorData.BeginThumbnailPass(_thumbRenderer.RenderPass, _thumbRenderer.SampleCount);
 
         try
         {
-            for (int i = 0; i < subparts.Count; i++)
+            int batchEnd = Math.Min(_currentIndex + BatchSize, _subparts.Count);
+            for (int i = _currentIndex; i < batchEnd; i++)
             {
                 try
                 {
-                    RenderOneSubpart(subparts[i], root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
+                    RenderOneSubpart(_subparts[i], _root, _thumbRenderer, renderer, viewport, camera, ref _frameIndex);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"inanimate-carbon-rod: Failed to render thumbnail for {subparts[i].Id}: {ex.Message}");
+                    Console.WriteLine($"inanimate-carbon-rod: Failed to render thumbnail for {_subparts[i].Id}: {ex.Message}");
                 }
                 ProgressCurrent = i + 1;
             }
+            _currentIndex = batchEnd;
         }
         finally
         {
-            // Always clean up
             PartModelRenderer.ColorData.EndThumbnailPass();
-            root.Dispose();
 
-            // Restore camera/viewport state
+            // Restore camera/viewport for normal game rendering
             camera.Resize(savedFramebufferSize);
             viewport.Size = savedViewportSize;
             if (savedFollowing != null)
                 camera.SetFollow(savedFollowing, tidalLocking: false);
             camera.OnFrame(1.0 / 60.0);
         }
+
+        if (_currentIndex >= _subparts.Count)
+        {
+            Console.WriteLine($"inanimate-carbon-rod: Generated {SubpartThumbnailCache.All.Count} subpart thumbnails.");
+            CleanupGenerationResources();
+            State = GenerationState.Done;
+        }
+    }
+
+    private void CleanupGenerationResources()
+    {
+        _root?.Dispose();
+        _thumbRenderer?.Dispose();
+        _root = null;
+        _thumbRenderer = null;
+        _subparts = null;
     }
 
     private static void RenderOneSubpart(
