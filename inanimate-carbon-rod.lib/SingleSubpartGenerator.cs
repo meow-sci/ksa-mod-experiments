@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using Brutal;
 using Brutal.Numerics;
 using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
@@ -25,14 +27,15 @@ public sealed class SingleSubpartGenerator : IDisposable
     public int ViewCount { get; set; } = 32;
     public int ThumbnailImageSize { get; set; } = 512;
 
-    /// <summary>Generated thumbnail entry. Only valid when State == Done.</summary>
-    public SubpartThumbnailEntry? Result { get; private set; }
+    /// <summary>Generated CPU-backed thumbnail data. Only valid when State == Done.</summary>
+    public CpuThumbnailData? Result { get; private set; }
 
     private PartTemplate? _subpart;
     private ThumbnailPart? _root;
     private ThumbnailRenderer? _thumbRenderer;
     private int _frameIndex;
     private ushort _savedThumbnailSize;
+    private BufferEx? _stagingBuffer;
 
     public void Generate(string subpartId)
     {
@@ -86,26 +89,16 @@ public sealed class SingleSubpartGenerator : IDisposable
     /// <summary>Destroys any generated result and resets to Idle.</summary>
     public void DestroyResult()
     {
-        if (Result != null)
-        {
-            Program.GetRenderer().Device.WaitIdle();
-            foreach (var view in Result.Views)
-            {
-                view?.DestroyImGuiThumbnail();
-                view?.Dispose();
-            }
-            Result = null;
-        }
+        Result = null;
         State = GenerationState.Idle;
         LastError = null;
     }
 
     /// <summary>
-    /// Detaches the generated result without disposing it. The caller takes
-    /// ownership of the returned entry and is responsible for disposal.
+    /// Detaches the generated result. The caller takes ownership.
     /// Resets state to Idle.
     /// </summary>
-    public SubpartThumbnailEntry? DetachResult()
+    public CpuThumbnailData? DetachResult()
     {
         var entry = Result;
         Result = null;
@@ -127,6 +120,16 @@ public sealed class SingleSubpartGenerator : IDisposable
 
         Renderer renderer = Program.GetRenderer();
         _thumbRenderer = new ThumbnailRenderer(renderer);
+
+        // Create host-visible staging buffer for GPU → CPU readback
+        int stagingSize = ThumbnailImageSize * ThumbnailImageSize * 4;
+        _stagingBuffer = renderer.Device.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "ICR_HiResReadbackStaging",
+            BufferUsage = VkBufferUsageFlags.TransferDstBit,
+            BufferSize = ByteSize.Of<byte>((ElementCount)stagingSize),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit
+        });
 
         Viewport viewport = Program.RenderedViewport;
         Camera camera = viewport.GetCamera();
@@ -163,7 +166,8 @@ public sealed class SingleSubpartGenerator : IDisposable
         try
         {
             Result = RenderSubpartViews(_subpart, _root, _thumbRenderer,
-                renderer, viewport, camera, ref _frameIndex, ViewCount);
+                renderer, viewport, camera, ref _frameIndex, ViewCount,
+                _stagingBuffer!.Value);
         }
         finally
         {
@@ -186,10 +190,14 @@ public sealed class SingleSubpartGenerator : IDisposable
         _thumbRenderer?.Dispose();
         _root = null;
         _thumbRenderer = null;
+
+        _stagingBuffer?.Dispose();
+        _stagingBuffer = null;
+
         GameSettings.Current.Graphics.PartThumbnailSize = _savedThumbnailSize;
     }
 
-    private static SubpartThumbnailEntry RenderSubpartViews(
+    private static CpuThumbnailData RenderSubpartViews(
         PartTemplate subpart,
         ThumbnailPart root,
         ThumbnailRenderer thumbRenderer,
@@ -197,13 +205,14 @@ public sealed class SingleSubpartGenerator : IDisposable
         Viewport viewport,
         Camera camera,
         ref int frameIndex,
-        int viewCount)
+        int viewCount,
+        BufferEx stagingBuffer)
     {
         var syntheticInstance = new PartInstance { InstanceOf = subpart.Id };
         var child = new ThumbnailPart(root, syntheticInstance);
 
         if (child.Model == null && child.ModelDynamic == null)
-            return new SubpartThumbnailEntry(Array.Empty<ThumbnailReference>());
+            return new CpuThumbnailData(Array.Empty<byte[]>(), ThumbnailRenderer.SIZE);
 
         root.AddChild(child);
 
@@ -212,13 +221,15 @@ public sealed class SingleSubpartGenerator : IDisposable
         root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
-        var views = new ThumbnailReference[viewCount];
+        int imageSize = ThumbnailRenderer.SIZE;
+        var cpuViews = new byte[viewCount][];
         for (int v = 0; v < viewCount; v++)
         {
             double roll = v * 2.0 * Math.PI / viewCount;
             root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, roll);
-            views[v] = RenderViewToImage($"HiRes_V{v}_{subpart.Id}", subpart,
-                root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
+            cpuViews[v] = RenderViewToImage($"HiRes_V{v}_{subpart.Id}", subpart,
+                root, thumbRenderer, renderer, viewport, camera, ref frameIndex,
+                stagingBuffer);
         }
 
         root.ClearAndDisposeChildren();
@@ -227,10 +238,10 @@ public sealed class SingleSubpartGenerator : IDisposable
         root.LocalScale = Double3Ex.One;
         Program.LightSystem.ClearLights();
 
-        return new SubpartThumbnailEntry(views);
+        return new CpuThumbnailData(cpuViews, imageSize);
     }
 
-    private static ThumbnailReference RenderViewToImage(
+    private static byte[] RenderViewToImage(
         string imageName,
         PartTemplate subpart,
         ThumbnailPart root,
@@ -238,12 +249,13 @@ public sealed class SingleSubpartGenerator : IDisposable
         Renderer renderer,
         Viewport viewport,
         Camera camera,
-        ref int frameIndex)
+        ref int frameIndex,
+        BufferEx stagingBuffer)
     {
         int size = ThumbnailRenderer.SIZE;
         int mipLevels = 1;
 
-        // Allocate GPU image (R8G8B8A8UNorm, single mip — ~62.5% VRAM savings vs HDR + full mip chain)
+        // Allocate temporary GPU image for rendering + readback
         var thumb = new ThumbnailReference();
         thumb.CreateImageView(
             renderer.Device,
@@ -261,6 +273,7 @@ public sealed class SingleSubpartGenerator : IDisposable
                     Depth = 1
                 },
                 ImageUsage = VkImageUsageFlags.TransferDstBit
+                           | VkImageUsageFlags.TransferSrcBit
                            | VkImageUsageFlags.SampledBit,
                 ImageFormat = VkFormat.R8G8B8A8UNorm,
                 ImageMipLevels = mipLevels,
@@ -293,7 +306,8 @@ public sealed class SingleSubpartGenerator : IDisposable
                 Program.LightSystem,
                 Program.PlanetAtmosphereRenderer),
             new PassThumbnailCommand(viewport, frameIndex),
-            new LdrPostPassCommand(thumbRenderer, subpart, Program.PlanetAtmosphereRenderer),
+            new ReadbackPostPassCommand(thumbRenderer, subpart, Program.PlanetAtmosphereRenderer,
+                stagingBuffer.VkBuffer, size),
             subpart.Id,
             out VkFence fence);
 
@@ -310,7 +324,19 @@ public sealed class SingleSubpartGenerator : IDisposable
         frameIndex = (frameIndex + 1) % 2;
 
         subpart.Thumbnail = savedThumb;
-        return thumb;
+
+        // Read pixel data from staging buffer
+        int byteCount = size * size * 4;
+        byte[] pixels = new byte[byteCount];
+        using (MappedMemory mapped = stagingBuffer.Map())
+        {
+            mapped.AsSpan<byte>().Slice(0, byteCount).CopyTo(pixels);
+        }
+
+        // Dispose temporary GPU image
+        thumb.Dispose();
+
+        return pixels;
     }
 
     private static PartTemplate? FindSubpart(string id)

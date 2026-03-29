@@ -1,6 +1,6 @@
 # Inanimate Carbon Rod — Subpart Thumbnail Generator
 
-Generates runtime GPU thumbnails for KSA subpart `PartTemplate` objects (those with `IsSubPart == true`) which the game skips by default during thumbnail generation. Thumbnails are displayed in a scrollable grid and stored in a static cache accessible by other mods.
+Generates runtime GPU thumbnails for KSA subpart `PartTemplate` objects (those with `IsSubPart == true`) which the game skips by default during thumbnail generation. Thumbnails are rendered to CPU-backed pixel arrays and uploaded to GPU on demand via a fixed-capacity LRU pool, keeping VRAM usage bounded regardless of total subpart count.
 
 ## Overview
 
@@ -10,11 +10,12 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 
 - **On-demand generation** — triggered by a button click, not at startup
 - **Mirrors game rendering** — uses the same `ThumbnailRenderer`, `ThumbnailPart`, camera positioning, and fence synchronization as `ThumbnailCreator`
+- **CPU-backed storage** — thumbnails rendered to GPU, read back to CPU byte arrays via staging buffers, stored in `CpuThumbnailCache`
+- **LRU GPU pool** — `GpuThumbnailPool` uploads CPU pixel data to a fixed number of reusable GPU images on demand, evicting least-recently-used entries at capacity
 - **Scrollable thumbnail grid** — 64x64 thumbnails with subpart ID tooltips
 - **Progress display** — progress bar and status during generation
-- **Static cache** — `SubpartThumbnailCache` allows other mods to access generated thumbnails
 - **No Harmony patches** — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
-- **VRAM optimized** — thumbnails stored as R8G8B8A8UNorm (4 bytes/pixel) with no mip chain, ~62.5% VRAM savings vs game default HDR format with full mips
+- **VRAM optimized** — bounded GPU memory via LRU pool (256 grid slots + 64 viewer slots); all pixel data stored as R8G8B8A8UNorm (4 bytes/pixel) with no mip chain
 - **Grant supermod integration** — appears as a collapsible section in the grant window
 
 ## Usage
@@ -40,30 +41,42 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 
 | File | Purpose |
 |------|---------|
-| `SubpartThumbnailCache.cs` | Static `Dictionary<string, ThumbnailReference>` cache |
-| `SubpartThumbnailGenerator.cs` | On-demand Vulkan rendering loop mirroring `ThumbnailCreator` |
-| `SingleSubpartGenerator.cs` | Hi-res single-subpart multi-view generator |
-| `SubpartViewerWindow.cs` | Single-subpart detail viewer with animation |
-| `LdrPostPassCommand.cs` | Post-pass blit command: HDR→LDR format conversion (R16G16B16A16SFloat → R8G8B8A8UNorm) |
+| `CpuThumbnailData.cs` | CPU-side pixel data holder (byte[][] views + size) for a single subpart |
+| `CpuThumbnailCache.cs` | Static dictionary of `CpuThumbnailData` keyed by `PartTemplate.Id` |
+| `GpuThumbnailPool.cs` | Fixed-capacity LRU pool of reusable GPU images; uploads CPU pixels on demand |
+| `SubpartThumbnailGenerator.cs` | Bulk renderer: generates CPU-backed thumbnails for all subparts |
+| `SingleSubpartGenerator.cs` | Hi-res single-subpart multi-view generator (CPU-backed) |
+| `SubpartViewerWindow.cs` | Single-subpart detail viewer with animation and own GPU pool |
+| `ReadbackPostPassCommand.cs` | Post-pass command: HDR→LDR blit + CopyImageToBuffer for CPU readback |
+| `LdrPostPassCommand.cs` | Legacy post-pass blit command (HDR→LDR only, no readback) |
+| `SubpartThumbnailCache.cs` | Legacy GPU-only cache (kept for backward compatibility) |
 | `InanimeCarbonicRodSubmod.cs` | `ISubmod` implementation with full ImGui UI |
 
 ## Technical Details
 
-### Rendering Flow
+### Rendering Flow (CPU-Backed with LRU GPU Pool)
 
-1. Collects all `PartTemplate` where `IsSubPart && !IsHidden && Thumbnail == null`
-2. Saves camera/viewport state
-3. Configures camera for thumbnail-size rendering
-4. Creates `ThumbnailRenderer` (own Vulkan framebuffer)
-5. For each subpart:
-   - Allocates GPU image (`ThumbnailReference.CreateImageView`) in R8G8B8A8UNorm format, single mip level
-   - Creates synthetic `PartInstance` pointing to the subpart template
-   - Builds `ThumbnailPart` child from the synthetic instance
-   - Positions camera using bounding sphere calculation
-   - Drives render: `UpdateShaderData` → `UpdateRenderData` → `RenderThumbnail`
-   - `LdrPostPassCommand` blits HDR render result into LDR destination via `VkCmdBlitImage`
-   - Waits for GPU fence, resets frame state
-6. Restores camera/viewport state
+1. **Generation phase** (runs in background, one batch per frame):
+   - Collects all `PartTemplate` where `IsSubPart && !IsHidden && Thumbnail == null`
+   - Creates a host-visible staging buffer for GPU→CPU readback
+   - For each subpart, renders N rotation views:
+     - Allocates temporary GPU image (TransferDst + TransferSrc + Sampled)
+     - Drives render via `ThumbnailRenderer.RenderThumbnail`
+     - `ReadbackPostPassCommand` blits HDR→LDR and copies result to staging buffer
+     - After fence wait, maps staging buffer and copies pixels to a `byte[]`
+     - Disposes temporary GPU image immediately (frees VRAM)
+   - Stores `CpuThumbnailData` (array of byte[] views) in `CpuThumbnailCache`
+
+2. **Display phase** (every frame, in ImGui):
+   - Iterates visible thumbnails in the scrollable grid
+   - For each visible thumbnail, checks `GpuThumbnailPool.TryGet(key)`
+   - On cache miss, calls `GpuThumbnailPool.Upload(key, pixels)` which:
+     - Acquires a pool slot (free list → new allocation → LRU eviction)
+     - `Marshal.Copy` pixels to persistent staging buffer
+     - Records and submits Vulkan commands: transition → CopyBufferToImage → transition
+     - Waits on fence for synchronous upload
+     - Registers ImGui texture handle
+   - Renders the thumbnail via `ImGui.Image()`
 
 ### API Notes
 

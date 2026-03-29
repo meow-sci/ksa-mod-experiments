@@ -3,7 +3,9 @@ using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
+using Core;
 using KSA;
+using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
 
 namespace MeowSci.InanimateCarbonRodLib;
@@ -19,16 +21,20 @@ public sealed class SubpartViewerWindow
     private bool _open;
 
     // Default data from the main cache (not owned, never disposed by viewer)
-    private SubpartThumbnailEntry? _defaultEntry;
+    private CpuThumbnailData? _defaultData;
     private int _defaultImageSize;
 
     // Hi-res generation
     private readonly SingleSubpartGenerator _hiResGen = new();
-    private SubpartThumbnailEntry? _pendingDispose;
+    private CpuThumbnailData? _hiResData;
     private int _hiResViewCount = 32;
     private int _hiResSizeIndex = 1; // default 512
     private static readonly int[] HiResSizes = { 256, 512, 1024, 1600, 2048 };
     private static readonly string[] HiResSizeLabels = { "256", "512", "1024", "1600", "2048" };
+
+    // GPU pool for display (viewer has its own pool, separate from grid)
+    private GpuThumbnailPool? _viewerPool;
+    private static readonly int ViewerPoolMaxSlots = 64;
 
     // Viewer tab state
     private bool _playing = true;
@@ -42,69 +48,66 @@ public sealed class SubpartViewerWindow
 
     public bool IsOpen => _open;
 
-    private SubpartThumbnailEntry ActiveEntry =>
-        (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
-            ? _hiResGen.Result
-            : _defaultEntry!;
+    private CpuThumbnailData ActiveData =>
+        _hiResData ?? _defaultData!;
 
     private int ActiveImageSize =>
-        (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
-            ? _hiResGen.ThumbnailImageSize
-            : _defaultImageSize;
+        _hiResData != null ? _hiResGen.ThumbnailImageSize : _defaultImageSize;
 
-    public void Open(string name, SubpartThumbnailEntry entry, int imageSize)
+    public void Open(string name, CpuThumbnailData data, int imageSize)
     {
         if (_open) DisposeHiRes();
 
         _subpartName = name;
-        _defaultEntry = entry;
+        _defaultData = data;
         _defaultImageSize = imageSize;
         _open = true;
         _playing = true;
         _frameIndex = 0;
         _animTimer = 0;
+
+        // Viewer pool will be created lazily in EnsureViewerPool
     }
 
     public void Close()
     {
         DisposeHiRes();
+        _viewerPool?.Dispose();
+        _viewerPool = null;
         _open = false;
-        _defaultEntry = null;
+        _defaultData = null;
     }
 
     public void Dispose()
     {
         Close();
-        DisposePending();
         _hiResGen.Dispose();
     }
 
     private void DisposeHiRes()
     {
-        _pendingDispose = _hiResGen.DetachResult();
-    }
-
-    private void DisposePending()
-    {
-        if (_pendingDispose == null) return;
-        Program.GetRenderer().Device.WaitIdle();
-        foreach (var view in _pendingDispose.Views)
-        {
-            view?.DestroyImGuiThumbnail();
-            view?.Dispose();
-        }
-        _pendingDispose = null;
+        _hiResGen.DestroyResult();
+        _hiResData = null;
+        // Evict viewer pool since hi-res data changed
+        _viewerPool?.EvictAll();
     }
 
     public void Update(double dt)
     {
-        DisposePending();
-
-        if (!_open || _defaultEntry == null) return;
+        if (!_open || _defaultData == null) return;
 
         _hiResGen.Update();
 
-        var active = ActiveEntry;
+        // Capture hi-res result when generation completes
+        if (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null && _hiResData == null)
+        {
+            _hiResData = _hiResGen.DetachResult();
+            // Recreate viewer pool at hi-res resolution
+            _viewerPool?.Dispose();
+            _viewerPool = null;
+        }
+
+        var active = ActiveData;
         if (_playing && active.Views.Length > 0)
         {
             _animTimer += dt;
@@ -114,7 +117,7 @@ public sealed class SubpartViewerWindow
 
     public void Render()
     {
-        if (!_open || _defaultEntry == null) return;
+        if (!_open || _defaultData == null) return;
 
         ImGui.SetNextWindowSize(new float2(460, 560), ImGuiCond.FirstUseEver);
         bool open = _open;
@@ -137,7 +140,11 @@ public sealed class SubpartViewerWindow
 
     private void RenderContent()
     {
-        var activeEntry = ActiveEntry;
+        var activeData = ActiveData;
+
+        // Ensure GPU pool exists at the right resolution
+        EnsureViewerPool(activeData.Size);
+        if (_viewerPool == null) return;
 
         // Header: Copy Name button + part name with pixel size
         if (ImGui.Button(" Copy Name ##icr_v"))
@@ -153,12 +160,12 @@ public sealed class SubpartViewerWindow
         {
             if (ImGui.BeginTabItem("Viewer"))
             {
-                RenderViewerTab(activeEntry);
+                RenderViewerTab(activeData);
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Images"))
             {
-                RenderImagesTab(activeEntry);
+                RenderImagesTab(activeData);
                 ImGui.EndTabItem();
             }
             ImGui.EndTabBar();
@@ -262,9 +269,9 @@ public sealed class SubpartViewerWindow
             ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Error: {_hiResGen.LastError}");
     }
 
-    private void RenderViewerTab(SubpartThumbnailEntry entry)
+    private void RenderViewerTab(CpuThumbnailData data)
     {
-        int viewCount = entry.Views.Length;
+        int viewCount = data.Views.Length;
         if (viewCount == 0)
         {
             ImGui.TextDisabled("No views available.");
@@ -324,21 +331,21 @@ public sealed class SubpartViewerWindow
 
         // Display the current frame, centered
         int idx = Math.Clamp(_frameIndex, 0, viewCount - 1);
-        var view = entry.Views[idx];
-        if (view != null)
+        if (_viewerPool != null && idx < data.Views.Length)
         {
-            view.CreateImGuiThumbnail(Program.LinearClampedSampler);
+            string key = $"viewer:{idx}";
+            var gpuRef = _viewerPool.TryGet(key) ?? _viewerPool.Upload(key, data.Views[idx]);
             float size = (float)_displaySize;
             float regionW = ImGui.GetContentRegionAvail().X;
             if (size < regionW)
                 ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (regionW - size) * 0.5f);
-            ImGui.Image(view.ImGuiImageRef, new float2(size));
+            ImGui.Image(gpuRef.ImGuiImageRef, new float2(size));
         }
     }
 
-    private void RenderImagesTab(SubpartThumbnailEntry entry)
+    private void RenderImagesTab(CpuThumbnailData data)
     {
-        int viewCount = entry.Views.Length;
+        int viewCount = data.Views.Length;
         if (viewCount == 0)
         {
             ImGui.TextDisabled("No views available.");
@@ -362,21 +369,37 @@ public sealed class SubpartViewerWindow
         ImGui.BeginChild("##icr_img_scroll", new float2(0, remainingH),
             ImGuiChildFlags.Borders);
 
-        float availW = ImGui.GetContentRegionAvail().X;
-
-        for (int i = 0; i < viewCount; i++)
+        if (_viewerPool != null)
         {
-            var view = entry.Views[i];
-            if (view == null) continue;
+            float availW = ImGui.GetContentRegionAvail().X;
 
-            view.CreateImGuiThumbnail(Program.LinearClampedSampler);
-            ImGui.Image(view.ImGuiImageRef, new float2(thumbSize));
+            for (int i = 0; i < viewCount; i++)
+            {
+                if (i >= data.Views.Length) continue;
 
-            float nextX = ImGui.GetItemRectMax().X + spacing + thumbSize;
-            if (i + 1 < viewCount && nextX <= availW + ImGui.GetWindowPos().X)
-                ImGui.SameLine();
+                string key = $"img:{i}";
+                var gpuRef = _viewerPool.TryGet(key) ?? _viewerPool.Upload(key, data.Views[i]);
+                ImGui.Image(gpuRef.ImGuiImageRef, new float2(thumbSize));
+
+                float nextX = ImGui.GetItemRectMax().X + spacing + thumbSize;
+                if (i + 1 < viewCount && nextX <= availW + ImGui.GetWindowPos().X)
+                    ImGui.SameLine();
+            }
         }
 
         ImGui.EndChild();
+    }
+
+    private void EnsureViewerPool(int imageSize)
+    {
+        if (_viewerPool != null && _viewerPool.ImageSize == imageSize)
+            return;
+
+        _viewerPool?.Dispose();
+
+        Renderer renderer = Program.GetRenderer();
+        _viewerPool = new GpuThumbnailPool(
+            renderer.Device, renderer, imageSize, ViewerPoolMaxSlots,
+            Program.LinearClampedSampler);
     }
 }

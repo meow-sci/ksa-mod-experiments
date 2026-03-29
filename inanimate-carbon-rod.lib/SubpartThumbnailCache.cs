@@ -12,6 +12,7 @@ namespace MeowSci.InanimateCarbonRodLib;
 
 /// <summary>
 /// Z-axis rotation views for a single subpart (count varies by generation settings).
+/// Retained for backward compatibility. New code should use <see cref="CpuThumbnailData"/>.
 /// </summary>
 public sealed class SubpartThumbnailEntry
 {
@@ -24,37 +25,31 @@ public sealed class SubpartThumbnailEntry
 }
 
 /// <summary>
-/// Static cache of generated subpart thumbnail pairs, keyed by PartTemplate.Id.
-/// Populated by SubpartThumbnailGenerator.GenerateAll().
+/// Legacy static cache of GPU-backed subpart thumbnails.
+/// With the CPU-backed rendering pipeline, this cache is no longer populated during
+/// normal generation. It exists for backward compatibility with any external consumers.
+/// New code should use <see cref="CpuThumbnailCache"/> instead.
 /// </summary>
 public static class SubpartThumbnailCache
 {
     private static readonly Dictionary<string, SubpartThumbnailEntry> _thumbnails = new();
 
-    /// <summary>All generated thumbnail entries. Do not mutate.</summary>
     public static IReadOnlyDictionary<string, SubpartThumbnailEntry> All => _thumbnails;
 
-    /// <summary>Returns the thumbnail entry for a subpart ID, or null if not yet generated.</summary>
     public static SubpartThumbnailEntry? Get(string subpartId)
         => _thumbnails.GetValueOrDefault(subpartId);
 
-    /// <summary>Returns true if any thumbnails have been generated.</summary>
     public static bool HasAny => _thumbnails.Count > 0;
 
     internal static void Store(string id, SubpartThumbnailEntry entry)
         => _thumbnails[id] = entry;
 
-    /// <summary>
-    /// Disposes all GPU resources, clears subpart.Thumbnail references, and empties the cache.
-    /// </summary>
     internal static void DestroyAll()
     {
         if (_thumbnails.Count == 0) return;
 
-        // Wait for all GPU work to finish before destroying Vulkan resources
         Program.GetRenderer().Device.WaitIdle();
 
-        // Clear the subpart.Thumbnail references we set during generation
         List<PartTemplate> allParts = GetAllParts();
         foreach (var kvp in _thumbnails)
         {

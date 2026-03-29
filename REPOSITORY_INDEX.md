@@ -196,15 +196,15 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 ## Rendering & Thumbnails
 
 ### [inanimate-carbon-rod](inanimate-carbon-rod) / [inanimate-carbon-rod.lib](inanimate-carbon-rod.lib)
-On-demand subpart thumbnail generator. The game skips thumbnail generation for subparts (`IsSubPart == true`) during startup — this mod generates them at runtime via the same Vulkan rendering pipeline, triggered by a button click in the UI.
+On-demand subpart thumbnail generator. The game skips thumbnail generation for subparts (`IsSubPart == true`) during startup — this mod generates them at runtime via the same Vulkan rendering pipeline, triggered by a button click in the UI. Thumbnails are rendered to CPU-backed byte arrays and uploaded to a fixed-capacity LRU GPU pool on demand, keeping VRAM bounded.
 - F10 window toggle (standalone mode)
 - One-click "Generate Subpart Thumbnails" button
 - Mirrors game's `ThumbnailCreator` Vulkan rendering loop exactly
 - Saves/restores camera and viewport state after generation
 - Scrollable thumbnail grid (64x64 images) with subpart ID tooltips
 - Progress bar and status display during generation
-- Static cache (`SubpartThumbnailCache`) for cross-mod access to generated thumbnails
-- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (on-demand Vulkan rendering), `SubpartThumbnailCache` (static thumbnail storage), `LdrPostPassCommand` (HDR→LDR blit for VRAM optimization), `InanimeCarbonicRodSubmod` (ISubmod — full UI)
+- CPU-backed pixel storage (`CpuThumbnailCache`) with LRU GPU upload pool (`GpuThumbnailPool`)
+- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (bulk render + readback), `SingleSubpartGenerator` (hi-res viewer), `CpuThumbnailCache`/`CpuThumbnailData` (CPU pixel storage), `GpuThumbnailPool` (LRU GPU image pool), `ReadbackPostPassCommand` (HDR→LDR blit + GPU→CPU copy), `SubpartViewerWindow` (detail viewer), `InanimeCarbonicRodSubmod` (ISubmod — full UI)
 - No Harmony patches required — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
 
 ---

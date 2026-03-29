@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
+using Brutal.VulkanApi;
+using Core;
 using KSA;
+using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
 using MeowSci.KsaAbstractions;
 
@@ -31,10 +34,12 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     // Indices into the view array for the 4 static cardinal views (0°, 90°, 180°, 270°)
     private static readonly int[] CardinalIndices = { 0, 6, 12, 18 };
 
-    // Virtual rendering: track which entries currently have ImGui descriptors registered
-    private readonly HashSet<SubpartThumbnailEntry> _registeredEntries = new();
+    // GPU thumbnail pool for on-demand upload from CPU cache
+    private GpuThumbnailPool? _gpuPool;
+    private static readonly int GpuPoolMaxSlots = 256;
+
     // Filtered list rebuilt each frame to enable index-based virtual rendering
-    private readonly List<KeyValuePair<string, SubpartThumbnailEntry>> _filteredEntries = new();
+    private readonly List<KeyValuePair<string, CpuThumbnailData>> _filteredEntries = new();
 
     // Subpart detail viewer window
     private readonly SubpartViewerWindow _viewerWindow = new();
@@ -71,7 +76,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     {
         RenderGeneratorSection();
 
-        int subpartCount = SubpartThumbnailCache.HasAny ? SubpartThumbnailCache.All.Count : 0;
+        int subpartCount = CpuThumbnailCache.HasAny ? CpuThumbnailCache.All.Count : 0;
         ImGui.SeparatorText($"Subparts ({subpartCount})");
 
         RenderDisplaySettings();
@@ -149,7 +154,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
                 if (ImGui.Button(" Reset ##icr"))
                 {
                     _viewerWindow.Close();
-                    _registeredEntries.Clear();
+                    _gpuPool?.EvictAll();
                     _generator.Reset();
                 }
             }
@@ -178,7 +183,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
                 string statusText = _generator.State switch
                 {
                     GenerationState.Idle => "Ready to generate",
-                    GenerationState.Done => $"Done ({SubpartThumbnailCache.All.Count} subparts)",
+                    GenerationState.Done => $"Done ({CpuThumbnailCache.All.Count} subparts)",
                     GenerationState.Failed => $"Failed: {_generator.LastError}",
                     _ => ""
                 };
@@ -250,18 +255,22 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     private void RenderThumbnailGrid()
     {
-        if (!SubpartThumbnailCache.HasAny)
+        if (!CpuThumbnailCache.HasAny)
         {
             ImGui.TextDisabled("No subpart thumbnails generated yet.");
             return;
         }
 
+        // Ensure GPU pool exists at the right resolution
+        EnsureGpuPool();
+        if (_gpuPool == null) return;
+
         float thumbSize = (float)_thumbDisplaySize;
         string filterText = _thumbFilter.ToString();
 
-        // Rebuild filtered list
+        // Rebuild filtered list from CPU cache
         _filteredEntries.Clear();
-        foreach (var kvp in SubpartThumbnailCache.All)
+        foreach (var kvp in CpuThumbnailCache.All)
         {
             if (filterText.Length > 0 && !kvp.Key.Contains(filterText, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -288,20 +297,6 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         int firstVisible = Math.Max(0, (int)(scrollY / rowHeight) - 1);
         int lastVisible = Math.Min(totalRows - 1, (int)((scrollY + visibleHeight) / rowHeight) + 1);
 
-        // Destroy ImGui descriptors for entries that scrolled out of view
-        var visibleSet = new HashSet<SubpartThumbnailEntry>();
-        for (int r = firstVisible; r <= lastVisible; r++)
-            visibleSet.Add(_filteredEntries[r].Value);
-
-        _registeredEntries.RemoveWhere(entry =>
-        {
-            if (visibleSet.Contains(entry)) return false;
-            // Off-screen: free all descriptors
-            for (int i = 0; i < entry.Views.Length; i++)
-                entry.Views[i]?.DestroyImGuiThumbnail();
-            return true;
-        });
-
         // Compute which animation frame to show
         int animFrame = (int)(_animTimer / (_animTickMs / 1000.0));
 
@@ -313,46 +308,34 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         for (int r = firstVisible; r <= lastVisible; r++)
         {
             var kvp = _filteredEntries[r];
-            var entry = kvp.Value;
-            int viewCount = entry.Views.Length;
+            var cpuData = kvp.Value;
+            int viewCount = cpuData.Views.Length;
+            if (viewCount == 0) continue;
 
-            // Register descriptors for the 5 views we'll display:
-            // the current animation frame + 4 cardinal statics
-            bool viewsValid = true;
             int animIdx = animFrame % viewCount;
-            if (entry.Views[animIdx] == null) { viewsValid = false; }
-            else entry.Views[animIdx].CreateImGuiThumbnail(Program.LinearClampedSampler);
-
-            if (viewsValid)
-            {
-                for (int c = 0; c < CardinalIndices.Length; c++)
-                {
-                    int ci = CardinalIndices[c] % viewCount;
-                    if (entry.Views[ci] == null) { viewsValid = false; break; }
-                    entry.Views[ci].CreateImGuiThumbnail(Program.LinearClampedSampler);
-                }
-            }
-            if (!viewsValid) continue;
-            _registeredEntries.Add(entry);
 
             ImGui.BeginGroup();
 
             // Animated preview (cycles through all views)
-            ImGui.Image(entry.Views[animIdx].ImGuiImageRef, new float2(thumbSize));
+            string animKey = $"{kvp.Key}:{animIdx}";
+            var animRef = _gpuPool.TryGet(animKey) ?? _gpuPool.Upload(animKey, cpuData.Views[animIdx]);
+            ImGui.Image(animRef.ImGuiImageRef, new float2(thumbSize));
 
             // 4 static cardinal views
             for (int c = 0; c < CardinalIndices.Length; c++)
             {
                 ImGui.SameLine();
                 int ci = CardinalIndices[c] % viewCount;
-                ImGui.Image(entry.Views[ci].ImGuiImageRef, new float2(thumbSize));
+                string cardKey = $"{kvp.Key}:{ci}";
+                var cardRef = _gpuPool.TryGet(cardKey) ?? _gpuPool.Upload(cardKey, cpuData.Views[ci]);
+                ImGui.Image(cardRef.ImGuiImageRef, new float2(thumbSize));
             }
 
             ImGui.Text(kvp.Key);
             ImGui.EndGroup();
 
             if (ImGui.IsItemClicked())
-                _viewerWindow.Open(kvp.Key, entry, _generator.ThumbnailImageSize);
+                _viewerWindow.Open(kvp.Key, cpuData, _generator.ThumbnailImageSize);
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(kvp.Key);
         }
@@ -365,9 +348,37 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         ImGui.EndChild();
     }
 
+    /// <summary>
+    /// Ensures the GPU pool exists and matches the current generation resolution.
+    /// Recreates the pool if resolution changed since last generation.
+    /// </summary>
+    private void EnsureGpuPool()
+    {
+        // Determine resolution from the first CPU cache entry
+        int imageSize = 0;
+        foreach (var kvp in CpuThumbnailCache.All)
+        {
+            imageSize = kvp.Value.Size;
+            break;
+        }
+        if (imageSize == 0) return;
+
+        if (_gpuPool != null && _gpuPool.ImageSize == imageSize)
+            return;
+
+        // Dispose old pool if resolution changed
+        _gpuPool?.Dispose();
+
+        Renderer renderer = Program.GetRenderer();
+        _gpuPool = new GpuThumbnailPool(
+            renderer.Device, renderer, imageSize, GpuPoolMaxSlots,
+            Program.LinearClampedSampler);
+    }
+
     public void Dispose()
     {
         _viewerWindow.Dispose();
+        _gpuPool?.Dispose();
         _generator.Dispose();
     }
 }
