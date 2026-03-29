@@ -210,10 +210,10 @@ public class Mod
 
                 if (ImGui.CollapsingHeader(submod.Name, ImGuiTreeNodeFlags.DefaultOpen))
                 {
-                    ImGui.Indent();
+                    // ImGui.Indent();
                     try { submod.RenderContent(); }
                     catch (Exception ex) { ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Error: {ex.Message}"); }
-                    ImGui.Unindent();
+                    // ImGui.Unindent();
                 }
                 ImGui.Separator();
             }
