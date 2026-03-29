@@ -150,7 +150,7 @@ if (ImGui.BeginCombo("Select Item##combo", previewValue))
         _itemFilter.Clear();
     }
     ImGui.SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F);
-    _itemFilter.Draw("##Filter", -float.MaxValue);
+    _itemFilter.Draw("##Filter", -1);
 
     for (int n = 0; n < items.Length; n++)
     {

@@ -23,7 +23,7 @@ public sealed class FuelManager
 {
     private readonly List<MonitoredVehicle> _monitored = new();
     private double _accumulatedMs;
-    public int RefillIntervalMs { get; set; } = 500;
+    public int RefillIntervalMs { get; set; } = 100;
 
     public IReadOnlyList<MonitoredVehicle> MonitoredVehicles => _monitored;
 

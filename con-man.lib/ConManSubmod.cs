@@ -16,7 +16,7 @@ public sealed class ConManSubmod : ISubmod
 
   // Layout selector state
   private int _selectedLayoutIndex = -1;
-  private readonly ImInputString _layoutFilter = new ImInputString(256);
+  private ImGuiTextFilter _layoutFilter = new ImGuiTextFilter();
 
   // Save input state
   private readonly ImInputString _saveNameInput = new ImInputString(128);
@@ -24,7 +24,7 @@ public sealed class ConManSubmod : ISubmod
 
   // Startup default state
   private int _selectedDefaultIndex;  // 0 = "(None)", 1+ = layout names
-  private readonly ImInputString _defaultFilter = new ImInputString(256);
+  private ImGuiTextFilter _defaultFilter = new ImGuiTextFilter();
 
   // Delete confirmation
   private bool _confirmDelete;
@@ -95,14 +95,15 @@ public sealed class ConManSubmod : ISubmod
       ImGui.SetNextItemWidth(-1);
       if (ImGui.BeginCombo("##cm_layout_select", preview))
       {
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##cm_layout_filter", _layoutFilter);
-        ImGui.Separator();
-        string filterText = _layoutFilter.ToString();
+        if (ImGui.IsWindowAppearing())
+        {
+          ImGui.SetKeyboardFocusHere();
+          _layoutFilter.Clear();
+        }
+        _layoutFilter.Draw("##cm_layout_filter", -1);
         for (int i = 0; i < names.Length; i++)
         {
-          if (!string.IsNullOrEmpty(filterText) &&
-              !names[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
+          if (!_layoutFilter.PassFilter(names[i]))
             continue;
           bool selected = _selectedLayoutIndex == i;
           if (ImGui.Selectable(names[i], selected))
@@ -177,11 +178,13 @@ public sealed class ConManSubmod : ISubmod
       ImGui.SetNextItemWidth(-1);
       if (ImGui.BeginCombo("##cm_default_select", defaultPreview))
       {
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##cm_default_filter", _defaultFilter);
-        ImGui.Separator();
-        string dFilterText = _defaultFilter.ToString();
-        if (string.IsNullOrEmpty(dFilterText) || "(None)".Contains(dFilterText, StringComparison.OrdinalIgnoreCase))
+        if (ImGui.IsWindowAppearing())
+        {
+          ImGui.SetKeyboardFocusHere();
+          _defaultFilter.Clear();
+        }
+        _defaultFilter.Draw("##cm_default_filter", -1);
+        if (_defaultFilter.PassFilter("(None)"))
         {
           bool noneSelected = _selectedDefaultIndex == 0;
           if (ImGui.Selectable("(None)", noneSelected))
@@ -193,8 +196,7 @@ public sealed class ConManSubmod : ISubmod
         }
         for (int i = 0; i < layoutNames.Length; i++)
         {
-          if (!string.IsNullOrEmpty(dFilterText) &&
-              !layoutNames[i].Contains(dFilterText, StringComparison.OrdinalIgnoreCase))
+          if (!_defaultFilter.PassFilter(layoutNames[i]))
             continue;
           bool selected = _selectedDefaultIndex == i + 1;
           if (ImGui.Selectable(layoutNames[i] + "##cm_def", selected))

@@ -58,6 +58,8 @@ public sealed class EternalFlameSubmod : ISubmod
 
         ImGui.AlignTextToFramePadding();
         ImGui.Text("Vehicle");
+        ImGui.SameLine();
+        ImGui.TextDisabled("(?)");
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
@@ -75,7 +77,7 @@ public sealed class EternalFlameSubmod : ISubmod
                 ImGui.SetKeyboardFocusHere();
                 _vehicleFilter.Clear();
             }
-            _vehicleFilter.Draw("##ef_VehicleFilter", -float.MaxValue);
+            _vehicleFilter.Draw("##ef_VehicleFilter", -1);
 
             for (int i = 0; i < vehicleNames.Length; i++)
             {
