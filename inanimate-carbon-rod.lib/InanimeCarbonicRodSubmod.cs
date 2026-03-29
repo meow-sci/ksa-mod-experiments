@@ -21,6 +21,8 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     public void RenderContent()
     {
+        SubmodUI.BeginContentArea("##icr_content");
+
         ImGui.TextColored(new float4(1f, 0.85f, 0.1f, 1f), "Subpart Thumbnail Generator");
         ImGui.Spacing();
 
@@ -44,32 +46,21 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         };
 
         ImGui.TextColored(statusColor, statusText);
-
         ImGui.Spacing();
 
         // Generate button
         bool canGenerate = _generator.State == GenerationState.Idle;
-        if (!canGenerate)
-        {
-            ImGui.BeginDisabled();
-        }
+        if (!canGenerate) ImGui.BeginDisabled();
         if (ImGui.Button("Generate Subpart Thumbnails"))
-        {
             _generator.GenerateAll();
-        }
-        if (!canGenerate)
-        {
-            ImGui.EndDisabled();
-        }
+        if (!canGenerate) ImGui.EndDisabled();
 
-        // Re-generate button if already done or failed
+        // Reset button if already done or failed
         if (_generator.State == GenerationState.Done || _generator.State == GenerationState.Failed)
         {
             ImGui.SameLine();
             if (ImGui.Button("Reset"))
-            {
                 _generator.Reset();
-            }
         }
 
         // Progress bar while generating
@@ -81,9 +72,9 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         }
 
         ImGui.Separator();
-
-        // Thumbnail grid
         RenderThumbnailGrid();
+
+        SubmodUI.EndContentArea();
     }
 
     private void RenderThumbnailGrid()
@@ -98,12 +89,13 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         ImGui.Text($"Thumbnails: {SubpartThumbnailCache.All.Count}");
         ImGui.Spacing();
 
-        float thumbSize = 64f;
-        float cellSize = thumbSize + 8f;
+        const float thumbSize = 256f;
+        const float cellSize = thumbSize + 8f;
         float availWidth = ImGui.GetContentRegionAvail().X;
         int cols = Math.Max(1, (int)(availWidth / cellSize));
 
-        if (ImGui.BeginChild("##thumb_scroll", new float2(0, 300), ImGuiChildFlags.Borders))
+        if (ImGui.BeginChild("##thumb_scroll", new float2(0, 400),
+                ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY))
         {
             int col = 0;
             foreach (var kvp in SubpartThumbnailCache.All)
