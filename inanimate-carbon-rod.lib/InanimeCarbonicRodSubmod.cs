@@ -19,8 +19,8 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     // Generation settings
     private int _viewCount = 32;
     private int _thumbImageSizeIndex = 2; // 256
-    private static readonly int[] ThumbImageSizes = { 64, 128, 256, 512 };
-    private static readonly string[] ThumbImageSizeLabels = { "64", "128", "256", "512" };
+    private static readonly int[] ThumbImageSizes = { 64, 128, 256, 512, 1024 };
+    private static readonly string[] ThumbImageSizeLabels = { "64", "128", "256", "512", "1024" };
 
     // Display settings
     private int _animTickMs = 75;
@@ -148,6 +148,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
             {
                 if (ImGui.Button(" Reset ##icr"))
                 {
+                    _viewerWindow.Close();
                     _registeredEntries.Clear();
                     _generator.Reset();
                 }

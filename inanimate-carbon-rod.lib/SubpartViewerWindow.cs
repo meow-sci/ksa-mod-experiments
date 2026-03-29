@@ -65,7 +65,15 @@ public sealed class SubpartViewerWindow
         bool open = _open;
         if (ImGui.Begin("Subpart Viewer##icr_viewer", ref open))
         {
-            RenderContent();
+            try
+            {
+                RenderContent();
+            }
+            catch (Exception ex)
+            {
+                ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Render error: {ex.Message}");
+                Console.WriteLine($"inanimate-carbon-rod: SubpartViewerWindow error - {ex}");
+            }
         }
         ImGui.End();
 
