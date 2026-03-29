@@ -36,12 +36,16 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     // Filtered list rebuilt each frame to enable index-based virtual rendering
     private readonly List<KeyValuePair<string, SubpartThumbnailEntry>> _filteredEntries = new();
 
+    // Subpart detail viewer window
+    private readonly SubpartViewerWindow _viewerWindow = new();
+
     public void Initialize() { }
 
     public void Update(double dt)
     {
         _generator.Update();
         _animTimer += dt;
+        _viewerWindow.Update(dt);
     }
 
     public void RenderContent()
@@ -59,6 +63,8 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         }
 
         SubmodUI.EndContentArea();
+
+        _viewerWindow.Render();
     }
 
     private void RenderContentInner()
@@ -344,6 +350,8 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
             ImGui.Text(kvp.Key);
             ImGui.EndGroup();
 
+            if (ImGui.IsItemClicked())
+                _viewerWindow.Open(kvp.Key, entry);
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(kvp.Key);
         }
