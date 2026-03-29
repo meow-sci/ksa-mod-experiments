@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
+using KSA.Rendering.Thumbnails;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.InanimateCarbonRodLib;
@@ -11,6 +13,13 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     public string Name => "Inanimate Carbon Rod";
 
     private readonly SubpartThumbnailGenerator _generator = new();
+    private int _thumbDisplaySize = 128;
+    private readonly ImInputString _thumbFilter = new ImInputString(256);
+
+    // Virtual rendering: track which entries currently have ImGui descriptors registered
+    private readonly HashSet<SubpartThumbnailEntry> _registeredEntries = new();
+    // Filtered list rebuilt each frame to enable index-based virtual rendering
+    private readonly List<KeyValuePair<string, SubpartThumbnailEntry>> _filteredEntries = new();
 
     public void Initialize() { }
 
@@ -23,6 +32,22 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##icr_content");
 
+        try
+        {
+            RenderContentInner();
+        }
+        catch (Exception ex)
+        {
+            ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Render error: {ex.Message}");
+            Console.WriteLine($"inanimate-carbon-rod: RenderContent error - {ex}");
+        }
+
+        SubmodUI.EndContentArea();
+    }
+
+    private void RenderContentInner()
+    {
+
         ImGui.TextColored(new float4(1f, 0.85f, 0.1f, 1f), "Subpart Thumbnail Generator");
         ImGui.Spacing();
 
@@ -31,7 +56,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         {
             GenerationState.Idle => "Ready to generate",
             GenerationState.Generating => $"Generating... {_generator.ProgressCurrent}/{_generator.ProgressTotal}",
-            GenerationState.Done => $"Done ({SubpartThumbnailCache.All.Count} thumbnails)",
+            GenerationState.Done => $"Done ({SubpartThumbnailCache.All.Count} subparts)",
             GenerationState.Failed => $"Failed: {_generator.LastError}",
             _ => "Unknown"
         };
@@ -72,9 +97,9 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         }
 
         ImGui.Separator();
+        ImGui.SliderInt("Thumbnail Size", ref _thumbDisplaySize, 32, 256);
+        ImGui.InputText("##thumb_filter", _thumbFilter);
         RenderThumbnailGrid();
-
-        SubmodUI.EndContentArea();
     }
 
     private void RenderThumbnailGrid()
@@ -86,35 +111,93 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
             return;
         }
 
-        ImGui.Text($"Thumbnails: {SubpartThumbnailCache.All.Count}");
+        ImGui.Text($"Subparts: {SubpartThumbnailCache.All.Count}");
         ImGui.Spacing();
 
-        const float thumbSize = 256f;
-        const float cellSize = thumbSize + 8f;
-        float availWidth = ImGui.GetContentRegionAvail().X;
-        int cols = Math.Max(1, (int)(availWidth / cellSize));
+        float thumbSize = (float)_thumbDisplaySize;
+        string filterText = _thumbFilter.ToString();
 
-        if (ImGui.BeginChild("##thumb_scroll", new float2(0, 400),
-                ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY))
+        // Rebuild filtered list
+        _filteredEntries.Clear();
+        foreach (var kvp in SubpartThumbnailCache.All)
         {
-            int col = 0;
-            foreach (var kvp in SubpartThumbnailCache.All)
-            {
-                kvp.Value.CreateImGuiThumbnail(Program.LinearClampedSampler);
-
-                if (col > 0)
-                    ImGui.SameLine();
-
-                ImGui.Image(kvp.Value.ImGuiImageRef, new float2(thumbSize));
-
-                if (ImGui.IsItemHovered())
-                    ImGui.SetTooltip(kvp.Key);
-
-                col++;
-                if (col >= cols)
-                    col = 0;
-            }
+            if (filterText.Length > 0 && !kvp.Key.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                continue;
+            _filteredEntries.Add(kvp);
         }
+
+        int totalRows = _filteredEntries.Count;
+        if (totalRows == 0)
+        {
+            ImGui.TextDisabled("No matches.");
+            return;
+        }
+
+        // Row height: thumbnail + text line + spacing
+        float rowHeight = thumbSize + ImGui.GetTextLineHeightWithSpacing() + ImGui.GetStyle().ItemSpacing.Y;
+
+        ImGui.BeginChild("##thumb_scroll", new float2(0, 400),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY,
+            ImGuiWindowFlags.HorizontalScrollbar);
+
+        // Determine visible row range from scroll position
+        float scrollY = ImGui.GetScrollY();
+        float visibleHeight = ImGui.GetWindowHeight();
+        int firstVisible = Math.Max(0, (int)(scrollY / rowHeight) - 1);
+        int lastVisible = Math.Min(totalRows - 1, (int)((scrollY + visibleHeight) / rowHeight) + 1);
+
+        // Destroy ImGui descriptors for entries that scrolled out of view
+        var visibleSet = new HashSet<SubpartThumbnailEntry>();
+        for (int r = firstVisible; r <= lastVisible; r++)
+            visibleSet.Add(_filteredEntries[r].Value);
+
+        _registeredEntries.RemoveWhere(entry =>
+        {
+            if (visibleSet.Contains(entry)) return false;
+            // Off-screen: free descriptors
+            for (int i = 0; i < entry.Views.Length; i++)
+                entry.Views[i]?.DestroyImGuiThumbnail();
+            return true;
+        });
+
+        // Spacer for rows above visible range
+        if (firstVisible > 0)
+            ImGui.Dummy(new float2(0, firstVisible * rowHeight));
+
+        // Render only visible rows
+        for (int r = firstVisible; r <= lastVisible; r++)
+        {
+            var kvp = _filteredEntries[r];
+            var entry = kvp.Value;
+
+            bool viewsValid = true;
+            for (int i = 0; i < entry.Views.Length; i++)
+            {
+                if (entry.Views[i] == null) { viewsValid = false; break; }
+                entry.Views[i].CreateImGuiThumbnail(Program.LinearClampedSampler);
+            }
+            if (!viewsValid) continue;
+            _registeredEntries.Add(entry);
+
+            ImGui.BeginGroup();
+            for (int i = 0; i < entry.Views.Length; i++)
+            {
+                if (i > 0)
+                    ImGui.SameLine();
+                ImGui.Image(entry.Views[i].ImGuiImageRef, new float2(thumbSize));
+            }
+            ImGui.Text(kvp.Key);
+            ImGui.EndGroup();
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(kvp.Key);
+        }
+
+        // Spacer for rows below visible range
+        int rowsBelow = totalRows - 1 - lastVisible;
+        if (rowsBelow > 0)
+            ImGui.Dummy(new float2(0, rowsBelow * rowHeight));
+
         ImGui.EndChild();
     }
 

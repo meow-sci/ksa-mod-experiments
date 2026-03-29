@@ -220,76 +220,99 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         Camera camera,
         ref int frameIndex)
     {
-        // 1. Allocate GPU image (mirrors ThumbnailCreator.CreateThumbnailImage)
-        ImageEx.CreateInfo createInfo = new ImageEx.CreateInfo
-        {
-            Name = "Thumbnail_" + subpart.Id,
-            AllocPreference = MemoryPreference.PreferGpu,
-            ImageArrayLayers = 1,
-            ImageInitialLayout = VkImageLayout.Undefined,
-            ImageType = VkImageType._2D,
-            ImageExtent = new VkExtent3D
-            {
-                Width = ThumbnailRenderer.SIZE,
-                Height = ThumbnailRenderer.SIZE,
-                Depth = 1
-            },
-            ImageUsage = VkImageUsageFlags.TransferSrcBit
-                       | VkImageUsageFlags.TransferDstBit
-                       | VkImageUsageFlags.SampledBit
-                       | VkImageUsageFlags.ColorAttachmentBit,
-            ImageFormat = ThumbnailRenderer.ColorFormat,
-            ImageMipLevels = ThumbnailRenderer.MipLevels,
-            ImageSamples = VkSampleCountFlags._1Bit,
-            ImageSharingMode = VkSharingMode.Exclusive,
-            ImageTiling = VkImageTiling.Optimal
-        };
+        // Build ThumbnailPart child for this subpart's mesh
+        var syntheticInstance = new PartInstance { InstanceOf = subpart.Id };
+        var child = new ThumbnailPart(root, syntheticInstance);
 
-        subpart.Thumbnail = new ThumbnailReference();
-        subpart.Thumbnail.CreateImageView(
+        if (child.Model == null && child.ModelDynamic == null)
+            return;
+
+        root.AddChild(child);
+
+        // Compute camera distance from bounding sphere
+        float radius = root.ComputeBoundingSphereRadius();
+        float dist = radius / (float)Math.Sin(camera.GetFieldOfView() * 0.5f);
+        root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
+        root.LocalScale = Double3Ex.One;
+
+        // Render 4 views at Z-axis rotations: 0°, 90°, 180°, 270°
+        var views = new ThumbnailReference[4];
+        for (int v = 0; v < 4; v++)
+        {
+            double roll = v * Math.PI / 2.0;
+            root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, roll);
+            views[v] = RenderViewToImage($"Thumb_View{v}_{subpart.Id}", subpart,
+                root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
+        }
+
+        // Reset root for next subpart
+        root.ClearAndDisposeChildren();
+        root.LocalPosition = double3.Zero;
+        root.LocalRotation = doubleQuat.Identity;
+        root.LocalScale = Double3Ex.One;
+        Program.LightSystem.ClearLights();
+
+        // Store all views; set first as game-visible thumbnail
+        subpart.Thumbnail = views[0];
+        SubpartThumbnailCache.Store(subpart.Id, new SubpartThumbnailEntry(views));
+        Console.WriteLine($"inanimate-carbon-rod: Generated thumbnails for {subpart.Id}");
+    }
+
+    private static ThumbnailReference RenderViewToImage(
+        string imageName,
+        PartTemplate subpart,
+        ThumbnailPart root,
+        ThumbnailRenderer thumbRenderer,
+        Renderer renderer,
+        Viewport viewport,
+        Camera camera,
+        ref int frameIndex)
+    {
+        int size = ThumbnailRenderer.SIZE;
+        int mipLevels = (int)Math.Floor(Math.Log2(size)) + 1;
+
+        // Allocate GPU image
+        var thumb = new ThumbnailReference();
+        thumb.CreateImageView(
             renderer.Device,
-            createInfo,
+            new ImageEx.CreateInfo
+            {
+                Name = imageName,
+                AllocPreference = MemoryPreference.PreferGpu,
+                ImageArrayLayers = 1,
+                ImageInitialLayout = VkImageLayout.Undefined,
+                ImageType = VkImageType._2D,
+                ImageExtent = new VkExtent3D
+                {
+                    Width = size,
+                    Height = size,
+                    Depth = 1
+                },
+                ImageUsage = VkImageUsageFlags.TransferSrcBit
+                           | VkImageUsageFlags.TransferDstBit
+                           | VkImageUsageFlags.SampledBit
+                           | VkImageUsageFlags.ColorAttachmentBit,
+                ImageFormat = ThumbnailRenderer.ColorFormat,
+                ImageMipLevels = mipLevels,
+                ImageSamples = VkSampleCountFlags._1Bit,
+                ImageSharingMode = VkSharingMode.Exclusive,
+                ImageTiling = VkImageTiling.Optimal
+            },
             VkImageViewType._2D,
             new VkImageSubresourceRange
             {
                 AspectMask = VkImageAspectFlags.ColorBit,
                 BaseMipLevel = 0,
-                LevelCount = ThumbnailRenderer.MipLevels,
+                LevelCount = mipLevels,
                 BaseArrayLayer = 0,
                 LayerCount = 1
             });
 
-        // 2. Build ThumbnailPart child for this subpart's own mesh.
-        //    We create a synthetic PartInstance so ThumbnailPart reads the subpart's
-        //    own Components (mesh) via GetTemplate().
-        var syntheticInstance = new PartInstance { InstanceOf = subpart.Id };
-        var child = new ThumbnailPart(root, syntheticInstance);
+        // PostPassThumbnailCommand reads from subpart.Thumbnail
+        var savedThumb = subpart.Thumbnail;
+        subpart.Thumbnail = thumb;
 
-        if (child.Model == null && child.ModelDynamic == null)
-        {
-            // Subpart has no renderable mesh — clean up and skip
-            subpart.Thumbnail.Dispose();
-            subpart.Thumbnail = null;
-            return;
-        }
-
-        root.AddChild(child);
-
-        // 3. Position camera (mirrors ThumbnailCreator.MoveRootPart)
-        if (subpart.Thumbnail.ModelTransform != null)
-        {
-            root.Transform = subpart.Thumbnail.ModelTransform.Create();
-        }
-        else
-        {
-            float radius = root.ComputeBoundingSphereRadius();
-            float dist = radius / (float)Math.Sin(camera.GetFieldOfView() * 0.5f);
-            root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
-            root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, 0.0);
-            root.LocalScale = Double3Ex.One;
-        }
-
-        // 4. Drive render (mirrors ThumbnailCreator per-part loop body)
+        // Drive render
         camera.OnFrame(1.0 / 60.0);
         Program.Instance.UpdateShaderData(1.0 / 60.0, viewport);
         root.UpdateRenderData(viewport, frameIndex);
@@ -306,7 +329,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
             subpart.Id,
             out VkFence fence);
 
-        // 5. GPU synchronization (exact mirror of game code)
+        // GPU synchronization
         renderer.Device.WaitForFence(fence, IntPtr.MaxValue);
         DeviceEx device = renderer.Device;
         VkFence fenceRef = fence;
@@ -319,18 +342,8 @@ public sealed class SubpartThumbnailGenerator : IDisposable
 
         frameIndex = (frameIndex + 1) % 2;
 
-        // 6. Reset root for next subpart (mirrors ThumbnailCreator.ResetRootPart)
-        root.ClearAndDisposeChildren();
-        root.LocalPosition = double3.Zero;
-        root.LocalRotation = doubleQuat.Identity;
-        root.LocalScale = Double3Ex.One;
-
-        Program.LightSystem.ClearLights();
-
-        // 7. Store in cache
-        SubpartThumbnailCache.Store(subpart.Id, subpart.Thumbnail!);
-
-        Console.WriteLine($"inanimate-carbon-rod: Generated thumbnail for {subpart.Id}");
+        subpart.Thumbnail = savedThumb;
+        return thumb;
     }
 
     /// <summary>

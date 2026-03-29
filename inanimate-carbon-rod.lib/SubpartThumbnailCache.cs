@@ -4,25 +4,38 @@ using KSA.Rendering.Thumbnails;
 namespace MeowSci.InanimateCarbonRodLib;
 
 /// <summary>
-/// Static cache of generated subpart thumbnails, keyed by PartTemplate.Id.
+/// Four X-axis rotation views (0°, 90°, 180°, 270°) for a single subpart.
+/// </summary>
+public sealed class SubpartThumbnailEntry
+{
+    public ThumbnailReference[] Views { get; }
+
+    public SubpartThumbnailEntry(ThumbnailReference[] views)
+    {
+        Views = views;
+    }
+}
+
+/// <summary>
+/// Static cache of generated subpart thumbnail pairs, keyed by PartTemplate.Id.
 /// Populated by SubpartThumbnailGenerator.GenerateAll().
 /// </summary>
 public static class SubpartThumbnailCache
 {
-    private static readonly Dictionary<string, ThumbnailReference> _thumbnails = new();
+    private static readonly Dictionary<string, SubpartThumbnailEntry> _thumbnails = new();
 
-    /// <summary>All generated thumbnails. Do not mutate.</summary>
-    public static IReadOnlyDictionary<string, ThumbnailReference> All => _thumbnails;
+    /// <summary>All generated thumbnail entries. Do not mutate.</summary>
+    public static IReadOnlyDictionary<string, SubpartThumbnailEntry> All => _thumbnails;
 
-    /// <summary>Returns the thumbnail for a subpart ID, or null if not yet generated.</summary>
-    public static ThumbnailReference? Get(string subpartId)
+    /// <summary>Returns the thumbnail entry for a subpart ID, or null if not yet generated.</summary>
+    public static SubpartThumbnailEntry? Get(string subpartId)
         => _thumbnails.GetValueOrDefault(subpartId);
 
     /// <summary>Returns true if any thumbnails have been generated.</summary>
     public static bool HasAny => _thumbnails.Count > 0;
 
-    internal static void Store(string id, ThumbnailReference thumbnail)
-        => _thumbnails[id] = thumbnail;
+    internal static void Store(string id, SubpartThumbnailEntry entry)
+        => _thumbnails[id] = entry;
 
     internal static void Clear()
         => _thumbnails.Clear();
