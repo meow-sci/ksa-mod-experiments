@@ -18,7 +18,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     // Generation settings
     private int _viewCount = 32;
-    private int _thumbImageSizeIndex = 2; // 256
+    private int _thumbImageSizeIndex = 1; // 128
     private static readonly int[] ThumbImageSizes = { 64, 128, 256, 512, 1024 };
     private static readonly string[] ThumbImageSizeLabels = { "64", "128", "256", "512", "1024" };
 

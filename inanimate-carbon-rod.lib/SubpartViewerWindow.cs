@@ -302,7 +302,7 @@ public sealed class SubpartViewerWindow
             ImGui.Text("Display Size");
             ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
-            ImGui.DragInt("##vt_size", ref _displaySize, 1, 32, 512);
+            ImGui.DragInt("##vt_size", ref _displaySize, 1, 64, 2048);
 
             ImGui.EndTable();
         }
@@ -350,8 +350,8 @@ public sealed class SubpartViewerWindow
         ImGui.AlignTextToFramePadding();
         ImGui.Text("Size");
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragInt("##vt_img_size", ref _imagesDisplaySize, 1, 32, 512);
+        ImGui.SetNextItemWidth(-1);
+        ImGui.DragInt("##vt_img_size", ref _imagesDisplaySize, 1, 64, 2048);
 
         ImGui.Spacing();
 
