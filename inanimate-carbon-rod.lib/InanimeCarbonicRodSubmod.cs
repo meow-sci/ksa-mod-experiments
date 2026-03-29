@@ -16,6 +16,12 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     private int _thumbDisplaySize = 128;
     private readonly ImInputString _thumbFilter = new ImInputString(256);
 
+    // Animation: global timer drives all animated previews in sync
+    private double _animTimer;
+
+    // Indices into the 24-view array for the 4 static cardinal views (0°, 90°, 180°, 270°)
+    private static readonly int[] CardinalIndices = { 0, 6, 12, 18 };
+
     // Virtual rendering: track which entries currently have ImGui descriptors registered
     private readonly HashSet<SubpartThumbnailEntry> _registeredEntries = new();
     // Filtered list rebuilt each frame to enable index-based virtual rendering
@@ -26,6 +32,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
     public void Update(double dt)
     {
         _generator.Update();
+        _animTimer += dt;
     }
 
     public void RenderContent()
@@ -154,11 +161,14 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         _registeredEntries.RemoveWhere(entry =>
         {
             if (visibleSet.Contains(entry)) return false;
-            // Off-screen: free descriptors
+            // Off-screen: free all descriptors
             for (int i = 0; i < entry.Views.Length; i++)
                 entry.Views[i]?.DestroyImGuiThumbnail();
             return true;
         });
+
+        // Compute which animation frame to show (50ms per frame, 24 frames)
+        int animFrame = (int)(_animTimer / 0.05) % 24;
 
         // Spacer for rows above visible range
         if (firstVisible > 0)
@@ -169,23 +179,40 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
         {
             var kvp = _filteredEntries[r];
             var entry = kvp.Value;
+            int viewCount = entry.Views.Length;
 
+            // Register descriptors for the 5 views we'll display:
+            // the current animation frame + 4 cardinal statics
             bool viewsValid = true;
-            for (int i = 0; i < entry.Views.Length; i++)
+            int animIdx = animFrame % viewCount;
+            if (entry.Views[animIdx] == null) { viewsValid = false; }
+            else entry.Views[animIdx].CreateImGuiThumbnail(Program.LinearClampedSampler);
+
+            if (viewsValid)
             {
-                if (entry.Views[i] == null) { viewsValid = false; break; }
-                entry.Views[i].CreateImGuiThumbnail(Program.LinearClampedSampler);
+                for (int c = 0; c < CardinalIndices.Length; c++)
+                {
+                    int ci = CardinalIndices[c] % viewCount;
+                    if (entry.Views[ci] == null) { viewsValid = false; break; }
+                    entry.Views[ci].CreateImGuiThumbnail(Program.LinearClampedSampler);
+                }
             }
             if (!viewsValid) continue;
             _registeredEntries.Add(entry);
 
             ImGui.BeginGroup();
-            for (int i = 0; i < entry.Views.Length; i++)
+
+            // Animated preview (cycles through all 24 frames)
+            ImGui.Image(entry.Views[animIdx].ImGuiImageRef, new float2(thumbSize));
+
+            // 4 static cardinal views
+            for (int c = 0; c < CardinalIndices.Length; c++)
             {
-                if (i > 0)
-                    ImGui.SameLine();
-                ImGui.Image(entry.Views[i].ImGuiImageRef, new float2(thumbSize));
+                ImGui.SameLine();
+                int ci = CardinalIndices[c] % viewCount;
+                ImGui.Image(entry.Views[ci].ImGuiImageRef, new float2(thumbSize));
             }
+
             ImGui.Text(kvp.Key);
             ImGui.EndGroup();
 

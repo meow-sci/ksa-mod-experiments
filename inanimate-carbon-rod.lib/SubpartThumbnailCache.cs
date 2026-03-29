@@ -4,7 +4,7 @@ using KSA.Rendering.Thumbnails;
 namespace MeowSci.InanimateCarbonRodLib;
 
 /// <summary>
-/// Four X-axis rotation views (0°, 90°, 180°, 270°) for a single subpart.
+/// 24 Z-axis rotation views (every 15 degrees) for a single subpart.
 /// </summary>
 public sealed class SubpartThumbnailEntry
 {

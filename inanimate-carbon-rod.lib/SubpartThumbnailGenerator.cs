@@ -235,13 +235,14 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
-        // Render 4 views at Z-axis rotations: 0°, 90°, 180°, 270°
-        var views = new ThumbnailReference[4];
-        for (int v = 0; v < 4; v++)
+        // Render 24 views at Z-axis rotations: 0° to 345° in 15° increments
+        int viewCount = 24;
+        var views = new ThumbnailReference[viewCount];
+        for (int v = 0; v < viewCount; v++)
         {
-            double roll = v * Math.PI / 2.0;
+            double roll = v * Math.PI / 12.0;
             root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, roll);
-            views[v] = RenderViewToImage($"Thumb_View{v}_{subpart.Id}", subpart,
+            views[v] = RenderViewToImage($"Thumb_V{v}_{subpart.Id}", subpart,
                 root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
         }
 
