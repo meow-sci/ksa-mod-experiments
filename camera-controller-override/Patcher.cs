@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using MeowSci.CameraControllerOverrideLib;
 using MeowSci.CameraControllerOverrideLib.Animation;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.CameraControllerOverride;
 
@@ -16,6 +17,7 @@ internal static class Patcher
             _harmony = new Harmony("camera-controller-override");
             CameraControllerOverridePatches.SequencePlayer = sequencePlayer;
             CameraControllerOverridePatches.Apply(_harmony);
+            HotkeyGuard.Patch(_harmony);
         }
         catch (Exception ex)
         {
@@ -28,7 +30,10 @@ internal static class Patcher
         try
         {
             if (_harmony != null)
+            {
                 CameraControllerOverridePatches.Remove(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony = null;
             CameraControllerOverridePatches.SequencePlayer = null;
         }

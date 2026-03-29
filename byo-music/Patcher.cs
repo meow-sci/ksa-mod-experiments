@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.ByoMusic;
 
@@ -15,6 +16,7 @@ internal static class Patcher
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
+            if (_harmony != null) HotkeyGuard.Patch(_harmony);
         }
         catch (Exception ex)
         {
@@ -26,6 +28,7 @@ internal static class Patcher
     {
         try
         {
+            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
             _harmony?.UnpatchAll("byo-music");
             _harmony = null;
         }

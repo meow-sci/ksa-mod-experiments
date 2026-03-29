@@ -31,6 +31,16 @@ Each csharp project folder contains a `README.md` with more detailed information
 
 - use `Console.WriteLine` for logging
 
+# hotkey guard (required for every mod)
+
+Every top-level mod project MUST apply `HotkeyGuard` from `MeowSci.KsaAbstractions` in its `Patcher.cs`. This blocks game hotkeys while the player is typing in any ImGui text input.
+
+- MUST add `using MeowSci.KsaAbstractions;` to `Patcher.cs`
+- MUST call `HotkeyGuard.Patch(_harmony)` inside `Patch()` after the harmony instance is created
+- MUST call `HotkeyGuard.Unpatch(_harmony)` inside `Unload()` before nulling the harmony instance (or inside the existing null-check block)
+- The mod's `.csproj` must reference `ksa-abstractions.lib` either directly or transitively through its `.lib` project
+- See `fixme-mod-name/Patcher.cs` for a canonical example of a minimal mod applying this pattern
+
 # decompiled sources
 
 KSA game decompiled sources for reference can be found in the `decomp/ksa` directory. These sources are decompiled from the game assemblies and may not be perfectly accurate, but they can be useful for understanding the game's internal workings and for mod development.
