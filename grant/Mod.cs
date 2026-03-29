@@ -34,8 +34,11 @@ public class Mod
 
     private readonly List<ISubmod> _submods = new();
     private readonly Dictionary<string, bool> _submodVisibility = new();
+    private readonly Dictionary<string, bool> _headerOpen = new();
     private bool _collapseAll;
     private bool _expandAll;
+    private double _timeSinceLastSave;
+    private bool _autoSaveEnabled = false;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -72,6 +75,16 @@ public class Mod
                 submod.Initialize();
                 _submodVisibility[submod.Name] = true;
             }
+
+            // Restore persisted state
+            GrantState.LoadImGuiWindowState();
+            var (savedHeaders, savedVisibility) = GrantState.LoadSubmodState();
+            foreach (var kvp in savedHeaders)
+                _headerOpen[kvp.Key] = kvp.Value;
+            foreach (var kvp in savedVisibility)
+                if (_submodVisibility.ContainsKey(kvp.Key))
+                    _submodVisibility[kvp.Key] = kvp.Value;
+            _autoSaveEnabled = GrantState.AutoSaveEnabled;
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
@@ -112,7 +125,19 @@ public class Mod
                 _windowVisible = !_windowVisible;
 
             if (_windowVisible)
+            {
                 RenderWindow();
+
+                if (_autoSaveEnabled)
+                {
+                    _timeSinceLastSave += dt;
+                    if (_timeSinceLastSave >= GrantState.SaveIntervalSeconds)
+                    {
+                        _timeSinceLastSave = 0;
+                        SaveAll();
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -125,6 +150,9 @@ public class Mod
     {
         try
         {
+            if (_autoSaveEnabled)
+                SaveAll();
+
             foreach (var submod in _submods)
             {
                 try { submod.Dispose(); }
@@ -179,6 +207,25 @@ public class Mod
                 if (ImGui.MenuItem("Expand"))
                     _expandAll = true;
 
+                if (ImGui.BeginMenu("State"))
+                {
+                    if (ImGui.MenuItem("Auto save enabled", "", ref _autoSaveEnabled))
+                        GrantState.AutoSaveEnabled = _autoSaveEnabled;
+
+                    ImGui.PushItemWidth(120f);
+                    int interval = GrantState.SaveIntervalSeconds;
+                    if (ImGui.DragInt("Auto-save interval (s)", ref interval, 1.0f, 1, 30))
+                        GrantState.SaveIntervalSeconds = interval;
+                    ImGui.PopItemWidth();
+
+                    if (ImGui.MenuItem("Save window state now"))
+                    {
+                        _timeSinceLastSave = 0;
+                        SaveAll();
+                    }
+                    ImGui.EndMenu();
+                }
+
                 ImGui.EndMenuBar();
             }
 
@@ -191,13 +238,16 @@ public class Mod
                     ImGui.SetNextItemOpen(true, ImGuiCond.Always);
                 else if (_collapseAll)
                     ImGui.SetNextItemOpen(false, ImGuiCond.Always);
+                else
+                    ImGui.SetNextItemOpen(_headerOpen.GetValueOrDefault(submod.Name, true), ImGuiCond.Once);
 
-                if (ImGui.CollapsingHeader(submod.Name, ImGuiTreeNodeFlags.DefaultOpen))
+                bool isOpen = ImGui.CollapsingHeader(submod.Name, ImGuiTreeNodeFlags.DefaultOpen);
+                _headerOpen[submod.Name] = isOpen;
+
+                if (isOpen)
                 {
-                    // ImGui.Indent();
                     try { submod.RenderContent(); }
                     catch (Exception ex) { ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Error: {ex.Message}"); }
-                    // ImGui.Unindent();
                 }
                 ImGui.Separator();
             }
@@ -210,6 +260,12 @@ public class Mod
                 _windowVisible = false;
         }
         ImGui.End();
+    }
+
+    private void SaveAll()
+    {
+        GrantState.SaveImGuiWindowState();
+        GrantState.SaveSubmodState(_headerOpen, _submodVisibility);
     }
 }
 
