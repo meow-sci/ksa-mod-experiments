@@ -118,19 +118,21 @@ LCD display animation system for pre-built pixel engine grids. Scans vehicles fo
 - `LcdAnimation` — manages scroll state and updates engine active states
 
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
-Dynamic LCD pixel grid builder. Builds an NxM engine pixel grid at runtime by dynamically creating and attaching engine parts to an existing vehicle. Self-contained — does NOT depend on blinken.lib.
+Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dynamically creating and attaching engine parts to existing vehicles. Supports **multiple named grids per vehicle** via compound `(vehicleId, gridName)` key. Self-contained — does NOT depend on blinken.lib.
 - Runtime part creation via manual `TreeParent`/`TreeChildren` wiring — no pre-built vehicle needed
+- **Multiple grids per vehicle** — each grid has a unique name, independently configured and controlled
+- Grid names: alphanumeric + hyphens only (`[a-zA-Z0-9-]`); part ID format: `pixel_{gridName}_{row}_{col}_{a|b}`
 - Layout modes: Flat (plane) or Cylinder (sides only, radius auto-calculated from width × spacing)
 - Configurable grid size, spacing, offset, and engine template
 - Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
-- **BlinkyGridManager** — static singleton managing per-vehicle grids, shared with RPC endpoints
-- **Scroll animation** — scrolls user-supplied or built-in pixel art across the grid at configurable speed
+- **BlinkyGridManager** — static singleton managing grids by `(vehicleId, gridName)` compound key, shared with RPC endpoints
+- **Scroll animation** — scrolls user-supplied or built-in pixel art across a specific grid at configurable speed
 - **Static display** — paints a set of pixels with optional intelligent diff (reset mode)
-- **Off** — turns off all pixels and stops any running scroll
+- **Off** — turns off all pixels and stops any running scroll on a specific grid
 - Pattern presets: All On, Checkerboard, Alt Rows, Alt Cols
-- Build/Destroy grid at any time; destruction splits pixel parts back out of the vehicle
-- Debug panel: runtime dump of vehicle parts type, root part, engine templates list
-- **blinky.lib**: `BlinkyGridManager` (scroll/static/off/pattern APIs), `ScrollAnimation`, `PixelGrid`, `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
+- Build/Destroy individual grids at any time; Scan All auto-discovers all grids on a vehicle
+- Per-grid collapsible UI sections with independent controls
+- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.
@@ -183,9 +185,10 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /health` — server liveness check
 - `GET /fov` — returns current FOV state (current, override, isActive)
 - `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
-- `POST /blinky/animate` — starts a scrolling animation on a vehicle's pixel grid (`{ "vehicleId": "...", "pixels": [...], "speed": 1.0 }`)
-- `POST /blinky/static` — displays a static pixel pattern on a vehicle's grid (`{ "vehicleId": "...", "pixels": [...], "reset": true }`)
-- `POST /blinky/off` — turns off all pixels and stops scroll on a vehicle's grid (`{ "vehicleId": "..." }`)
+- `POST /blinky/animate` — starts a scrolling animation on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "...", "pixels": [...], "speed": 1.0 }`)
+- `POST /blinky/static` — displays a static pixel pattern on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "...", "pixels": [...], "reset": true }`)
+- `POST /blinky/off` — turns off all pixels and stops scroll on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "..." }`)
+- `GET /blinky/grids` — lists all registered grids (optional `vehicleId` query filter)
 - **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, and `ksa-abstractions.lib`.
 
 ---

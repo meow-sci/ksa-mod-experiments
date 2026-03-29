@@ -6,6 +6,6 @@
     "git commit": true,
     "bun": true
   },
-  "chat.notifyWindowOnConfirmation": "always",
-  "chat.notifyWindowOnResponseReceived": "always"
+  "chat.notifyWindowOnResponseReceived": "always",
+  "chat.notifyWindowOnConfirmation": "always"
 }

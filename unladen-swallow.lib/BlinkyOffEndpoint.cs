@@ -20,16 +20,18 @@ public static class BlinkyOffEndpoint
             {
                 if (string.IsNullOrWhiteSpace(body.VehicleId))
                     throw new ProviderException(ResponseStatus.BadRequest, "Missing vehicleId.");
+                if (string.IsNullOrWhiteSpace(body.GridName))
+                    throw new ProviderException(ResponseStatus.BadRequest, "Missing gridName.");
 
                 try
                 {
                     var result = await GameThread.Scheduler.Schedule(() =>
                     {
-                        if (!BlinkyGridManager.TurnOff(body.VehicleId))
+                        if (!BlinkyGridManager.TurnOff(body.VehicleId, body.GridName))
                             throw new ProviderException(ResponseStatus.NotFound,
-                                $"No blinky grid registered for vehicle: {body.VehicleId}.");
+                                $"No blinky grid '{body.GridName}' registered for vehicle: {body.VehicleId}.");
 
-                        return new BlinkyResult(body.VehicleId, "off");
+                        return new BlinkyResult(body.VehicleId, body.GridName, "off");
                     });
 
                     return (object)new ApiResponse<BlinkyResult>("ok", result);
