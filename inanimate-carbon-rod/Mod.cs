@@ -2,6 +2,7 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
+using MeowSci.InanimateCarbonRodLib;
 
 namespace MeowSci.InanimateCarbonRod;
 
@@ -10,9 +11,10 @@ public class Mod
 {
     public bool ImmediateUnload => false;
 
-    private bool _isInitialized = false;
-    private bool _isDisposed = false;
-    private bool _windowVisible = false;
+    private InanimeCarbonicRodSubmod _submod = null!;
+    private bool _isInitialized;
+    private bool _isDisposed;
+    private bool _windowVisible;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -22,7 +24,10 @@ public class Mod
     {
         try
         {
+            _submod = new InanimeCarbonicRodSubmod();
+            _submod.Initialize();
             _isInitialized = true;
+            Console.WriteLine("inanimate-carbon-rod: Initialized (standalone)");
         }
         catch (Exception ex)
         {
@@ -31,7 +36,12 @@ public class Mod
     }
 
     [StarMapBeforeGui]
-    public void OnBeforeUi(double dt) { }
+    public void OnBeforeUi(double dt)
+    {
+        if (!_isInitialized || _isDisposed) return;
+        try { _submod.Update(dt); }
+        catch (Exception ex) { Console.WriteLine($"inanimate-carbon-rod: Update error: {ex.Message}"); }
+    }
 
     [StarMapAfterGui]
     public void OnAfterUi(double dt)
@@ -57,6 +67,7 @@ public class Mod
     {
         try
         {
+            _submod?.Dispose();
             _isDisposed = true;
         }
         catch (Exception ex)
@@ -71,7 +82,7 @@ public class Mod
 
         if (ImGui.Begin("Inanimate Carbon Rod", ref _windowVisible))
         {
-            ImGui.Text("Placeholder — submod UI coming soon.");
+            _submod.RenderContent();
         }
         ImGui.End();
     }
