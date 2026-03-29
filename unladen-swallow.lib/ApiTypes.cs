@@ -21,13 +21,21 @@ public record VehicleActionResult(string VehicleId, string Action);
 public record PixelCoord(int X, int Y);
 
 /// <summary>Request body for POST /blinky/animate — starts a scrolling animation.</summary>
-public record BlinkyScrollRequest(string VehicleId, PixelCoord[] Pixels, float Speed);
+public record BlinkyScrollRequest(string VehicleId, string GridName, PixelCoord[] Pixels, float Speed);
 
 /// <summary>Request body for POST /blinky/static — displays a static pixel set.</summary>
-public record BlinkyStaticRequest(string VehicleId, PixelCoord[] Pixels, bool Reset);
+public record BlinkyStaticRequest(string VehicleId, string GridName, PixelCoord[] Pixels, bool Reset);
 
 /// <summary>Request body for POST /blinky/off — turns off all pixels.</summary>
-public record BlinkyOffRequest(string VehicleId);
+public record BlinkyOffRequest(string VehicleId, string GridName);
 
 /// <summary>Result returned by blinky endpoints.</summary>
-public record BlinkyResult(string VehicleId, string Action);
+public record BlinkyResult(string VehicleId, string GridName, string Action);
+
+// ── Blinky Grid List Types ──────────────────────────────────────────────────
+
+/// <summary>Information about a registered blinky grid.</summary>
+public record BlinkyGridInfo(string VehicleId, string GridName, int Rows, int Cols, bool IsScrolling);
+
+/// <summary>Result returned by GET /blinky/grids.</summary>
+public record BlinkyGridListResult(BlinkyGridInfo[] Grids);

@@ -8,7 +8,7 @@ namespace MeowSci.BlinkyLib;
 
 /// <summary>
 /// Scans a vehicle for pixel engine part pairs and caches engine controllers for efficient per-frame access.
-/// Part naming convention: pixel_{row}_{col}_a / pixel_{row}_{col}_b
+/// Part naming convention: pixel_{gridName}_{row}_{col}_a / pixel_{gridName}_{row}_{col}_b
 /// </summary>
 public class PixelGrid
 {
@@ -54,8 +54,8 @@ public class PixelGrid
         Console.WriteLine($"blinky: RefreshEngineControllers — {total} controllers across {_grid.Count} cells");
     }
 
-    /// <summary>Scans all vehicle parts for pixel engine pairs and returns a populated PixelGrid.</summary>
-    public static PixelGrid ScanFromVehicle(Vehicle vehicle)
+    /// <summary>Scans all vehicle parts for pixel engine pairs matching the given grid name and returns a populated PixelGrid.</summary>
+    public static PixelGrid ScanFromVehicle(Vehicle vehicle, string gridName)
     {
         var result = new PixelGrid();
 
@@ -67,13 +67,14 @@ public class PixelGrid
             if (!part.Id.StartsWith("pixel_")) continue;
 
             var segments = part.Id.Split('_');
-            if (segments.Length != 4) continue;
-            if (!int.TryParse(segments[1], out int row)) continue;
-            if (!int.TryParse(segments[2], out int col)) continue;
+            if (segments.Length != 5) continue;
+            if (segments[1] != gridName) continue;
+            if (!int.TryParse(segments[2], out int row)) continue;
+            if (!int.TryParse(segments[3], out int col)) continue;
 
             var key = (row, col);
-            if (segments[3] == "a") partA[key] = part;
-            else if (segments[3] == "b") partB[key] = part;
+            if (segments[4] == "a") partA[key] = part;
+            else if (segments[4] == "b") partB[key] = part;
         }
 
         foreach (var key in partA.Keys)
@@ -101,6 +102,91 @@ public class PixelGrid
 
         Console.WriteLine($"blinky: found {result._grid.Count} pixel pairs, cached {result._engines.Values.Sum(e => e.Length)} engine controllers");
         return result;
+    }
+
+    /// <summary>
+    /// Scans a vehicle for ALL named pixel grids.
+    /// Parses part IDs matching pixel_{gridName}_{row}_{col}_{a|b},
+    /// groups by gridName, and returns a PixelGrid per discovered grid.
+    /// </summary>
+    public static Dictionary<string, PixelGrid> ScanAllFromVehicle(Vehicle vehicle)
+    {
+        var gridParts = new Dictionary<string, Dictionary<(int row, int col), (Part? a, Part? b)>>();
+
+        foreach (var part in PartHelpers.GetAllParts(vehicle))
+        {
+            if (!part.Id.StartsWith("pixel_")) continue;
+
+            var segments = part.Id.Split('_');
+            if (segments.Length != 5) continue;
+
+            string name = segments[1];
+            if (!int.TryParse(segments[2], out int row)) continue;
+            if (!int.TryParse(segments[3], out int col)) continue;
+            string slot = segments[4];
+            if (slot != "a" && slot != "b") continue;
+
+            if (!gridParts.TryGetValue(name, out var cells))
+            {
+                cells = new Dictionary<(int row, int col), (Part? a, Part? b)>();
+                gridParts[name] = cells;
+            }
+
+            var key = (row, col);
+            if (!cells.TryGetValue(key, out var pair))
+                pair = (null, null);
+
+            if (slot == "a") pair.a = part;
+            else pair.b = part;
+            cells[key] = pair;
+        }
+
+        var result = new Dictionary<string, PixelGrid>();
+        foreach (var (name, cells) in gridParts)
+        {
+            var pg = new PixelGrid();
+            foreach (var (key, (a, b)) in cells)
+            {
+                if (a != null && b != null)
+                    pg._grid[key] = (a, b);
+            }
+
+            if (pg._grid.Count == 0) continue;
+
+            // Cache engine controllers
+            foreach (var (key, (a, b)) in pg._grid)
+            {
+                var list = new List<EngineController>();
+                foreach (var p in new[] { a, b })
+                {
+                    var controllers = p.SubtreeModules.Get<EngineController>();
+                    for (int i = 0; i < controllers.Length; i++)
+                        list.Add(controllers[i]);
+                }
+                pg._engines[key] = list.ToArray();
+            }
+
+            pg.Rows = pg._grid.Keys.Max(k => k.row) + 1;
+            pg.Cols = pg._grid.Keys.Max(k => k.col) + 1;
+
+            result[name] = pg;
+            Console.WriteLine($"blinky: ScanAll found grid '{name}': {pg.Cols}x{pg.Rows} ({pg._grid.Count} pixel pairs)");
+        }
+
+        Console.WriteLine($"blinky: ScanAllFromVehicle discovered {result.Count} grid(s)");
+        return result;
+    }
+
+    /// <summary>
+    /// Validates a grid name. Names must be non-empty and contain only letters, digits, and hyphens.
+    /// Underscores are NOT allowed (they are the part ID delimiter).
+    /// </summary>
+    public static bool IsValidGridName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        foreach (char c in name)
+            if (!char.IsLetterOrDigit(c) && c != '-') return false;
+        return true;
     }
 
     /// <summary>

@@ -20,6 +20,8 @@ public static class BlinkyAnimateEndpoint
             {
                 if (string.IsNullOrWhiteSpace(body.VehicleId))
                     throw new ProviderException(ResponseStatus.BadRequest, "Missing vehicleId.");
+                if (string.IsNullOrWhiteSpace(body.GridName))
+                    throw new ProviderException(ResponseStatus.BadRequest, "Missing gridName.");
                 if (body.Pixels == null || body.Pixels.Length == 0)
                     throw new ProviderException(ResponseStatus.BadRequest, "Missing or empty pixels array.");
                 if (body.Speed <= 0)
@@ -33,11 +35,11 @@ public static class BlinkyAnimateEndpoint
                         for (int i = 0; i < body.Pixels.Length; i++)
                             pixels[i] = (body.Pixels[i].X, body.Pixels[i].Y);
 
-                        if (!BlinkyGridManager.StartScroll(body.VehicleId, pixels, body.Speed))
+                        if (!BlinkyGridManager.StartScroll(body.VehicleId, body.GridName, pixels, body.Speed))
                             throw new ProviderException(ResponseStatus.NotFound,
-                                $"No blinky grid registered for vehicle: {body.VehicleId}.");
+                                $"No blinky grid '{body.GridName}' registered for vehicle: {body.VehicleId}.");
 
-                        return new BlinkyResult(body.VehicleId, "scroll_started");
+                        return new BlinkyResult(body.VehicleId, body.GridName, "scroll_started");
                     });
 
                     return (object)new ApiResponse<BlinkyResult>("ok", result);

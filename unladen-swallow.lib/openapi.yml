@@ -134,9 +134,10 @@ paths:
     post:
       summary: Start scroll animation on LCD grid
       description: >
-        Starts a scrolling pixel animation on the Blinky LCD grid of the specified
-        vehicle. The pixel array defines the pattern to scroll. `speed` controls
-        the scroll rate in pixels per second (must be > 0).
+        Starts a scrolling pixel animation on the named Blinky LCD grid of the
+        specified vehicle. `gridName` identifies which grid to target. The pixel
+        array defines the pattern to scroll. `speed` controls the scroll rate
+        in pixels per second (must be > 0).
       operationId: blinkyAnimate
       requestBody:
         required: true
@@ -162,10 +163,11 @@ paths:
     post:
       summary: Display static pixel set on LCD grid
       description: >
-        Displays a static set of lit pixels on the Blinky LCD grid of the
-        specified vehicle. When `reset` is `true` the grid is cleared before
-        applying the new pixels; when `false` the pixels are OR-ed onto the
-        current grid state (additive mode).
+        Displays a static set of lit pixels on the named Blinky LCD grid of the
+        specified vehicle. `gridName` identifies which grid to target. When
+        `reset` is `true` the grid is cleared before applying the new pixels;
+        when `false` the pixels are OR-ed onto the current grid state (additive
+        mode).
       operationId: blinkyStatic
       requestBody:
         required: true
@@ -192,7 +194,9 @@ paths:
   /blinky/off:
     post:
       summary: Turn off all pixels on LCD grid
-      description: Turns off every pixel on the Blinky LCD grid of the specified vehicle.
+      description: >
+        Turns off every pixel on the named Blinky LCD grid of the specified
+        vehicle. `gridName` identifies which grid to target.
       operationId: blinkyOff
       requestBody:
         required: true
@@ -218,9 +222,10 @@ paths:
     post:
       summary: Apply a named pattern to LCD grid
       description: >
-        Applies a built-in pixel pattern to the Blinky LCD grid of the specified
-        vehicle. Stops any running scroll animation before applying. Available
-        patterns: `allOn`, `allOff`, `checkerboard`, `altRows`, `altCols`.
+        Applies a built-in pixel pattern to the named Blinky LCD grid of the
+        specified vehicle. `gridName` identifies which grid to target. Stops any
+        running scroll animation before applying. Available patterns: `allOn`,
+        `allOff`, `checkerboard`, `altRows`, `altCols`.
       operationId: blinkyPattern
       requestBody:
         required: true
@@ -251,8 +256,18 @@ paths:
       summary: List all registered LCD grids
       description: >
         Returns a list of all currently registered Blinky LCD grids across all
-        vehicles, including grid dimensions, layout, and scroll state.
+        vehicles, including grid dimensions, layout, and scroll state. An
+        optional `vehicleId` query parameter filters results to grids belonging
+        to the specified vehicle.
       operationId: blinkyListGrids
+      parameters:
+        - name: vehicleId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: When provided, only grids belonging to this vehicle are returned.
+          example: "rocket-1"
       responses:
         '200':
           description: List of registered grids.
@@ -267,14 +282,15 @@ paths:
     post:
       summary: Build a new pixel grid on a vehicle
       description: >
-        Creates a new Blinky LCD pixel grid on the specified vehicle using the
-        provided grid configuration. Each pixel is composed of two opposing
-        engine parts that produce net-zero thrust. The grid is registered with
-        the Blinky grid manager after creation.
+        Creates a new named Blinky LCD pixel grid on the specified vehicle using
+        the provided grid configuration. `gridName` identifies the grid. Each
+        pixel is composed of two opposing engine parts that produce net-zero
+        thrust. The grid is registered with the Blinky grid manager after
+        creation.
 
 
-        If a grid is already registered for the vehicle, the request is rejected
-        with a 409 Conflict.
+        If a grid with the same name is already registered for the vehicle, the
+        request is rejected with a 409 Conflict.
       operationId: blinkyBuildGrid
       requestBody:
         required: true
@@ -302,10 +318,11 @@ paths:
     post:
       summary: Destroy a pixel grid on a vehicle
       description: >
-        Destroys the Blinky LCD pixel grid on the specified vehicle, removing
-        all dynamically created pixel parts and unregistering the grid. Only
-        grids that were built via the API (owned grids) can be destroyed; scanned
-        grids are unregistered but their parts are not removed.
+        Destroys the named Blinky LCD pixel grid on the specified vehicle,
+        removing all dynamically created pixel parts and unregistering the grid.
+        `gridName` identifies which grid to target. Only grids that were built
+        via the API (owned grids) can be destroyed; scanned grids are
+        unregistered but their parts are not removed.
       operationId: blinkyDestroyGrid
       requestBody:
         required: true
@@ -331,8 +348,8 @@ paths:
     post:
       summary: Scan for an existing pixel grid on a vehicle
       description: >
-        Scans the specified vehicle for an existing pixel grid. Two scan modes
-        are supported:
+        Scans the specified vehicle for an existing pixel grid and registers it
+        under the given `gridName`. Two scan modes are supported:
 
 
         - **ID-based** (default): Finds parts whose IDs match the `pixel_{row}_{col}_{a|b}`
@@ -482,6 +499,10 @@ components:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
         pixels:
           type: array
           description: >
@@ -497,6 +518,7 @@ components:
           example: 2.5
       required:
         - vehicleId
+        - gridName
         - pixels
         - speed
 
@@ -508,6 +530,10 @@ components:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
         pixels:
           type: array
           description: Array of pixel coordinates to light up.
@@ -521,6 +547,7 @@ components:
           example: true
       required:
         - vehicleId
+        - gridName
         - pixels
         - reset
 
@@ -532,8 +559,13 @@ components:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
       required:
         - vehicleId
+        - gridName
 
     BlinkyPatternRequest:
       type: object
@@ -543,6 +575,10 @@ components:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
         pattern:
           type: string
           description: >
@@ -557,6 +593,7 @@ components:
           example: "checkerboard"
       required:
         - vehicleId
+        - gridName
         - pattern
 
     BlinkyResult:
@@ -567,6 +604,10 @@ components:
           type: string
           description: The vehicle ID the operation was applied to.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The grid name the operation was applied to.
+          example: "main"
         action:
           type: string
           description: >
@@ -576,6 +617,7 @@ components:
           example: "scroll_started"
       required:
         - vehicleId
+        - gridName
         - action
 
     BlinkyResultResponse:
@@ -590,26 +632,35 @@ components:
 
     BlinkyGridVehicleRequest:
       type: object
-      description: Identifies the target vehicle for a grid management operation.
+      description: Identifies the target vehicle and grid for a grid management operation.
       properties:
         vehicleId:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
       required:
         - vehicleId
+        - gridName
 
     BlinkyBuildGridRequest:
       type: object
       description: >
         Request body for building a new pixel grid on a vehicle. All grid
-        configuration fields except `vehicleId` are optional and default to
-        sensible values if omitted.
+        configuration fields except `vehicleId` and `gridName` are optional
+        and default to sensible values if omitted.
       properties:
         vehicleId:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
         width:
           type: integer
           description: Number of pixel columns. Range 1–256.
@@ -680,6 +731,7 @@ components:
           example: 0.010
       required:
         - vehicleId
+        - gridName
 
     BlinkyScanGridRequest:
       type: object
@@ -693,6 +745,10 @@ components:
           type: string
           description: The unique identifier of the target vehicle.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid to animate on the target vehicle.
+          example: "main"
         enginePartId:
           type: string
           description: >
@@ -701,6 +757,7 @@ components:
           example: "CorePropulsionA_Prefab_EngineA1"
       required:
         - vehicleId
+        - gridName
 
     BlinkyGridInfo:
       type: object
@@ -710,6 +767,10 @@ components:
           type: string
           description: The vehicle ID the grid belongs to.
           example: "rocket-1"
+        gridName:
+          type: string
+          description: The name of the grid.
+          example: "main"
         rows:
           type: integer
           description: Number of pixel rows in the grid.
@@ -740,6 +801,7 @@ components:
           example: 0.0
       required:
         - vehicleId
+        - gridName
         - rows
         - cols
         - pixelCount

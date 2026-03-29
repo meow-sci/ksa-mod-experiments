@@ -11,7 +11,7 @@ namespace MeowSci.BlinkyLib;
 /// <summary>
 /// Builds an LCD pixel grid of engine parts on a vehicle at runtime.
 /// Each pixel position gets two engine parts (a/b pair) following blinken's naming convention
-/// <c>pixel_{row}_{col}_{a|b}</c>, so that <see cref="PixelGrid.ScanFromVehicle"/> can be reused directly.
+/// <c>pixel_{gridName}_{row}_{col}_{a|b}</c>, so that <see cref="PixelGrid.ScanFromVehicle"/> can be reused directly.
 ///
 /// All pixel parts are attached as children of the vehicle's root part via manual
 /// <c>TreeParent</c>/<c>TreeChildren</c> assignment.  The <c>PartTree</c> is rebuilt once
@@ -25,7 +25,7 @@ public static class LcdGridBuilder
     /// <see cref="BlinkyPixelGrid"/>. Returns null on failure (e.g. unknown part template,
     /// no root part, or all parts failed to merge).
     /// </summary>
-    public static BlinkyPixelGrid? BuildGrid(Vehicle vehicle, LcdGridConfig config)
+    public static BlinkyPixelGrid? BuildGrid(Vehicle vehicle, string gridName, LcdGridConfig config)
     {
         if (vehicle == null) throw new ArgumentNullException(nameof(vehicle));
         if (config == null) throw new ArgumentNullException(nameof(config));
@@ -82,8 +82,8 @@ public static class LcdGridBuilder
         {
             for (int col = 0; col < config.Width; col++)
             {
-                var partA = CreatePixelPartInstance(template, row, col, "a", config);
-                var partB = CreatePixelPartInstance(template, row, col, "b", config);
+                var partA = CreatePixelPartInstance(template, gridName, row, col, "a", config);
+                var partB = CreatePixelPartInstance(template, gridName, row, col, "b", config);
                 if (partA != null) createdParts.Add(partA);
                 if (partB != null) createdParts.Add(partB);
             }
@@ -139,7 +139,7 @@ public static class LcdGridBuilder
 
         // ── PixelGrid.ScanFromVehicle ────────────────────────────────────────────
         sw.Restart();
-        var pixelGrid = PixelGrid.ScanFromVehicle(vehicle);
+        var pixelGrid = PixelGrid.ScanFromVehicle(vehicle, gridName);
         timings.Add(($"PixelGrid.ScanFromVehicle ({pixelGrid.Count} pairs)", sw.ElapsedMilliseconds));
         if (pixelGrid.Count == 0)
             Console.WriteLine("blinky: WARNING — PixelGrid scan found 0 pixel pairs after creation");
@@ -242,11 +242,11 @@ public static class LcdGridBuilder
     /// Does NOT wire it into any tree — caller handles <c>TreeParent</c>/<c>TreeChildren</c>.
     /// </summary>
     private static Part? CreatePixelPartInstance(
-        PartTemplate template, int row, int col, string slot, LcdGridConfig config)
+        PartTemplate template, string gridName, int row, int col, string slot, LcdGridConfig config)
     {
         try
         {
-            string partId = $"pixel_{row}_{col}_{slot}";
+            string partId = $"pixel_{gridName}_{row}_{col}_{slot}";
             var part = new Part(partId, template);
 
             double px, py, pz;
@@ -290,7 +290,7 @@ public static class LcdGridBuilder
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"blinky: error creating pixel_{row}_{col}_{slot}: {ex.Message}");
+            Console.WriteLine($"blinky: error creating pixel_{gridName}_{row}_{col}_{slot}: {ex.Message}");
             return null;
         }
     }
@@ -346,7 +346,7 @@ public static class LcdGridBuilder
     /// when Part.Id names are lost). Identifies pixel parts by template ID and small scale, then
     /// reconstructs the grid layout from spatial analysis of part positions.
     /// </summary>
-    public static BlinkyPixelGrid? ScanExistingGrid(Vehicle vehicle, string engineTemplateId)
+    public static BlinkyPixelGrid? ScanExistingGrid(Vehicle vehicle, string gridName, string engineTemplateId)
     {
         if (vehicle == null) return null;
 
