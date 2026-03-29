@@ -241,8 +241,9 @@ public sealed class SingleSubpartGenerator : IDisposable
         ref int frameIndex)
     {
         int size = ThumbnailRenderer.SIZE;
-        int mipLevels = (int)Math.Floor(Math.Log2(size)) + 1;
+        int mipLevels = 1;
 
+        // Allocate GPU image (R8G8B8A8UNorm, single mip — ~62.5% VRAM savings vs HDR + full mip chain)
         var thumb = new ThumbnailReference();
         thumb.CreateImageView(
             renderer.Device,
@@ -259,11 +260,9 @@ public sealed class SingleSubpartGenerator : IDisposable
                     Height = size,
                     Depth = 1
                 },
-                ImageUsage = VkImageUsageFlags.TransferSrcBit
-                           | VkImageUsageFlags.TransferDstBit
-                           | VkImageUsageFlags.SampledBit
-                           | VkImageUsageFlags.ColorAttachmentBit,
-                ImageFormat = ThumbnailRenderer.ColorFormat,
+                ImageUsage = VkImageUsageFlags.TransferDstBit
+                           | VkImageUsageFlags.SampledBit,
+                ImageFormat = VkFormat.R8G8B8A8UNorm,
                 ImageMipLevels = mipLevels,
                 ImageSamples = VkSampleCountFlags._1Bit,
                 ImageSharingMode = VkSharingMode.Exclusive,
@@ -294,7 +293,7 @@ public sealed class SingleSubpartGenerator : IDisposable
                 Program.LightSystem,
                 Program.PlanetAtmosphereRenderer),
             new PassThumbnailCommand(viewport, frameIndex),
-            new PostPassThumbnailCommand(thumbRenderer, subpart, Program.PlanetAtmosphereRenderer),
+            new LdrPostPassCommand(thumbRenderer, subpart, Program.PlanetAtmosphereRenderer),
             subpart.Id,
             out VkFence fence);
 
