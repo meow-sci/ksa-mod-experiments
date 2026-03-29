@@ -2,105 +2,78 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using KSA;
 
 namespace MeowSci.InanimateCarbonRod;
 
 [StarMapMod]
 public class Mod
 {
-  public bool ImmediateUnload => false;
+    public bool ImmediateUnload => false;
 
-  private bool _isInitialized = false;
-  private bool _isDisposed = false;
-  private bool _windowVisible = false;
+    private bool _isInitialized = false;
+    private bool _isDisposed = false;
+    private bool _windowVisible = false;
 
+    [StarMapImmediateLoad]
+    public void OnImmediateLoad() { }
 
-  [StarMapImmediateLoad]
-  public void OnImmediateLoad() { }
-
-  [StarMapAllModsLoaded]
-  public void OnFullyLoaded()
-  {
-    try
+    [StarMapAllModsLoaded]
+    public void OnFullyLoaded()
     {
-      Patcher.Patch();
-      _isInitialized = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"inanimate-carbon-rod: Error during initialization: {ex.Message}");
-    }
-  }
-
-  [StarMapBeforeGui]
-  public void OnBeforeUi(double dt) { }
-
-  [StarMapAfterGui]
-  public void OnAfterUi(double dt)
-  {
-    try
-    {
-      if (!_isInitialized || _isDisposed) return;
-
-      if (ImGui.IsKeyPressed(ImGuiKey.F11))
-        _windowVisible = !_windowVisible;
-
-      if (_windowVisible)
-        RenderWindow();
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"inanimate-carbon-rod: Error in OnAfterUi: {ex.Message}");
-    }
-  }
-
-  [StarMapUnload]
-  public void Unload()
-  {
-    try
-    {
-      Patcher.Unload();
-      _isDisposed = true;
-    }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"inanimate-carbon-rod: Error during unload: {ex.Message}");
-    }
-  }
-
-  private void RenderWindow()
-  {
-    // Set initial window size
-    ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
-
-    // Begin window
-    if (ImGui.Begin("inanimate-carbon-rod Mod", ref _windowVisible))
-    {
-      // Header
-      ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "inanimate-carbon-rod");
-      ImGui.Separator();
-
-      // Zoom Out Animation Configuration
-      if (ImGui.CollapsingHeader("thing", ImGuiTreeNodeFlags.DefaultOpen))
-      {
-        ImGui.Indent();
-        
-        if (ImGui.Button("press me"))
+        try
         {
-          Console.WriteLine("button pressed!");
+            _isInitialized = true;
         }
-        
-        ImGui.Unindent();
-      }
-      
-      // Close button
-      if (ImGui.Button("Close"))
-      {
-        _windowVisible = false;
-      }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"inanimate-carbon-rod: Error during initialization: {ex.Message}");
+        }
     }
-    ImGui.End();
-  }
+
+    [StarMapBeforeGui]
+    public void OnBeforeUi(double dt) { }
+
+    [StarMapAfterGui]
+    public void OnAfterUi(double dt)
+    {
+        try
+        {
+            if (!_isInitialized || _isDisposed) return;
+
+            if (ImGui.IsKeyPressed(ImGuiKey.F10))
+                _windowVisible = !_windowVisible;
+
+            if (_windowVisible)
+                RenderWindow();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"inanimate-carbon-rod: Error in OnAfterUi: {ex.Message}");
+        }
+    }
+
+    [StarMapUnload]
+    public void Unload()
+    {
+        try
+        {
+            _isDisposed = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"inanimate-carbon-rod: Error during unload: {ex.Message}");
+        }
+    }
+
+    private void RenderWindow()
+    {
+        ImGui.SetNextWindowSize(new float2(520f, 420f), ImGuiCond.FirstUseEver);
+
+        if (ImGui.Begin("Inanimate Carbon Rod", ref _windowVisible))
+        {
+            ImGui.Text("Placeholder — submod UI coming soon.");
+        }
+        ImGui.End();
+    }
 }
 
