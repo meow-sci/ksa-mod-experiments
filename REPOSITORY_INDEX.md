@@ -193,18 +193,34 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 
 ---
 
+## Rendering & Thumbnails
+
+### [inanimate-carbon-rod](inanimate-carbon-rod) / [inanimate-carbon-rod.lib](inanimate-carbon-rod.lib)
+On-demand subpart thumbnail generator. The game skips thumbnail generation for subparts (`IsSubPart == true`) during startup — this mod generates them at runtime via the same Vulkan rendering pipeline, triggered by a button click in the UI.
+- F10 window toggle (standalone mode)
+- One-click "Generate Subpart Thumbnails" button
+- Mirrors game's `ThumbnailCreator` Vulkan rendering loop exactly
+- Saves/restores camera and viewport state after generation
+- Scrollable thumbnail grid (64x64 images) with subpart ID tooltips
+- Progress bar and status display during generation
+- Static cache (`SubpartThumbnailCache`) for cross-mod access to generated thumbnails
+- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (on-demand Vulkan rendering), `SubpartThumbnailCache` (static thumbnail storage), `InanimeCarbonicRodSubmod` (ISubmod — full UI)
+- No Harmony patches required — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
+
+---
+
 ## Unified Supermod
 
 ### [grant](grant)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
-- F11 window toggle with unified panel for all 14 submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
+- F11 window toggle with unified panel for all 15 submods
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, I Feel Seen, Inanimate Carbon Rod, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, inanimate-carbon-rod.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 
