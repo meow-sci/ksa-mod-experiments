@@ -73,7 +73,6 @@ public class Mod
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
-            Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
 
             Patcher.Patch();

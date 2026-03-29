@@ -1,6 +1,5 @@
-using System;
 using HarmonyLib;
-using MeowSci.SkittlesLib;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.Skittles;
 
@@ -8,16 +7,16 @@ internal static class Patcher
 {
     private static Harmony? _harmony;
 
-    public static void Patch(Func<bool> hasFocusedTextInput)
+    public static void Patch()
     {
         _harmony = new Harmony("MeowSci.Skittles");
-        SkittlesPatches.Apply(_harmony, hasFocusedTextInput);
+        HotkeyGuard.Patch(_harmony);
     }
 
     public static void Unload()
     {
         if (_harmony != null)
-            SkittlesPatches.Remove(_harmony);
+            HotkeyGuard.Unpatch(_harmony);
         _harmony = null;
     }
 }
