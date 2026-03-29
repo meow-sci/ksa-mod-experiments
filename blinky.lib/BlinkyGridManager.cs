@@ -10,6 +10,7 @@ namespace MeowSci.BlinkyLib;
 public class GridState
 {
     public string VehicleId { get; }
+    public string GridName { get; }
     public Vehicle Vehicle { get; }
     public BlinkyPixelGrid BlinkyGrid { get; }
     public ScrollAnimation Scroll { get; } = new();
@@ -19,9 +20,10 @@ public class GridState
     /// </summary>
     internal HashSet<(int row, int col)> ActivePixels { get; } = new();
 
-    public GridState(string vehicleId, Vehicle vehicle, BlinkyPixelGrid grid)
+    public GridState(string vehicleId, string gridName, Vehicle vehicle, BlinkyPixelGrid grid)
     {
         VehicleId = vehicleId;
+        GridName = gridName;
         Vehicle = vehicle;
         BlinkyGrid = grid;
     }
