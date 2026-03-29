@@ -14,11 +14,12 @@ public sealed class EternalFlameSubmod : ISubmod
     private FuelManager _fuelManager = null!;
     private ImGuiTextFilter _vehicleFilter = new ImGuiTextFilter();
     private int _selectedVehicleIndex = -1;
-    private int _refillIntervalMs = 500;
+    private int _refillIntervalMs = 100;
 
     public void Initialize()
     {
         _fuelManager = new FuelManager();
+        _refillIntervalMs = _fuelManager.RefillIntervalMs;
     }
 
     public void Update(double dt)
@@ -28,17 +29,13 @@ public sealed class EternalFlameSubmod : ISubmod
 
     public void RenderContent()
     {
-        ImGui.TextColored(new float4(1.0f, 0.6f, 0.0f, 1.0f), "Eternal Flame");
-        ImGui.SameLine(0, 10);
-        ImGui.TextDisabled($"(refill every {_fuelManager.RefillIntervalMs}ms)");
-        ImGui.Separator();
+        SubmodUI.BeginContentArea("##ef_content");
 
         RenderVehicleSelector();
-        ImGui.Spacing();
-        RenderRefillIntervalSlider();
-        ImGui.Spacing();
-        ImGui.SeparatorText("Monitored Vehicles");
-        RenderMonitoredTable();
+        RenderAddButton();
+        RenderMonitoredSection();
+
+        SubmodUI.EndContentArea();
     }
 
     public void Dispose() { }
@@ -57,9 +54,21 @@ public sealed class EternalFlameSubmod : ISubmod
         if (_selectedVehicleIndex >= vehicleNames.Length)
             _selectedVehicleIndex = -1;
 
-        string preview = _selectedVehicleIndex >= 0 ? vehicleNames[_selectedVehicleIndex] : "Select a vehicle...";
+        string preview = _selectedVehicleIndex >= 0 ? vehicleNames[_selectedVehicleIndex] : "Select...";
 
-        if (ImGui.BeginCombo("Vehicle##ef_selector", preview))
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Vehicle");
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.Text("Once monitored, a background thread will every N milliseconds issue");
+            ImGui.Text("the equivalent of a console \"refill\" command and top up that");
+            ImGui.Text("vehicle's fuel.");
+            ImGui.EndTooltip();
+        }
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##ef_selector", preview))
         {
             if (ImGui.IsWindowAppearing())
             {
@@ -79,43 +88,69 @@ public sealed class EternalFlameSubmod : ISubmod
             }
             ImGui.EndCombo();
         }
+    }
 
-        ImGui.SameLine();
+    private void RenderAddButton()
+    {
+        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
+        bool canAdd = _selectedVehicleIndex >= 0
+            && vehicles != null
+            && _selectedVehicleIndex < vehicles.Count;
 
-        bool canAdd = _selectedVehicleIndex >= 0;
         if (!canAdd) ImGui.BeginDisabled();
-        if (ImGui.Button("Add##ef"))
+        if (ImGui.Button(" Add ##ef"))
         {
-            var v = vehicles[_selectedVehicleIndex];
+            var v = vehicles![_selectedVehicleIndex];
             _fuelManager.AddVehicle(v.Id, v.Id);
             _selectedVehicleIndex = -1;
+            _vehicleFilter.Clear();
         }
         if (!canAdd) ImGui.EndDisabled();
     }
 
-    private void RenderRefillIntervalSlider()
+    private void RenderMonitoredSection()
     {
-        if (ImGui.DragInt("Refill Interval (ms)##ef", ref _refillIntervalMs, 1, 0, 1000))
+        var monitored = _fuelManager.MonitoredVehicles;
+
+        ImGui.Spacing();
+        ImGui.SeparatorText($"Gassing up ( {monitored.Count} ) Vehicles");
+
+        if (monitored.Count == 0)
+        {
+            ImGui.Spacing();
+            ImGui.TextDisabled("Nothing to see here.  See above to start filling!");
+            return;
+        }
+
+        // ImGui.Spacing();
+        // ImGui.Spacing();
+        ImGui.NewLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Refill Interval (ms)");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.DragInt("##ef_interval", ref _refillIntervalMs, 1, 0, 5000))
         {
             _fuelManager.RefillIntervalMs = _refillIntervalMs;
         }
+        // ImGui.NewLine();
+        ImGui.Spacing();
+        // ImGui.NewLine();
+        // ImGui.Spacing();
+
+        RenderMonitoredTable();
     }
 
     private void RenderMonitoredTable()
     {
         var monitored = _fuelManager.MonitoredVehicles;
-        if (monitored.Count == 0)
-        {
-            ImGui.TextDisabled("No vehicles being monitored. Add one above.");
-            return;
-        }
 
         if (ImGui.BeginTable("##ef_MonitoredVehicles", 3,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
         {
-            ImGui.TableSetupColumn("Active", ImGuiTableColumnFlags.WidthFixed, 50);
+            ImGui.TableSetupColumn("##ef_Active", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoHeaderLabel, 38);
             ImGui.TableSetupColumn("Vehicle", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("##ef_Remove", ImGuiTableColumnFlags.WidthFixed, 30);
+            ImGui.TableSetupColumn("##ef_Remove", ImGuiTableColumnFlags.WidthFixed, 40);
             ImGui.TableHeadersRow();
 
             string? toRemove = null;
@@ -126,6 +161,9 @@ public sealed class EternalFlameSubmod : ISubmod
 
                 ImGui.TableSetColumnIndex(0);
                 bool active = entry.Active;
+                float checkboxSize = ImGui.GetFrameHeight();
+                float colWidth = ImGui.GetColumnWidth();
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (colWidth - checkboxSize) / 2f);
                 if (ImGui.Checkbox($"##ef_active_{i}", ref active))
                     entry.Active = active;
 
@@ -133,7 +171,10 @@ public sealed class EternalFlameSubmod : ISubmod
                 ImGui.Text(entry.DisplayName);
 
                 ImGui.TableSetColumnIndex(2);
-                if (ImGui.SmallButton($"X##ef_{i}"))
+                float btnWidth = ImGui.CalcTextSize(" X ").X + ImGui.GetStyle().FramePadding.X * 2f;
+                float removeColWidth = ImGui.GetColumnWidth();
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (removeColWidth - btnWidth) / 2f);
+                if (ImGui.SmallButton($" X ##ef_{i}"))
                     toRemove = entry.VehicleId;
             }
 
