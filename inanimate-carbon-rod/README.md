@@ -14,6 +14,7 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 - **Progress display** — progress bar and status during generation
 - **Static cache** — `SubpartThumbnailCache` allows other mods to access generated thumbnails
 - **No Harmony patches** — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
+- **VRAM optimized** — thumbnails stored as R8G8B8A8UNorm (4 bytes/pixel) with no mip chain, ~62.5% VRAM savings vs game default HDR format with full mips
 - **Grant supermod integration** — appears as a collapsible section in the grant window
 
 ## Usage
@@ -41,6 +42,9 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 |------|---------|
 | `SubpartThumbnailCache.cs` | Static `Dictionary<string, ThumbnailReference>` cache |
 | `SubpartThumbnailGenerator.cs` | On-demand Vulkan rendering loop mirroring `ThumbnailCreator` |
+| `SingleSubpartGenerator.cs` | Hi-res single-subpart multi-view generator |
+| `SubpartViewerWindow.cs` | Single-subpart detail viewer with animation |
+| `LdrPostPassCommand.cs` | Post-pass blit command: HDR→LDR format conversion (R16G16B16A16SFloat → R8G8B8A8UNorm) |
 | `InanimeCarbonicRodSubmod.cs` | `ISubmod` implementation with full ImGui UI |
 
 ## Technical Details
@@ -52,11 +56,12 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 3. Configures camera for thumbnail-size rendering
 4. Creates `ThumbnailRenderer` (own Vulkan framebuffer)
 5. For each subpart:
-   - Allocates GPU image (`ThumbnailReference.CreateImageView`)
+   - Allocates GPU image (`ThumbnailReference.CreateImageView`) in R8G8B8A8UNorm format, single mip level
    - Creates synthetic `PartInstance` pointing to the subpart template
    - Builds `ThumbnailPart` child from the synthetic instance
    - Positions camera using bounding sphere calculation
    - Drives render: `UpdateShaderData` → `UpdateRenderData` → `RenderThumbnail`
+   - `LdrPostPassCommand` blits HDR render result into LDR destination via `VkCmdBlitImage`
    - Waits for GPU fence, resets frame state
 6. Restores camera/viewport state
 
