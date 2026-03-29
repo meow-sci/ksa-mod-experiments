@@ -352,7 +352,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
             ImGui.EndGroup();
 
             if (ImGui.IsItemClicked())
-                _viewerWindow.Open(kvp.Key, entry);
+                _viewerWindow.Open(kvp.Key, entry, _generator.ThumbnailImageSize);
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(kvp.Key);
         }
@@ -367,6 +367,7 @@ public sealed class InanimeCarbonicRodSubmod : ISubmod
 
     public void Dispose()
     {
+        _viewerWindow.Dispose();
         _generator.Dispose();
     }
 }

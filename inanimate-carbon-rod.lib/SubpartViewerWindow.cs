@@ -1,6 +1,8 @@
 using System;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
+using Brutal.VulkanApi;
+using Brutal.VulkanApi.Abstractions;
 using KSA;
 using KSA.Rendering.Thumbnails;
 
@@ -9,12 +11,24 @@ namespace MeowSci.InanimateCarbonRodLib;
 /// <summary>
 /// Separate ImGui window for inspecting a single subpart's thumbnails.
 /// Supports an animated Viewer tab and a static Images grid tab.
+/// Can generate hi-res images for the selected subpart on demand.
 /// </summary>
 public sealed class SubpartViewerWindow
 {
     private string _subpartName = string.Empty;
-    private SubpartThumbnailEntry? _entry;
     private bool _open;
+
+    // Default data from the main cache (not owned, never disposed by viewer)
+    private SubpartThumbnailEntry? _defaultEntry;
+    private int _defaultImageSize;
+
+    // Hi-res generation
+    private readonly SingleSubpartGenerator _hiResGen = new();
+    private SubpartThumbnailEntry? _pendingDispose;
+    private int _hiResViewCount = 32;
+    private int _hiResSizeIndex = 1; // default 512
+    private static readonly int[] HiResSizes = { 256, 512, 1024, 1600, 2048 };
+    private static readonly string[] HiResSizeLabels = { "256", "512", "1024", "1600", "2048" };
 
     // Viewer tab state
     private bool _playing = true;
@@ -28,10 +42,23 @@ public sealed class SubpartViewerWindow
 
     public bool IsOpen => _open;
 
-    public void Open(string name, SubpartThumbnailEntry entry)
+    private SubpartThumbnailEntry ActiveEntry =>
+        (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
+            ? _hiResGen.Result
+            : _defaultEntry!;
+
+    private int ActiveImageSize =>
+        (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
+            ? _hiResGen.ThumbnailImageSize
+            : _defaultImageSize;
+
+    public void Open(string name, SubpartThumbnailEntry entry, int imageSize)
     {
+        if (_open) DisposeHiRes();
+
         _subpartName = name;
-        _entry = entry;
+        _defaultEntry = entry;
+        _defaultImageSize = imageSize;
         _open = true;
         _playing = true;
         _frameIndex = 0;
@@ -40,28 +67,56 @@ public sealed class SubpartViewerWindow
 
     public void Close()
     {
+        DisposeHiRes();
         _open = false;
-        _entry = null;
+        _defaultEntry = null;
+    }
+
+    public void Dispose()
+    {
+        Close();
+        DisposePending();
+        _hiResGen.Dispose();
+    }
+
+    private void DisposeHiRes()
+    {
+        _pendingDispose = _hiResGen.DetachResult();
+    }
+
+    private void DisposePending()
+    {
+        if (_pendingDispose == null) return;
+        Program.GetRenderer().Device.WaitIdle();
+        foreach (var view in _pendingDispose.Views)
+        {
+            view?.DestroyImGuiThumbnail();
+            view?.Dispose();
+        }
+        _pendingDispose = null;
     }
 
     public void Update(double dt)
     {
-        if (!_open || _entry == null) return;
+        DisposePending();
 
-        if (_playing)
+        if (!_open || _defaultEntry == null) return;
+
+        _hiResGen.Update();
+
+        var active = ActiveEntry;
+        if (_playing && active.Views.Length > 0)
         {
             _animTimer += dt;
-            int viewCount = _entry.Views.Length;
-            if (viewCount > 0)
-                _frameIndex = (int)(_animTimer / (_animTickMs / 1000.0)) % viewCount;
+            _frameIndex = (int)(_animTimer / (_animTickMs / 1000.0)) % active.Views.Length;
         }
     }
 
     public void Render()
     {
-        if (!_open || _entry == null) return;
+        if (!_open || _defaultEntry == null) return;
 
-        ImGui.SetNextWindowSize(new float2(420, 480), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(460, 560), ImGuiCond.FirstUseEver);
         bool open = _open;
         if (ImGui.Begin("Subpart Viewer##icr_viewer", ref open))
         {
@@ -82,31 +137,129 @@ public sealed class SubpartViewerWindow
 
     private void RenderContent()
     {
-        var entry = _entry!;
+        var activeEntry = ActiveEntry;
 
-        // Header: part name + Copy Name button
-        ImGui.Text(_subpartName);
-        ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" Copy Name ").X
-            - ImGui.GetStyle().FramePadding.X * 2f + ImGui.GetCursorPosX());
+        // Header: Copy Name button + part name with pixel size
         if (ImGui.Button(" Copy Name ##icr_v"))
             ImGui.SetClipboardText(_subpartName);
+        ImGui.SameLine();
+        ImGui.Text($"{_subpartName} ({ActiveImageSize}px)");
 
+        ImGui.Spacing();
+        RenderHiResSection();
         ImGui.Spacing();
 
         if (ImGui.BeginTabBar("##icr_viewer_tabs"))
         {
             if (ImGui.BeginTabItem("Viewer"))
             {
-                RenderViewerTab(entry);
+                RenderViewerTab(activeEntry);
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Images"))
             {
-                RenderImagesTab(entry);
+                RenderImagesTab(activeEntry);
                 ImGui.EndTabItem();
             }
             ImGui.EndTabBar();
         }
+    }
+
+    private void RenderHiResSection()
+    {
+        bool isGenerating = _hiResGen.State == GenerationState.Generating;
+
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
+        if (ImGui.BeginTable("##icr_hires", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##hr_lbl", ImGuiTableColumnFlags.WidthFixed);
+            ImGui.TableSetupColumn("##hr_input", ImGuiTableColumnFlags.WidthStretch);
+
+            // ---- Images Count row ----
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Images Count");
+            ImGui.SameLine();
+            ImGui.TextDisabled("(?)");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.BeginTooltip();
+                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 22f);
+                ImGui.TextWrapped(
+                    "Number of rotation views to generate for this subpart. " +
+                    "More views = smoother animation but more VRAM.");
+                ImGui.PopTextWrapPos();
+                ImGui.EndTooltip();
+            }
+            ImGui.TableNextColumn();
+            if (isGenerating) ImGui.BeginDisabled();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.DragInt("##hr_views", ref _hiResViewCount, 0.1f, 2, 32);
+            if (isGenerating) ImGui.EndDisabled();
+
+            // ---- Image Size row ----
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Image Size");
+            ImGui.SameLine();
+            ImGui.TextDisabled("(?)");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.BeginTooltip();
+                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 22f);
+                ImGui.TextWrapped("Higher resolution produces sharper thumbnails but uses more VRAM.");
+                ImGui.PopTextWrapPos();
+                ImGui.EndTooltip();
+            }
+            ImGui.TableNextColumn();
+            if (isGenerating) ImGui.BeginDisabled();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.Combo("##hr_imgsize", ref _hiResSizeIndex, HiResSizeLabels, HiResSizeLabels.Length);
+            if (isGenerating) ImGui.EndDisabled();
+
+            // ---- Generate/Reset + Status row ----
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            bool hasResult = _hiResGen.State == GenerationState.Done || _hiResGen.State == GenerationState.Failed;
+            if (hasResult)
+            {
+                if (ImGui.Button(" Reset ##hr"))
+                    DisposeHiRes();
+            }
+            else
+            {
+                if (isGenerating) ImGui.BeginDisabled();
+                if (ImGui.Button(" Generate Hi-Res ##hr"))
+                {
+                    _hiResGen.ViewCount = _hiResViewCount;
+                    _hiResGen.ThumbnailImageSize = HiResSizes[_hiResSizeIndex];
+                    _hiResGen.Generate(_subpartName);
+                }
+                if (isGenerating) ImGui.EndDisabled();
+            }
+
+            ImGui.TableNextColumn();
+            if (isGenerating)
+            {
+                ImGui.ProgressBar(0f, new float2(-1, 0), "Generating...");
+            }
+            else if (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
+            {
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextColored(new float4(0.3f, 1f, 0.3f, 1f),
+                    $"Done ({_hiResGen.Result.Views.Length} views, {_hiResGen.ThumbnailImageSize}px)");
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        // Error line below the table
+        if (_hiResGen.State == GenerationState.Failed && !string.IsNullOrEmpty(_hiResGen.LastError))
+            ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Error: {_hiResGen.LastError}");
     }
 
     private void RenderViewerTab(SubpartThumbnailEntry entry)
@@ -120,7 +273,7 @@ public sealed class SubpartViewerWindow
 
         ImGui.Spacing();
 
-        // Controls table: 4 columns for settings row
+        // Settings table: 4 columns
         float availW = ImGui.GetContentRegionAvail().X;
         float colW = availW / 4f;
 
@@ -155,7 +308,7 @@ public sealed class SubpartViewerWindow
         }
         ImGui.PopStyleVar(); // CellPadding
 
-        // Stop/Play button + frame slider on a single line
+        // Stop/Play button + frame slider
         if (ImGui.Button(_playing ? " Stop ##vt" : " Play ##vt"))
         {
             _playing = !_playing;
@@ -169,7 +322,7 @@ public sealed class SubpartViewerWindow
 
         ImGui.Spacing();
 
-        // Display the current frame, centered horizontally
+        // Display the current frame, centered
         int idx = Math.Clamp(_frameIndex, 0, viewCount - 1);
         var view = entry.Views[idx];
         if (view != null)
@@ -194,7 +347,6 @@ public sealed class SubpartViewerWindow
 
         ImGui.Spacing();
 
-        // Size control
         ImGui.AlignTextToFramePadding();
         ImGui.Text("Size");
         ImGui.SameLine();
@@ -206,7 +358,6 @@ public sealed class SubpartViewerWindow
         float thumbSize = (float)_imagesDisplaySize;
         float spacing = ImGui.GetStyle().ItemSpacing.X;
 
-        // Use all remaining window height for the image area
         float remainingH = ImGui.GetContentRegionAvail().Y;
         ImGui.BeginChild("##icr_img_scroll", new float2(0, remainingH),
             ImGuiChildFlags.Borders);
@@ -221,7 +372,6 @@ public sealed class SubpartViewerWindow
             view.CreateImGuiThumbnail(Program.LinearClampedSampler);
             ImGui.Image(view.ImGuiImageRef, new float2(thumbSize));
 
-            // Wrap to next line when the next image wouldn't fit
             float nextX = ImGui.GetItemRectMax().X + spacing + thumbSize;
             if (i + 1 < viewCount && nextX <= availW + ImGui.GetWindowPos().X)
                 ImGui.SameLine();
