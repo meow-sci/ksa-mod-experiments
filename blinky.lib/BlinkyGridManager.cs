@@ -30,47 +30,57 @@ public class GridState
 }
 
 /// <summary>
-/// Static singleton that manages per-vehicle LCD grids and exposes scroll, static display, and off operations.
+/// Static singleton that manages per-vehicle named LCD grids and exposes scroll, static display, and off operations.
 /// Shared between the blinky mod UI and the unladen-swallow RPC endpoints.
 /// </summary>
 public static class BlinkyGridManager
 {
-    private static readonly Dictionary<string, GridState> _grids = new();
+    private static readonly Dictionary<(string vehicleId, string gridName), GridState> _grids = new();
 
-    /// <summary>All currently registered grid states, keyed by vehicle ID.</summary>
-    public static IReadOnlyDictionary<string, GridState> Grids => _grids;
+    /// <summary>All currently registered grid states, keyed by (vehicleId, gridName).</summary>
+    public static IReadOnlyDictionary<(string vehicleId, string gridName), GridState> Grids => _grids;
 
     // ── Registration ─────────────────────────────────────────────────────────
 
-    /// <summary>Registers a grid for the given vehicle. Replaces any existing grid for that vehicle.</summary>
-    public static GridState Register(Vehicle vehicle, BlinkyPixelGrid grid)
+    /// <summary>Registers a named grid for the given vehicle. Replaces any existing grid with the same name.</summary>
+    public static GridState Register(Vehicle vehicle, string gridName, BlinkyPixelGrid grid)
     {
         var id = vehicle.Id;
-        if (_grids.ContainsKey(id))
-            Console.WriteLine($"blinky: replacing existing grid for vehicle '{id}'");
+        var key = (id, gridName);
+        if (_grids.ContainsKey(key))
+            Console.WriteLine($"blinky: replacing existing grid '{gridName}' for vehicle '{id}'");
 
-        var state = new GridState(id, vehicle, grid);
-        _grids[id] = state;
-        Console.WriteLine($"blinky: registered grid for vehicle '{id}' ({grid.Grid.Cols}x{grid.Grid.Rows})");
+        var state = new GridState(id, gridName, vehicle, grid);
+        _grids[key] = state;
+        Console.WriteLine($"blinky: registered grid '{gridName}' for vehicle '{id}' ({grid.Grid.Cols}x{grid.Grid.Rows})");
         return state;
     }
 
-    /// <summary>Unregisters the grid for the given vehicle ID. Stops any running scroll.</summary>
-    public static void Unregister(string vehicleId)
+    /// <summary>Unregisters the named grid for the given vehicle ID. Stops any running scroll.</summary>
+    public static void Unregister(string vehicleId, string gridName)
     {
-        if (_grids.TryGetValue(vehicleId, out var state))
+        var key = (vehicleId, gridName);
+        if (_grids.TryGetValue(key, out var state))
         {
             state.Scroll.Stop();
-            _grids.Remove(vehicleId);
-            Console.WriteLine($"blinky: unregistered grid for vehicle '{vehicleId}'");
+            _grids.Remove(key);
+            Console.WriteLine($"blinky: unregistered grid '{gridName}' for vehicle '{vehicleId}'");
         }
     }
 
-    /// <summary>Gets the grid state for a vehicle, or null if not registered.</summary>
-    public static GridState? Get(string vehicleId)
+    /// <summary>Gets the grid state for a specific named grid, or null if not registered.</summary>
+    public static GridState? Get(string vehicleId, string gridName)
     {
-        _grids.TryGetValue(vehicleId, out var state);
+        _grids.TryGetValue((vehicleId, gridName), out var state);
         return state;
+    }
+
+    /// <summary>Returns all grids registered for the given vehicle ID.</summary>
+    public static IEnumerable<GridState> GetAllForVehicle(string vehicleId)
+    {
+        foreach (var state in _grids.Values)
+            if (state.VehicleId == vehicleId)
+                yield return state;
     }
 
     /// <summary>Clears all registered grids.</summary>
@@ -84,19 +94,14 @@ public static class BlinkyGridManager
     // ── Scroll ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Starts a scrolling animation on the vehicle's grid with the supplied pixel data.
+    /// Starts a scrolling animation on the named grid with the supplied pixel data.
     /// Stops any existing scroll first and turns off all pixels before starting.
     /// </summary>
-    /// <param name="vehicleId">Vehicle to apply scroll to.</param>
-    /// <param name="pixels">Sparse pixel data: (x,y) positions that are "on" in the source image.</param>
-    /// <param name="speed">Scroll speed in pixels/second.</param>
-    /// <returns>True if scroll was started, false if vehicle not found.</returns>
-    public static bool StartScroll(string vehicleId, (int x, int y)[] pixels, float speed)
+    public static bool StartScroll(string vehicleId, string gridName, (int x, int y)[] pixels, float speed)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
-        // Stop existing scroll and clear pixels
         state.Scroll.Stop();
         TurnOffAllPixels(state);
 
@@ -107,9 +112,9 @@ public static class BlinkyGridManager
     /// <summary>
     /// Starts a scrolling animation using the built-in default pixel data.
     /// </summary>
-    public static bool StartBuiltInScroll(string vehicleId, float speed)
+    public static bool StartBuiltInScroll(string vehicleId, string gridName, float speed)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
         state.Scroll.Stop();
@@ -119,10 +124,10 @@ public static class BlinkyGridManager
         return true;
     }
 
-    /// <summary>Stops any running scroll on the vehicle.</summary>
-    public static bool StopScroll(string vehicleId)
+    /// <summary>Stops any running scroll on the named grid.</summary>
+    public static bool StopScroll(string vehicleId, string gridName)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
         state.Scroll.Stop();
@@ -132,22 +137,13 @@ public static class BlinkyGridManager
     // ── Static Display ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Displays a static set of pixels on the vehicle's grid.
+    /// Displays a static set of pixels on the named grid.
     /// </summary>
-    /// <param name="vehicleId">Vehicle to apply to.</param>
-    /// <param name="pixels">List of (x, y) pixel coordinates to turn on (0-based col, row).</param>
-    /// <param name="reset">
-    /// If true, intelligently diffs: turns off pixels that were on but aren't in the new set,
-    /// and turns on pixels in the new set that weren't already on.
-    /// If false, additively turns on the specified pixels without clearing others.
-    /// </param>
-    /// <returns>True if applied, false if vehicle not found.</returns>
-    public static bool DisplayStatic(string vehicleId, (int x, int y)[] pixels, bool reset)
+    public static bool DisplayStatic(string vehicleId, string gridName, (int x, int y)[] pixels, bool reset)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
-        // Stop any running scroll
         state.Scroll.Stop();
 
         var grid = state.BlinkyGrid.Grid;
@@ -157,15 +153,12 @@ public static class BlinkyGridManager
 
         if (reset)
         {
-            // Intelligent diff: only change what needs changing
-            // Turn off pixels that were on but aren't in the new set
             foreach (var pos in state.ActivePixels)
             {
                 if (!newPixels.Contains(pos))
                     SetPixel(grid, pos.row, pos.col, false);
             }
 
-            // Turn on pixels in the new set that weren't already on
             foreach (var pos in newPixels)
             {
                 if (!state.ActivePixels.Contains(pos))
@@ -178,7 +171,6 @@ public static class BlinkyGridManager
         }
         else
         {
-            // Additive: just turn on the specified pixels
             foreach (var pos in newPixels)
             {
                 SetPixel(grid, pos.row, pos.col, true);
@@ -192,12 +184,11 @@ public static class BlinkyGridManager
     // ── Off ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Turns off all pixels on the vehicle's grid and stops any running scroll.
+    /// Turns off all pixels on the named grid and stops any running scroll.
     /// </summary>
-    /// <returns>True if turned off, false if vehicle not found.</returns>
-    public static bool TurnOff(string vehicleId)
+    public static bool TurnOff(string vehicleId, string gridName)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
         state.Scroll.Stop();
@@ -207,10 +198,10 @@ public static class BlinkyGridManager
 
     // ── Pattern Application ──────────────────────────────────────────────────
 
-    /// <summary>Applies a pattern function to all pixels on the vehicle's grid.</summary>
-    public static bool ApplyPattern(string vehicleId, Func<(int row, int col), bool> selector)
+    /// <summary>Applies a pattern function to all pixels on the named grid.</summary>
+    public static bool ApplyPattern(string vehicleId, string gridName, Func<(int row, int col), bool> selector)
     {
-        var state = Get(vehicleId);
+        var state = Get(vehicleId, gridName);
         if (state == null) return false;
 
         state.Scroll.Stop();
