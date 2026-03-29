@@ -39,5 +39,7 @@
     <Project Path="unladen-swallow.lib/unladen-swallow.lib.csproj" />
     <Project Path="con-man/con-man.csproj" />
     <Project Path="con-man.lib/con-man.lib.csproj" />
+    <Project Path="inanimate-carbon-rod/inanimate-carbon-rod.csproj" />
+    <Project Path="inanimate-carbon-rod.lib/inanimate-carbon-rod.lib.csproj" />
     
 </Solution>
