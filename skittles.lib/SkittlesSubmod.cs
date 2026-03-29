@@ -17,9 +17,6 @@ public sealed class SkittlesSubmod : ISubmod
     private bool _showSaveInput;
     private bool _editorVisible;
 
-    /// <summary>Read by Harmony patches to block game hotkeys when text inputs are focused.</summary>
-    public bool HasFocusedTextInput { get; private set; }
-
     public void Initialize()
     {
         _themeManager = new ThemeManager();
@@ -31,8 +28,6 @@ public sealed class SkittlesSubmod : ISubmod
 
     public void RenderContent()
     {
-        bool anyFocusedText = false;
-
         // --- Main content (inside grant collapsible header) ---
         ImGui.TextColored(new float4(0.17f, 0.98f, 0.12f, 1.0f), "Skittles");
         ImGui.SameLine();
@@ -95,19 +90,15 @@ public sealed class SkittlesSubmod : ISubmod
 
         // --- Editor window (separate ImGui window) ---
         if (_editorVisible)
-            anyFocusedText |= RenderEditorWindow();
-
-        HasFocusedTextInput = anyFocusedText;
+            RenderEditorWindow();
     }
 
-    private bool RenderEditorWindow()
+    private void RenderEditorWindow()
     {
-        bool hasFocusedText = false;
         ImGui.SetNextWindowSize(new float2(700, 800), ImGuiCond.FirstUseEver);
 
         if (ImGui.Begin("Skittles \u2014 Theme Editor###sk_editor", ref _editorVisible))
         {
-            hasFocusedText = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) && ImGui.GetIO().WantTextInput;
 
             ThemeEntry? activeEntry = _themeManager.AvailableThemes
                 .FirstOrDefault(t => t.Name == _themeManager.ActiveThemeName && !t.IsBuiltIn);
@@ -173,7 +164,6 @@ public sealed class SkittlesSubmod : ISubmod
             ImGui.ShowStyleEditor();
         }
         ImGui.End();
-        return hasFocusedText;
     }
 
     public void Dispose()

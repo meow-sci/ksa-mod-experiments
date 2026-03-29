@@ -25,7 +25,7 @@ public class Mod
         try
         {
             _submod = new SkittlesSubmod();
-            Patcher.Patch(() => _submod.HasFocusedTextInput);
+            Patcher.Patch();
             _submod.Initialize();
             _isInitialized = true;
             Console.WriteLine("skittles: Initialized successfully");

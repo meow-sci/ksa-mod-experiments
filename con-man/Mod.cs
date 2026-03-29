@@ -25,6 +25,7 @@ public class Mod
         try
         {
             _submod = new ConManSubmod();
+            Patcher.Patch();
             _submod.Initialize();
             _isInitialized = true;
             Console.WriteLine("con-man: Initialized successfully");
@@ -64,6 +65,7 @@ public class Mod
         try
         {
             _submod?.Dispose();
+            Patcher.Unload();
             _isDisposed = true;
         }
         catch (Exception ex)
