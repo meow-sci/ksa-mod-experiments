@@ -1,251 +1,34 @@
-# Fixme-Mod-Name - Template Mod Structure
+# Marque - Orbit Line Visibility Manager
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+A KSA mod that adds a **Marque** submenu to the game's View menu bar, providing quick toggle controls for orbit line visibility on vehicles and celestial bodies.
 
-## Overview
+## Features
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+### Vehicle Orbit Lines
+- **All / None** — bulk enable/disable orbit lines for every vehicle
+- **Individual toggles** — alphabetically sorted list of all vehicles with checkmark indicators
 
-## What This Mod Contains
+### Celestial Orbit Lines
+- **All / None** — bulk enable/disable orbit lines for every celestial body in the system
+- **Hierarchical submenus** — celestials organized by SOI (sphere of influence) hierarchy
+  - Planets with moons open as submenus with their own All/None controls
+  - Leaf celestials (no children) are direct toggle items
+- **Recursive depth** — moons with sub-moons get nested submenus automatically
 
-### Files
-
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `marque.csproj` | Main mod project |
-| `marque.lib/MarqueLib.cs` | Library class (headless logic) |
-
-### Mod Lifecycle
-
-```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
-  ↓
-OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
-  ↓
-Unload()                 → Cleanup, remove patches
-```
+### UX
+- Menus **stay open** after clicking — toggle multiple items quickly without re-navigating
+- Checkmarks show current orbit line visibility state
 
 ## Architecture
 
-### Mod.cs
-Entry point for the mod with lifecycle management.
+| File | Purpose |
+|------|---------|
+| `Mod.cs` | StarMapMod lifecycle (F11 debug window) |
+| `Patcher.cs` | Harmony prefix on `GaugeCanvas.OnDrawMenuBar` to inject menu items |
+| `marque.lib/MarqueLib.cs` | All menu rendering logic — vehicles menu, celestials hierarchy, orbit toggling |
 
-```csharp
-public class Mod : StarMapMod
-{
-    public override void OnImmediateLoad()
-    {
-        // First initialization
-        Console.WriteLine("Fixme-Mod-Name: OnImmediateLoad");
-    }
-    
-    public override void OnFullyLoaded()
-    {
-        // All mods ready, initialize partnerships
-        Patcher.Initialize();
-    }
-    
-    public override void OnAfterUi()
-    {
-        // Render ImGui window every frame
-        RenderWindow();
-    }
-    
-    public override void Unload()
-    {
-        // Cleanup patches and resources
-        Patcher.Cleanup();
-    }
-    
-    private void RenderWindow()
-    {
-        if (!showWindow) return;
-        
-        ImGui.SetNextWindowSize(new Vector2(400, 200), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Fixme-Mod-Name", ref showWindow))
-        {
-            ImGui.Text("Hello, World!");
-            if (ImGui.Button("Click Me!"))
-            {
-                Console.WriteLine("Button clicked!");
-            }
-            ImGui.End();
-        }
-    }
-}
-```
+## How It Works
 
-### Patcher.cs
-Harmony-based runtime method patching initialization.
+The mod patches `GaugeCanvas.OnDrawMenuBar` with a Harmony prefix that calls `MarqueLib.DrawMarqueMenus()`. This runs between `ImGui.BeginMenu("View")` and `ImGui.EndMenu()`, adding the Marque submenu into the game's existing View menu.
 
-```csharp
-public static class Patcher
-{
-    private static Harmony harmony;
-    
-    public static void Initialize()
-    {
-        harmony = new Harmony("MeowSci.Marque");
-        harmony.PatchAll();  // Patches defined in assembly
-    }
-    
-    public static void Cleanup()
-    {
-        harmony?.UnpatchAll();
-    }
-}
-```
-
-### Library Project (optional)
-Separate `.lib` project for reusable, headless logic:
-
-```csharp
-public static class MarqueLib
-{
-    public static void DoSomething()
-    {
-        // Reusable functionality
-    }
-}
-```
-
-## Getting Started with This Template
-
-### Step 1: Rename
-```
-marque → your-cool-mod
-Marque → YourCoolMod
-MeowSci.Marque → MeowSci.YourCoolMod
-```
-
-### Step 2: Update Project Files
-- Rename `.csproj` files
-- Update assembly names
-- Update namespace declarations
-
-### Step 3: Implement Mod Logic
-Replace template code with actual mod features:
-- Define what should happen in each lifecycle method
-- Add ImGui controls in `RenderWindow()`
-- Implement Harmony patches in `Patcher.cs`
-
-### Step 4: Document
-Refer to this README structure and update with:
-- Mod overview
-- Features
-- Architecture explanation
-- Usage examples
-- Implementation details
-
-## Standard Mod Pattern
-
-Most mods follow this pattern:
-
-1. **Mod.cs**: UI + Lifecycle (StarMapMod subclass)
-2. **Patcher.cs**: Runtime patches (Harmony setup)
-3. **Lib project**: Reusable logic (separate assembly)
-4. **README.md**: Documentation (what you're reading)
-
-## ImGui Window Pattern
-
-Standard toggle pattern:
-
-```csharp
-private bool showWindow = false;
-
-public override void OnAfterUi()
-{
-    // F11 toggles window visibility
-    if (Input.GetKeyDown(KeyCode.F11))
-        showWindow = !showWindow;
-    
-    if (!showWindow) return;
-    
-    ImGui.SetNextWindowSize(new Vector2(400, 300), ImGuiCond.FirstUseEver);
-    if (ImGui.Begin("Mod Name", ref showWindow))
-    {
-        // Render content here
-        ImGui.End();
-    }
-}
-```
-
-## Harmony Patching Pattern
-
-Basic patch structure:
-
-```csharp
-[HarmonyPatch(typeof(TargetClass), nameof(TargetClass.TargetMethod))]
-public static class TargetMethodPatch
-{
-    public static bool Prefix(/* method parameters */)
-    {
-        // Prefix runs before original, return false to skip original
-        Console.WriteLine("Before TargetMethod");
-        return true;
-    }
-    
-    public static void Postfix(/* method parameters */)
-    {
-        // Postfix runs after original
-        Console.WriteLine("After TargetMethod");
-    }
-}
-```
-
-## Key Files for Reference
-
-When developing from this template, refer to:
-
-1. **[REPOSITORY_INDEX.md](../REPOSITORY_INDEX.md)** - All mods documentation
-2. **sibling mod READMEs** - Similar mods for reference implementation
-3. **HarmonyLib docs** - Runtime patching patterns
-4. **ImGui API docs** - UI widget reference
-
-## Next Steps
-
-1. Copy this entire folder
-2. Rename appropriately
-3. Implement your feature logic
-4. Test with `dotnet build`
-5. Update this README with your mod's actual purpose and features
-
-## Testing
-
-Build the solution:
-```bash
-dotnet build
-```
-
-Check for compilation errors before continuing with implementation.
-
-## Common Issues
-
-- **Namespace mismatches**: Update everywhere (csproj, Mod.cs, Patcher.cs)
-- **Project references**: Add library project reference to main mod
-- **Harmony ID conflicts**: Each Harmony instance needs unique ID string
-- **ImGui crashes**: Ensure ImGui calls only happen in OnAfterUi
-
-## Notes for Developers
-
-- Keep UI separate from logic (UI in Mod.cs, logic in Lib project)
-- Use Console.WriteLine for debugging
-- Test Harmony patches carefully—they affect game runtime
-- Document your Harmony patches explaining what they do
-- Consider performance impact of per-frame operations
-
-## Related Mods
-
-See similar template mods:
-- [grant](../grant) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
-- Other mods for inspiration on complete implementations
+Orbit visibility is toggled directly via `IOrbiter.ShowOrbit` on each vehicle or celestial body. The celestial hierarchy is built by walking `IParentBody.Children` starting from the `StellarBody` (sun).

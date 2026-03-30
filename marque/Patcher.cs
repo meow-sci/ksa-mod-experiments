@@ -1,8 +1,6 @@
 using System;
 using HarmonyLib;
-using Brutal.Numerics;
 using KSA;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.Marque;
 
@@ -42,7 +40,7 @@ internal static class Patcher
     [HarmonyPrefix]
     public static void OnDrawMenuBarPrefix()
     {
-        Console.WriteLine("marque: OnDrawMenuBar prefix running");
+        MarqueLib.MarqueLib.DrawMarqueMenus();
     }
 
 }

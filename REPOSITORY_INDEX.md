@@ -232,6 +232,20 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 - F11 window toggle
 - Ready for feature development
 
+---
+
+## Orbit & Navigation Mods
+
+### [marque](marque) / [marque.lib](marque.lib)
+Orbit line visibility manager. Adds a **Marque** submenu to the game's View menu bar for toggling orbit lines on vehicles and celestial bodies.
+- **Vehicles** submenu: All/None bulk toggle + alphabetically sorted individual vehicle toggles with checkmarks
+- **Celestials** submenu: All/None bulk toggle + hierarchical celestial tree organized by SOI
+  - Planets with moons open as submenus with their own All/None controls
+  - Recursive depth — moons with sub-moons get nested submenus
+- Menus stay open after clicking (no auto-close) for fast multi-toggle workflows
+- Harmony prefix on `GaugeCanvas.OnDrawMenuBar` to inject into the View menu
+- **marque.lib**: `MarqueLib.DrawMarqueMenus()` — full menu rendering logic, vehicle listing, celestial hierarchy traversal, orbit visibility toggling via `IOrbiter.ShowOrbit`
+
 
 ---
 
