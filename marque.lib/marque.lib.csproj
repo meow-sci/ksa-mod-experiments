@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.MarqueLib</AssemblyName>
+    <RootNamespace>MeowSci.MarqueLib</RootNamespace>
+    <Description>Example lib</Description>
+    <PackageId>MeowSci.MarqueLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>
