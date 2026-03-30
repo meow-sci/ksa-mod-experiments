@@ -435,6 +435,12 @@ ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.Ho
 
 Notable names: `Custard`, `RadioactiveGreen`, `Orangeish`, `GreenApple`, `OrangishRed`, `BrightMagenta`, `HotPink`, `CanaryYellow`, `BrightLightBlue`.
 
+# Game Menu Bar — Adding Top-Level Menus
+
+Custom top-level menus can be injected into the game's title bar menu (alongside File / Universe / View) using a Harmony **Transpiler** on `Program.DrawMenuBar`. This is the only viable approach because injection must happen inside the game's existing `ImGui.BeginMenuBar()` / `ImGui.EndMenuBar()` block. Setting `viewport.MenuBarInUse = true` inside the open menu is required to suppress game hotkeys and prevent the bar from auto-hiding.
+
+See [game-menus.md](game-menus.md) for the complete pattern including the transpiler code, injection offset rationale, and all available ImGui menu calls.
+
 # Camera Controller Patching
 
 KSA cameras (`OrbitController`, `FlyController`) can be intercepted via Harmony prefix on `OnFrame`. Return `false` to suppress default camera behavior. Camera uses **ECL (Ecliptic)** coordinates (distinct from vehicle CCI/CCE frames).

@@ -41,5 +41,7 @@
     <Project Path="con-man.lib/con-man.lib.csproj" />
     <Project Path="inanimate-carbon-rod/inanimate-carbon-rod.csproj" />
     <Project Path="inanimate-carbon-rod.lib/inanimate-carbon-rod.lib.csproj" />
+    <Project Path="marque/marque.csproj" />
+    <Project Path="marque.lib/marque.lib.csproj" />
     
 </Solution>
