@@ -35,7 +35,9 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Uniform vehicle scaling with KittenEva avatar support
 - Rotation lock toggle and auto-unweld on parent mismatch
 - Multiple simultaneous welds
-- ImGui control panel with preset system
+- User-defined presets persisted to TOML (`~/.iryr/garrys-torch-presets.toml`)
+- Save weld settings as named presets, load presets into create form
+- ImGui control panel with filterable combos and bordered weld sections
 
 ### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
 Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, updating it every game tick.

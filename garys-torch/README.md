@@ -55,23 +55,25 @@ public class WeldEntry
 ```
 
 #### WeldPreset
-Pre-configured weld settings for quick application.
+Data container for preset weld configuration (position, rotation, scale, lock rotation).
 
-Built-in presets:
-- `Ridin' Dirty 1/2/3` - Various docking configurations
-- `Shotgun` - Passenger seat position
-- `Not Shotgun` - Alternative passenger position
+#### PresetManager
+Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/.iryr/garrys-torch-presets.toml`.
+- Load/save/delete named presets
+- Cached preset name list for UI performance
+- TOML format via Tomlyn library
 
-### UI (Mod.cs)
+### UI (Mod.cs / GarysTorchSubmod)
 
 ImGui window with:
-- **Vehicle Selection** - Dropdowns to select source and target vehicles
-- **Position Controls** - XYZ sliders for body-frame offset (-50m to +50m)
-- **Rotation Controls** - Pitch/Yaw/Roll sliders (-180° to +180°)
-- **Scale Control** - Uniform scale slider (0.05x to 20.0x)
-- **Rotation Lock Toggle** - Checkbox to prevent relative rotation
-- **Preset Buttons** - Quick apply built-in presets
-- **Weld Management** - Add/remove welds, view active list
+- **Create Weld section** - Collapsible header with filterable source/target vehicle combos
+- **Preset system** - Filterable preset combo with delete button and confirmation modal
+- **Position Controls** - Full-width 3-axis drag float inputs for body-frame offset
+- **Rotation Controls** - Full-width 3-axis drag float inputs for pitch/yaw/roll
+- **Scale + Lock Rotation** - Table row with scale slider and rotation lock checkbox
+- **Active Welds list** - Bordered child windows per weld with live-edit controls
+- **Save as preset** - Modal popup to save active weld settings as a named preset
+- **Weld Management** - Create/unweld with validation and error messages
 
 ## Key Implementation Details
 
