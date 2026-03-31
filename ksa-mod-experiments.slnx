@@ -43,5 +43,7 @@
     <Project Path="inanimate-carbon-rod.lib/inanimate-carbon-rod.lib.csproj" />
     <Project Path="marque/marque.csproj" />
     <Project Path="marque.lib/marque.lib.csproj" />
-    
+    <Project Path="humble-arteest/humble-arteest.csproj" />
+    <Project Path="humble-arteest.lib/humble-arteest.lib.csproj" />
+
 </Solution>
