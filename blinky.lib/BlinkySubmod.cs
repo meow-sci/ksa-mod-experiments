@@ -99,6 +99,9 @@ public sealed class BlinkySubmod : ISubmod
         ImGui.Spacing();
         ImGui.SeparatorText($"blinky grids ( {vehicleCount} vehicle(s), {grids.Count} grid(s) )");
 
+        //  Non-LCD engine warning for controlled vehicle 
+        RenderNonLcdEngineWarning();
+
         //  Render engine meshes checkbox 
         bool renderEngines = BlinkyPatchState.RenderPixelParts;
         if (ImGui.Checkbox("Render engine meshes", ref renderEngines))
@@ -132,13 +135,47 @@ public sealed class BlinkySubmod : ISubmod
         ImGui.EndMenuBar();
     }
 
+    //  Non-LCD Engine Warning 
+
+    private void RenderNonLcdEngineWarning()
+    {
+        var vehicle = VehicleProvider.GetControlledVehicle();
+        if (vehicle == null) return;
+
+        // Only check vehicles that have at least one registered blinky grid
+        bool hasGrid = false;
+        foreach (var gs in BlinkyGridManager.Grids.Values)
+        {
+            if (gs.VehicleId == vehicle.Id) { hasGrid = true; break; }
+        }
+        if (!hasGrid) return;
+
+        if (!NonLcdEngineCache.AnyActive(vehicle)) return;
+
+        ImGui.TextColored(KSAColor.Xkcd.CandyPink, $"Vehicle '{vehicle.Id}' has non-LCD engines active");
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip($"Typically you don't want any non-LCD engines active\n\nThese will cause the craft to rotate\n\nUnless that's what you want...");
+
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.BloodOrange));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+
+        if (ImGui.SmallButton(" Deactivate ##nonlcd"))
+            NonLcdEngineCache.DeactivateAll(vehicle);
+
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
+
+        ImGui.Spacing();
+    }
+
     //  Create Section 
 
     private void RenderCreateSection()
     {
         if (!ImGui.CollapsingHeader("Create Blinky Grid (?)", ImGuiTreeNodeFlags.DefaultOpen))
             return;
-        ImGui.SetItemTooltip("Build a dynamic NxM grid of engine parts on a vehicle.\nEach pixel is an a/b engine pair for balanced thrust.\nUse patterns or the RPC API to control individual pixels.");
+        ImGui.SetItemTooltip("Build a dynamic NxN grid of engine parts on a vehicle.\nEach pixel is an a/b engine pair for net zero thrust.\nUse patterns or the RPC API to control individual pixels.");
 
         // ---- Grid parameters table (4 even columns) ----
         var tableFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
@@ -211,7 +248,7 @@ public sealed class BlinkySubmod : ISubmod
         ImGui.Text($"Total parts: {totalParts}");
         ImGui.SameLine(0, 4);
         ImGui.TextDisabled("(?)");
-        ImGui.SetItemTooltip($"{_configCols} cols \u00d7 {_configRows} rows \u00d7 2 = {totalParts} parts.\nEach pixel has an a/b engine pair that thrust in\nopposite directions to cancel net force.");
+        ImGui.SetItemTooltip($"{_configCols} cols \u00d7 {_configRows} rows \u00d7 2 = {totalParts} parts.\nEach pixel has an a/b engine pair that thrust in\nopposite directions to have net zero force.");
 
         ImGui.Spacing();
 
@@ -382,6 +419,7 @@ public sealed class BlinkySubmod : ISubmod
     public void Dispose()
     {
         BlinkyGridManager.Clear();
+        NonLcdEngineCache.Clear();
         _pendingDestroy.Clear();
     }
 
