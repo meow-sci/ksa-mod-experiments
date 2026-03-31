@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+    <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

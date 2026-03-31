@@ -3,6 +3,7 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
+using MeowSci.HumbleArteestLib.Experiments;
 
 namespace MeowSci.HumbleArteest;
 
@@ -17,6 +18,7 @@ internal static class Patcher
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
             if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            if (_harmony != null) PaddingTest.ApplyPatches(_harmony);
         }
         catch (Exception ex)
         {
@@ -28,6 +30,7 @@ internal static class Patcher
     {
         try
         {
+            if (_harmony != null) PaddingTest.RemovePatches(_harmony);
             if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
             _harmony?.UnpatchAll("humble-arteest");
             _harmony = null;

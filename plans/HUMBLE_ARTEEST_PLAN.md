@@ -184,6 +184,7 @@ if (paintColor != vec3(0.0)) {
 - ⚠️ **Will the game overwrite shader files on update?** (Need to copy/manage shader overrides)
 - ⚠️ **Struct alignment between C# and GLSL** — must verify the padding bytes map exactly to expected shader locations
 - ⚠️ **Need to handle all three paths** (static, dynamic, glass) with consistent struct layouts
+- ⚠️ **Game is launched via StarMap mod loader** — `Process.MainModule` points to `C:\StarMap`, NOT the KSA game directory. Must resolve the game install path from the `KSA.dll` assembly location or fall back to the well-known path `C:\Program Files\Kitten Space Agency\`.
 
 **Required Tests:**
 1. Verify shader files are loaded from disk at runtime
@@ -298,6 +299,8 @@ Before any real implementation, these experiments must be performed to de-risk t
 2. Launch the game
 3. Hover over a part in the editor (triggers highlight)
 4. Observe if highlight is green (shader loaded from disk) or red (pre-compiled)
+
+**✅ RESULT: PASSED** — Part highlights turned green in the vehicle editor. KSA loads GLSL shader source files from `Content/Core/Shaders/` at runtime and compiles them. **Approach A is viable.**
 
 **If shaders load from disk:** Approach A is viable → proceed to Phase 1
 **If shaders are pre-compiled:** Approach A is blocked → investigate SPIR-V replacement or pivot to Approach B
