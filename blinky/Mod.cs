@@ -76,7 +76,7 @@ public class Mod
     private void RenderWindow()
     {
         ImGui.SetNextWindowSize(new float2(480, 640), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("blinky \u2014 Dynamic LCD Grid", ref _windowVisible))
+        if (ImGui.Begin("blinky", ref _windowVisible, ImGuiWindowFlags.MenuBar))
             _submod.RenderContent();
         ImGui.End();
     }

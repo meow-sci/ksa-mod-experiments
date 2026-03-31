@@ -123,16 +123,18 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - **Multiple grids per vehicle** — each grid has a unique name, independently configured and controlled
 - Grid names: alphanumeric + hyphens only (`[a-zA-Z0-9-]`); part ID format: `pixel_{gridName}_{row}_{col}_{a|b}`
 - Layout modes: Flat (plane) or Cylinder (sides only, radius auto-calculated from width × spacing)
-- Configurable grid size, spacing, offset, and engine template
+- Configurable grid size, spacing, position offset, engine scale, and engine template
 - Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
 - **BlinkyGridManager** — static singleton managing grids by `(vehicleId, gridName)` compound key, shared with RPC endpoints
-- **Scroll animation** — scrolls user-supplied or built-in pixel art across a specific grid at configurable speed
+- **Global scan** — discovers blinky grids across all loaded vehicles (Debug menu)
 - **Static display** — paints a set of pixels with optional intelligent diff (reset mode)
 - **Off** — turns off all pixels and stops any running scroll on a specific grid
 - Pattern presets: All On, Checkerboard, Alt Rows, Alt Cols
-- Build/Destroy individual grids at any time; Scan All auto-discovers all grids on a vehicle
-- Per-grid collapsible UI sections with independent controls
-- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
+- Render engine meshes toggle for performance boost
+- Build/Destroy individual grids at any time; vehicle combo selector with filter
+- Per-grid collapsible UI sections with info table, pattern buttons, and destroy
+- Menu bar with Debug menu for global grid scanning
+- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.

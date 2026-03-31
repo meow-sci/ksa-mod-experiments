@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.BlinkyLib;
 
@@ -252,5 +254,42 @@ public static class BlinkyGridManager
                 controllers[i].SetIsActive(null, false);
         }
         state.ActivePixels.Clear();
+    }
+
+    // ── Global Scan ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Scans ALL vehicles in the current system for blinky grids.
+    /// Discovers grids by parsing pixel_* part IDs on every vehicle.
+    /// Returns the total number of newly discovered grids and their names.
+    /// </summary>
+    public static (int discovered, List<string> names) ScanAllVehicles()
+    {
+        var vehicles = VehicleProvider.GetAllVehicles();
+        var allNames = new List<string>();
+        int total = 0;
+
+        foreach (var vehicle in vehicles)
+        {
+            try
+            {
+                var discovered = PixelGrid.ScanAllFromVehicle(vehicle);
+                foreach (var (gridName, pixelGrid) in discovered)
+                {
+                    pixelGrid.RefreshEngineControllers();
+                    var blinkyGrid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
+                    Register(vehicle, gridName, blinkyGrid);
+                    allNames.Add($"{gridName} on {vehicle.Id}");
+                    total++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"blinky: ScanAllVehicles error on vehicle '{vehicle.Id}': {ex.Message}");
+            }
+        }
+
+        Console.WriteLine($"blinky: ScanAllVehicles complete — {total} grid(s) across {vehicles.Count} vehicle(s)");
+        return (total, allNames);
     }
 }

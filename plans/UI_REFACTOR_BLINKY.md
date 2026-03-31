@@ -25,7 +25,7 @@
 1. **Scroll UI**: ✅ Remove entirely — was a built-in hack. RPC scroll still works.
 2. **Rescan Grid button**: ✅ Remove — only the global scan in Debug menu remains.
 3. **Scan modes**: ✅ Single global scan across ALL vehicles, discovering N grids per vehicle.
-4. **Grid header close button**: ✅ Use built-in CollapsingHeader close button (`p_visible`). On close, trigger the same deferred destroy logic.
+4. **Grid header close button**: ~~CollapsingHeader close button~~ — removed, just a regular CollapsingHeader. Destroy button in the content area is sufficient.
 5. **Part Scale → Engine Scale**: ✅ Confirmed rename.
 6. **Position defaults**: ✅ Change to `(0, 0, 0)`.
 
@@ -125,9 +125,8 @@ For "3-col wide" items (Engine, Grid Name, Vehicle), render the label in col 0 a
 
 ### 2.7 per-grid collapsible headers
 - Iterate ALL entries from `BlinkyGridManager.Grids`
-- Each grid gets `ImGui.CollapsingHeader` with the `p_visible` overload (close button)
+- Each grid gets a regular `ImGui.CollapsingHeader` (no close button)
   - Label: `$"{gridName} on {vehicleName}##grid_{vehicleId}_{gridName}"`
-  - When close button (X) is clicked (`p_visible` becomes false), trigger the same deferred destroy logic used by the Destroy button
 - **Under each header**: 4-column table showing:
 
 | Row | Col 0 | Col 1 | Col 2 | Col 3 |
