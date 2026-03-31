@@ -1,6 +1,6 @@
 # blinky — Dynamic LCD Engine Pixel Grid
 
-A KSA mod that dynamically creates LCD pixel grids of engine parts at runtime and attaches them to existing vehicles. Supports **multiple named grids per vehicle**, each independently configured and controlled. Provides scrolling animation, static pixel display, and pattern control — all controllable via both ImGui UI and HTTP RPC endpoints.
+A KSA mod that dynamically creates LCD pixel grids of engine parts at runtime and attaches them to existing vehicles. Supports **multiple named grids per vehicle**, each independently configured and controlled. Provides static pixel display and pattern control — all controllable via both ImGui UI and HTTP RPC endpoints.
 
 ## Overview
 
@@ -21,27 +21,26 @@ Each vehicle can have multiple grids, distinguished by a user-chosen **grid name
 
 | Section | Description |
 |---------|-------------|
-| **Grid Configuration** | Width, height, spacing, layout mode, position offset, engine template quick-select |
-| **Grid Name Input** | Text input for the grid name to build/scan |
-| **Build Control** | Build/Scan/Scan All buttons with status |
-| **Per-Grid Sections** | Collapsible header per registered grid with patterns, scroll, and destroy controls |
+| **Menu Bar** | Debug menu with global "Scan for blinky grids" across all vehicles |
+| **Create Blinky Grid** | Collapsible 4-column table: grid size, spacing, engine scale, position, layout, engine preset, grid name, vehicle selector, and Create button |
+| **Per-Grid Sections** | Collapsible header per registered grid with info table, pattern buttons, and destroy |
 
 ## Features
 
 ### Multi-Grid Support
 Each vehicle can host multiple independent named grids. Grids are keyed by `(vehicleId, gridName)` throughout the system. The UI shows collapsible sections for each registered grid.
 
-### Scroll Animation
-Scrolls a static pixel image horizontally across a grid. The built-in animation is available via the UI Start button per grid. Custom pixel data can be supplied via the RPC API.
+### Pattern Presets
+Built-in pattern buttons per grid: All On, Off, Alternating Rows, Alternating Cols, Checkerboard.
 
 ### Static Display
-Paints a set of pixels directly without animation. Supports intelligent reset mode that only changes the pixels that need updating (diffs current vs new state).
+Paints a set of pixels directly. Supports intelligent reset mode that only changes the pixels that need updating (diffs current vs new state). Available via RPC API.
 
-### Off
-Turns off all pixels and stops any running scroll animation on a specific grid.
+### Global Scan (Debug Menu)
+Auto-discovers all named blinky grids on all loaded vehicles by parsing `pixel_{gridName}_{row}_{col}_{a|b}` part IDs and registering each discovered grid.
 
-### Scan All Grids
-Auto-discovers all named grids on a vehicle by parsing `pixel_{gridName}_{row}_{col}_{a|b}` part IDs and registering each discovered grid.
+### Render Toggle
+Checkbox to toggle engine mesh rendering for a significant performance boost — hides part meshes while keeping the pixel grid fully functional.
 
 ### RPC Endpoints (via unladen-swallow)
 All endpoints require a `vehicleId` and `gridName` to identify which grid to control.
@@ -57,12 +56,13 @@ All endpoints require a `vehicleId` and `gridName` to identify which grid to con
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| Width (cols) | 16 | Number of pixel columns |
-| Height (rows) | 8 | Number of pixel rows |
+| Columns | 8 | Number of pixel columns |
+| Rows | 8 | Number of pixel rows |
 | Layout | Flat | Flat plane or Cylinder (sides only) |
 | Spacing (m) | 5.0 | Metres between pixel centres |
-| Offset X/Y/Z | 0, 5, 2 | Offset from vehicle root origin |
-| Engine template | EngineA1 | Part template ID (A1–A6 quick-select) |
+| Position X/Y/Z | 0, 0, 0 | Offset from vehicle root origin |
+| Engine Scale | 0.010 | Scale factor for engine part meshes |
+| Engine | EngineA3 | Part template ID (A1–A6 filtered quick-select) |
 
 ## Grid Naming
 

@@ -9,7 +9,7 @@ namespace MeowSci.KsaAbstractions;
 public static class SubmodUI
 {
     /// <summary>Horizontal padding (px) inside the submod content area.</summary>
-    public const float ContentPaddingX = 12f;
+    public const float ContentPaddingX = 20f;
 
     /// <summary>Vertical padding (px) applied to top and bottom of the submod content area.</summary>
     public const float ContentPaddingY = 20f;

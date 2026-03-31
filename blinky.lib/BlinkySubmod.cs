@@ -10,30 +10,35 @@ namespace MeowSci.BlinkyLib;
 
 public sealed class BlinkySubmod : ISubmod
 {
-    public string Name => "Blinky \u2014 Dynamic LCD Grid";
+    public string Name => "Blinky Dynamic LCD Grid";
 
     // Per-grid UI state, keyed by (vehicleId, gridName)
-    private readonly Dictionary<(string vehicleId, string gridName), GridUiState> _uiStates = new();
+    // Tracks grids pending destroy so we can show status
+    private readonly HashSet<(string vehicleId, string gridName)> _pendingDestroy = new();
 
     // Grid name input for creating new grids
     private readonly ImInputString _newGridName = new ImInputString(64);
 
-    // Build/scan status message (shown beside the create controls)
+    // Build/scan status message
     private string _createMessage = "";
     private bool _createMessageIsError;
 
     // Grid configuration (global — applies to next build on any vehicle)
-    private int _configWidth = 16;
-    private int _configHeight = 8;
+    private int _configCols = 8;
+    private int _configRows = 8;
     private float _configSpacing = 5.0f;
     private float _configOffsetX = 0f;
-    private float _configOffsetY = 5f;
-    private float _configOffsetZ = 2f;
-    private float _configPartScale = 0.010f;
+    private float _configOffsetY = 0f;
+    private float _configOffsetZ = 0f;
+    private float _configEngineScale = 0.010f;
     private string _enginePartId = "CorePropulsionA_Prefab_EngineA3";
     private int _configLayoutIndex = 0; // 0=Flat, 1=Cylinder
     private int _enginePresetIndex = 2;
     private ImGuiTextFilter _engineFilter = new();
+
+    // Vehicle selection for grid creation
+    private ImGuiTextFilter _vehicleFilter = new();
+    private int _selectedVehicleIndex = -1;
 
     // Deferred action runner
     private readonly Queue<(double delayBefore, Action action)> _deferredActions = new();
@@ -76,129 +81,178 @@ public sealed class BlinkySubmod : ISubmod
             _deferredTimer = delaySeconds;
     }
 
+    //  Main Render 
+
     public void RenderContent()
     {
-        ImGui.TextColored(new float4(0.2f, 1.0f, 0.5f, 1.0f), "blinky");
-        ImGui.SameLine(0, 10);
-        ImGui.TextDisabled("Dynamic LCD engine pixel grid");
-        ImGui.Separator();
+        RenderMenuBar();
 
-        var vehicle = VehicleProvider.GetControlledVehicle();
+        SubmodUI.BeginContentArea("##bk_content");
 
-        if (vehicle == null)
-        {
-            ImGui.TextColored(new float4(1f, 0.4f, 0.2f, 1f), "No controlled vehicle");
-            RenderActiveVehiclesSummary();
-            return;
-        }
+        RenderCreateSection();
 
-        var vehicleId = vehicle.Id;
-        var vehicleGrids = BlinkyGridManager.GetAllForVehicle(vehicleId).ToList();
+        //  Separator with dynamic counts 
+        var grids = BlinkyGridManager.Grids;
+        int vehicleCount = grids.Count > 0
+            ? grids.Values.Select(s => s.VehicleId).Distinct().Count()
+            : 0;
+        ImGui.Spacing();
+        ImGui.SeparatorText($"blinky grids ( {vehicleCount} vehicle(s), {grids.Count} grid(s) )");
 
-        ImGui.Text($"Vehicle: {vehicleId}");
-        ImGui.Text($"Grids: {vehicleGrids.Count} registered");
-        ImGui.Separator();
+        //  Non-LCD engine warning for controlled vehicle 
+        RenderNonLcdEngineWarning();
 
-        // ── Grid Configuration ──────────────────────────────────────────────────
-        RenderGridConfiguration(vehicle, vehicleId);
+        //  Render engine meshes checkbox 
+        bool renderEngines = BlinkyPatchState.RenderPixelParts;
+        if (ImGui.Checkbox("Render engine meshes", ref renderEngines))
+            BlinkyPatchState.RenderPixelParts = renderEngines;
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip("Disable for a significant performance boost.\nEngine part meshes are expensive to render — hiding them\nkeeps the pixel grid functional without the GPU cost.");
 
-        ImGui.Separator();
+        ImGui.Spacing();
 
-        // ── Per-Grid Controls ───────────────────────────────────────────────────
-        foreach (var gs in vehicleGrids)
-            RenderGridControls(vehicle, vehicleId, gs);
+        //  Per-grid sections (all vehicles) 
+        foreach (var gs in grids.Values.ToList())
+            RenderGridSection(gs);
 
-        // ── Active Vehicles Summary ─────────────────────────────────────────────
-        ImGui.Separator();
-        RenderActiveVehiclesSummary();
+        SubmodUI.EndContentArea();
     }
 
-    // ── Grid Configuration Section ───────────────────────────────────────────────
+    //  Menu Bar 
 
-    private void RenderGridConfiguration(Vehicle vehicle, string vehicleId)
+    private void RenderMenuBar()
     {
-        if (!ImGui.CollapsingHeader("Grid Configuration", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.BeginMenuBar()) return;
+
+        if (ImGui.BeginMenu("Debug"))
+        {
+            if (ImGui.MenuItem("Scan for blinky grids"))
+                DoGlobalScan();
+            ImGui.EndMenu();
+        }
+
+        ImGui.EndMenuBar();
+    }
+
+    //  Non-LCD Engine Warning 
+
+    private void RenderNonLcdEngineWarning()
+    {
+        var vehicle = VehicleProvider.GetControlledVehicle();
+        if (vehicle == null) return;
+
+        // Only check vehicles that have at least one registered blinky grid
+        bool hasGrid = false;
+        foreach (var gs in BlinkyGridManager.Grids.Values)
+        {
+            if (gs.VehicleId == vehicle.Id) { hasGrid = true; break; }
+        }
+        if (!hasGrid) return;
+
+        if (!NonLcdEngineCache.AnyActive(vehicle)) return;
+
+        ImGui.TextColored(KSAColor.Xkcd.CandyPink, $"Vehicle '{vehicle.Id}' has non-LCD engines active");
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip($"Typically you don't want any non-LCD engines active\n\nThese will cause the craft to rotate\n\nUnless that's what you want...");
+
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.BloodOrange));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+
+        if (ImGui.SmallButton(" Deactivate ##nonlcd"))
+            NonLcdEngineCache.DeactivateAll(vehicle);
+
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
+
+        ImGui.Spacing();
+    }
+
+    //  Create Section 
+
+    private void RenderCreateSection()
+    {
+        if (!ImGui.CollapsingHeader("Create Blinky Grid (?)", ImGuiTreeNodeFlags.DefaultOpen))
             return;
+        ImGui.SetItemTooltip("Build a dynamic NxN grid of engine parts on a vehicle.\nEach pixel is an a/b engine pair for net zero thrust.\nUse patterns or the RPC API to control individual pixels.");
 
-        ImGui.Indent();
-
-        ImGui.DragInt("Width (cols)##blinky", ref _configWidth, 1, 1, 256);
-        ImGui.DragInt("Height (rows)##blinky", ref _configHeight, 1, 1, 256);
-        ImGui.Text($"Total parts: {_configWidth * _configHeight * 2}  (= {_configWidth} x {_configHeight} x 2 a/b pairs)");
-
-        ImGui.Spacing();
-        if (ImGui.RadioButton("Flat##blinky", _configLayoutIndex == 0)) _configLayoutIndex = 0;
-        ImGui.SameLine(0, 8);
-        if (ImGui.RadioButton("Cylinder##blinky", _configLayoutIndex == 1)) _configLayoutIndex = 1;
-        if (_configLayoutIndex == 1)
+        // ---- Grid parameters table (4 even columns) ----
+        var tableFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##blinky_params", 4, tableFlags))
         {
-            double cylRadius = (_configWidth * _configSpacing) / (2.0 * System.Math.PI);
-            ImGui.TextDisabled($"Cylinder radius: {cylRadius:F2} m  (circumference = {_configWidth} x {_configSpacing:F2} m)");
+            // Row: Columns / Rows
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Columns");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragInt("##bk_cols", ref _configCols, 0.5f, 1, 256);
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Rows");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragInt("##bk_rows", ref _configRows, 0.5f, 1, 256);
+
+            // Row: Spacing / Engine Scale
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Spacing (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##bk_space", ref _configSpacing, 0.01f, 0.0f, 100.0f);
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Engine Scale");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##bk_scale", ref _configEngineScale, 0.001f, 0.001f, 1.0f);
+
+            // Row: Position X / Y / Z
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Offset: x,y,z");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##bk_ox", ref _configOffsetX, 0.1f);
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##bk_oy", ref _configOffsetY, 0.1f);
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##bk_oz", ref _configOffsetZ, 0.1f);
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
 
-        ImGui.Spacing();
-        ImGui.DragFloat("Spacing (m)##blinky", ref _configSpacing, 0.01f, 0.0f, 10.0f);
-        ImGui.DragFloat("Part scale##blinky", ref _configPartScale, 0.001f, 0.001f, 1.0f);
-        ImGui.TextDisabled("(blinken uses 0.1 \u2014 full size engines visually overlap)");
+        // ---- Layout radio buttons (outside table) ----
+        if (ImGui.RadioButton("Flat##bk", _configLayoutIndex == 0)) _configLayoutIndex = 0;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("Cylinder##bk", _configLayoutIndex == 1)) _configLayoutIndex = 1;
 
-        ImGui.Spacing();
-        ImGui.Text("Offset from vehicle root (m):");
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("X##blinkyOX", ref _configOffsetX, 0.1f);
-        ImGui.SameLine(0, 8);
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("Y##blinkyOY", ref _configOffsetY, 0.1f);
-        ImGui.SameLine(0, 8);
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("Z##blinkyOZ", ref _configOffsetZ, 0.1f);
-
-        ImGui.Spacing();
-        ImGui.Text("Engine template:");
-        ImGui.SetNextItemWidth(-1f);
-        if (ImGui.BeginCombo("##blinky_engine", _enginePartId))
+        // ---- Engine / Vehicle / Grid Name table (2 columns: 1/4 label, 3/4 widget) ----
+        var table2Flags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##blinky_select", 2, table2Flags))
         {
-            if (ImGui.IsWindowAppearing())
-            {
-                ImGui.SetKeyboardFocusHere();
-                _engineFilter.Clear();
-            }
-            _engineFilter.Draw("##blinky_engine_filter", -1f);
-            for (int i = 0; i < EnginePresets.Length; i++)
-            {
-                if (_engineFilter.PassFilter(EnginePresets[i]))
-                {
-                    bool sel = _enginePresetIndex == i;
-                    if (ImGui.Selectable(EnginePresets[i], sel))
-                    {
-                        _enginePresetIndex = i;
-                        _enginePartId = EnginePresets[i];
-                    }
-                    if (sel) ImGui.SetItemDefaultFocus();
-                }
-            }
-            ImGui.EndCombo();
+            ImGui.TableSetupColumn("##bk_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##bk_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            // Row: Engine
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Engine");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); RenderEngineCombo();
+
+            // Row: Vehicle
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); RenderVehicleCombo();
+
+            // Row: Grid Name
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Name");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.InputText("##bk_gridname", _newGridName);
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
+
+        // ---- Create button + total parts ----
+        if (ImGui.Button(" Create ##bk"))
+            DoBuildGrid();
+        ImGui.SameLine(0, 12);
+        int totalParts = _configCols * _configRows * 2;
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text($"Total parts: {totalParts}");
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip($"{_configCols} cols \u00d7 {_configRows} rows \u00d7 2 = {totalParts} parts.\nEach pixel has an a/b engine pair that thrust in\nopposite directions to have net zero force.");
 
         ImGui.Spacing();
-        ImGui.SeparatorText("Create Grid");
 
-        ImGui.Text("Grid name:");
-        ImGui.SameLine(0, 8);
-        ImGui.SetNextItemWidth(200);
-        ImGui.InputText("##blinky_gridname", _newGridName);
-
-        ImGui.Spacing();
-        if (ImGui.Button("Build Grid##blinky_create"))
-            DoBuildGrid(vehicle, vehicleId);
-
-        ImGui.SameLine(0, 10);
-        if (ImGui.Button("Scan Grid##blinky_scan"))
-            DoScanGrid(vehicle, vehicleId);
-
-        ImGui.SameLine(0, 10);
-        if (ImGui.Button("Scan All Grids##blinky_scanall"))
-            DoScanAllGrids(vehicle);
-
+        // Status message
         if (!string.IsNullOrEmpty(_createMessage))
         {
             var msgColor = _createMessageIsError
@@ -206,178 +260,181 @@ public sealed class BlinkySubmod : ISubmod
                 : new float4(0.4f, 1f, 0.4f, 1f);
             ImGui.TextColored(msgColor, _createMessage);
         }
-
-        ImGui.Spacing();
-        bool showEngines = BlinkyPatchState.RenderPixelParts;
-        if (ImGui.Checkbox("Show engine meshes##blinky", ref showEngines))
-            BlinkyPatchState.RenderPixelParts = showEngines;
-        ImGui.SameLine(0, 8);
-        ImGui.TextDisabled("(off = better perf)");
-
-        ImGui.Unindent();
     }
 
-    // ── Per-Grid Controls ────────────────────────────────────────────────────────
+    //  Per-Grid Section 
 
-    private void RenderGridControls(Vehicle vehicle, string vehicleId, GridState gs)
+    private void RenderGridSection(GridState gs)
     {
+        var vehicleId = gs.VehicleId;
         var gridName = gs.GridName;
         var gridId = $"{vehicleId}_{gridName}";
-        var ui = GetOrCreateGridUiState(vehicleId, gridName);
+        
 
-        if (!ImGui.CollapsingHeader($"{gridName}##grid_{gridId}", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader($"LCD Grid: '{gridName}' on '{vehicleId}##grid_{gridId}'"))
             return;
 
-        ImGui.Indent();
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild($"child_{gridId}", new float2(childW, 0), ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding, ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar(); // WindowPadding
 
-        ImGui.Text($"Grid: {gs.BlinkyGrid.Grid.Cols}x{gs.BlinkyGrid.Grid.Rows} ({gs.BlinkyGrid.Grid.Count} pixel pairs)");
+        // Info table
+        var tableFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##gridinfo_{gridId}", 4, tableFlags))
+        {
 
-        // ── Patterns ─────────────────────────────────────────────────────────
-        if (ImGui.Button($"All Off##{gridId}"))
+            // Name
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Name");
+            ImGui.TableNextColumn(); ImGui.Text(gridName);
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Rows");
+            ImGui.TableNextColumn(); ImGui.Text($"{gs.BlinkyGrid.Grid.Rows}");
+
+            // Layout + Size
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Discovery");
+            ImGui.TableNextColumn(); ImGui.Text(gs.BlinkyGrid.IsOwned ? "Owned" : "Scanned");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Columns");
+            ImGui.TableNextColumn(); ImGui.Text($"{gs.BlinkyGrid.Grid.Cols}");
+
+            // Status
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Status");
+            ImGui.TableNextColumn();
+            if (_pendingDestroy.Contains((vehicleId, gridName)))
+                ImGui.TextColored(new float4(1f, 0.8f, 0.2f, 1f), "Destroying...");
+            else
+                ImGui.TextDisabled("Ready");
+            ImGui.TableNextColumn(); // skip
+            ImGui.TableNextColumn(); // skip
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        // Pattern buttons
+        if (ImGui.Button($" Off ##{gridId}"))
             BlinkyGridManager.TurnOff(vehicleId, gridName);
         ImGui.SameLine(0, 8);
-        if (ImGui.Button($"All On##{gridId}"))
+        if (ImGui.Button($" All ##{gridId}"))
             BlinkyGridManager.ApplyPattern(vehicleId, gridName, PixelPatterns.AllOn);
         ImGui.SameLine(0, 8);
-        if (ImGui.Button($"Checkerboard##{gridId}"))
-            BlinkyGridManager.ApplyPattern(vehicleId, gridName, PixelPatterns.Checkerboard);
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button($"Alt Rows##{gridId}"))
+        if (ImGui.Button($" Rows ##{gridId}"))
             BlinkyGridManager.ApplyPattern(vehicleId, gridName, PixelPatterns.AlternatingRows);
         ImGui.SameLine(0, 8);
-        if (ImGui.Button($"Alt Cols##{gridId}"))
+        if (ImGui.Button($" Columns ##{gridId}"))
             BlinkyGridManager.ApplyPattern(vehicleId, gridName, PixelPatterns.AlternatingCols);
+        ImGui.SameLine(0, 8);
+        if (ImGui.Button($" Checkers ##{gridId}"))
+            BlinkyGridManager.ApplyPattern(vehicleId, gridName, PixelPatterns.Checkerboard);
 
-        // ── Scroll ───────────────────────────────────────────────────────────
         ImGui.Spacing();
-        ImGui.SeparatorText($"Scroll##{gridId}");
 
-        bool isScrolling = gs.Scroll.IsActive;
-        if (ImGui.Button(isScrolling ? $"Stop##{gridId}" : $"Start##{gridId}"))
-        {
-            if (isScrolling)
-                BlinkyGridManager.TurnOff(vehicleId, gridName);
-            else
-                BlinkyGridManager.StartBuiltInScroll(vehicleId, gridName, ui.ScrollSpeed);
-        }
+        // Destroy button (red border)
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
 
-        ImGui.SameLine(0, 10);
-        ImGui.SetNextItemWidth(200);
-        if (ImGui.SliderFloat($"Speed##{gridId}", ref ui.ScrollSpeed, 0.5f, 30f))
-        {
-            if (gs.Scroll.IsActive)
-                gs.Scroll.ScrollSpeed = ui.ScrollSpeed;
-        }
+        if (ImGui.Button($"Destroy##{gridId}"))
+            ScheduleDestroy(gs);
 
-        if (gs.Scroll.IsActive)
-        {
-            ImGui.TextColored(
-                new float4(0.2f, 1f, 0.5f, 1f),
-                $"Scrolling  offset={gs.Scroll.ScrollOffset:F1}  image {gs.Scroll.ImageWidth}x{gs.Scroll.ImageHeight}");
-        }
-        else
-        {
-            ImGui.TextDisabled("Scroll stopped");
-        }
-
-        // ── Grid Actions ─────────────────────────────────────────────────────
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
+        
         ImGui.Spacing();
-        ImGui.Separator();
+        ImGui.Spacing();
 
-        if (ImGui.Button($"Rescan Grid##{gridId}"))
-            RescanGrid(gs);
+        ImGui.EndChild();
+    }
 
-        ImGui.SameLine(0, 10);
-        if (ImGui.Button($"Destroy Grid##{gridId}"))
+    //  Engine Combo 
+
+    private void RenderEngineCombo()
+    {
+        if (!ImGui.BeginCombo("##bk_engine", _enginePartId))
+            return;
+
+        if (ImGui.IsWindowAppearing())
         {
-            var capturedVehicleId = vehicleId;
-            var capturedGridName = gridName;
-            var capturedVehicle = vehicle;
-            var capturedGrid = gs.BlinkyGrid;
-
-            // Always shut down grid and wait 2s before destroying to prevent stuck-on engine sounds.
-            ScheduleDeferred(0, () =>
-            {
-                Console.WriteLine($"blinky: destroy step 1 — shutting down grid '{capturedGridName}'");
-                BlinkyGridManager.TurnOff(capturedVehicleId, capturedGridName);
-            });
-            ScheduleDeferred(2.0, () =>
-            {
-                try
-                {
-                    Console.WriteLine($"blinky: destroy step 2 — removing parts for grid '{capturedGridName}'");
-                    LcdGridBuilder.DestroyGrid(capturedVehicle, capturedGrid);
-                    BlinkyGridManager.Unregister(capturedVehicleId, capturedGridName);
-                    _createMessage = $"Grid '{capturedGridName}' destroyed";
-                    _createMessageIsError = false;
-                    Console.WriteLine($"blinky: {_createMessage}");
-                }
-                catch (Exception ex)
-                {
-                    _createMessage = $"Destroy failed: {ex.Message}";
-                    _createMessageIsError = true;
-                    Console.WriteLine($"blinky: Destroy error: {ex}");
-                }
-            });
+            ImGui.SetKeyboardFocusHere();
+            _engineFilter.Clear();
         }
-
-        if (!string.IsNullOrEmpty(ui.Message))
+        _engineFilter.Draw("##bk_engine_filter", -1f);
+        for (int i = 0; i < EnginePresets.Length; i++)
         {
-            var msgColor = ui.MessageIsError
-                ? new float4(1f, 0.3f, 0.3f, 1f)
-                : new float4(0.4f, 1f, 0.4f, 1f);
-            ImGui.TextColored(msgColor, ui.Message);
+            if (!_engineFilter.PassFilter(EnginePresets[i])) continue;
+            bool sel = _enginePresetIndex == i;
+            if (ImGui.Selectable(EnginePresets[i], sel))
+            {
+                _enginePresetIndex = i;
+                _enginePartId = EnginePresets[i];
+            }
+            if (sel) ImGui.SetItemDefaultFocus();
         }
+        ImGui.EndCombo();
+    }
 
-        ImGui.Unindent();
+    //  Vehicle Combo 
+
+    private void RenderVehicleCombo()
+    {
+        var vehicles = VehicleProvider.GetAllVehicles();
+        string preview = _selectedVehicleIndex >= 0 && _selectedVehicleIndex < vehicles.Count
+            ? vehicles[_selectedVehicleIndex].Id
+            : "Select...";
+
+        if (!ImGui.BeginCombo("##bk_vehicle", preview))
+            return;
+
+        if (ImGui.IsWindowAppearing())
+        {
+            ImGui.SetKeyboardFocusHere();
+            _vehicleFilter.Clear();
+        }
+        _vehicleFilter.Draw("##bk_vehicle_filter", -1f);
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            var vid = vehicles[i].Id;
+            if (!_vehicleFilter.PassFilter(vid)) continue;
+            bool sel = _selectedVehicleIndex == i;
+            if (ImGui.Selectable(vid + "##bkv", sel))
+                _selectedVehicleIndex = i;
+            if (sel) ImGui.SetItemDefaultFocus();
+        }
+        ImGui.EndCombo();
+    }
+
+    /// <summary>Returns the vehicle selected in the vehicle combo, or null.</summary>
+    private Vehicle? GetSelectedVehicle()
+    {
+        var vehicles = VehicleProvider.GetAllVehicles();
+        if (_selectedVehicleIndex >= 0 && _selectedVehicleIndex < vehicles.Count)
+            return vehicles[_selectedVehicleIndex];
+        return null;
     }
 
     public void Dispose()
     {
         BlinkyGridManager.Clear();
-        _uiStates.Clear();
+        NonLcdEngineCache.Clear();
+        _pendingDestroy.Clear();
     }
 
-    // ── Per-Grid UI State ─────────────────────────────────────────────────────────
+    //  Grid Build 
 
-    private class GridUiState
+    private void DoBuildGrid()
     {
-        public string Message = "";
-        public bool MessageIsError = false;
-        public float ScrollSpeed = 3f;
-    }
-
-    private GridUiState GetOrCreateGridUiState(string vehicleId, string gridName)
-    {
-        var key = (vehicleId, gridName);
-        if (!_uiStates.TryGetValue(key, out var state))
+        var vehicle = GetSelectedVehicle();
+        if (vehicle == null)
         {
-            state = new GridUiState();
-            _uiStates[key] = state;
+            SetCreateMessage("Select a vehicle first", true);
+            return;
         }
-        return state;
-    }
 
-    // ── Active Vehicles Summary ───────────────────────────────────────────────────
-
-    private static void RenderActiveVehiclesSummary()
-    {
-        var grids = BlinkyGridManager.Grids;
-        if (grids.Count == 0) return;
-
-        int vehicleCount = grids.Values.Select(s => s.VehicleId).Distinct().Count();
-        int scrollCount = 0;
-        foreach (var state in grids.Values)
-        {
-            if (state.Scroll.IsActive) scrollCount++;
-        }
-        ImGui.TextDisabled($"Tracked: {vehicleCount} vehicle(s), {grids.Count} grid(s), {scrollCount} scrolling");
-    }
-
-    // ── Grid Build ────────────────────────────────────────────────────────────────
-
-    private void DoBuildGrid(Vehicle vehicle, string vehicleId)
-    {
+        var vehicleId = vehicle.Id;
         var gridName = _newGridName.ToString().Trim();
 
         if (!ValidateGridName(gridName, vehicleId))
@@ -387,13 +444,13 @@ public sealed class BlinkySubmod : ISubmod
         {
             var config = new LcdGridConfig
             {
-                Width = _configWidth,
-                Height = _configHeight,
+                Width = _configCols,
+                Height = _configRows,
                 Spacing = _configSpacing,
                 OffsetX = _configOffsetX,
                 OffsetY = _configOffsetY,
                 OffsetZ = _configOffsetZ,
-                PartScale = _configPartScale,
+                PartScale = _configEngineScale,
                 EnginePartId = _enginePartId,
                 Layout = _configLayoutIndex == 1 ? GridLayout.Cylinder : GridLayout.Flat,
             };
@@ -407,7 +464,7 @@ public sealed class BlinkySubmod : ISubmod
             }
             else
             {
-                SetCreateMessage("Build failed \u2014 check console log", true);
+                SetCreateMessage("Build failed  check console log", true);
             }
         }
         catch (Exception ex)
@@ -417,85 +474,61 @@ public sealed class BlinkySubmod : ISubmod
         }
     }
 
-    // ── Scan Grid (single named grid) ─────────────────────────────────────────────
+    //  Global Scan 
 
-    private void DoScanGrid(Vehicle vehicle, string vehicleId)
+    private void DoGlobalScan()
     {
-        var gridName = _newGridName.ToString().Trim();
-
-        if (!ValidateGridName(gridName, vehicleId))
-            return;
-
         try
         {
-            Console.WriteLine($"blinky: scanning vehicle for grid '{gridName}'...");
-            var pixelGrid = PixelGrid.ScanFromVehicle(vehicle, gridName);
-
-            if (pixelGrid.Count > 0)
-            {
-                pixelGrid.RefreshEngineControllers();
-                var blinkyGrid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
-                BlinkyGridManager.Register(vehicle, gridName, blinkyGrid);
-                SetCreateMessage($"Scanned grid '{gridName}': {pixelGrid.Cols}x{pixelGrid.Rows} ({pixelGrid.Count} pixel pairs) [by ID]", false);
-                _newGridName.Clear();
-                return;
-            }
-
-            Console.WriteLine($"blinky: ID scan found nothing for '{gridName}', trying template-based scan...");
-            var scannedGrid = LcdGridBuilder.ScanExistingGrid(vehicle, gridName, _enginePartId);
-
-            if (scannedGrid != null)
-            {
-                BlinkyGridManager.Register(vehicle, gridName, scannedGrid);
-                SetCreateMessage($"Scanned grid '{gridName}': {scannedGrid.Grid.Cols}x{scannedGrid.Grid.Rows} ({scannedGrid.Grid.Count} pixel pairs) [by template]", false);
-                _newGridName.Clear();
-            }
+            var (discovered, names) = BlinkyGridManager.ScanAllVehicles();
+            if (discovered == 0)
+                SetCreateMessage("No blinky grids found on any vehicle", true);
             else
-            {
-                SetCreateMessage($"No grid '{gridName}' found (tried ID + template '{_enginePartId}' scan)", true);
-            }
+                SetCreateMessage($"Discovered {discovered} grid(s): {string.Join(", ", names)}", false);
         }
         catch (Exception ex)
         {
             SetCreateMessage($"Scan error: {ex.Message}", true);
-            Console.WriteLine($"blinky: Scan error: {ex}");
+            Console.WriteLine($"blinky: Global scan error: {ex}");
         }
     }
 
-    // ── Scan All Grids (auto-discovery) ───────────────────────────────────────────
+    //  Destroy 
 
-    private void DoScanAllGrids(Vehicle vehicle)
+    private void ScheduleDestroy(GridState gs)
     {
-        try
+        var capturedVehicleId = gs.VehicleId;
+        var capturedGridName = gs.GridName;
+        var capturedVehicle = gs.Vehicle;
+        var capturedGrid = gs.BlinkyGrid;
+
+        _pendingDestroy.Add((capturedVehicleId, capturedGridName));
+
+        ScheduleDeferred(0, () =>
         {
-            Console.WriteLine("blinky: scanning vehicle for ALL pixel grids...");
-            var discovered = PixelGrid.ScanAllFromVehicle(vehicle);
-
-            if (discovered.Count == 0)
-            {
-                SetCreateMessage("No pixel grids found on vehicle", true);
-                return;
-            }
-
-            var names = new List<string>();
-            foreach (var (gridName, pixelGrid) in discovered)
-            {
-                pixelGrid.RefreshEngineControllers();
-                var blinkyGrid = new BlinkyPixelGrid(pixelGrid, new List<Part>());
-                BlinkyGridManager.Register(vehicle, gridName, blinkyGrid);
-                names.Add(gridName);
-            }
-
-            SetCreateMessage($"Discovered {discovered.Count} grid(s): {string.Join(", ", names)}", false);
-        }
-        catch (Exception ex)
+            Console.WriteLine($"blinky: destroy step 1  shutting down grid '{capturedGridName}'");
+            BlinkyGridManager.TurnOff(capturedVehicleId, capturedGridName);
+        });
+        ScheduleDeferred(2.0, () =>
         {
-            SetCreateMessage($"Scan all error: {ex.Message}", true);
-            Console.WriteLine($"blinky: Scan all error: {ex}");
-        }
+            try
+            {
+                Console.WriteLine($"blinky: destroy step 2  removing parts for grid '{capturedGridName}'");
+                LcdGridBuilder.DestroyGrid(capturedVehicle, capturedGrid);
+                BlinkyGridManager.Unregister(capturedVehicleId, capturedGridName);
+                _pendingDestroy.Remove((capturedVehicleId, capturedGridName));
+                SetCreateMessage($"Grid '{capturedGridName}' destroyed", false);
+            }
+            catch (Exception ex)
+            {
+                _pendingDestroy.Remove((capturedVehicleId, capturedGridName));
+                SetCreateMessage($"Destroy failed: {ex.Message}", true);
+                Console.WriteLine($"blinky: Destroy error: {ex}");
+            }
+        });
     }
 
-    // ── Validation ────────────────────────────────────────────────────────────────
+    //  Validation 
 
     private bool ValidateGridName(string gridName, string vehicleId)
     {
@@ -517,16 +550,7 @@ public sealed class BlinkySubmod : ISubmod
         return true;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────────
-
-    private static void RescanGrid(GridState gs)
-    {
-        gs.BlinkyGrid.Grid.RefreshEngineControllers();
-        int total = 0;
-        foreach (var engines in gs.BlinkyGrid.Grid.Engines.Values)
-            total += engines.Length;
-        Console.WriteLine($"blinky dbg: RescanGrid done \u2014 grid '{gs.GridName}' {gs.BlinkyGrid.Grid.Cols}x{gs.BlinkyGrid.Grid.Rows}, {total} cached engine controllers");
-    }
+    //  Helpers 
 
     private void SetCreateMessage(string msg, bool isError)
     {
