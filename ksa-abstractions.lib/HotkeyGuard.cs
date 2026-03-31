@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using Brutal.ImGuiApi;
+using Brutal.ImGuiApi.Abstractions;
 using HarmonyLib;
 using KSA;
 
@@ -34,7 +35,7 @@ public static class HotkeyGuard
 
     private static bool Prefix(ref bool __result)
     {
-        if (ImGui.GetIO().WantTextInput)
+        if (!Program.ConsoleWindow.IsOpen && ImGui.GetIO().WantTextInput)
         {
             __result = true;
             return false;
