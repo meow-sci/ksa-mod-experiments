@@ -1,14 +1,5 @@
-using System;
-
-namespace MeowSci.HumbleArteestLib;
-
-/// <summary>
-/// Example library code.
-/// </summary>
-public sealed class HumbleArteestLib
-{
-  public static void Thing()
-  {
-    Console.WriteLine("Hello from the example library!");
-  }
-}
+// This file intentionally left minimal.
+// Core library classes:
+//   VehiclePaint.cs / VehiclePaintPatches.cs / VehiclePaintSubmod.cs — vehicle part painting
+//   KittenColor.cs / KittenColorSubmod.cs — kitten character tinting
+//   EngineEmissive.cs / EngineEmissivePatches.cs / EngineEmissiveSubmod.cs — engine glow control

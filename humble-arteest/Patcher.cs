@@ -1,25 +1,24 @@
 using System;
 using HarmonyLib;
-using Brutal.Numerics;
-using KSA;
 using MeowSci.KsaAbstractions;
-using MeowSci.HumbleArteestLib.Experiments;
+using MeowSci.HumbleArteestLib;
 
 namespace MeowSci.HumbleArteest;
 
 [HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("humble-arteest");
+    private static Harmony? _harmony;
 
     public static void Patch()
     {
         try
         {
-            _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
-            if (_harmony != null) PaddingTest.ApplyPatches(_harmony);
-            if (_harmony != null) TemperatureTest.ApplyPatches(_harmony);
+            _harmony = new Harmony("humble-arteest");
+            HotkeyGuard.Patch(_harmony);
+            VehiclePaintPatches.Apply(_harmony);
+            EngineEmissivePatches.Apply(_harmony);
+            Console.WriteLine("humble-arteest: Harmony patches applied");
         }
         catch (Exception ex)
         {
@@ -31,16 +30,15 @@ internal static class Patcher
     {
         try
         {
-            // Restore original shaders if hot-reload test swapped them
-            if (ShaderHotReloadTest.ShadersSwapped)
-            {
-                ShaderHotReloadTest.RestoreOriginalShaders();
-            }
+            VehiclePaint.Cleanup();
+            EngineEmissive.Cleanup();
 
-            if (_harmony != null) TemperatureTest.RemovePatches(_harmony);
-            if (_harmony != null) PaddingTest.RemovePatches(_harmony);
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
-            _harmony?.UnpatchAll("humble-arteest");
+            if (_harmony != null)
+            {
+                EngineEmissivePatches.Remove(_harmony);
+                VehiclePaintPatches.Remove(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony = null;
         }
         catch (Exception ex)
@@ -48,5 +46,4 @@ internal static class Patcher
             Console.WriteLine($"humble-arteest: Error removing patches: {ex.Message}");
         }
     }
-
 }
