@@ -349,9 +349,10 @@ The Experiment 0.3 technique should be extracted into a standalone mod for kitte
 #### Experiment 0.4: Temperature Visual Test
 **Goal:** Quick proof that per-instance visual modification works through existing fields.
 **Method:**
-1. Harmony-patch `PartModelDynamicModule.UpdateRenderData()` to set `Temperature = 1.0f` on all dynamic parts
+1. Harmony-patch `PartModelDynamic.AddInstance()` to override `Temperature` and `TfiThickness` when enabled
 2. Observe if parts glow (confirms per-instance data flows to shader correctly)
-3. Try replacing the temperature LUT texture with a custom gradient
+
+**✅ RESULT: PASSED** — Dynamic parts glow with thermal emissivity effect when Temperature is overridden. TFI (thin-film interference) also works. Per-instance visual modification through existing fields is confirmed. No shader changes needed.
 
 ### Phase 1: Minimal Viable Paint (MVP)
 
