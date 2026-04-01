@@ -84,6 +84,8 @@ public class Mod
       RenderPaddingTest();
       ImGui.Spacing();
       RenderMaterialColorTest();
+      ImGui.Spacing();
+      RenderTemperatureTest();
     }
     ImGui.End();
   }
@@ -338,6 +340,63 @@ public class Mod
       ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f), "Expected result:");
       ImGui.BulletText("If parts change color: Approach B (material cloning) is viable!");
       ImGui.BulletText("If no change: Indirect path ignores AlbedoColor (expected).");
+
+      ImGui.Unindent();
+    }
+  }
+
+  private bool _temperatureTestEnabled = false;
+  private float _temperatureValue = 1.0f;
+  private float _tfiThicknessValue = 0.0f;
+
+  private void RenderTemperatureTest()
+  {
+    if (ImGui.CollapsingHeader("Experiment 0.4: Temperature Visual Test", ImGuiTreeNodeFlags.DefaultOpen))
+    {
+      ImGui.Indent();
+
+      ImGui.TextWrapped("Tests per-instance visual modification via the Temperature field. " +
+        "No shader modifications needed — Temperature is already wired from C# through " +
+        "to the fragment shader. Toggle the override and adjust sliders.");
+      ImGui.Spacing();
+
+      // Enable toggle
+      if (ImGui.Checkbox("Enable Temperature Override", ref _temperatureTestEnabled))
+      {
+        TemperatureTest.Enabled = _temperatureTestEnabled;
+      }
+      ImGui.Spacing();
+
+      // Temperature slider
+      if (ImGui.SliderFloat("Temperature", ref _temperatureValue, 0.0f, 1.0f))
+      {
+        TemperatureTest.Temperature = _temperatureValue;
+      }
+
+      // TFI Thickness slider
+      if (ImGui.SliderFloat("TFI Thickness", ref _tfiThicknessValue, 0.0f, 1.0f))
+      {
+        TemperatureTest.TfiThickness = _tfiThicknessValue;
+      }
+
+      if (_temperatureTestEnabled)
+      {
+        ImGui.Spacing();
+        ImGui.TextColored(new float4(1.0f, 0.5f, 0.0f, 1.0f),
+          $"ACTIVE — Temperature={_temperatureValue:F2}, TFI={_tfiThicknessValue:F2}");
+      }
+
+      // Errors
+      if (TemperatureTest.LastError != null)
+      {
+        ImGui.Spacing();
+        ImGui.TextColored(new float4(1.0f, 0.3f, 0.3f, 1.0f), $"Error: {TemperatureTest.LastError}");
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f), "Expected result:");
+      ImGui.BulletText("Dynamic parts should glow orange/red at high Temperature values");
 
       ImGui.Unindent();
     }

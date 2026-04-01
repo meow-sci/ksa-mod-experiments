@@ -19,6 +19,7 @@ internal static class Patcher
             _harmony?.PatchAll(typeof(Patcher).Assembly);
             if (_harmony != null) HotkeyGuard.Patch(_harmony);
             if (_harmony != null) PaddingTest.ApplyPatches(_harmony);
+            if (_harmony != null) TemperatureTest.ApplyPatches(_harmony);
         }
         catch (Exception ex)
         {
@@ -30,6 +31,7 @@ internal static class Patcher
     {
         try
         {
+            if (_harmony != null) TemperatureTest.RemovePatches(_harmony);
             if (_harmony != null) PaddingTest.RemovePatches(_harmony);
             if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
             _harmony?.UnpatchAll("humble-arteest");
