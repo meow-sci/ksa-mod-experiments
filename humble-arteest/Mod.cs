@@ -79,6 +79,8 @@ public class Mod
       ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "Humble Arteest");
       ImGui.Separator();
 
+      RenderShaderHotReloadTest();
+      ImGui.Spacing();
       RenderShaderLoadTest();
       ImGui.Spacing();
       RenderPaddingTest();
@@ -410,6 +412,120 @@ public class Mod
     {
       if (MaterialColorTest.ModifyAlbedoColor(handle, color))
         success++;
+    }
+  }
+
+  // ---- Experiment 0.5: Shader Hot-Reload Test ----
+
+  private bool _hotReloadPaintEnabled = false;
+  private float3 _hotReloadPaintColor = new float3(1.0f, 0.0f, 0.0f);
+
+  private void RenderShaderHotReloadTest()
+  {
+    if (ImGui.CollapsingHeader("Experiment 0.5: Runtime Shader Hot-Reload", ImGuiTreeNodeFlags.DefaultOpen))
+    {
+      ImGui.Indent();
+
+      ImGui.TextWrapped("Compiles modified shaders at runtime and swaps them into the rendering pipeline " +
+        "WITHOUT a game restart. Original game shader files are never modified. " +
+        "This combines experiments 0.1 + 0.2 into a single runtime-only operation.");
+      ImGui.Spacing();
+
+      // Phase A: Infrastructure probe
+      if (!ShaderHotReloadTest.InfrastructureReady)
+      {
+        if (ImGui.Button("Probe Shader Infrastructure"))
+        {
+          ShaderHotReloadTest.ProbeInfrastructure();
+        }
+      }
+      else
+      {
+        ImGui.TextColored(new float4(0.5f, 1.0f, 0.5f, 1.0f), "Infrastructure: READY");
+      }
+
+      // Show probe details if available
+      if (ShaderHotReloadTest.StatusMessage != null)
+      {
+        ImGui.Spacing();
+        if (ImGui.TreeNode("Infrastructure Details"))
+        {
+          ImGui.TextWrapped(ShaderHotReloadTest.StatusMessage);
+          ImGui.TreePop();
+        }
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.Spacing();
+
+      // Phase B: Shader swap + paint controls
+      if (!ShaderHotReloadTest.ShadersSwapped)
+      {
+        if (ImGui.Button("Swap Shaders (Add Paint Tint Support)"))
+        {
+          ShaderHotReloadTest.SwapToModifiedShaders();
+        }
+        ImGui.SameLine(0, 10);
+        ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f), "Compiles & swaps at runtime");
+      }
+      else
+      {
+        ImGui.TextColored(new float4(1.0f, 1.0f, 0.0f, 1.0f), "Shaders: MODIFIED (paint tint active)");
+        ImGui.Spacing();
+
+        if (ImGui.Button("Restore Original Shaders"))
+        {
+          ShaderHotReloadTest.RestoreOriginalShaders();
+          _hotReloadPaintEnabled = false;
+          PaddingTest.Enabled = false;
+        }
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.Spacing();
+
+      // Paint toggle + color picker (works when shaders are swapped)
+      ImGui.Text("Paint Controls:");
+      if (ImGui.Checkbox("Enable Paint", ref _hotReloadPaintEnabled))
+      {
+        PaddingTest.Enabled = _hotReloadPaintEnabled;
+      }
+      ImGui.SameLine(0, 10);
+      if (ImGui.ColorEdit3("##hotReloadPaintColor", ref _hotReloadPaintColor,
+        ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+      {
+        PaddingTest.PaintR = _hotReloadPaintColor.X;
+        PaddingTest.PaintG = _hotReloadPaintColor.Y;
+        PaddingTest.PaintB = _hotReloadPaintColor.Z;
+      }
+
+      if (_hotReloadPaintEnabled && !ShaderHotReloadTest.ShadersSwapped)
+      {
+        ImGui.TextColored(new float4(1.0f, 0.5f, 0.0f, 1.0f),
+          "Paint is enabled but shaders are not swapped — swap shaders first!");
+      }
+      else if (_hotReloadPaintEnabled)
+      {
+        ImGui.TextColored(new float4(0.5f, 1.0f, 0.5f, 1.0f),
+          $"ACTIVE — tint ({_hotReloadPaintColor.X:F2}, {_hotReloadPaintColor.Y:F2}, {_hotReloadPaintColor.Z:F2})");
+      }
+
+      // Errors
+      if (ShaderHotReloadTest.LastError != null)
+      {
+        ImGui.Spacing();
+        ImGui.TextColored(new float4(1.0f, 0.3f, 0.3f, 1.0f), $"Error: {ShaderHotReloadTest.LastError}");
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f), "Expected result:");
+      ImGui.BulletText("Swap shaders + enable paint → parts tinted with selected color");
+      ImGui.BulletText("No game restart needed! Restore button reverts everything.");
+
+      ImGui.Unindent();
     }
   }
 }

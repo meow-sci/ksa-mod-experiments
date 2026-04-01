@@ -19,6 +19,10 @@ After a comprehensive analysis of the KSA decompiled source code (rendering pipe
 | **Temperature per-instance?** | ✅ FxTemperature demonstrates per-instance visual effects flowing to GPU |
 | **Harmony patch points?** | ✅ `PartModelModule.UpdateRenderData()` already patched by blinky mod |
 | **Shared materials?** | ⚠️ Materials are shared per part family — modifying one affects ALL parts in that family |
+| **Shader hot-reload?** | ✅ **BUILT-IN** — `KSA.AssetReloader.ShaderReloader` uses FileWatcher + `ShaderReference.DoLoad()` to recompile shaders at runtime without restart |
+| **Pipeline rebuild?** | ✅ `PartModelRenderer.ColorData.Rebuild()` destroys and recreates pipelines with latest shader modules |
+| **In-memory compilation?** | ✅ `ShaderModuleUtils.FromString()` can compile GLSL from a string directly to VkShaderModule — no file needed |
+| **Shader IDs known?** | ✅ `MeshIndirectVert`, `MeshIndirectFrag`, `DynamicMeshIndirectVert`, `DynamicMeshIndirectFrag`, `MeshGlassIndirectFrag` |
 
 ---
 
@@ -446,6 +450,10 @@ These should be built as small, isolated test mods within the humble-arteest pro
 ```
 File: humble-arteest.lib/Experiments/ShaderLoadTest.cs
 
+NOTE: This test may be SUPERSEDED by Test 6 (ShaderHotReloadTest), which
+validates that shaders can be modified AND hot-reloaded at runtime without
+restart. Test 6 should be attempted first.
+
 Purpose: Modify a shader file on disk, observe if game picks up the change.
 Implementation:
   1. On mod load, backup Content/Core/Shaders/Mesh/MeshIndirect.frag
@@ -525,6 +533,110 @@ Implementation:
 
 Prerequisites: Tests 1 + 2 pass
 Expected Result: Vehicle parts tinted with user-chosen color.
+```
+
+### Test 6: Runtime Shader Hot-Reload Test (`ShaderHotReloadTest`)
+```
+File: humble-arteest.lib/Experiments/ShaderHotReloadTest.cs
+
+Purpose: Validate that KSA's built-in shader hot-reload system can be triggered
+         from a mod at runtime — eliminating the need for game restarts when
+         modifying shaders.
+
+Background Discovery:
+  KSA has a BUILT-IN shader hot-reload system that was not previously known:
+
+  - KSA.AssetReloader.ShaderReloader class:
+    - Uses FileWatcher to watch shader files on disk for changes
+    - Has EnableHotReloading() / DisableHotReloading() toggles
+    - Has public bool HotReloadingEnabled field
+    - ReloadShader(string modPath) calls ShaderReference.DoLoad() to recompile
+    - Tracks shader include dependencies for cascade reloading
+    - Instance lives on Program (the main game class)
+
+  - KSA.ShaderReference class (accessed via ModLibrary.Get<ShaderReference>(id)):
+    - DoLoad() recompiles shader from source file on disk
+    - Compile() reads GLSL file → shaderc compiler → SPIR-V → VkShaderModule
+    - Swaps old VkShaderModule for new one, destroys old module
+    - Known shader IDs: "MeshIndirectVert", "MeshIndirectFrag",
+      "DynamicMeshIndirectVert", "DynamicMeshIndirectFrag",
+      "MeshGlassIndirectFrag", "MeshIndirectRaytracedFrag"
+
+  - PartModelRenderer.ColorData.Rebuild():
+    - Destroys and recreates the part rendering pipeline
+    - Re-fetches shader modules from ModLibrary (gets latest compiled modules)
+    - Static method — callable from mod code
+
+  - ShaderModuleUtils.FromString():
+    - Can compile GLSL source from a string (not file!) to VkShaderModule
+    - Could enable fully in-memory shader injection without file modification
+
+  - SimplePipeline.RecreatePipeline():
+    - Generic pipeline recreation — destroy old, create new with current shaders
+
+  Key Insight: The hot-reload system ONLY updates the ShaderReference's module.
+  Pipelines using those shaders must be EXPLICITLY rebuilt via
+  PartModelRenderer.ColorData.Rebuild() (or similar) after reloading.
+
+Implementation:
+  Phase A — Verify Access to Hot-Reload Infrastructure:
+    1. Use reflection to find the ShaderReloader instance on Program
+    2. Check if HotReloadingEnabled is true/false
+    3. Log the _modPathsToIds dictionary contents (maps paths → shader IDs)
+    4. Access ModLibrary.Get<ShaderReference>("MeshIndirectFrag")
+    5. Log the ShaderReference's ModPath, Stage, and Shader handle
+    6. Access PartModelRenderer.ColorData.Pipeline (static field)
+    7. Log success/failure for each access attempt
+
+  Phase B — Trigger Hot-Reload Cycle (File-Based):
+    1. Backup Content/Core/Shaders/Mesh/MeshIndirect.frag
+    2. Modify the shader file on disk (e.g., change highlight color constant)
+    3. Get ShaderReference via ModLibrary.Get<ShaderReference>("MeshIndirectFrag")
+    4. Call shaderRef.DoLoad() to recompile the shader
+    5. Call PartModelRenderer.ColorData.Rebuild() to recreate pipelines
+    6. Observe if the rendering change appears WITHOUT game restart
+    7. Provide ImGui "Restore Original" button to revert
+
+  Phase C — In-Memory Shader Compilation (No File Needed):
+    1. Read the original MeshIndirect.frag source from disk
+    2. Modify the GLSL source string in memory (e.g., add a color tint)
+    3. Compile via ShaderModuleUtils.FromString(device, source, FragmentBit)
+    4. Get the ShaderReference for "MeshIndirectFrag"
+    5. Swap the Shader property (destroy old module, set new)
+    6. Call PartModelRenderer.ColorData.Rebuild()
+    7. Observe if the custom shader takes effect at runtime
+
+  Phase D — Enable FileWatcher-Based Auto-Reload:
+    1. Call ShaderReloader.EnableHotReloading() via reflection
+    2. Modify shader files on disk while game is running
+    3. Observe if changes are automatically detected and applied
+    4. Test the dependency tracking (modify an #included file)
+
+Expected Results:
+  Phase A: All infrastructure accessible via reflection
+  Phase B: Shader change visible WITHOUT game restart (GAME CHANGER!)
+  Phase C: In-memory shader compilation works, enabling runtime shader injection
+  Phase D: Auto-reload via FileWatcher triggers seamlessly
+
+Impact on Paint System:
+  If this experiment succeeds, the painting approach changes dramatically:
+  - No need to pre-install modified shaders before game launch
+  - Mod can inject custom shaders at runtime on first load
+  - Shader modifications can be reverted cleanly on mod unload
+  - Could even support LIVE shader editing for development
+  - The full paint POC (Test 5) becomes much cleaner:
+    1. On mod load: compile custom MeshIndirect.frag with tint support → swap → rebuild
+    2. On mod unload: restore original shader → rebuild
+    3. No file system modification needed (Phase C approach)
+
+Key Source Files:
+  - decomp/ksa/KSA.AssetReloader/ShaderReloader.cs — Hot-reload system
+  - decomp/ksa/KSA/ShaderReference.cs — Shader asset with DoLoad()/Compile()
+  - decomp/ksa/RenderCore/ShaderModuleUtils.cs — FromFile()/FromString() compilation
+  - decomp/ksa/RenderCore.Shaders/ShaderCompilerResolve.cs — Include resolution
+  - decomp/ksa/KSA/PartModelRenderer.cs — Pipeline rebuild (ColorData.Rebuild())
+  - decomp/ksa/RenderCore.Pipelines/SimplePipeline.cs — RecreatePipeline()
+  - decomp/ksa/Core.Files/FileWatcher.cs — File system watcher infrastructure
 ```
 
 ---
@@ -612,8 +724,15 @@ humble-arteest.lib/
 
 ## Summary
 
-The most promising path is **Approach A: Shader Replacement + PerInstanceData Padding Hijack**, which gives true per-part RGB coloring with minimal performance overhead. However, this depends on the game loading GLSL shader sources from disk, which **must be validated first** (Experiment 0.1).
+The most promising path is **Approach A: Shader Replacement + PerInstanceData Padding Hijack**, which gives true per-part RGB coloring with minimal performance overhead. **Crucially, a deep dive revealed KSA has a built-in shader hot-reload system** (`ShaderReloader` + `ShaderReference.DoLoad()` + `PartModelRenderer.Rebuild()`), which means shader modifications can be applied at runtime without game restart. Additionally, `ShaderModuleUtils.FromString()` enables fully in-memory shader compilation, meaning the mod may not even need to touch files on disk.
 
-If shader replacement isn't viable, **Approach B: Runtime Material Cloning** is the fallback, though it may only work on the legacy rendering path and gives per-material-family coloring rather than per-part.
+**This changes the viability calculus significantly** — Experiment Test 6 (ShaderHotReloadTest) should be prioritized to validate this runtime-only approach before committing to the file-replacement strategy assumed by Tests 1-5.
 
-**Recommended next step:** Implement the Phase 0 experiments (Tests 1-4) to validate feasibility before committing to a full implementation.
+If shader hot-reload works from a mod, the implementation becomes:
+1. On mod load: compile custom fragment shaders (with tint support) from strings → swap into ShaderReference → rebuild pipelines
+2. During gameplay: Harmony patches write color to PerInstanceData padding → shaders read and apply tint
+3. On mod unload: restore original shaders → rebuild pipelines → clean exit
+
+If hot-reload isn't accessible from mod context, **Approach B: Runtime Material Cloning** remains the fallback, though it may only work on the legacy rendering path and gives per-material-family coloring rather than per-part.
+
+**Recommended next step:** Implement Test 6 (ShaderHotReloadTest) Phase A first to validate infrastructure access, then proceed with Phases B-D.

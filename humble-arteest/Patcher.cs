@@ -31,6 +31,12 @@ internal static class Patcher
     {
         try
         {
+            // Restore original shaders if hot-reload test swapped them
+            if (ShaderHotReloadTest.ShadersSwapped)
+            {
+                ShaderHotReloadTest.RestoreOriginalShaders();
+            }
+
             if (_harmony != null) TemperatureTest.RemovePatches(_harmony);
             if (_harmony != null) PaddingTest.RemovePatches(_harmony);
             if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
