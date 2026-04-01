@@ -119,38 +119,41 @@ public sealed class GarysTorchSubmod : ISubmod
 
         var presetNames = _presetManager.GetPresetNames();
 
-        // Source / Target / Preset table
+        // Source / Target / Preset table: 2 columns (fixed label | stretch content)
+        // Source/Target combos fill the full content column (cols 2-4 of the logical 4-col grid)
+        // Preset combo fills content minus Del button width (cols 2-3), Del aligns to right (col 4)
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         var formFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##gt_form", 3, formFlags))
+        if (ImGui.BeginTable("##gt_form", 2, formFlags))
         {
-            ImGui.TableSetupColumn("##gt_lbl", ImGuiTableColumnFlags.WidthFixed, 70f);
+            // Size label column to the longest label ("Preset") plus right cell padding
+            float labelW = ImGui.CalcTextSize("Preset").X + ImGui.GetStyle().CellPadding.X + 4f;
+            ImGui.TableSetupColumn("##gt_lbl", ImGuiTableColumnFlags.WidthFixed, labelW);
             ImGui.TableSetupColumn("##gt_widget", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("##gt_btns", ImGuiTableColumnFlags.WidthFixed, 40f);
 
             // Source
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Source");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
             RenderFilteredCombo("##gt_src", vehicleIds, ref _pendingSourceIndex, _sourceFilter);
-            ImGui.TableNextColumn();
 
             // Target
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Target");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
             RenderFilteredCombo("##gt_tgt", vehicleIds, ref _pendingTargetIndex, _targetFilter);
-            ImGui.TableNextColumn();
 
-            // Preset
+            // Preset — combo fills content col minus Del button, Del aligns to right edge
+            bool hasPresetSelection = _selectedPresetIndex >= 0 && _selectedPresetIndex < presetNames.Length;
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Preset");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            RenderPresetCombo(presetNames);
             ImGui.TableNextColumn();
-            bool hasPresetSelection = _selectedPresetIndex >= 0 && _selectedPresetIndex < presetNames.Length;
+            float delBtnW = ImGui.CalcTextSize(" Delete ").X + ImGui.GetStyle().FramePadding.X * 2f;
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - delBtnW - ImGui.GetStyle().ItemSpacing.X);
+            RenderPresetCombo(presetNames);
+            ImGui.SameLine();
             if (!hasPresetSelection) ImGui.BeginDisabled();
-            if (ImGui.Button(" Del ##gt_del"))
+            if (ImGui.Button(" Delete ##gt_del"))
             {
                 _deleteConfirmName = presetNames[_selectedPresetIndex];
                 _openDeleteModal = true;
@@ -322,6 +325,21 @@ public sealed class GarysTorchSubmod : ISubmod
         }
         _presetFilter.Draw("##gt_preset_filter", -1f);
 
+        // (unset) entry — clears selection and resets pending values to defaults
+        bool unsetSel = _selectedPresetIndex == -1;
+        if (_presetFilter.PassFilter("(unset)"))
+        {
+            if (ImGui.Selectable("(unset)", unsetSel))
+            {
+                _selectedPresetIndex = -1;
+                _pendingPosition = new float3(0f, 0f, 0f);
+                _pendingRotation = new float3(0f, 0f, 0f);
+                _pendingScale = 1f;
+                _pendingLockRotation = true;
+            }
+            if (unsetSel) ImGui.SetItemDefaultFocus();
+        }
+
         for (int i = 0; i < presetNames.Length; i++)
         {
             if (!_presetFilter.PassFilter(presetNames[i])) continue;
@@ -443,6 +461,9 @@ public sealed class GarysTorchSubmod : ISubmod
         _pendingRotation = new float3(0f, 0f, 0f);
         _pendingScale = 1f;
         _pendingLockRotation = true;
+        _pendingSourceIndex = -1;
+        _pendingTargetIndex = -1;
+        _selectedPresetIndex = -1;
 
         SortWelds();
         Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
