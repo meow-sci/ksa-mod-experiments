@@ -308,9 +308,12 @@ Before any real implementation, these experiments must be performed to de-risk t
 #### Experiment 0.2: PerInstanceData Padding Passthrough Test
 **Goal:** Verify that padding bytes in PerInstanceData are passed through to the shader unchanged.
 **Method:**
-1. Harmony-patch `PartModelModule.UpdateRenderData()` to write known values into `packing1` (e.g., `1065353216` which is `1.0f` as int bits)
-2. Modify `MeshIndirect.frag` to read the value and use it as a color component (e.g., make all parts red if the value matches)
-3. This confirms the C# struct layout matches the GLSL struct layout
+1. Harmony-patch `PartModel.AddInstance()` to write known float values into `packing1/2/3` via `Unsafe.As<>` struct reinterpretation
+2. Modify `MeshIndirect.vert` to declare `float PaintR/G/B` fields in the InstanceData struct and pass them to the fragment shader
+3. Modify `MeshIndirect.frag` to read the paint values and multiply them with the sampled albedo color
+4. This confirms the C# struct layout matches the GLSL struct layout
+
+**✅ RESULT: PASSED** — Parts successfully tinted with the selected color via the color picker. Padding bytes pass through from C# to GPU shader correctly. Per-instance RGB coloring via PerInstanceData padding hijack is confirmed feasible. **Approach A is fully validated.**
 
 #### Experiment 0.3: Material AlbedoColor Path Test
 **Goal:** Determine if the indirect rendering path uses `MaterialData.AlbedoColor`.
@@ -320,6 +323,28 @@ Before any real implementation, these experiments must be performed to de-risk t
 3. Observe if parts using that material turn red
 4. If yes: Approach B (material cloning) is viable as a simpler alternative
 5. If no: Confirms the indirect path ignores AlbedoColor
+
+**✅ RESULT: MIXED — Two completely different rendering architectures confirmed.**
+
+- **Vehicle parts: NO EFFECT** — `MeshIndirect.frag` reads texture indices from `PerDrawData`, never accesses `GpuMaterialSystem`. Approach B (material cloning) is **NOT viable** for vehicle parts. Approach A (shader replacement + padding passthrough) remains the correct path.
+- **KittenEva models: WORKS** — `ModelPbr.frag` reads `AlbedoColor` from `GpuMaterialSystem` via `MaterialSet.glsl`. Tinting entire kitten models confirmed with no shader changes needed.
+- **Material list contents:** `GpuMaterialSystem.AssetMap` is populated by `CharacterRenderResources` (fur/glass/eye materials) and `GltfPbrSystem` (GLTF materials using ModelPbr shader). Vehicle parts never register here — they use texture index lookups exclusively.
+
+**Bonus finding:** `GpuMaterialSystem.AlbedoColor` modification (no shader changes required) is a viable technique for a **kitten/character tinting mod** — worth keeping as a reference.
+
+**🔮 FUTURE MOD: Kitten Character Tinting**
+The Experiment 0.3 technique should be extracted into a standalone mod for kitten/character color customization:
+- Modify `MaterialData.AlbedoColor` (including alpha) in the GPU buffer at runtime — no shader changes needed
+- Targets `GpuMaterialSystem` materials populated by `CharacterRenderResources` (fur, glass, eye) and `GltfPbrSystem`
+- Full RGBA support: alpha < 0.1 triggers discard in `ModelPbr.frag` (transparency/invisibility), values 0.1–1.0 modulate opacity
+- Could support per-material color assignments (e.g. different fur vs eye vs glass colors)
+- Simple implementation: reflection to access `GpuMaterialSystem`, direct GPU buffer writes via `VkUtils.StageAndUploadToBuffer`
+
+| Rendering Path | Shader | Material Source | AlbedoColor Effective? |
+|---|---|---|---|
+| Vehicle parts (static) | `MeshIndirect.frag` | PerDrawData texture indices | ❌ No |
+| Vehicle parts (dynamic) | `DynamicMeshIndirect.frag` | PerDrawData texture indices | ❌ No |
+| KittenEva (characters) | `ModelPbr.frag` | GpuMaterialSystem buffer | ✅ Yes |
 
 #### Experiment 0.4: Temperature Visual Test
 **Goal:** Quick proof that per-instance visual modification works through existing fields.

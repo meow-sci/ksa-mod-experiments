@@ -82,6 +82,8 @@ public class Mod
       RenderShaderLoadTest();
       ImGui.Spacing();
       RenderPaddingTest();
+      ImGui.Spacing();
+      RenderMaterialColorTest();
     }
     ImGui.End();
   }
@@ -243,6 +245,112 @@ public class Mod
       ImGui.BulletText("If parts look normal: Struct alignment mismatch — need debugging.");
 
       ImGui.Unindent();
+    }
+  }
+
+  private (string Name, int Handle)[] _materialList = Array.Empty<(string, int)>();
+  private float4 _materialTestColor = new float4(1.0f, 0.0f, 0.0f, 1.0f);
+  private int _selectedMaterialIdx = -1;
+
+  private void RenderMaterialColorTest()
+  {
+    if (ImGui.CollapsingHeader("Experiment 0.3: Material AlbedoColor Test", ImGuiTreeNodeFlags.DefaultOpen))
+    {
+      ImGui.Indent();
+
+      ImGui.TextWrapped("Tests whether modifying MaterialData.AlbedoColor in the GPU buffer " +
+        "affects the indirect rendering path. Expected: NO visible change (confirming " +
+        "the indirect path ignores AlbedoColor).");
+      ImGui.Spacing();
+
+      // Initialize button
+      if (!MaterialColorTest.IsInitialized)
+      {
+        if (ImGui.Button("Initialize Material System"))
+        {
+          if (MaterialColorTest.Initialize())
+            _materialList = MaterialColorTest.GetMaterialList();
+        }
+      }
+      else
+      {
+        ImGui.TextColored(new float4(0.5f, 1.0f, 0.5f, 1.0f),
+          $"Material system initialized: {_materialList.Length} materials found");
+        ImGui.Spacing();
+
+        // Color picker — auto-apply to all materials on change
+        if (ImGui.ColorEdit4("Test Color", ref _materialTestColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+        {
+          ApplyColorToAllMaterials();
+        }
+        ImGui.Spacing();
+
+        // Material list with apply buttons
+        if (_materialList.Length > 0)
+        {
+          ImGui.Text("Materials (click to apply AlbedoColor):");
+          int displayCount = Math.Min(_materialList.Length, 50);
+
+          if (ImGui.BeginChild("MaterialList", new float2(0, 200), ImGuiChildFlags.Borders))
+          {
+            for (int i = 0; i < displayCount; i++)
+            {
+              var (name, handle) = _materialList[i];
+              bool isSelected = i == _selectedMaterialIdx;
+
+              if (ImGui.Selectable($"[{handle}] {name}", isSelected))
+              {
+                _selectedMaterialIdx = i;
+                var color = _materialTestColor;
+                MaterialColorTest.ModifyAlbedoColor(handle, color);
+              }
+            }
+
+            if (_materialList.Length > displayCount)
+              ImGui.Text($"... and {_materialList.Length - displayCount} more");
+          }
+          ImGui.EndChild();
+
+          ImGui.Spacing();
+          if (ImGui.Button("Apply to ALL materials"))
+          {
+            ApplyColorToAllMaterials();
+          }
+        }
+      }
+
+      // Status
+      if (MaterialColorTest.StatusMessage != null)
+      {
+        ImGui.Spacing();
+        ImGui.TextColored(new float4(0.7f, 0.7f, 1.0f, 1.0f), MaterialColorTest.StatusMessage);
+      }
+
+      // Errors
+      if (MaterialColorTest.LastError != null)
+      {
+        ImGui.Spacing();
+        ImGui.TextColored(new float4(1.0f, 0.3f, 0.3f, 1.0f), $"Error: {MaterialColorTest.LastError}");
+      }
+
+      ImGui.Spacing();
+      ImGui.Separator();
+      ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f), "Expected result:");
+      ImGui.BulletText("If parts change color: Approach B (material cloning) is viable!");
+      ImGui.BulletText("If no change: Indirect path ignores AlbedoColor (expected).");
+
+      ImGui.Unindent();
+    }
+  }
+
+  private void ApplyColorToAllMaterials()
+  {
+    var color = _materialTestColor;
+    int success = 0;
+    foreach (var (_, handle) in _materialList)
+    {
+      if (MaterialColorTest.ModifyAlbedoColor(handle, color))
+        success++;
     }
   }
 }
