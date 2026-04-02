@@ -10,20 +10,19 @@ public sealed class GlassSubmod : ISubmod
 {
     public string Name => "Glass \u2014 Camera Lens";
 
-    private int _selectedPreset;
-    private float _manualFov = 50f;
-    private bool _manualMode;
+    private int _fov = 50;
+    private int _selectedPresetIndex = 0; // 0 = Game Default
 
-    private static readonly (string Name, float Fov)[] Presets = new[]
+    private static readonly (string Name, int Fov)[] Presets = new[]
     {
-        ("Game Default", 50f),
-        ("Super Telephoto (200mm)", 15f),
-        ("Telephoto (135mm)", 20f),
-        ("Portrait (85mm)", 30f),
-        ("Standard (50mm)", 50f),
-        ("Wide Angle (28mm)", 75f),
-        ("Ultra Wide (16mm)", 100f),
-        ("Fisheye (10mm)", 120f),
+        ("Game Default", 50),
+        ("Super Telephoto (200mm)", 15),
+        ("Telephoto (135mm)", 20),
+        ("Portrait (85mm)", 30),
+        ("Standard (50mm)", 50),
+        ("Wide Angle (28mm)", 75),
+        ("Ultra Wide (16mm)", 100),
+        ("Fisheye (10mm)", 120),
     };
 
     public void Initialize() { }
@@ -36,58 +35,70 @@ public sealed class GlassSubmod : ISubmod
 
     public void RenderContent()
     {
-        ImGui.TextColored(new float4(0.0f, 1.0f, 1.0f, 1.0f), "Glass");
-        ImGui.Separator();
+        SubmodUI.BeginContentArea("##glass_content");
 
-        float currentFovRad = Program.GetCamera().GetFieldOfView();
-        float currentFovDeg = currentFovRad * (180f / MathF.PI);
+        float currentFovDeg = FovController.GetCurrentFovDegrees();
         ImGui.Text($"Current FOV: {currentFovDeg:F1}\u00b0");
-        ImGui.Separator();
 
-        ImGui.Text("Lens Presets");
-        for (int i = 0; i < Presets.Length; i++)
-        {
-            if (ImGui.RadioButton(Presets[i].Name + "##glass", _selectedPreset == i && !_manualMode))
-            {
-                _selectedPreset = i;
-                _manualMode = false;
-                FovController.OverrideFovDegrees = Presets[i].Fov;
-                FovController.IsOverrideActive = true;
-            }
-        }
-        ImGui.Separator();
+        ImGui.Spacing();
 
-        ImGui.Text("Manual FOV");
-        bool manualChecked = _manualMode;
-        if (ImGui.Checkbox("Manual mode##glass", ref manualChecked))
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##glass_params", 2, tableFlags))
         {
-            _manualMode = manualChecked;
-            if (_manualMode)
-            {
-                _selectedPreset = -1;
-                FovController.OverrideFovDegrees = _manualFov;
-                FovController.IsOverrideActive = true;
-            }
-        }
-        if (_manualMode)
-        {
+            ImGui.TableSetupColumn("##glass_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##glass_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            // Lens preset row
+            string preview = _selectedPresetIndex >= 0 ? Presets[_selectedPresetIndex].Name : "Custom";
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Lens");
+            ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragFloat("FOV\u00b0##glass", ref _manualFov, 0.25f, 1f, 179f))
+            if (ImGui.BeginCombo("##glass_lens", preview))
             {
-                _manualFov = MathF.Max(1f, MathF.Min(179f, _manualFov));
-                FovController.OverrideFovDegrees = _manualFov;
-                FovController.IsOverrideActive = true;
+                for (int i = 0; i < Presets.Length; i++)
+                {
+                    bool selected = _selectedPresetIndex == i;
+                    if (ImGui.Selectable(Presets[i].Name, selected))
+                    {
+                        _selectedPresetIndex = i;
+                        _fov = Presets[i].Fov;
+                        FovController.SetFov(_fov);
+                    }
+                    if (selected) ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
             }
-        }
-        ImGui.Separator();
 
-        if (ImGui.Button("Reset to Game Default##glass"))
-        {
-            _selectedPreset = 0;
-            _manualMode = false;
-            FovController.OverrideFovDegrees = 50f;
-            FovController.IsOverrideActive = true;
+            // FOV slider row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("FOV");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.DragInt("##glass_fov", ref _fov, 1f, 10, 200))
+            {
+                _fov = Math.Clamp(_fov, 10, 200);
+                FovController.SetFov(_fov);
+                _selectedPresetIndex = FindPresetIndex(_fov);
+            }
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
+
+        SubmodUI.EndContentArea();
+    }
+
+    private int FindPresetIndex(int fov)
+    {
+        for (int i = 0; i < Presets.Length; i++)
+            if (Presets[i].Fov == fov) return i;
+        return -1;
     }
 
     public void Dispose()
