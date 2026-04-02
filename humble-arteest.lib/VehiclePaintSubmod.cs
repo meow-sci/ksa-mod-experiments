@@ -49,14 +49,19 @@ public sealed class VehiclePaintSubmod : ISubmod
             return;
         }
 
+        RenderBody();
+
+        SubmodUI.EndContentArea();
+    }
+
+    internal void RenderBody()
+    {
         RenderShaderStatus();
         ImGui.Spacing();
         RenderControls();
         ImGui.Spacing();
         RenderButtonRow();
         RenderStatusMessage();
-
-        SubmodUI.EndContentArea();
     }
 
     public void Dispose()

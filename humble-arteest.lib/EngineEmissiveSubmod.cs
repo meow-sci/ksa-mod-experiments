@@ -53,6 +53,13 @@ public sealed class EngineEmissiveSubmod : ISubmod
             return;
         }
 
+        RenderBody();
+
+        SubmodUI.EndContentArea();
+    }
+
+    internal void RenderBody()
+    {
         RenderGlobalControls();
         ImGui.Spacing();
         ImGui.SeparatorText("Per-Engine Control");
@@ -60,8 +67,6 @@ public sealed class EngineEmissiveSubmod : ISubmod
         ImGui.Spacing();
         RenderEngineList();
         RenderStatusMessage();
-
-        SubmodUI.EndContentArea();
     }
 
     public void Dispose()

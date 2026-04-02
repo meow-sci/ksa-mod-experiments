@@ -40,10 +40,15 @@ public sealed class KittenColorSubmod : ISubmod
             return;
         }
 
-        RenderInitOrControls();
-        RenderStatusMessage();
+        RenderBody();
 
         SubmodUI.EndContentArea();
+    }
+
+    internal void RenderBody()
+    {
+        RenderInitOrControls();
+        RenderStatusMessage();
     }
 
     public void Dispose()
@@ -95,21 +100,14 @@ public sealed class KittenColorSubmod : ISubmod
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Color");
             ImGui.TableNextColumn();
-            ImGui.ColorEdit4("##kc_color", ref _color,
-                ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar);
-            ImGui.SameLine(0, 8);
-
-            if (ImGui.Button(" Apply "))
+            if (ImGui.ColorEdit4("##kc_color", ref _color,
+                ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar)
+                && KittenColor.IsInitialized)
             {
                 if (KittenColor.ApplyToAll(_color))
-                {
                     _tintActive = true;
-                    SetStatus(KittenColor.StatusMessage ?? "Applied.", false);
-                }
                 else
-                {
                     SetStatus(KittenColor.LastError ?? "Apply failed.", true);
-                }
             }
             ImGui.SameLine(0, 8);
 

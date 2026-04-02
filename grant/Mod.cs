@@ -68,9 +68,7 @@ public class Mod
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
             _submods.Add(new UnladenSwallowSubmod());
-            _submods.Add(new VehiclePaintSubmod());
-            _submods.Add(new KittenColorSubmod());
-            _submods.Add(new EngineEmissiveSubmod());
+            _submods.Add(new HumbleArteestSubmod());
             _submods.Add(new ZippoSubmod());
 
             // Initialize all submods so Tracker is populated before patching
