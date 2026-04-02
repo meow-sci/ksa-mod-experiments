@@ -22,14 +22,12 @@ public sealed class VehiclePaintSubmod : ISubmod
     private string? _statusMessage;
     private bool _statusIsError;
 
-    // Vehicle/part selection (when not applying to all)
+    // Vehicle selection (when not applying to all)
     private int _selectedVehicleIndex = -1;
-    private int _selectedPartIndex = -1;
     private ImGuiTextFilter _vehicleFilter = new();
-    private ImGuiTextFilter _partFilter = new();
 
-    // Cached part model refs for the selected vehicle
-    private List<(string Label, PartModel Model)> _cachedParts = new();
+    // Cached part entries for the selected vehicle
+    private List<PartEntry> _cachedParts = new();
     private string? _cachedVehicleId;
 
     public void Initialize() { }
@@ -105,20 +103,21 @@ public sealed class VehiclePaintSubmod : ISubmod
             ImGui.TableNextColumn();
             ImGui.Checkbox("Apply to All##vp", ref _applyToAll);
 
-            // Color
+            // Color picker (always visible)
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Color");
             ImGui.TableNextColumn();
-            ImGui.ColorEdit3("##vp_color", ref _pickerColor, ImGuiColorEditFlags.NoInputs);
-            ImGui.SameLine(0, 8);
+            if (ImGui.ColorEdit3("##vp_color", ref _pickerColor, ImGuiColorEditFlags.NoInputs))
+                OnGlobalColorChanged();
 
-            bool canApply = VehiclePaint.ShadersActive;
-            if (!canApply) ImGui.BeginDisabled();
-            if (ImGui.Button(" Apply ##vp_apply"))
-                ApplyPaint();
-            if (!canApply) ImGui.EndDisabled();
+            // Apply-to-all: auto-apply when color changes and shaders are active
+            if (_applyToAll && VehiclePaint.ShadersActive)
+            {
+                VehiclePaint.PaintAllEnabled = true;
+                VehiclePaint.DefaultColor = _pickerColor;
+            }
 
-            // Vehicle / Part combos (only when not applying to all)
+            // Vehicle selector (only when not applying to all)
             if (!_applyToAll)
             {
                 var vehicles = VehicleProvider.GetAllVehicles();
@@ -129,33 +128,84 @@ public sealed class VehiclePaintSubmod : ISubmod
                 if (_selectedVehicleIndex >= vehicles.Count)
                     _selectedVehicleIndex = -1;
 
-                // Vehicle
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
                 int prevVehicle = _selectedVehicleIndex;
                 RenderFilteredCombo("##vp_vehicle", vehicleIds, ref _selectedVehicleIndex, _vehicleFilter);
 
-                // Refresh part cache when vehicle selection changes
                 if (_selectedVehicleIndex != prevVehicle)
-                {
-                    _selectedPartIndex = -1;
-                    RefreshPartCache(
-                        _selectedVehicleIndex >= 0 ? vehicles[_selectedVehicleIndex] : null);
-                }
+                    RefreshPartCache(_selectedVehicleIndex >= 0 ? vehicles[_selectedVehicleIndex] : null);
+            }
 
-                // Part
-                var partLabels = new string[_cachedParts.Count];
-                for (int i = 0; i < _cachedParts.Count; i++)
-                    partLabels[i] = _cachedParts[i].Label;
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
 
-                if (_selectedPartIndex >= _cachedParts.Count)
-                    _selectedPartIndex = -1;
+        // Per-part table (visible when not applying to all)
+        if (!_applyToAll)
+        {
+            ImGui.Spacing();
+            RenderPartTable();
+        }
+    }
+
+    // ---- Per-part table ----
+
+    private void RenderPartTable()
+    {
+        if (_cachedParts.Count == 0)
+        {
+            ImGui.Text("No parts. Select a vehicle above.");
+            return;
+        }
+
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+        var flags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX
+                  | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH
+                  | ImGuiTableFlags.ScrollY;
+
+        float maxHeight = ImGui.GetTextLineHeightWithSpacing() * 12;
+        if (ImGui.BeginTable("##vp_parts", 3, flags, new float2(0, maxHeight)))
+        {
+            ImGui.TableSetupColumn("##chk", ImGuiTableColumnFlags.WidthFixed, 28f);
+            ImGui.TableSetupColumn("##clr", ImGuiTableColumnFlags.WidthFixed, 40f);
+            ImGui.TableSetupColumn("Part", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableHeadersRow();
+
+            for (int i = 0; i < _cachedParts.Count; i++)
+            {
+                var entry = _cachedParts[i];
+                ImGui.PushID(i);
 
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part");
-                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-                RenderFilteredCombo("##vp_part", partLabels, ref _selectedPartIndex, _partFilter);
+
+                // Checkbox column
+                ImGui.TableNextColumn();
+                bool enabled = entry.Enabled;
+                if (ImGui.Checkbox("##en", ref enabled))
+                {
+                    entry.Enabled = enabled;
+                    ApplyPartPaint(entry);
+                }
+
+                // Color picker column
+                ImGui.TableNextColumn();
+                var color = entry.Color;
+                if (ImGui.ColorEdit3("##clr", ref color,
+                    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+                {
+                    entry.Color = color;
+                    if (entry.Enabled)
+                        ApplyPartPaint(entry);
+                }
+
+                // Part name column
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text(entry.Label);
+
+                ImGui.PopID();
             }
 
             ImGui.EndTable();
@@ -173,6 +223,8 @@ public sealed class VehiclePaintSubmod : ISubmod
         if (ImGui.Button(" Clear All Paint "))
         {
             VehiclePaint.ClearAllPaint();
+            foreach (var entry in _cachedParts)
+                entry.Enabled = false;
             SetStatus("All paint cleared.", false);
         }
 
@@ -207,28 +259,35 @@ public sealed class VehiclePaintSubmod : ISubmod
         _statusIsError = isError;
     }
 
-    // ---- Paint application ----
+    // ---- Paint helpers ----
 
-    private void ApplyPaint()
+    private void OnGlobalColorChanged()
     {
         if (_applyToAll)
-        {
-            VehiclePaint.PaintAllEnabled = true;
-            VehiclePaint.DefaultColor = _pickerColor;
-            SetStatus("Paint applied to all parts.", false);
-            return;
-        }
+            return; // apply-to-all is handled in RenderControls continuously
 
-        // Single part mode
-        if (_selectedPartIndex < 0 || _selectedPartIndex >= _cachedParts.Count)
-        {
-            SetStatus("Select a vehicle and part first.", true);
-            return;
-        }
+        // Propagate global color to all per-part entries
+        foreach (var entry in _cachedParts)
+            entry.Color = _pickerColor;
 
-        var partModel = _cachedParts[_selectedPartIndex].Model;
-        VehiclePaint.SetPaintColor(partModel, _pickerColor);
-        SetStatus($"Paint applied to {_cachedParts[_selectedPartIndex].Label}.", false);
+        if (VehiclePaint.ShadersActive)
+        {
+            foreach (var entry in _cachedParts)
+            {
+                if (entry.Enabled)
+                    VehiclePaint.SetPaintColor(entry.Model, entry.Color);
+            }
+        }
+    }
+
+    private void ApplyPartPaint(PartEntry entry)
+    {
+        if (!VehiclePaint.ShadersActive) return;
+
+        if (entry.Enabled)
+            VehiclePaint.SetPaintColor(entry.Model, entry.Color);
+        else
+            VehiclePaint.ClearPaint(entry.Model);
     }
 
     // ---- Vehicle/part cache ----
@@ -243,15 +302,41 @@ public sealed class VehiclePaintSubmod : ISubmod
         try
         {
             var parts = PartHelpers.GetAllParts(vehicle);
+            // Track label occurrences to disambiguate duplicates
+            var labelCounts = new Dictionary<string, int>();
+
             foreach (var part in parts)
             {
                 var modules = part.Modules.Get<PartModelModule>();
                 for (int i = 0; i < modules.Length; i++)
                 {
-                    var label = modules.Length > 1
+                    var baseName = modules.Length > 1
                         ? $"{part.Id} [{i}]"
                         : part.Id;
-                    _cachedParts.Add((label, modules[i].PartModel));
+
+                    if (!labelCounts.TryGetValue(baseName, out int count))
+                        count = 0;
+                    labelCounts[baseName] = count + 1;
+
+                    // Label will be disambiguated in a second pass
+                    _cachedParts.Add(new PartEntry(baseName, modules[i].PartModel, _pickerColor));
+                }
+            }
+
+            // Second pass: append occurrence number for any duplicated labels
+            var seen = new Dictionary<string, int>();
+            foreach (var entry in _cachedParts)
+            {
+                if (labelCounts[entry.BaseName] > 1)
+                {
+                    if (!seen.TryGetValue(entry.BaseName, out int idx))
+                        idx = 0;
+                    seen[entry.BaseName] = idx + 1;
+                    entry.Label = $"{entry.BaseName} #{idx + 1}";
+                }
+                else
+                {
+                    entry.Label = entry.BaseName;
                 }
             }
         }
@@ -288,5 +373,25 @@ public sealed class VehiclePaintSubmod : ISubmod
             if (sel) ImGui.SetItemDefaultFocus();
         }
         ImGui.EndCombo();
+    }
+
+    // ---- Part entry ----
+
+    private sealed class PartEntry
+    {
+        public string BaseName;
+        public string Label;
+        public PartModel Model;
+        public float3 Color;
+        public bool Enabled;
+
+        public PartEntry(string baseName, PartModel model, float3 defaultColor)
+        {
+            BaseName = baseName;
+            Label = baseName;
+            Model = model;
+            Color = defaultColor;
+            Enabled = false;
+        }
     }
 }
