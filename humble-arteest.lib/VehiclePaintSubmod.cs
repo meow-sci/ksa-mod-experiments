@@ -59,8 +59,11 @@ public sealed class VehiclePaintSubmod : ISubmod
     {
         RenderShaderButtonRow();
         RenderStatusMessage();
-        ImGui.Spacing();
-        RenderControls();
+        if (VehiclePaint.ShadersActive)
+        {
+            ImGui.Spacing();
+            RenderControls();
+        }
     }
 
     public void Dispose()

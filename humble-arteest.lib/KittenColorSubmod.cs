@@ -15,6 +15,9 @@ public sealed class KittenColorSubmod : ISubmod
 {
     public string Name => "Kitten Color";
 
+    // Active toggle
+    private bool _active;
+
     // Global controls
     private float4 _globalColor = new float4(1f, 1f, 1f, 1f);
     private bool _applyToAll = true;
@@ -52,6 +55,19 @@ public sealed class KittenColorSubmod : ISubmod
 
     internal void RenderBody()
     {
+        bool prevActive = _active;
+        ImGui.Checkbox("Active##kc_active", ref _active);
+        if (!_active)
+        {
+            if (prevActive && KittenColor.IsInitialized)
+            {
+                KittenColor.ResetAll();
+                foreach (var e in _materialEntries) e.Enabled = false;
+            }
+            return;
+        }
+
+        ImGui.Spacing();
         RenderInitOrControls();
         RenderStatusMessage();
     }

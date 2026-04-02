@@ -39,6 +39,10 @@ public sealed class HumbleArteestSubmod : ISubmod
             "Writes RGB color into the PerInstanceData padding bytes\n" +
             "and applies a multiplicative tint in the fragment shader.\n\n" +
             "Note: paint is per-part template, not per-vehicle.");
+        ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.Spacing();
         _vehiclePaint.RenderBody();
 
         ImGui.Spacing();
@@ -50,6 +54,8 @@ public sealed class HumbleArteestSubmod : ISubmod
             "(fur, glass, eyes) — vehicle parts use a different shader path.\n\n" +
             "Alpha < 0.1 triggers discard (makes parts invisible).\n" +
             "The material list is for reference only — color applies to all.");
+        ImGui.Spacing();
+        ImGui.Spacing();
         _kittenColor.RenderBody();
 
         ImGui.Spacing();
@@ -61,6 +67,10 @@ public sealed class HumbleArteestSubmod : ISubmod
             "data path — no shader modifications needed.\n\n" +
             "Temperature drives the DynamicMeshIndirect fragment shader's emissive\n" +
             "color lookup table, making engines glow from cool to hot.");
+        ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.Spacing();
         _engineEmissive.RenderBody();
 
         SubmodUI.EndContentArea();

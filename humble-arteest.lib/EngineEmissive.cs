@@ -28,7 +28,7 @@ public static class EngineEmissive
 
     /// <summary>Global fallback applied to all dynamic parts when enabled.</summary>
     private static bool _globalEnabled;
-    private static float _globalTemperature = 0.8f;
+    private static float _globalTemperature;
     private static float _globalTfi;
 
     // ---- Public properties ----
@@ -109,7 +109,7 @@ public static class EngineEmissive
     }
 
     /// <summary>
-    /// Scans a vehicle for parts that have PartModelDynamicModule and returns
+    /// Scans a single vehicle for parts that have PartModelDynamicModule and returns
     /// them as a list of (label, PartModelDynamic) pairs for UI display.
     /// </summary>
     public static List<(string Label, PartModelDynamic Model)> ScanDynamicParts(Vehicle vehicle)
@@ -134,6 +134,65 @@ public static class EngineEmissive
         {
             Console.WriteLine($"humble-arteest: Error scanning dynamic parts: {ex.Message}");
         }
+        return results;
+    }
+
+    /// <summary>
+    /// Scans all vehicles for PartModelDynamic instances, deduplicating by reference.
+    /// Returns a disambiguated list of (label, PartModelDynamic) suitable for UI display.
+    /// </summary>
+    public static List<(string Label, PartModelDynamic Model)> ScanAllDynamicParts()
+    {
+        var seen = new HashSet<PartModelDynamic>(ReferenceEqualityComparer.Instance);
+        var raw = new List<(string BaseName, PartModelDynamic Model)>();
+
+        try
+        {
+            foreach (var vehicle in VehicleProvider.GetAllVehicles())
+            {
+                var parts = PartHelpers.GetAllParts(vehicle);
+                foreach (var part in parts)
+                {
+                    var modules = part.Modules.Get<PartModelDynamicModule>();
+                    for (int i = 0; i < modules.Length; i++)
+                    {
+                        var model = modules[i].PartModelDynamic;
+                        if (!seen.Add(model)) continue;
+                        var baseName = modules.Length > 1 ? $"{part.Id} [{i}]" : part.Id;
+                        raw.Add((baseName, model));
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"humble-arteest: Error scanning all dynamic parts: {ex.Message}");
+        }
+
+        // Disambiguate duplicate base names
+        var labelCounts = new Dictionary<string, int>();
+        foreach (var (name, _) in raw)
+        {
+            labelCounts.TryGetValue(name, out int c);
+            labelCounts[name] = c + 1;
+        }
+
+        var seen2 = new Dictionary<string, int>();
+        var results = new List<(string, PartModelDynamic)>(raw.Count);
+        foreach (var (name, model) in raw)
+        {
+            if (labelCounts[name] > 1)
+            {
+                seen2.TryGetValue(name, out int idx);
+                seen2[name] = idx + 1;
+                results.Add(($"{name} #{idx + 1}", model));
+            }
+            else
+            {
+                results.Add((name, model));
+            }
+        }
+
         return results;
     }
 
