@@ -168,6 +168,24 @@ public static class KittenColor
     }
 
     /// <summary>
+    /// Writes the given AlbedoColor to a single material identified by its GPU buffer handle.
+    /// </summary>
+    public static bool ApplyToMaterial(int handle, float4 color)
+    {
+        _lastError = null;
+        if (handle < 0) { _lastError = "Invalid material handle."; return false; }
+        return WriteAlbedoColor(handle, color);
+    }
+
+    /// <summary>
+    /// Resets a single material's AlbedoColor to white (1,1,1,1).
+    /// </summary>
+    public static bool ResetMaterial(int handle)
+    {
+        return ApplyToMaterial(handle, new float4(1f, 1f, 1f, 1f));
+    }
+
+    /// <summary>
     /// Writes a float4 AlbedoColor at the correct offset in the GPU material buffer
     /// for the given material handle, using staged Vulkan upload.
     /// </summary>

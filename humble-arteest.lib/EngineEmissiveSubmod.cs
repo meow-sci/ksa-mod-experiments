@@ -62,6 +62,7 @@ public sealed class EngineEmissiveSubmod : ISubmod
     {
         RenderGlobalControls();
         ImGui.Spacing();
+        ImGui.Spacing();
         ImGui.SeparatorText("Per-Engine Control");
         RenderVehicleSelector();
         ImGui.Spacing();

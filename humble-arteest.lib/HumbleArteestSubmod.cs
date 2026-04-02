@@ -42,6 +42,7 @@ public sealed class HumbleArteestSubmod : ISubmod
         _vehiclePaint.RenderBody();
 
         ImGui.Spacing();
+        ImGui.Spacing();
         ImGui.SeparatorText("Kitten Color");
         ImGui.SetItemTooltip(
             "Tints kitten character models by writing AlbedoColor into the\n" +
@@ -51,6 +52,7 @@ public sealed class HumbleArteestSubmod : ISubmod
             "The material list is for reference only — color applies to all.");
         _kittenColor.RenderBody();
 
+        ImGui.Spacing();
         ImGui.Spacing();
         ImGui.SeparatorText("Engine Emissive");
         ImGui.SetItemTooltip(

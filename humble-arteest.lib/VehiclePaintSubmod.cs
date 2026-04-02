@@ -29,6 +29,7 @@ public sealed class VehiclePaintSubmod : ISubmod
     // Cached part entries for the selected vehicle
     private List<PartEntry> _cachedParts = new();
     private string? _cachedVehicleId;
+    private ImGuiTextFilter _partTableFilter = new();
 
     public void Initialize() { }
 
@@ -56,12 +57,10 @@ public sealed class VehiclePaintSubmod : ISubmod
 
     internal void RenderBody()
     {
-        RenderShaderStatus();
+        RenderShaderButtonRow();
+        RenderStatusMessage();
         ImGui.Spacing();
         RenderControls();
-        ImGui.Spacing();
-        RenderButtonRow();
-        RenderStatusMessage();
     }
 
     public void Dispose()
@@ -69,17 +68,17 @@ public sealed class VehiclePaintSubmod : ISubmod
         VehiclePaint.Cleanup();
     }
 
-    // ---- Shader status ----
+    // ---- Shader status + action buttons ----
 
-    private void RenderShaderStatus()
+    private void RenderShaderButtonRow()
     {
         if (VehiclePaint.ShadersActive)
-        {
             ImGui.TextColored(new float4(0.4f, 1f, 0.4f, 1f), "Shaders: Active");
-        }
         else
-        {
             ImGui.TextColored(new float4(1f, 1f, 0.4f, 1f), "Shaders: Inactive");
+
+        if (!VehiclePaint.ShadersActive)
+        {
             ImGui.SameLine(0, 12);
             if (ImGui.Button(" Activate "))
             {
@@ -89,6 +88,26 @@ public sealed class VehiclePaintSubmod : ISubmod
                     SetStatus(VehiclePaint.LastError ?? "Shader activation failed.", true);
             }
         }
+
+        bool hasPaint = VehiclePaint.ShadersActive;
+        if (!hasPaint) ImGui.BeginDisabled();
+        ImGui.SameLine(0, 8);
+        if (ImGui.Button(" Deactivate "))
+        {
+            if (VehiclePaint.DeactivateShaders())
+                SetStatus("Shaders deactivated.", false);
+            else
+                SetStatus(VehiclePaint.LastError ?? "Shader deactivation failed.", true);
+        }
+        ImGui.SameLine(0, 8);
+        if (ImGui.Button(" Clear All "))
+        {
+            VehiclePaint.ClearAllPaint();
+            foreach (var entry in _cachedParts)
+                entry.Enabled = false;
+            SetStatus("All paint cleared.", false);
+        }
+        if (!hasPaint) ImGui.EndDisabled();
     }
 
     // ---- Main controls ----
@@ -165,6 +184,30 @@ public sealed class VehiclePaintSubmod : ISubmod
             return;
         }
 
+        // Toolbar: All / None / filter
+        if (ImGui.Button(" All ##vp"))
+        {
+            foreach (var entry in _cachedParts)
+            {
+                if (!_partTableFilter.PassFilter(entry.Label)) continue;
+                entry.Enabled = true;
+                ApplyPartPaint(entry);
+            }
+        }
+        ImGui.SameLine(0, 4);
+        if (ImGui.Button(" None ##vp"))
+        {
+            foreach (var entry in _cachedParts)
+            {
+                if (!_partTableFilter.PassFilter(entry.Label)) continue;
+                entry.Enabled = false;
+                ApplyPartPaint(entry);
+            }
+        }
+        ImGui.SameLine(0, 12);
+        ImGui.SetNextItemWidth(-1f);
+        _partTableFilter.Draw("##vp_ptfilter");
+
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
         var flags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX
                   | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH
@@ -173,14 +216,15 @@ public sealed class VehiclePaintSubmod : ISubmod
         float maxHeight = ImGui.GetTextLineHeightWithSpacing() * 12;
         if (ImGui.BeginTable("##vp_parts", 3, flags, new float2(0, maxHeight)))
         {
-            ImGui.TableSetupColumn("##chk", ImGuiTableColumnFlags.WidthFixed, 28f);
-            ImGui.TableSetupColumn("##clr", ImGuiTableColumnFlags.WidthFixed, 40f);
+            ImGui.TableSetupColumn("##chk", ImGuiTableColumnFlags.WidthFixed, 38f);
+            ImGui.TableSetupColumn("##clr", ImGuiTableColumnFlags.WidthFixed, 50f);
             ImGui.TableSetupColumn("Part", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableHeadersRow();
 
             for (int i = 0; i < _cachedParts.Count; i++)
             {
                 var entry = _cachedParts[i];
+                if (!_partTableFilter.PassFilter(entry.Label)) continue;
                 ImGui.PushID(i);
 
                 ImGui.TableNextRow();
@@ -216,34 +260,6 @@ public sealed class VehiclePaintSubmod : ISubmod
             ImGui.EndTable();
         }
         ImGui.PopStyleVar(); // CellPadding
-    }
-
-    // ---- Button row ----
-
-    private void RenderButtonRow()
-    {
-        bool hasPaint = VehiclePaint.ShadersActive;
-        if (!hasPaint) ImGui.BeginDisabled();
-
-        if (ImGui.Button(" Clear All Paint "))
-        {
-            VehiclePaint.ClearAllPaint();
-            foreach (var entry in _cachedParts)
-                entry.Enabled = false;
-            SetStatus("All paint cleared.", false);
-        }
-
-        ImGui.SameLine(0, 8);
-
-        if (ImGui.Button(" Deactivate Shaders "))
-        {
-            if (VehiclePaint.DeactivateShaders())
-                SetStatus("Shaders deactivated.", false);
-            else
-                SetStatus(VehiclePaint.LastError ?? "Shader deactivation failed.", true);
-        }
-
-        if (!hasPaint) ImGui.EndDisabled();
     }
 
     // ---- Status messages ----
