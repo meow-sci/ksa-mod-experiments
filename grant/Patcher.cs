@@ -5,6 +5,7 @@ using MeowSci.CameraControllerOverrideLib;
 using MeowSci.CameraControllerOverrideLib.Animation;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
+using MeowSci.HumbleArteestLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.Grant;
@@ -27,6 +28,8 @@ internal static class Patcher
             CameraControllerOverridePatches.Apply(_harmony);
             GlassPatches.Apply(_harmony);
             IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
+            VehiclePaintPatches.Apply(_harmony);
+            EngineEmissivePatches.Apply(_harmony);
             Console.WriteLine("grant: Harmony patches applied");
         }
         catch (Exception ex)
@@ -46,7 +49,11 @@ internal static class Patcher
                 CameraControllerOverridePatches.Remove(_harmony);
                 GlassPatches.Remove(_harmony);
                 IFeelSeenPatches.Remove(_harmony);
+                EngineEmissivePatches.Remove(_harmony);
+                VehiclePaintPatches.Remove(_harmony);
             }
+            VehiclePaint.Cleanup();
+            EngineEmissive.Cleanup();
             _harmony = null;
             IFeelSeenTracker = null;
             CameraSequencePlayer = null;

@@ -1,0 +1,7 @@
+name = "humble-arteest"
+description = "humble-arteest"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.HumbleArteest"

@@ -61,14 +61,17 @@ public sealed class GarysTorchSubmod : ISubmod
 
         RenderCreateSection();
 
-        ImGui.Spacing();
-        ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
+        if (_welds.Count > 0)
+        {
+            ImGui.Spacing();
+            ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
 
-        WeldEntry? toRemove = null;
-        for (int i = 0; i < _welds.Count; i++)
-            RenderWeldSection(_welds[i], i, ref toRemove);
-        if (toRemove != null)
-            RemoveWeld(toRemove);
+            WeldEntry? toRemove = null;
+            for (int i = 0; i < _welds.Count; i++)
+                RenderWeldSection(_welds[i], i, ref toRemove);
+            if (toRemove != null)
+                RemoveWeld(toRemove);
+        }
 
         // Deferred popup opens at content area scope
         if (_openDeleteModal)
@@ -119,17 +122,18 @@ public sealed class GarysTorchSubmod : ISubmod
 
         var presetNames = _presetManager.GetPresetNames();
 
-        // Source / Target / Preset table: 2 columns (fixed label | stretch content)
-        // Source/Target combos fill the full content column (cols 2-4 of the logical 4-col grid)
-        // Preset combo fills content minus Del button width (cols 2-3), Del aligns to right (col 4)
+        // Source / Target / Preset table
+        var style = ImGui.GetStyle();
+        float labelW = ImGui.CalcTextSize("Preset").X + style.ItemSpacing.X;
+        float delW = ImGui.CalcTextSize(" del ").X + style.FramePadding.X * 2f;
+
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         var formFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
         if (ImGui.BeginTable("##gt_form", 2, formFlags))
         {
-            // Size label column to the longest label ("Preset") plus right cell padding
-            float labelW = ImGui.CalcTextSize("Preset").X + ImGui.GetStyle().CellPadding.X + 4f;
             ImGui.TableSetupColumn("##gt_lbl", ImGuiTableColumnFlags.WidthFixed, labelW);
             ImGui.TableSetupColumn("##gt_widget", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("##gt_btns", ImGuiTableColumnFlags.WidthFixed, delW);
 
             // Source
             ImGui.TableNextRow();
@@ -153,7 +157,7 @@ public sealed class GarysTorchSubmod : ISubmod
             RenderPresetCombo(presetNames);
             ImGui.SameLine();
             if (!hasPresetSelection) ImGui.BeginDisabled();
-            if (ImGui.Button(" Delete ##gt_del"))
+            if (ImGui.Button(" del ##gt_del"))
             {
                 _deleteConfirmName = presetNames[_selectedPresetIndex];
                 _openDeleteModal = true;

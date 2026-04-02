@@ -20,6 +20,7 @@ using MeowSci.SkittlesLib;
 using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
 using MeowSci.InanimateCarbonRodLib;
+using MeowSci.HumbleArteestLib;
 
 namespace MeowSci.Grant;
 
@@ -67,6 +68,7 @@ public class Mod
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
             _submods.Add(new UnladenSwallowSubmod());
+            _submods.Add(new HumbleArteestSubmod());
             _submods.Add(new ZippoSubmod());
 
             // Initialize all submods so Tracker is populated before patching

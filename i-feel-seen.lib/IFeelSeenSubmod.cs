@@ -11,6 +11,7 @@ public sealed class IFeelSeenSubmod : ISubmod
 
     private VehicleTracker _tracker = null!;
     private int _pendingVehicleIndex;
+    private ImGuiTextFilter _vehicleFilter = new ImGuiTextFilter();
 
     /// <summary>Exposed so Harmony patches can reference it for vehicle render distance overrides.</summary>
     public VehicleTracker Tracker => _tracker;
@@ -24,49 +25,115 @@ public sealed class IFeelSeenSubmod : ISubmod
 
     public void RenderContent()
     {
-        ImGui.TextColored(new float4(0.0f, 1.0f, 0.0f, 1.0f), "Vehicle Render Distance Override");
-        ImGui.Separator();
-
-        TrackedVehicle? toRemove = null;
-        var tracked = _tracker.Tracked;
-        for (int i = 0; i < tracked.Count; i++)
-        {
-            var entry = tracked[i];
-            ImGui.PushID(i + 10000); // offset to avoid ID collision with other submods
-
-            bool seeMe = entry.SeeMe;
-            if (ImGui.Checkbox($"{entry.Vehicle.Id}##ifs", ref seeMe))
-                entry.SeeMe = seeMe;
-
-            ImGui.SameLine();
-            if (ImGui.Button("Remove##ifs"))
-                toRemove = entry;
-
-            ImGui.PopID();
-        }
-
-        if (toRemove != null)
-            _tracker.RemoveVehicle(toRemove.Vehicle);
-
-        ImGui.Separator();
-
         var vehicles = VehicleProvider.GetAllVehicles();
-        if (vehicles.Count > 0)
-        {
-            var vehicleIds = new string[vehicles.Count];
-            for (int i = 0; i < vehicles.Count; i++)
-                vehicleIds[i] = vehicles[i].Id;
 
-            _pendingVehicleIndex = Math.Clamp(_pendingVehicleIndex, 0, vehicles.Count - 1);
-            ImGui.Combo("Vehicle##ifs", ref _pendingVehicleIndex, vehicleIds, vehicleIds.Length);
+        SubmodUI.BeginContentArea("##ifs_content");
 
-            if (ImGui.Button("Add Vehicle##ifs"))
-                _tracker.AddVehicle(vehicles[_pendingVehicleIndex]);
-        }
-        else
+        // Vehicle selector — 2-column proportional table (label 1fr, widget 3fr)
+        var selectorFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##ifs_selector", 2, selectorFlags))
         {
-            ImGui.Text("No vehicles available.");
+            ImGui.TableSetupColumn("##ifs_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##ifs_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Vehicle");
+
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+
+            if (vehicles.Count > 0)
+            {
+                _pendingVehicleIndex = Math.Clamp(_pendingVehicleIndex, 0, vehicles.Count - 1);
+                string preview = vehicles[_pendingVehicleIndex].Id;
+                if (ImGui.BeginCombo("##ifs_vehicle", preview))
+                {
+                    if (ImGui.IsWindowAppearing())
+                    {
+                        ImGui.SetKeyboardFocusHere();
+                        _vehicleFilter.Clear();
+                    }
+                    _vehicleFilter.Draw("##ifs_vehicle_filter", -1);
+                    for (int i = 0; i < vehicles.Count; i++)
+                    {
+                        if (!_vehicleFilter.PassFilter(vehicles[i].Id)) continue;
+                        bool selected = _pendingVehicleIndex == i;
+                        if (ImGui.Selectable(vehicles[i].Id, selected))
+                            _pendingVehicleIndex = i;
+                        if (selected) ImGui.SetItemDefaultFocus();
+                    }
+                    ImGui.EndCombo();
+                }
+            }
+            else
+            {
+                ImGui.BeginDisabled();
+                if (ImGui.BeginCombo("##ifs_vehicle", "No vehicles available"))
+                    ImGui.EndCombo();
+                ImGui.EndDisabled();
+            }
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
+
+        ImGui.Spacing();
+        if (ImGui.Button(" Add Vehicle ##ifs") && vehicles.Count > 0 && _pendingVehicleIndex >= 0 && _pendingVehicleIndex < vehicles.Count)
+            _tracker.AddVehicle(vehicles[_pendingVehicleIndex]);
+
+        if (_tracker.Tracked.Count > 0)
+        {
+            ImGui.SeparatorText("I can see ...");
+
+            // Tracked vehicles — 3-column fixed table
+            TrackedVehicle? toRemove = null;
+            var tracked = _tracker.Tracked;
+
+            var trackedFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable("##ifs_tracked", 3, trackedFlags))
+            {
+                float chkW = ImGui.GetFrameHeight();
+                float delW = ImGui.CalcTextSize(" del ").X + ImGui.GetStyle().FramePadding.X * 2f;
+                ImGui.TableSetupColumn("##ifs_chk", ImGuiTableColumnFlags.WidthFixed, chkW);
+                ImGui.TableSetupColumn("##ifs_name", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("##ifs_del", ImGuiTableColumnFlags.WidthFixed, delW);
+
+                for (int i = 0; i < tracked.Count; i++)
+                {
+                    var entry = tracked[i];
+                    ImGui.PushID(i + 10000); // offset to avoid ID collision with other submods
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    bool seeMe = entry.SeeMe;
+                    if (ImGui.Checkbox("##ifs_chk", ref seeMe))
+                        entry.SeeMe = seeMe;
+
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.Text(entry.Vehicle.Id);
+
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.Button(" del ##ifs"))
+                        toRemove = entry;
+
+                    ImGui.PopID();
+                }
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar(); // CellPadding
+
+            if (toRemove != null)
+                _tracker.RemoveVehicle(toRemove.Vehicle);
+        }
+
+        SubmodUI.EndContentArea();
     }
 
     public void Dispose()

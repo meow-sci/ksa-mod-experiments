@@ -31,6 +31,7 @@
     <ProjectReference Include="..\skittles.lib\skittles.lib.csproj" />
     <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
     <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
+    <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
