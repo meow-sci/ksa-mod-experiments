@@ -61,14 +61,17 @@ public sealed class GarysTorchSubmod : ISubmod
 
         RenderCreateSection();
 
-        ImGui.Spacing();
-        ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
+        if (_welds.Count > 0)
+        {
+            ImGui.Spacing();
+            ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
 
-        WeldEntry? toRemove = null;
-        for (int i = 0; i < _welds.Count; i++)
-            RenderWeldSection(_welds[i], i, ref toRemove);
-        if (toRemove != null)
-            RemoveWeld(toRemove);
+            WeldEntry? toRemove = null;
+            for (int i = 0; i < _welds.Count; i++)
+                RenderWeldSection(_welds[i], i, ref toRemove);
+            if (toRemove != null)
+                RemoveWeld(toRemove);
+        }
 
         // Deferred popup opens at content area scope
         if (_openDeleteModal)
@@ -120,13 +123,17 @@ public sealed class GarysTorchSubmod : ISubmod
         var presetNames = _presetManager.GetPresetNames();
 
         // Source / Target / Preset table
+        var style = ImGui.GetStyle();
+        float labelW = ImGui.CalcTextSize("Preset").X + style.ItemSpacing.X;
+        float delW = ImGui.CalcTextSize(" del ").X + style.FramePadding.X * 2f;
+
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         var formFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
         if (ImGui.BeginTable("##gt_form", 3, formFlags))
         {
-            ImGui.TableSetupColumn("##gt_lbl", ImGuiTableColumnFlags.WidthFixed, 70f);
+            ImGui.TableSetupColumn("##gt_lbl", ImGuiTableColumnFlags.WidthFixed, labelW);
             ImGui.TableSetupColumn("##gt_widget", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("##gt_btns", ImGuiTableColumnFlags.WidthFixed, 40f);
+            ImGui.TableSetupColumn("##gt_btns", ImGuiTableColumnFlags.WidthFixed, delW);
 
             // Source
             ImGui.TableNextRow();
@@ -150,7 +157,7 @@ public sealed class GarysTorchSubmod : ISubmod
             ImGui.TableNextColumn();
             bool hasPresetSelection = _selectedPresetIndex >= 0 && _selectedPresetIndex < presetNames.Length;
             if (!hasPresetSelection) ImGui.BeginDisabled();
-            if (ImGui.Button(" Del ##gt_del"))
+            if (ImGui.Button(" del ##gt_del"))
             {
                 _deleteConfirmName = presetNames[_selectedPresetIndex];
                 _openDeleteModal = true;
