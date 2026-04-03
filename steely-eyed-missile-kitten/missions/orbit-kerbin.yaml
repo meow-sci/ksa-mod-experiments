@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=mission-schema.json
+name: "Orbit Kerbin"
+description: "Achieve a stable orbit around Kerbin with periapsis above the atmosphere"
+category: "orbital"
+difficulty: 2
+objective:
+  type: all_of
+  sub_conditions:
+    - type: in_soi_of
+      body_id: "Kerbin"
+      description: "Be in Kerbin's sphere of influence"
+    - type: periapsis_above
+      value: 70000
+      description: "Periapsis above 70 km (above atmosphere)"
+    - type: eccentricity_below
+      value: 1.0
+      description: "In a bound (non-escape) orbit"

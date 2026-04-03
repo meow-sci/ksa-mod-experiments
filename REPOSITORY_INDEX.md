@@ -106,6 +106,17 @@ G-force recorder and display. Monitors acceleration forces (g-forces) acting on 
 - Configurable history window and kill-gee/jerk thresholds
 - **geeforce.lib**: `GeeForceSubmod` (ISubmod — owns sampling loop + delegates to GForceUI.RenderContent), `GForceRecorder` (ring-buffer + stats), `GForceUI` (static graph/UI — `RenderContent()` for embedded use, `Render()` for standalone window)
 
+### [steely-eyed-missile-kitten](steely-eyed-missile-kitten) / [steely-eyed-missile-kitten.lib](steely-eyed-missile-kitten.lib)
+Mission monitoring, event detection, and achievement tracking mod. Passively samples telemetry for all vehicles at a configurable rate, detects interesting flight events, evaluates YAML-defined mission conditions, and persists everything to a local SQLite database.
+- Passive telemetry monitoring for all vehicles (configurable rate, default 2 Hz)
+- Monitored metrics: altitude (baro/radar), speed (orbital/surface/inertial), orbital params (Ap/Pe/eccentricity/inclination), mass, g-forces, situation
+- Flight event detection: SoiChanged, Liftoff, Landed, SplashDown, AtmosphereEntered, AtmosphereExited, StableOrbitAchieved, OrbitEscaped
+- YAML mission definitions with flexible condition trees: threshold, event, location, and composite (all_of, any_of, sequence)
+- SQLite persistence of all flight events and mission progress to `Documents/My Games/Kitten Space Agency/.steely-eyed-missile-kitten/events.db`
+- Three-tab F11 ImGui window: Live Telemetry table, Event Feed (color-coded, filtered), Missions (activate/track/abandon)
+- JSON Schema for mission YAML IDE validation (`missions/mission-schema.json`)
+- **steely-eyed-missile-kitten.lib**: `VehicleTelemetry` (all KSA API reads co-located), `TelemetrySnapshot`, `MonitoringLoop`, `EventDetector`, `EventBus`, `EventDatabase`, `EventWriter`, `MissionLoader`/`MissionManager`/`MissionEvaluator`, `MonitorUI`/`EventFeedUI`/`MissionUI`
+
 ---
 
 ## Animation & Visual Effects Mods

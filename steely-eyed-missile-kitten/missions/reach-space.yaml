@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=mission-schema.json
+name: "Reach Space"
+description: "Launch a vehicle above 100 km altitude (the Kármán line)"
+category: "orbital"
+difficulty: 1
+objective:
+  type: altitude_above
+  value: 100000
+  description: "Reach 100 km altitude"

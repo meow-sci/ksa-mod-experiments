@@ -1,251 +1,82 @@
-# Fixme-Mod-Name - Template Mod Structure
+﻿# steely-eyed-missile-kitten
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+Mission monitoring, event detection, and achievement tracking mod for Kitten Space Agency.
 
-## Overview
+## Features
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+- **Passive Telemetry Monitoring** — Samples all vehicles at a configurable rate (default 0.5s / 2 Hz). Monitors altitude, speed (orbital/surface/inertial), orbital parameters, g-forces, mass, and more.
+- **Flight Event Detection** — Automatically detects and records key flight events:
+  - SOI transitions (entering/leaving a body''s sphere of influence)
+  - Liftoff and landing
+  - Splashdown in ocean
+  - Atmosphere entry/exit
+  - Stable orbit achieved
+  - Escape trajectory (orbit escape)
+- **YAML Mission System** — Define missions with flexible condition trees that evaluate against live telemetry. Missions support:
+  - Altitude/speed/orbital threshold conditions
+  - Event-based conditions (did this event occur?)
+  - Location conditions (in SOI of, landed on surface of)
+  - Composite conditions: all_of, any_of, sequence (ordered steps)
+- **SQLite Persistence** — All flight events and mission progress are saved to a local SQLite database at ``Documents/My Games/Kitten Space Agency/.steely-eyed-missile-kitten/events.db``
+- **F11 ImGui Window** with three tabs:
+  - **Telemetry** — Live vehicle data table with configurable sample interval
+  - **Events** — Color-coded scrolling event feed with filtering
+  - **Missions** — Mission activation, progress tracking, and abandonment
 
-## What This Mod Contains
+## Usage
 
-### Files
+Press **F11** to open/close the Steely-Eyed Missile Kitten window.
 
-| File | Purpose |
-|------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `steely-eyed-missile-kitten.csproj` | Main mod project |
-| `steely-eyed-missile-kitten.lib/SteelyEyedMissileKittenLib.cs` | Library class (headless logic) |
+### Telemetry Tab
+View live telemetry for all active vehicles. Use the **Sample Interval** drag slider to adjust monitoring frequency (50ms-10s).
 
-### Mod Lifecycle
+### Events Tab
+See all detected flight events in real-time. Filter by event type or vehicle. Events are color-coded:
+- Green: Liftoff, Stable Orbit Achieved
+- Yellow: Atmosphere transitions, SOI changes, Orbit Escaped
+- Blue: Landing, Splashdown
 
-```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
-  ↓
-OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
-  ↓
-Unload()                 → Cleanup, remove patches
-```
+### Missions Tab
+Browse available missions (loaded from YAML files), select a vehicle, and activate missions. Completed missions are saved to the database.
+
+## Mission YAML Format
+
+Missions are defined as YAML files in the ``missions/`` subdirectory.
+
+See ``missions/mission-schema.json`` for full schema with IDE autocompletion support.
+
+### Condition Types
+
+| Type | Description | Required Fields |
+|------|-------------|-----------------|
+| ``altitude_above`` | Baro altitude > value | ``value`` (m) |
+| ``altitude_below`` | Baro altitude < value | ``value`` (m) |
+| ``speed_above`` | Speed > value | ``value`` (m/s), ``speed_frame`` (orbital/surface/inertial) |
+| ``speed_below`` | Speed < value | ``value`` (m/s), ``speed_frame`` |
+| ``apoapsis_above`` | Apoapsis altitude > value | ``value`` (m) |
+| ``periapsis_above`` | Periapsis altitude > value | ``value`` (m) |
+| ``periapsis_below`` | Periapsis altitude < value | ``value`` (m) |
+| ``eccentricity_below`` | Eccentricity < value | ``value`` |
+| ``inclination_between`` | Inclination in range | ``min_value``, ``max_value`` (radians) |
+| ``event_occurred`` | A flight event of this type fired | ``event_type`` |
+| ``in_soi_of`` | Vehicle is in SOI of body | ``body_id`` |
+| ``on_surface_of`` | Vehicle is landed on body | ``body_id`` |
+| ``all_of`` | All sub-conditions must be met | ``sub_conditions`` |
+| ``any_of`` | Any sub-condition must be met | ``sub_conditions`` |
+| ``sequence`` | Sub-conditions must be met in order | ``sub_conditions`` |
+
+## Data Location
+
+All persistent data is stored in:
+``%USERPROFILE%\Documents\My Games\Kitten Space Agency\.steely-eyed-missile-kitten\``
+
+- ``events.db`` - SQLite database with flight events and mission progress
+- ``missions/`` - User-defined mission YAML files (supplements bundled missions)
 
 ## Architecture
 
-### Mod.cs
-Entry point for the mod with lifecycle management.
+The mod is split into two projects:
+- ``steely-eyed-missile-kitten`` - Entry point (StarMap lifecycle, ImGui window)
+- ``steely-eyed-missile-kitten.lib`` - Headless library (all logic, reusable)
 
-```csharp
-public class Mod : StarMapMod
-{
-    public override void OnImmediateLoad()
-    {
-        // First initialization
-        Console.WriteLine("Fixme-Mod-Name: OnImmediateLoad");
-    }
-    
-    public override void OnFullyLoaded()
-    {
-        // All mods ready, initialize partnerships
-        Patcher.Initialize();
-    }
-    
-    public override void OnAfterUi()
-    {
-        // Render ImGui window every frame
-        RenderWindow();
-    }
-    
-    public override void Unload()
-    {
-        // Cleanup patches and resources
-        Patcher.Cleanup();
-    }
-    
-    private void RenderWindow()
-    {
-        if (!showWindow) return;
-        
-        ImGui.SetNextWindowSize(new Vector2(400, 200), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Fixme-Mod-Name", ref showWindow))
-        {
-            ImGui.Text("Hello, World!");
-            if (ImGui.Button("Click Me!"))
-            {
-                Console.WriteLine("Button clicked!");
-            }
-            ImGui.End();
-        }
-    }
-}
-```
-
-### Patcher.cs
-Harmony-based runtime method patching initialization.
-
-```csharp
-public static class Patcher
-{
-    private static Harmony harmony;
-    
-    public static void Initialize()
-    {
-        harmony = new Harmony("MeowSci.SteelyEyedMissileKitten");
-        harmony.PatchAll();  // Patches defined in assembly
-    }
-    
-    public static void Cleanup()
-    {
-        harmony?.UnpatchAll();
-    }
-}
-```
-
-### Library Project (optional)
-Separate `.lib` project for reusable, headless logic:
-
-```csharp
-public static class SteelyEyedMissileKittenLib
-{
-    public static void DoSomething()
-    {
-        // Reusable functionality
-    }
-}
-```
-
-## Getting Started with This Template
-
-### Step 1: Rename
-```
-steely-eyed-missile-kitten → your-cool-mod
-SteelyEyedMissileKitten → YourCoolMod
-MeowSci.SteelyEyedMissileKitten → MeowSci.YourCoolMod
-```
-
-### Step 2: Update Project Files
-- Rename `.csproj` files
-- Update assembly names
-- Update namespace declarations
-
-### Step 3: Implement Mod Logic
-Replace template code with actual mod features:
-- Define what should happen in each lifecycle method
-- Add ImGui controls in `RenderWindow()`
-- Implement Harmony patches in `Patcher.cs`
-
-### Step 4: Document
-Refer to this README structure and update with:
-- Mod overview
-- Features
-- Architecture explanation
-- Usage examples
-- Implementation details
-
-## Standard Mod Pattern
-
-Most mods follow this pattern:
-
-1. **Mod.cs**: UI + Lifecycle (StarMapMod subclass)
-2. **Patcher.cs**: Runtime patches (Harmony setup)
-3. **Lib project**: Reusable logic (separate assembly)
-4. **README.md**: Documentation (what you're reading)
-
-## ImGui Window Pattern
-
-Standard toggle pattern:
-
-```csharp
-private bool showWindow = false;
-
-public override void OnAfterUi()
-{
-    // F11 toggles window visibility
-    if (Input.GetKeyDown(KeyCode.F11))
-        showWindow = !showWindow;
-    
-    if (!showWindow) return;
-    
-    ImGui.SetNextWindowSize(new Vector2(400, 300), ImGuiCond.FirstUseEver);
-    if (ImGui.Begin("Mod Name", ref showWindow))
-    {
-        // Render content here
-        ImGui.End();
-    }
-}
-```
-
-## Harmony Patching Pattern
-
-Basic patch structure:
-
-```csharp
-[HarmonyPatch(typeof(TargetClass), nameof(TargetClass.TargetMethod))]
-public static class TargetMethodPatch
-{
-    public static bool Prefix(/* method parameters */)
-    {
-        // Prefix runs before original, return false to skip original
-        Console.WriteLine("Before TargetMethod");
-        return true;
-    }
-    
-    public static void Postfix(/* method parameters */)
-    {
-        // Postfix runs after original
-        Console.WriteLine("After TargetMethod");
-    }
-}
-```
-
-## Key Files for Reference
-
-When developing from this template, refer to:
-
-1. **[REPOSITORY_INDEX.md](../REPOSITORY_INDEX.md)** - All mods documentation
-2. **sibling mod READMEs** - Similar mods for reference implementation
-3. **HarmonyLib docs** - Runtime patching patterns
-4. **ImGui API docs** - UI widget reference
-
-## Next Steps
-
-1. Copy this entire folder
-2. Rename appropriately
-3. Implement your feature logic
-4. Test with `dotnet build`
-5. Update this README with your mod's actual purpose and features
-
-## Testing
-
-Build the solution:
-```bash
-dotnet build
-```
-
-Check for compilation errors before continuing with implementation.
-
-## Common Issues
-
-- **Namespace mismatches**: Update everywhere (csproj, Mod.cs, Patcher.cs)
-- **Project references**: Add library project reference to main mod
-- **Harmony ID conflicts**: Each Harmony instance needs unique ID string
-- **ImGui crashes**: Ensure ImGui calls only happen in OnAfterUi
-
-## Notes for Developers
-
-- Keep UI separate from logic (UI in Mod.cs, logic in Lib project)
-- Use Console.WriteLine for debugging
-- Test Harmony patches carefully—they affect game runtime
-- Document your Harmony patches explaining what they do
-- Consider performance impact of per-frame operations
-
-## Related Mods
-
-See similar template mods:
-- [grant](../grant) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
-- Other mods for inspiration on complete implementations
+See ``steely-eyed-missile-kitten.lib/README.md`` for library architecture details.
