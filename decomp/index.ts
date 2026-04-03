@@ -98,8 +98,8 @@ for (const asset of CORE_ASSETS_FILES) {
   await $`cp ${assetPath} ${join(outDir, "Content", "Core", asset)}`;
 }
 
-// for (const dll of DLLS) {
-//   console.log(`Decompiling ${dll}...`);
-//   const dllPath = join("C:", "Program Files", "Kitten Space Agency", dll);
-//   await $`dotnet tool run ilspycmd -o ${outDir} -p -r 'C:\Program Files\Kitten Space Agency' ${dllPath}`;
-// }
+for (const dll of DLLS) {
+  console.log(`Decompiling ${dll}...`);
+  const dllPath = join("C:", "Program Files", "Kitten Space Agency", dll);
+  await $`dotnet tool run ilspycmd -o ${outDir} -p -r 'C:\Program Files\Kitten Space Agency' ${dllPath}`;
+}

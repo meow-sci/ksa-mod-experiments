@@ -1,0 +1,7 @@
+name = "jplrepo"
+description = "jplrepo"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.JplRepo"
