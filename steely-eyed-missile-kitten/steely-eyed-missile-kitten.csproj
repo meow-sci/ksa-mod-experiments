@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+    <ProjectReference Include="..\steely-eyed-missile-kitten.lib\steely-eyed-missile-kitten.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -71,6 +72,34 @@
     <Copy SourceFiles="@(MeowSciAssemblies)"
           DestinationFolder="$(DistDir)"
           Condition="'@(MeowSciAssemblies)' != ''" />
+
+    <!-- Copy SQLite managed assemblies -->
+    <ItemGroup>
+      <SqliteAssemblies Include="$(TargetDir)Microsoft.Data.Sqlite*.dll;$(TargetDir)SQLitePCLRaw*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SqliteAssemblies)" DestinationFolder="$(DistDir)"
+          Condition="'@(SqliteAssemblies)' != ''" />
+
+    <!-- Copy SQLite native runtimes folder -->
+    <ItemGroup>
+      <SqliteNative Include="$(TargetDir)runtimes\**\*e_sqlite3*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SqliteNative)" DestinationFiles="@(SqliteNative->'$(DistDir)runtimes\%(RecursiveDir)%(Filename)%(Extension)')"
+          Condition="'@(SqliteNative)' != ''" />
+
+    <!-- Copy YamlDotNet -->
+    <ItemGroup>
+      <YamlAssemblies Include="$(TargetDir)YamlDotNet.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(YamlAssemblies)" DestinationFolder="$(DistDir)"
+          Condition="'@(YamlAssemblies)' != ''" />
+
+    <!-- Copy mission YAML files -->
+    <ItemGroup>
+      <MissionFiles Include="missions\*.yaml;missions\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MissionFiles)" DestinationFolder="$(DistDir)missions\"
+          Condition="'@(MissionFiles)' != ''" />
   </Target>
 
 </Project>
