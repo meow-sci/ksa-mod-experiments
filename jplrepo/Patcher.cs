@@ -84,21 +84,6 @@ internal static class Patcher
         // before SetCursorPosX pushed it to the far right for the version string.
         ImGui.SetCursorPosX(_savedCursorX);
         ImGui.SetCursorPosY(_savedCursorY);
-
-        if (ImGui.BeginMenu("Menu One"u8))
-        {
-            if (ImGui.MenuItem("one"u8)) Console.WriteLine("jplrepo: Menu One > one");
-            if (ImGui.MenuItem("two"u8)) Console.WriteLine("jplrepo: Menu One > two");
-            if (ImGui.MenuItem("three"u8)) Console.WriteLine("jplrepo: Menu One > three");
-            ImGui.EndMenu();
-        }
-
-        if (ImGui.BeginMenu("Menu Two"u8))
-        {
-            if (ImGui.MenuItem("one"u8)) Console.WriteLine("jplrepo: Menu Two > one");
-            if (ImGui.MenuItem("two"u8)) Console.WriteLine("jplrepo: Menu Two > two");
-            if (ImGui.MenuItem("three"u8)) Console.WriteLine("jplrepo: Menu Two > three");
-            ImGui.EndMenu();
-        }
+        MenuBarAnimation.Draw();
     }
 }
