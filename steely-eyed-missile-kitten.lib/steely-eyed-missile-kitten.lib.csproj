@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.SteelyEyedMissileKittenLib</AssemblyName>
+    <RootNamespace>MeowSci.SteelyEyedMissileKittenLib</RootNamespace>
+    <Description>Example lib</Description>
+    <PackageId>MeowSci.SteelyEyedMissileKittenLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+
+</Project>
