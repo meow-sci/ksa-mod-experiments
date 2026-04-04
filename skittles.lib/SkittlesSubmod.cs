@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
+using KSA;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SkittlesLib;
@@ -16,6 +17,7 @@ public sealed class SkittlesSubmod : ISubmod
     private readonly ImInputString _themeNameInput = new(128);
     private bool _showSaveInput;
     private bool _editorVisible;
+    private bool _pendingOpenDelete;
 
     public void Initialize()
     {
@@ -35,6 +37,9 @@ public sealed class SkittlesSubmod : ISubmod
         string preview = (_selectedThemeIndex >= 0 && _selectedThemeIndex < themeNames.Length)
             ? themeNames[_selectedThemeIndex]
             : "Select Theme...";
+        bool canDelete = _selectedThemeIndex >= 0
+            && _selectedThemeIndex < themeNames.Length
+            && !_themeManager.AvailableThemes[_selectedThemeIndex].IsBuiltIn;
 
         var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
@@ -86,44 +91,62 @@ public sealed class SkittlesSubmod : ISubmod
         }
         ImGui.PopStyleVar(); // CellPadding
 
-        ImGui.Spacing();
-        ImGui.SeparatorText("Quick Apply");
-
-        // Quick Apply buttons in 2-column equal-width grid
-        var btnFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
-        if (ImGui.BeginTable("##sk_presets", 2, btnFlags))
+        // Deferred popup open at content area scope (outside table ID stack)
+        if (_pendingOpenDelete)
         {
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.Button(" Dark ##sk"))    { _themeManager.ApplyTheme("Dark");    UpdateSelectedIndex(); }
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.Button(" Light ##sk"))   { _themeManager.ApplyTheme("Light");   UpdateSelectedIndex(); }
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.Button(" Classic ##sk")) { _themeManager.ApplyTheme("Classic"); UpdateSelectedIndex(); }
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.Button(" Rod ##sk"))     { _themeManager.ApplyTheme("Inanimate Carbon Rod"); UpdateSelectedIndex(); }
-            ImGui.SetItemTooltip("Applies the Inanimate Carbon Rod theme.");
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.Button(" Reset ##sk"))   { _themeManager.ApplyTheme("Game Default"); UpdateSelectedIndex(); }
-            ImGui.SetItemTooltip("Restore game defaults, removing all theme customizations.");
-
-            ImGui.EndTable();
+            ImGui.OpenPopup("##sk_confirm_delete");
+            _pendingOpenDelete = false;
         }
-        ImGui.PopStyleVar(); // CellPadding
+        RenderDeleteConfirmPopup();
 
         ImGui.Spacing();
         if (ImGui.Button(" Open Theme Editor ##sk"))
             _editorVisible = true;
+        ImGui.SameLine(0, 8);
+        if (!canDelete) ImGui.BeginDisabled();
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+        if (ImGui.Button(" Delete ##sk"))
+            _pendingOpenDelete = true;
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
+        if (!canDelete) ImGui.EndDisabled();
 
         SubmodUI.EndContentArea();
 
         if (_editorVisible)
             RenderEditorWindow();
+    }
+
+    private void RenderDeleteConfirmPopup()
+    {
+        string[] themeNames = _themeManager.GetThemeNames();
+        bool canDelete = _selectedThemeIndex >= 0 && _selectedThemeIndex < themeNames.Length
+            && !_themeManager.AvailableThemes[_selectedThemeIndex].IsBuiltIn;
+
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 16f));
+        bool open = true;
+        bool began = ImGui.BeginPopupModal("##sk_confirm_delete", ref open, ImGuiWindowFlags.AlwaysAutoResize);
+        ImGui.PopStyleVar();
+        if (!began)
+            return;
+
+        if (canDelete)
+        {
+            string deleteName = themeNames[_selectedThemeIndex];
+            ImGui.Text($"Delete theme '{deleteName}'?");
+            ImGui.Spacing();
+            if (ImGui.Button(" Yes, Delete ##sk"))
+            {
+                _themeManager.DeleteTheme(deleteName);
+                _selectedThemeIndex = FindThemeIndex(_themeManager.ActiveThemeName);
+                ImGui.CloseCurrentPopup();
+            }
+            ImGui.SameLine(0, 8);
+            if (ImGui.Button(" Cancel ##sk"))
+                ImGui.CloseCurrentPopup();
+        }
+        ImGui.EndPopup();
     }
 
     private void RenderEditorWindow()

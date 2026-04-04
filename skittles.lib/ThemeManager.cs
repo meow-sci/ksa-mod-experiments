@@ -150,6 +150,29 @@ public sealed class ThemeManager
         }
     }
 
+    public bool DeleteTheme(string name)
+    {
+        try
+        {
+            var entry = AvailableThemes.FirstOrDefault(t => t.Name == name && !t.IsBuiltIn);
+            if (entry?.FilePath == null) return false;
+
+            File.Delete(entry.FilePath);
+            Console.WriteLine($"skittles: Deleted theme '{name}'");
+
+            if (ActiveThemeName == name)
+                ApplyTheme("Game Default");
+
+            RefreshThemeList();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"skittles: Error deleting theme '{name}': {ex.Message}");
+            return false;
+        }
+    }
+
     public void RefreshThemeList()
     {
         AvailableThemes.Clear();
