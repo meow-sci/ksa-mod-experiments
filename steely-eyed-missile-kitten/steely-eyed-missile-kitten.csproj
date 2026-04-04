@@ -80,13 +80,14 @@
     <Copy SourceFiles="@(SqliteAssemblies)" DestinationFolder="$(DistDir)"
           Condition="'@(SqliteAssemblies)' != ''" />
 
-    <!-- Copy native SQLite runtimes (e_sqlite3) for cross-platform support -->
+    <!-- Copy native SQLite binaries (win-x64, linux-x64, osx-arm64) flat into dist root -->
     <ItemGroup>
-      <SqliteNativeFiles Include="$(TargetDir)runtimes\**\*" />
+      <SqliteNativeFiles Include="$(TargetDir)runtimes\win-x64\native\e_sqlite3.dll" />
+      <SqliteNativeFiles Include="$(TargetDir)runtimes\linux-x64\native\libe_sqlite3.so" />
+      <SqliteNativeFiles Include="$(TargetDir)runtimes\osx-arm64\native\libe_sqlite3.dylib" />
     </ItemGroup>
-    <Copy SourceFiles="@(SqliteNativeFiles)"
-          DestinationFiles="@(SqliteNativeFiles->'$(DistDir)runtimes\%(RecursiveDir)%(Filename)%(Extension)')"
-          Condition="'@(SqliteNativeFiles)' != ''" />
+    <Copy SourceFiles="@(SqliteNativeFiles)" DestinationFolder="$(DistDir)"
+          Condition="Exists('%(SqliteNativeFiles.FullPath)')" />
 
     <!-- Copy YamlDotNet -->
     <ItemGroup>
