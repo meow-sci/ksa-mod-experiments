@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
@@ -99,6 +100,10 @@ public class CameraControllerOverrideSubmod : ISubmod
     private float _rotateEasingPowerStart = 3.0f;
     private float _rotateEasingPowerEnd = 3.0f;
 
+    // Animation group mode
+    private bool _groupMode;
+    private readonly List<IKeyframeAnimation> _pendingGroupAnimations = new();
+
     private static readonly string[] EasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
 
     public void Initialize()
@@ -107,6 +112,85 @@ public class CameraControllerOverrideSubmod : ISubmod
     }
 
     public void Update(double dt) { }
+
+    private void AddAnimation(IKeyframeAnimation animation)
+    {
+        if (_groupMode)
+            _pendingGroupAnimations.Add(animation);
+        else
+            _sequencePlayer.AddKeyframe(animation);
+    }
+
+    private bool RenderAddButton(string id)
+    {
+        string label = _groupMode
+            ? $" + Add to Group ##{id}"
+            : $" + Add to Sequence ##{id}";
+        return ImGui.Button(label);
+    }
+
+    private void RenderGroupModeUI()
+    {
+        if (!_groupMode)
+        {
+            if (ImGui.Button(" Start Building Group ##cco_grp"))
+            {
+                _groupMode = true;
+                _pendingGroupAnimations.Clear();
+            }
+            ImGui.SameLine();
+            ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f),
+                "Combine animations to play simultaneously");
+            return;
+        }
+
+        ImGui.TextColored(new float4(1.0f, 0.9f, 0.3f, 1.0f),
+            "GROUP MODE ACTIVE — use Add to Group buttons above");
+        ImGui.Spacing();
+
+        if (_pendingGroupAnimations.Count == 0)
+        {
+            ImGui.TextColored(new float4(0.6f, 0.6f, 0.6f, 1.0f),
+                "No animations added yet.");
+        }
+        else
+        {
+            ImGui.Text($"Pending ({_pendingGroupAnimations.Count}):");
+            for (int i = 0; i < _pendingGroupAnimations.Count; i++)
+            {
+                var anim = _pendingGroupAnimations[i];
+                ImGui.BulletText($"{anim.Name} ({anim.DurationSeconds:F1}s)");
+                ImGui.SameLine();
+                if (ImGui.SmallButton($"x##grp_rm_{i}"))
+                {
+                    _pendingGroupAnimations.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+
+        ImGui.Spacing();
+
+        bool canFinish = _pendingGroupAnimations.Count >= 2;
+        if (!canFinish) ImGui.BeginDisabled();
+        if (ImGui.Button(" Finish Group ##cco_grp_fin"))
+        {
+            var group = new AnimationGroup();
+            foreach (var anim in _pendingGroupAnimations)
+                group.Add(anim);
+            _sequencePlayer.AddKeyframe(group);
+            _pendingGroupAnimations.Clear();
+            _groupMode = false;
+        }
+        if (!canFinish) ImGui.EndDisabled();
+
+        ImGui.SameLine();
+        if (ImGui.Button(" Cancel ##cco_grp_cancel"))
+        {
+            _pendingGroupAnimations.Clear();
+            _groupMode = false;
+        }
+    }
 
     public void Dispose()
     {
@@ -122,7 +206,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Zoom Out"))
         {
             if (RenderZoomParamsTable("zoomout", ref _zoomOutSpeed, ref _zoomOutDuration, ref _zoomOutEasing, ref _zoomOutEasingPowerStart, ref _zoomOutEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new ZoomOutAnimation(
+                AddAnimation(new ZoomOutAnimation(
                     speedMetersPerSecond: _zoomOutSpeed,
                     durationSeconds: _zoomOutDuration,
                     easing: (EasingType)_zoomOutEasing,
@@ -133,7 +217,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Zoom In"))
         {
             if (RenderZoomParamsTable("zoomin", ref _zoomInSpeed, ref _zoomInDuration, ref _zoomInEasing, ref _zoomInEasingPowerStart, ref _zoomInEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new ZoomInAnimation(
+                AddAnimation(new ZoomInAnimation(
                     speedMetersPerSecond: _zoomInSpeed,
                     durationSeconds: _zoomInDuration,
                     easing: (EasingType)_zoomInEasing,
@@ -144,7 +228,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Zoom In To Offset"))
         {
             if (RenderZoomInToOffsetSection("zoomoffset", ref _zoomInOffsetSpeed, ref _zoomInOffsetDuration, ref _zoomInOffsetEasing, ref _zoomInOffsetEasingPowerStart, ref _zoomInOffsetEasingPowerEnd, ref _zoomInOffsetX, ref _zoomInOffsetY, ref _zoomInOffsetZ))
-                _sequencePlayer.AddKeyframe(new ZoomInToOffsetAnimation(
+                AddAnimation(new ZoomInToOffsetAnimation(
                     speedMetersPerSecond: _zoomInOffsetSpeed,
                     durationSeconds: _zoomInOffsetDuration,
                     easing: (EasingType)_zoomInOffsetEasing,
@@ -158,7 +242,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Spiral Zoom Out"))
         {
             if (RenderSpiralZoomParamsTable("spiralout", ref _spiralZoomOutSpeed, ref _spiralZoomOutDuration, ref _spiralZoomOutEasing, ref _spiralZoomOutEasingPowerStart, ref _spiralZoomOutEasingPowerEnd, ref _spiralZoomOutDegrees))
-                _sequencePlayer.AddKeyframe(new SpiralZoomOutAnimation(
+                AddAnimation(new SpiralZoomOutAnimation(
                     speedMetersPerSecond: _spiralZoomOutSpeed,
                     durationSeconds: _spiralZoomOutDuration,
                     easing: (EasingType)_spiralZoomOutEasing,
@@ -170,7 +254,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Spiral Zoom In"))
         {
             if (RenderSpiralZoomParamsTable("spiralin", ref _spiralZoomInSpeed, ref _spiralZoomInDuration, ref _spiralZoomInEasing, ref _spiralZoomInEasingPowerStart, ref _spiralZoomInEasingPowerEnd, ref _spiralZoomInDegrees))
-                _sequencePlayer.AddKeyframe(new SpiralZoomInAnimation(
+                AddAnimation(new SpiralZoomInAnimation(
                     speedMetersPerSecond: _spiralZoomInSpeed,
                     durationSeconds: _spiralZoomInDuration,
                     easing: (EasingType)_spiralZoomInEasing,
@@ -184,7 +268,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Orbit"))
         {
             if (RenderOrbitParamsTable("orbit", ref _orbitDegrees, ref _orbitDuration, ref _orbitEasing, ref _orbitEasingPowerStart, ref _orbitEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new OrbitAnimation(
+                AddAnimation(new OrbitAnimation(
                     degrees: _orbitDegrees,
                     durationSeconds: _orbitDuration,
                     easing: (EasingType)_orbitEasing,
@@ -195,7 +279,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Loopy Orbit"))
         {
             if (RenderLoopyOrbitParamsTable("loopy", ref _loopyOrbitDegrees, ref _loopyLoopInterval, ref _loopyAmplitude, ref _loopyDuration, ref _loopyEasing, ref _loopyEasingPowerStart, ref _loopyEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new LoopyOrbitAnimation(
+                AddAnimation(new LoopyOrbitAnimation(
                     degrees: _loopyOrbitDegrees,
                     loopIntervalDegrees: _loopyLoopInterval,
                     amplitudeMeters: _loopyAmplitude,
@@ -210,7 +294,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         if (ImGui.CollapsingHeader("Shake"))
         {
             if (RenderShakeParamsTable("shake", ref _shakeDuration, ref _shakeCount, ref _shakeAmplitude, ref _shakeSpeed, ref _shakeEasing, ref _shakeEasingPowerStart, ref _shakeEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new ShakeAnimation(
+                AddAnimation(new ShakeAnimation(
                     durationSeconds: _shakeDuration,
                     shakeCount: _shakeCount,
                     amplitudeDegrees: _shakeAmplitude,
@@ -226,7 +310,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         {
             if (RenderPanParamsTable("pan", ref _panOffsetX, ref _panOffsetY, ref _panOffsetZ,
                 ref _panDuration, ref _panEasing, ref _panEasingPowerStart, ref _panEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new PanAnimation(
+                AddAnimation(new PanAnimation(
                     offsetX: _panOffsetX,
                     offsetY: _panOffsetY,
                     offsetZ: _panOffsetZ,
@@ -240,7 +324,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         {
             if (RenderRotateParamsTable("rotate", ref _rotateYaw, ref _rotatePitch,
                 ref _rotateDuration, ref _rotateEasing, ref _rotateEasingPowerStart, ref _rotateEasingPowerEnd))
-                _sequencePlayer.AddKeyframe(new RotateAnimation(
+                AddAnimation(new RotateAnimation(
                     yawDegrees: _rotateYaw,
                     pitchDegrees: _rotatePitch,
                     durationSeconds: _rotateDuration,
@@ -248,6 +332,9 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerStart: _rotateEasingPowerStart,
                     easingPowerEnd: _rotateEasingPowerEnd));
         }
+
+        ImGui.SeparatorText("Animation Group");
+        RenderGroupModeUI();
 
         ImGui.SeparatorText("Keyframe Sequence");
         KeyframeSequencePanel.Render(_sequencePlayer);
@@ -300,7 +387,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderOrbitParamsTable(string id, ref float degrees, ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
@@ -348,7 +435,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderLoopyOrbitParamsTable(string id, ref float degrees, ref float loopInterval, ref float amplitude, ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
@@ -406,7 +493,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderShakeParamsTable(string id, ref float duration, ref int count, ref float amplitude, ref float speed, ref int easing, ref float powerStart, ref float powerEnd)
@@ -464,7 +551,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderSpiralZoomParamsTable(string id, ref float speed, ref float duration, ref int easing, ref float powerStart, ref float powerEnd, ref float spiralDegrees)
@@ -517,7 +604,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderZoomInToOffsetSection(string id, ref float speed, ref float duration, ref int easing, ref float powerStart, ref float powerEnd, ref float offsetX, ref float offsetY, ref float offsetZ)
@@ -580,7 +667,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderPanParamsTable(string id, ref float offsetX, ref float offsetY, ref float offsetZ,
@@ -639,7 +726,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 
     private bool RenderRotateParamsTable(string id, ref float yaw, ref float pitch,
@@ -693,6 +780,6 @@ public class CameraControllerOverrideSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        return ImGui.Button($" + Add to Sequence ##{id}");
+        return RenderAddButton(id);
     }
 }

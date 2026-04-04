@@ -12,12 +12,14 @@ Camera Controller Override lets you:
 - **Pan movement** - Translate the camera by an offset while tracking the target
 - **Rotation control** - Rotate camera look-direction (yaw/pitch) from a fixed point
 - **Keyframe sequences** - Chain multiple animations together
+- **Animation groups** - Run multiple animations simultaneously with composited effects
 - **Custom easing** - Adjust acceleration/deceleration with easing power parameter
 - **Return-to-start** - Automatically animate back to initial camera position
 
 ## Features
 
 - **10 animation types** - Zoom in/out, spiral zoom, orbit, loopy orbit, shake, pan, rotate, and more
+- **Animation groups** - Combine animations to play simultaneously (e.g., zoom + pan)
 - **Easing function support** - Linear, EaseIn, EaseOut and configurable power parameter
 - **Duration control** - Specify animation length in seconds
 - **Keyframe sequencing** - Play multiple animations in sequence
@@ -102,6 +104,7 @@ public interface IKeyframeAnimation
 | Shake | Vibration animation | duration, count, amplitude, speed, easing |
 | Pan | Translate camera by offset | offset (x/y/z), duration, easing |
 | Rotate | Rotate camera look-direction | yaw, pitch, duration, easing |
+| Group | Run multiple animations simultaneously | child animations (2+) |
 
 ### Easing Functions
 
@@ -204,6 +207,37 @@ rotation = yawQuat * pitchQuat * startRotation
 // Positive yaw = look right, negative = look left
 // Positive pitch = look up, negative = look down
 ```
+
+### Animation Group (Simultaneous Animations)
+
+AnimationGroup allows multiple animations to play at the same time by compositing
+their effects. It implements `IKeyframeAnimation` so it fits into the existing
+keyframe sequence as a single keyframe.
+
+**How it works**:
+1. Each position-contributing animation (Pan, Zoom, Orbit, etc.) runs in an isolated
+   virtual transform. Position deltas from the base state are summed to produce the
+   final composed position.
+2. After the composed position is set, LookAt rotation is computed from the new
+   camera position to the target.
+3. Rotation-only animations (Rotate, Shake) then apply their yaw/pitch contributions
+   on top of the LookAt rotation, using the current view axes.
+
+**UI workflow**:
+1. Click "Start Building Group" in the Animation Group section
+2. Configure animation parameters and click "+ Add to Group" (buttons change text)
+3. Review the pending list; remove individual animations with the x button if needed
+4. Click "Finish Group" (requires 2+ animations) to add the group as a single keyframe
+5. The group appears in the Keyframe Sequence list showing its child animations
+
+**Example combinations**:
+- Zoom Out + Pan → camera moves away while translating sideways
+- Zoom In + Rotate → camera approaches target while panning the view
+- Orbit + Shake → orbital movement with vibration overlay
+- Pan + Rotate → translate camera while rotating the view direction
+
+**Duration**: The group's duration equals the longest child animation. Shorter
+animations freeze at their final state when they complete.
 
 ## Usage Example
 
