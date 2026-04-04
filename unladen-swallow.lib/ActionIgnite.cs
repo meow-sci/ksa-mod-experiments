@@ -25,7 +25,7 @@ public static class ActionIgnite
                 {
                     var result = await GameThread.Scheduler.Schedule(() =>
                     {
-                        var vehicles = Universe.CurrentSystem?.Vehicles.GetList() ?? Enumerable.Empty<Vehicle>();
+                        var vehicles = VehicleProvider.GetAllVehicles();
                         var vehicle = vehicles.FirstOrDefault(v => v.Id == body.VehicleId);
 
                         if (vehicle is null)

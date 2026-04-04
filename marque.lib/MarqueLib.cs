@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Brutal.ImGuiApi;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.MarqueLib;
 
@@ -41,8 +42,8 @@ public sealed class MarqueLib
 
   private static void DrawTopLevelBulkItems()
   {
-    var allOrbiters = Universe.CurrentSystem?.All?.GetList()?.OfType<IOrbiter>().ToList();
-    if (allOrbiters == null) return;
+    var allOrbiters = CelestialProvider.GetAllOrbiters();
+    if (allOrbiters.Count == 0) return;
 
     if (ImGui.MenuItem("All"))
       foreach (var o in allOrbiters) o.ShowOrbit = true;
@@ -59,8 +60,8 @@ public sealed class MarqueLib
   {
     if (!ImGui.BeginMenu("Vehicles")) return;
 
-    var vehicles = Universe.CurrentSystem?.Vehicles?.GetList();
-    if (vehicles == null || vehicles.Count == 0)
+    var vehicles = VehicleProvider.GetAllVehicles();
+    if (vehicles.Count == 0)
     {
       ImGui.MenuItem("(no vehicles)", default(ImString), false, false);
       ImGui.EndMenu();
@@ -191,12 +192,11 @@ public sealed class MarqueLib
     if (ImGui.IsWindowAppearing())
       _everythingFilter.Clear();
 
-    var allOrbiters = Universe.CurrentSystem?.All?.GetList()?
-      .OfType<IOrbiter>()
+    var allOrbiters = CelestialProvider.GetAllOrbiters()
       .OrderBy(o => (o as Astronomical)?.Id ?? "")
       .ToList();
 
-    if (allOrbiters == null || allOrbiters.Count == 0)
+    if (allOrbiters.Count == 0)
     {
       ImGui.MenuItem("(none)", default(ImString), false, false);
       ImGui.EndMenu();

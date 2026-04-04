@@ -290,6 +290,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         // Allocate GPU image (R8G8B8A8UNorm, single mip — ~62.5% VRAM savings vs HDR + full mip chain)
         var thumb = new ThumbnailReference();
         thumb.CreateImageView(
+            imageName,
             renderer.Device,
             new ImageEx.CreateInfo
             {
