@@ -40,6 +40,7 @@ public static class MissionLoader
         var yaml = File.ReadAllText(filePath);
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
             .IgnoreUnmatchedProperties()
             .Build();
         var mission = deserializer.Deserialize<MissionDefinition>(yaml);

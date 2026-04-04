@@ -14,6 +14,9 @@ public sealed class EventDatabase : IDisposable
 
     public EventDatabase(string databasePath)
     {
+        // Required in plugin/mod environments where the automatic startup hook does not run.
+        SQLitePCL.Batteries_V2.Init();
+
         var dir = Path.GetDirectoryName(databasePath);
         if (dir != null && !Directory.Exists(dir))
         {
