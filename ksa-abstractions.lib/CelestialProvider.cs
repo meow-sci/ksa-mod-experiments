@@ -8,18 +8,10 @@ namespace MeowSci.KsaAbstractions;
 public static class CelestialProvider
 {
     /// <summary>Returns all Celestial objects (planets, moons) in the current system, excluding stars.</summary>
-    public static List<Celestial> GetAllCelestials()
-    {
-        var all = Universe.CurrentSystem?.All?.GetList();
-        if (all == null) return new List<Celestial>();
-        return all.OfType<Celestial>().ToList();
-    }
+    public static List<Celestial> GetAllCelestials() =>
+        Universe.CurrentSystem?.All.UnsafeAsList().OfType<Celestial>().ToList() ?? new List<Celestial>();
 
     /// <summary>Returns all IOrbiter objects (celestials + vehicles) in the current system.</summary>
-    public static List<IOrbiter> GetAllOrbiters()
-    {
-        var all = Universe.CurrentSystem?.All?.GetList();
-        if (all == null) return new List<IOrbiter>();
-        return all.OfType<IOrbiter>().ToList();
-    }
+    public static List<IOrbiter> GetAllOrbiters() =>
+        Universe.CurrentSystem?.All.UnsafeAsList().OfType<IOrbiter>().ToList() ?? new List<IOrbiter>();
 }

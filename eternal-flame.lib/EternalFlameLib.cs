@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.EternalFlameLib;
 
@@ -56,8 +57,8 @@ public sealed class FuelManager
         if (_accumulatedMs > interval * 2)
             _accumulatedMs = 0;
 
-        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
-        if (vehicles == null)
+        var vehicles = VehicleProvider.GetAllVehicles();
+        if (vehicles.Count == 0)
             return;
 
         foreach (var entry in _monitored)
