@@ -82,6 +82,23 @@ public class CameraControllerOverrideSubmod : ISubmod
     private float _spiralZoomOutEasingPowerEnd = 3.0f;
     private float _spiralZoomOutDegrees = 360.0f;
 
+    // Pan configuration
+    private float _panOffsetX = 0.0f;
+    private float _panOffsetY = 0.0f;
+    private float _panOffsetZ = 0.0f;
+    private float _panDuration = 5.0f;
+    private int _panEasing = (int)EasingType.EaseInOut;
+    private float _panEasingPowerStart = 3.0f;
+    private float _panEasingPowerEnd = 3.0f;
+
+    // Rotate configuration
+    private float _rotateYaw = 0.0f;
+    private float _rotatePitch = 0.0f;
+    private float _rotateDuration = 3.0f;
+    private int _rotateEasing = (int)EasingType.EaseInOut;
+    private float _rotateEasingPowerStart = 3.0f;
+    private float _rotateEasingPowerEnd = 3.0f;
+
     private static readonly string[] EasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
 
     public void Initialize()
@@ -201,6 +218,35 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easing: (EasingType)_shakeEasing,
                     easingPowerStart: _shakeEasingPowerStart,
                     easingPowerEnd: _shakeEasingPowerEnd));
+        }
+
+        ImGui.SeparatorText("Movement Animations");
+
+        if (ImGui.CollapsingHeader("Pan"))
+        {
+            if (RenderPanParamsTable("pan", ref _panOffsetX, ref _panOffsetY, ref _panOffsetZ,
+                ref _panDuration, ref _panEasing, ref _panEasingPowerStart, ref _panEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new PanAnimation(
+                    offsetX: _panOffsetX,
+                    offsetY: _panOffsetY,
+                    offsetZ: _panOffsetZ,
+                    durationSeconds: _panDuration,
+                    easing: (EasingType)_panEasing,
+                    easingPowerStart: _panEasingPowerStart,
+                    easingPowerEnd: _panEasingPowerEnd));
+        }
+
+        if (ImGui.CollapsingHeader("Rotate"))
+        {
+            if (RenderRotateParamsTable("rotate", ref _rotateYaw, ref _rotatePitch,
+                ref _rotateDuration, ref _rotateEasing, ref _rotateEasingPowerStart, ref _rotateEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new RotateAnimation(
+                    yawDegrees: _rotateYaw,
+                    pitchDegrees: _rotatePitch,
+                    durationSeconds: _rotateDuration,
+                    easing: (EasingType)_rotateEasing,
+                    easingPowerStart: _rotateEasingPowerStart,
+                    easingPowerEnd: _rotateEasingPowerEnd));
         }
 
         ImGui.SeparatorText("Keyframe Sequence");
@@ -528,6 +574,119 @@ public class CameraControllerOverrideSubmod : ISubmod
             ImGui.AlignTextToFramePadding(); ImGui.Text("Z Offset (m)");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
             ImGui.DragFloat($"##oz_{id}", ref offsetZ, 0.1f, -20f, 20f);
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
+
+    private bool RenderPanParamsTable(string id, ref float offsetX, ref float offsetY, ref float offsetZ,
+        ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_pan_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Offset X (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##ox_{id}", ref offsetX, 0.5f, -500f, 500f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Offset Y (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##oy_{id}", ref offsetY, 0.5f, -500f, 500f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Offset Z (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##oz_{id}", ref offsetZ, 0.5f, -500f, 500f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
+
+    private bool RenderRotateParamsTable(string id, ref float yaw, ref float pitch,
+        ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_rotate_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Yaw (°)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##yaw_{id}", ref yaw, 1f, -360f, 360f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Pitch (°)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##pitch_{id}", ref pitch, 1f, -90f, 90f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
 
             ImGui.EndTable();
         }
