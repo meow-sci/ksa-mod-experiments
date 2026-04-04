@@ -24,40 +24,89 @@ public sealed class UnladenSwallowSubmod : ISubmod
 
     public void RenderContent()
     {
-        ImGui.TextColored(new float4(1.0f, 0.84f, 0.0f, 1.0f), "Unladen Swallow");
-        ImGui.SeparatorText("HTTP RPC Server");
+        SubmodUI.BeginContentArea("##us_content");
 
-        if (ImGui.Checkbox("Enable HTTP Server##us", ref _serverEnabled))
+        bool isRunning = _server is not null && _server.IsRunning;
+
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##us_info", 2, tableFlags))
         {
-            if (_serverEnabled)
+            ImGui.TableSetupColumn("##us_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##us_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            // Server enable row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Server");
+            ImGui.TableNextColumn();
+            if (ImGui.Checkbox("Enable HTTP Server##us", ref _serverEnabled))
             {
-                try
+                if (_serverEnabled)
                 {
-                    _server!.StartAsync().GetAwaiter().GetResult();
+                    try
+                    {
+                        _server!.StartAsync().GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"grant/unladen-swallow: Failed to start server: {ex.Message}");
+                        _serverEnabled = false;
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine($"grant/unladen-swallow: Failed to start server: {ex.Message}");
-                    _serverEnabled = false;
+                    try
+                    {
+                        _server!.StopAsync().GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"grant/unladen-swallow: Failed to stop server: {ex.Message}");
+                    }
                 }
             }
+
+            // Status row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Status");
+            ImGui.TableNextColumn();
+            if (isRunning)
+                ImGui.TextColored(new float4(0.0f, 1.0f, 0.4f, 1.0f), "● Running");
             else
+                ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1.0f), "○ Stopped");
+
+            // Endpoint row (only when running)
+            if (isRunning)
             {
-                try
-                {
-                    _server!.StopAsync().GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"grant/unladen-swallow: Failed to stop server: {ex.Message}");
-                }
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Endpoint");
+                ImGui.TableNextColumn();
+                ImGui.TextDisabled("http://0.0.0.0:7887");
             }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        ImGui.Spacing();
+
+        if (ImGui.CollapsingHeader("Available Endpoints"))
+        {
+            ImGui.TextDisabled("GET  /health                    — server health check");
+            ImGui.TextDisabled("GET  /fov                       — read current FOV");
+            ImGui.TextDisabled("POST /fov                       — set FOV");
+            ImGui.TextDisabled("POST /vehicle/actions/ignite    — ignite engines");
+            ImGui.TextDisabled("POST /vehicle/actions/shutdown  — shut down engines");
+            ImGui.TextDisabled("GET  /blinky/grids              — list Blinky grids");
+            ImGui.TextDisabled("POST /blinky/animate            — set animated scroll");
+            ImGui.TextDisabled("POST /blinky/static             — set static pixel data");
+            ImGui.TextDisabled("POST /blinky/off                — clear grid");
         }
 
-        if (_server is not null && _server.IsRunning)
-            ImGui.TextColored(new float4(0.0f, 1.0f, 0.4f, 1.0f), "Server: Running on http://0.0.0.0:7887");
-        else
-            ImGui.TextDisabled("Server: Stopped");
+        SubmodUI.EndContentArea();
     }
 
     public void Dispose()
