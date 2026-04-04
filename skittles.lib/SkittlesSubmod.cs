@@ -28,67 +28,100 @@ public sealed class SkittlesSubmod : ISubmod
 
     public void RenderContent()
     {
-        // --- Main content (inside grant collapsible header) ---
-        ImGui.TextColored(new float4(0.17f, 0.98f, 0.12f, 1.0f), "Skittles");
-        ImGui.SameLine();
-        ImGui.TextDisabled("Global Theme Manager");
-        ImGui.Separator();
+        SubmodUI.BeginContentArea("##sk_content");
 
         string active = _themeManager.ActiveThemeName ?? "Game Default";
-        ImGui.Text($"Active: {active}");
-        ImGui.Separator();
-
-        // Theme selector with filter
         string[] themeNames = _themeManager.GetThemeNames();
         string preview = (_selectedThemeIndex >= 0 && _selectedThemeIndex < themeNames.Length)
             ? themeNames[_selectedThemeIndex]
             : "Select Theme...";
 
-        ImGui.SetNextItemWidth(-1);
-        if (ImGui.BeginCombo("##sk_themedropdown", preview))
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##sk_selector", 2, tableFlags))
         {
+            ImGui.TableSetupColumn("##sk_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##sk_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            // Active theme status row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Active");
+            ImGui.TableNextColumn();
+            ImGui.TextColored(new float4(0.3f, 1.0f, 0.3f, 1.0f), active);
+
+            // Theme selector row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Theme");
+            ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("##sk_filter", _filterInput);
-            ImGui.Separator();
-
-            string filterText = _filterInput.ToString();
-            for (int i = 0; i < themeNames.Length; i++)
+            if (ImGui.BeginCombo("##sk_themedropdown", preview))
             {
-                if (!string.IsNullOrEmpty(filterText) &&
-                    !themeNames[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                if (ImGui.IsWindowAppearing())
+                    _filterInput.Clear();
 
-                bool selected = _selectedThemeIndex == i;
-                if (ImGui.Selectable(themeNames[i], selected))
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputText("##sk_filter", _filterInput);
+                ImGui.Separator();
+
+                string filterText = _filterInput.ToString();
+                for (int i = 0; i < themeNames.Length; i++)
                 {
-                    _selectedThemeIndex = i;
-                    _themeManager.ApplyTheme(themeNames[i]);
+                    if (!string.IsNullOrEmpty(filterText) &&
+                        !themeNames[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    bool selected = _selectedThemeIndex == i;
+                    if (ImGui.Selectable(themeNames[i], selected))
+                    {
+                        _selectedThemeIndex = i;
+                        _themeManager.ApplyTheme(themeNames[i]);
+                    }
                 }
+                ImGui.EndCombo();
             }
-            ImGui.EndCombo();
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
 
         ImGui.Spacing();
+        ImGui.SeparatorText("Quick Apply");
 
-        if (ImGui.Button("Open Theme Editor##sk"))
+        // Quick Apply buttons in 2-column equal-width grid
+        var btnFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+        if (ImGui.BeginTable("##sk_presets", 2, btnFlags))
+        {
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.Button(" Dark ##sk"))    { _themeManager.ApplyTheme("Dark");    UpdateSelectedIndex(); }
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.Button(" Light ##sk"))   { _themeManager.ApplyTheme("Light");   UpdateSelectedIndex(); }
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.Button(" Classic ##sk")) { _themeManager.ApplyTheme("Classic"); UpdateSelectedIndex(); }
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.Button(" Rod ##sk"))     { _themeManager.ApplyTheme("Inanimate Carbon Rod"); UpdateSelectedIndex(); }
+            ImGui.SetItemTooltip("Applies the Inanimate Carbon Rod theme.");
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.Button(" Reset ##sk"))   { _themeManager.ApplyTheme("Game Default"); UpdateSelectedIndex(); }
+            ImGui.SetItemTooltip("Restore game defaults, removing all theme customizations.");
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        ImGui.Spacing();
+        if (ImGui.Button(" Open Theme Editor ##sk"))
             _editorVisible = true;
 
-        ImGui.Spacing();
-        ImGui.Separator();
+        SubmodUI.EndContentArea();
 
-        // Quick preset row
-        ImGui.TextDisabled("Quick Apply:");
-        if (ImGui.Button("Dark##sk"))    { _themeManager.ApplyTheme("Dark");                 UpdateSelectedIndex(); }
-        ImGui.SameLine();
-        if (ImGui.Button("Light##sk"))   { _themeManager.ApplyTheme("Light");                UpdateSelectedIndex(); }
-        ImGui.SameLine();
-        if (ImGui.Button("Classic##sk")) { _themeManager.ApplyTheme("Classic");              UpdateSelectedIndex(); }
-        ImGui.SameLine();
-        if (ImGui.Button("Rod##sk"))     { _themeManager.ApplyTheme("Inanimate Carbon Rod"); UpdateSelectedIndex(); }
-        ImGui.SameLine();
-        if (ImGui.Button("Reset##sk"))   { _themeManager.ApplyTheme("Game Default");         UpdateSelectedIndex(); }
-
-        // --- Editor window (separate ImGui window) ---
         if (_editorVisible)
             RenderEditorWindow();
     }
