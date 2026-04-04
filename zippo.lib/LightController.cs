@@ -14,15 +14,15 @@ public static class LightController
     private static readonly BindingFlags All =
         BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
-    public static readonly string[] ColorPresetNames = { "(none)", "Marine", "HotPink", "RadioactiveGreen", "BabyPurple" };
+    public static readonly string[] ColorPresetNames = { "Marine", "HotPink", "RadioactiveGreen", "BabyPurple" };
 
     // float3 values from KSAColor.Xkcd decompiled sources
     public static float3 GetPresetColor(int idx) => idx switch
     {
-        1 => new float3(0.01568628f, 0.1803922f, 0.37647059f), // Marine
-        2 => new float3(1f, 0.00784314f, 0.55294118f),          // HotPink
-        3 => new float3(0.172549f, 0.9803922f, 0.1215686f),     // RadioactiveGreen
-        4 => new float3(0.7921569f, 0.6078432f, 0.9686275f),    // BabyPurple
+        0 => new float3(0.01568628f, 0.1803922f, 0.37647059f), // Marine
+        1 => new float3(1f, 0.00784314f, 0.55294118f),          // HotPink
+        2 => new float3(0.172549f, 0.9803922f, 0.1215686f),     // RadioactiveGreen
+        3 => new float3(0.7921569f, 0.6078432f, 0.9686275f),    // BabyPurple
         _ => new float3(1f, 1f, 1f)
     };
 

@@ -9,7 +9,8 @@ namespace MeowSci.ConManLib;
 
 public sealed class ConManSubmod : ISubmod
 {
-  public string Name => "Con-Man \u2014 Layout Manager";
+  public string Name => "Con-Man - Console Layouts";
+  public string Tooltip => "Saves and restores UI gauge layout configurations for different scenarios.";
 
   private LayoutManager _layoutManager = null!;
   private bool _startupApplied;

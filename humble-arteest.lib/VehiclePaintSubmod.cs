@@ -15,6 +15,7 @@ namespace MeowSci.HumbleArteestLib;
 public sealed class VehiclePaintSubmod : ISubmod
 {
     public string Name => "Vehicle Paint";
+    public string Tooltip => "Paints vehicle parts with custom colors via shader injection.";
 
     // UI state
     private float3 _pickerColor = new float3(1f, 0.3f, 0.3f);

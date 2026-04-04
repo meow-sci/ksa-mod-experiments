@@ -10,7 +10,8 @@ namespace MeowSci.BlinkyLib;
 
 public sealed class BlinkySubmod : ISubmod
 {
-    public string Name => "Blinky Dynamic LCD Grid";
+    public string Name => "Blinky - LCD Grids";
+    public string Tooltip => "Dynamic LCD grid displays on vehicles using engines.";
 
     // Per-grid UI state, keyed by (vehicleId, gridName)
     // Tracks grids pending destroy so we can show status

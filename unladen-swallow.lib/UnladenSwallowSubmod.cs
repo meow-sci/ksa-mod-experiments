@@ -7,7 +7,8 @@ namespace MeowSci.UnladenSwallowLib;
 
 public sealed class UnladenSwallowSubmod : ISubmod
 {
-    public string Name => "Unladen Swallow \u2014 RPC Server";
+    public string Name => "Unladen Swallow - RPC Server";
+    public string Tooltip => "Hosts an HTTP RPC server for external control of game functions.";
 
     private SwallowServer? _server;
     private bool _serverEnabled;

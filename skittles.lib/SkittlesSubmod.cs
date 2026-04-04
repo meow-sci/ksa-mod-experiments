@@ -9,7 +9,8 @@ namespace MeowSci.SkittlesLib;
 
 public sealed class SkittlesSubmod : ISubmod
 {
-    public string Name => "Skittles \u2014 Theme Manager";
+    public string Name => "Skittles - ImGui Themes";
+    public string Tooltip => "Manages and applies ImGui theme configurations for UI customization.";
 
     private ThemeManager _themeManager = null!;
     private int _selectedThemeIndex;

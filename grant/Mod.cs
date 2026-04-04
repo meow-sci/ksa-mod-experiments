@@ -243,8 +243,10 @@ public class Mod
                 else
                     ImGui.SetNextItemOpen(_headerOpen.GetValueOrDefault(submod.Name, true), ImGuiCond.Once);
 
-                bool isOpen = ImGui.CollapsingHeader(submod.Name, ImGuiTreeNodeFlags.DefaultOpen);
+                bool isOpen = ImGui.CollapsingHeader($"{submod.Name}  (?)", ImGuiTreeNodeFlags.DefaultOpen);
                 _headerOpen[submod.Name] = isOpen;
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayNormal))
+                    ImGui.SetTooltip(submod.Tooltip);
 
                 if (isOpen)
                 {

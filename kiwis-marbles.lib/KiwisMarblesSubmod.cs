@@ -10,6 +10,7 @@ namespace MeowSci.KiwisMarblesLib;
 public sealed class KiwisMarblesSubmod : ISubmod
 {
     public string Name => "Kiwi's Marbles";
+    public string Tooltip => "Weld celestials onto one another.  For science.";
 
     private readonly List<CelestialWeldEntry> _welds = new();
     private int _pendingSourceIndex;
@@ -145,7 +146,9 @@ public sealed class KiwisMarblesSubmod : ISubmod
             double surfaceDist = tR + sR;
             ImGui.Spacing();
             ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
-                $"Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}   Surface dist: {FormatKm(surfaceDist)}");
+                $"Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}");
+            ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
+                $"Surface dist: {FormatKm(surfaceDist)}");
 
             if (ImGui.Button(" +X ##kmsurfX"))
             {
@@ -323,7 +326,8 @@ public sealed class KiwisMarblesSubmod : ISubmod
                 curLon = initLon2; curLat = initLat2; curRadialKm = 0f;
             }
 
-            ImGui.TextDisabled($"Surface dist: {FormatKm(dist)}  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
+            ImGui.TextDisabled($"Surface dist: {FormatKm(dist)}");
+            ImGui.TextDisabled($"  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
 
             bool lonChanged = false, latChanged = false, radChanged = false;
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));

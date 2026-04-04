@@ -7,7 +7,8 @@ namespace MeowSci.GeeForceLib;
 
 public sealed class GeeForceSubmod : ISubmod
 {
-    public string Name => "G-Force Monitor";
+    public string Name => "GeeForce";
+    public string Tooltip => "Monitors vehicle G's in real-time with configurable sampling and peak tracking.";
 
     private const double SampleIntervalSec = 0.025; // 25ms → 40 Hz
     private double _accumulator;

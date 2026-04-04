@@ -9,7 +9,8 @@ namespace MeowSci.ZippoLib;
 
 public sealed class ZippoSubmod : ISubmod
 {
-    public string Name => "Zippo \u2014 Light Control";
+    public string Name => "Zippo - Lights!";
+    public string Tooltip => "Controls light part intensity and colors.";
 
     private List<Vehicle> _vehicles = new();
     private string[] _vehicleComboItems = new[] { "(none)" };
@@ -22,8 +23,11 @@ public sealed class ZippoSubmod : ISubmod
     private float _intensity = 1.0f;
     private float _savedIntensity = 1.0f;
     private bool _lightEnabled = true;
+    // 0 = Default, 1..4 = named presets (offset -1 into LightController.ColorPresetNames), 5 = (Custom)
     private int _colorComboIdx;
+    private bool _colorIsCustom;
     private float4 _currentColor = new(1.0f, 1.0f, 1.0f, 1.0f);
+    private readonly Dictionary<string, float3> _originalColors = new();
 
     private ImGuiTextFilter _vehicleFilter = new();
     private ImGuiTextFilter _lightPartFilter = new();
@@ -110,22 +114,6 @@ public sealed class ZippoSubmod : ISubmod
         }
         ImGui.PopStyleVar(); // CellPadding
 
-        // Debug section (collapsed by default)
-        if (_vehicleComboIdx > 0 && ImGui.CollapsingHeader("Debug##zp"))
-        {
-            if (ImGui.Button(" Dump Parts ##zp"))
-            {
-                var v = SelectedVehicle;
-                if (v != null)
-                {
-                    Console.WriteLine("grant/zippo: === debug dump (parts with Components > 0) ===");
-                    var parts = v.Parts.Parts;
-                    for (int i = 0; i < parts.Length; i++)
-                        LightController.DumpPartsWithComponents(parts[i]);
-                }
-            }
-        }
-
         var selectedPart = SelectedLightPart;
         if (selectedPart != null)
         {
@@ -159,7 +147,7 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Intensity");
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##zp_intensity", ref _intensity, 0.001f, 0f, 1f))
+                if (ImGui.DragFloat("##zp_intensity", ref _intensity, 0.005f, 0f, 1f))
                 {
                     _savedIntensity = _intensity;
                     LightController.ApplyIntensity(selectedPart, _intensity);
@@ -171,15 +159,27 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Color Preset");
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(-1);
-                var colorItems = LightController.ColorPresetNames;
+                var colorItems = BuildColorComboItems();
                 if (ImGui.Combo("##zp_colorpreset", ref _colorComboIdx, colorItems, colorItems.Length))
                 {
-                    if (_colorComboIdx > 0)
+                    if (_colorComboIdx == 0)
                     {
-                        var presetColor = LightController.GetPresetColor(_colorComboIdx);
+                        // Restore original color
+                        if (_originalColors.TryGetValue(selectedPart.Id, out var orig))
+                        {
+                            _currentColor = new float4(orig.X, orig.Y, orig.Z, 1.0f);
+                            LightController.ApplyColor(selectedPart, orig);
+                        }
+                        _colorIsCustom = false;
+                    }
+                    else if (_colorComboIdx >= 1 && _colorComboIdx <= LightController.ColorPresetNames.Length)
+                    {
+                        var presetColor = LightController.GetPresetColor(_colorComboIdx - 1);
                         _currentColor = new float4(presetColor.X, presetColor.Y, presetColor.Z, 1.0f);
                         LightController.ApplyColor(selectedPart, presetColor);
+                        _colorIsCustom = false;
                     }
+                    // Selecting "(Custom)" is a no-op — keeps current color as-is
                 }
 
                 // Color picker row
@@ -192,7 +192,8 @@ public sealed class ZippoSubmod : ISubmod
                 {
                     var color3 = new float3(_currentColor.X, _currentColor.Y, _currentColor.Z);
                     LightController.ApplyColor(selectedPart, color3);
-                    _colorComboIdx = 0;
+                    _colorIsCustom = true;
+                    _colorComboIdx = LightController.ColorPresetNames.Length + 1; // "(Custom)"
                 }
 
                 ImGui.EndTable();
@@ -200,7 +201,37 @@ public sealed class ZippoSubmod : ISubmod
             ImGui.PopStyleVar(); // CellPadding
         }
 
+        // Debug section (collapsed by default, placed after controls)
+        if (_vehicleComboIdx > 0 && ImGui.CollapsingHeader("Debug##zp"))
+        {
+            if (ImGui.Button(" Dump Parts ##zp"))
+            {
+                var v = SelectedVehicle;
+                if (v != null)
+                {
+                    Console.WriteLine("grant/zippo: === debug dump (parts with Components > 0) ===");
+                    var parts = v.Parts.Parts;
+                    for (int i = 0; i < parts.Length; i++)
+                        LightController.DumpPartsWithComponents(parts[i]);
+                }
+            }
+        }
+
         SubmodUI.EndContentArea();
+    }
+
+    /// <summary>Builds the color preset combo items, appending "(Custom)" only when a custom color is active.</summary>
+    private string[] BuildColorComboItems()
+    {
+        var presets = LightController.ColorPresetNames;
+        int count = 1 + presets.Length + (_colorIsCustom ? 1 : 0);
+        var items = new string[count];
+        items[0] = "Default";
+        for (int i = 0; i < presets.Length; i++)
+            items[i + 1] = presets[i];
+        if (_colorIsCustom)
+            items[count - 1] = "(Custom)";
+        return items;
     }
 
     public void Dispose() { }
@@ -257,8 +288,15 @@ public sealed class ZippoSubmod : ISubmod
         _savedIntensity = _intensity;
         var ls = part.LightSwitch ?? part.FullPart.LightSwitch;
         _lightEnabled = ls == null || ls.LightIsActive;
+
+        // First-time discovery: save the original color for this part
+        if (!_originalColors.ContainsKey(part.Id))
+            _originalColors[part.Id] = LightController.ReadColor(part.Template);
+
+        // Default to the "Default" preset (original color)
+        _colorIsCustom = false;
         _colorComboIdx = 0;
-        var color3 = LightController.ReadColor(part.Template);
-        _currentColor = new float4(color3.X, color3.Y, color3.Z, 1.0f);
+        var orig = _originalColors[part.Id];
+        _currentColor = new float4(orig.X, orig.Y, orig.Z, 1.0f);
     }
 }

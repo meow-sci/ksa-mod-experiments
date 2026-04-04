@@ -8,6 +8,7 @@ namespace MeowSci.AverageTwrLib;
 public sealed class AverageTwrSubmod : ISubmod
 {
     public string Name => "Average TWR";
+    public string Tooltip => "Records and analyzes thrust-to-weight ratio and acceleration statistics.";
 
     private TwrSampleAccumulator _accumulator = null!;
     private double _timeSinceLastSample;

@@ -9,6 +9,7 @@ namespace MeowSci.KittenAnimationsLib;
 public sealed class KittenAnimationsSubmod : ISubmod
 {
     public string Name => "Kitten Animations";
+    public string Tooltip => "Controls kitten character animations and facial expressions.";
 
     private readonly KittenAnimationController _animController = new();
 

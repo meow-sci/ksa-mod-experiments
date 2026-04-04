@@ -8,7 +8,8 @@ namespace MeowSci.GlassLib;
 
 public sealed class GlassSubmod : ISubmod
 {
-    public string Name => "Glass \u2014 Camera Lens";
+    public string Name => "Glass - Camera Lens";
+    public string Tooltip => "Adjusts camera field of view with preset lens options from telephoto to fisheye.";
 
     private int _fov = 50;
     private int _selectedPresetIndex = 0; // 0 = Game Default

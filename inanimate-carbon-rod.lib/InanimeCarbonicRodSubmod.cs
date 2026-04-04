@@ -11,6 +11,7 @@ namespace MeowSci.InanimateCarbonRodLib;
 public sealed class InanimeCarbonicRodSubmod : ISubmod
 {
     public string Name => "Inanimate Carbon Rod";
+    public string Tooltip => "Generates and displays thumbnail previews of vehicle sub-parts.";
 
     private readonly SubpartThumbnailGenerator _generator = new();
     private int _thumbDisplaySize = 128;

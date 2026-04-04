@@ -9,6 +9,9 @@ public interface ISubmod
     /// <summary>Display name shown in headers and menus.</summary>
     string Name { get; }
 
+    /// <summary>Short description shown as a tooltip on the header in the host window.</summary>
+    string Tooltip { get; }
+
     /// <summary>Called once during initialization to set up state and lib instances.</summary>
     void Initialize();
 

@@ -11,7 +11,8 @@ namespace MeowSci.CameraControllerOverrideLib;
 
 public class CameraControllerOverrideSubmod : ISubmod
 {
-    public string Name => "Camera Controller Override";
+    public string Name => "Camera Animations";
+    public string Tooltip => "Animates the flight camera with zoom, orbit, shake, and spiral sequences.";
 
     private readonly KeyframeSequencePlayer _sequencePlayer = new();
     public KeyframeSequencePlayer SequencePlayer => _sequencePlayer;

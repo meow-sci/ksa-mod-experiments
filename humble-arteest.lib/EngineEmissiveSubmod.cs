@@ -13,6 +13,7 @@ namespace MeowSci.HumbleArteestLib;
 public sealed class EngineEmissiveSubmod : ISubmod
 {
     public string Name => "Engine Emissive";
+    public string Tooltip => "Overrides engine emissive temperature to control part glow intensity.";
 
     // Active toggle
     private bool _active;

@@ -9,7 +9,8 @@ namespace MeowSci.EternalFlameLib;
 
 public sealed class EternalFlameSubmod : ISubmod
 {
-    public string Name => "Eternal Flame \u2014 Infinite Fuel";
+    public string Name => "Eternal Flame";
+    public string Tooltip => "Automatically refills fuel tanks on the selected vehicle at regular intervals.";
 
     private FuelManager _fuelManager = null!;
     private ImGuiTextFilter _vehicleFilter = new ImGuiTextFilter();

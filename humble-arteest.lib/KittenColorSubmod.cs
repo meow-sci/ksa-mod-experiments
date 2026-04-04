@@ -14,6 +14,7 @@ namespace MeowSci.HumbleArteestLib;
 public sealed class KittenColorSubmod : ISubmod
 {
     public string Name => "Kitten Color";
+    public string Tooltip => "Tints kitten character models by modifying GPU material colors.";
 
     // Active toggle
     private bool _active;

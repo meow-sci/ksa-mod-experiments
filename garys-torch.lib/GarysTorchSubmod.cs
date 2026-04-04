@@ -9,7 +9,8 @@ namespace MeowSci.GarysTorchLib;
 
 public sealed class GarysTorchSubmod : ISubmod
 {
-    public string Name => "Gary's Torch";
+    public string Name => "Garry's Torch";
+    public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
 
     private readonly List<WeldEntry> _welds = new();
     private readonly PresetManager _presetManager = new();
