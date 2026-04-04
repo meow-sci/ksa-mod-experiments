@@ -117,86 +117,38 @@ public static class KeyframeSequencePanel
         bool isPlaying = player.State == PlaybackState.Playing;
         bool isPaused = player.State == PlaybackState.Paused;
         bool isStopped = player.State == PlaybackState.Stopped;
-        
-        // Play button
-        if (!hasKeyframes || isPlaying)
+
+        ImGui.BeginDisabled(!hasKeyframes || isPlaying);
+        if (ImGui.Button(" ▶ Play ##cco")) player.Play();
+        ImGui.EndDisabled();
+
+        ImGui.SameLine(0, 8);
+
+        ImGui.BeginDisabled(!isPlaying);
+        if (ImGui.Button(" ⏸ Pause ##cco")) player.Pause();
+        ImGui.EndDisabled();
+
+        ImGui.SameLine(0, 8);
+
+        ImGui.BeginDisabled(!isPaused);
+        if (ImGui.Button(" ▶ Resume ##cco")) player.Resume();
+        ImGui.EndDisabled();
+
+        ImGui.SameLine(0, 8);
+
+        ImGui.BeginDisabled(isStopped);
+        if (ImGui.Button(" ⏹ Stop ##cco")) player.Stop();
+        ImGui.EndDisabled();
+
+        ImGui.SameLine(0, 8);
+
+        ImGui.BeginDisabled(!hasKeyframes);
+        if (ImGui.Button(" ✕ Clear All ##cco"))
         {
-            ImGui.BeginDisabled();
-        }
-        if (ImGui.Button("▶ Play"))
-        {
-            player.Play();
-        }
-        if (!hasKeyframes || isPlaying)
-        {
-            ImGui.EndDisabled();
-        }
-        
-        ImGui.SameLine();
-        
-        // Pause button
-        if (!isPlaying)
-        {
-            ImGui.BeginDisabled();
-        }
-        if (ImGui.Button("⏸ Pause"))
-        {
-            player.Pause();
-        }
-        if (!isPlaying)
-        {
-            ImGui.EndDisabled();
-        }
-        
-        ImGui.SameLine();
-        
-        // Resume button
-        if (!isPaused)
-        {
-            ImGui.BeginDisabled();
-        }
-        if (ImGui.Button("▶ Resume"))
-        {
-            player.Resume();
-        }
-        if (!isPaused)
-        {
-            ImGui.EndDisabled();
-        }
-        
-        ImGui.SameLine();
-        
-        // Stop button
-        if (isStopped)
-        {
-            ImGui.BeginDisabled();
-        }
-        if (ImGui.Button("⏹ Stop"))
-        {
-            player.Stop();
-        }
-        if (isStopped)
-        {
-            ImGui.EndDisabled();
-        }
-        
-        ImGui.SameLine();
-        
-        // Clear All button
-        if (!hasKeyframes)
-        {
-            ImGui.BeginDisabled();
-        }
-        if (ImGui.Button("Clear All"))
-        {
-            // Simple confirmation - could be enhanced with a modal dialog
             player.Clear();
             _selectedKeyframeIndex = -1;
         }
-        if (!hasKeyframes)
-        {
-            ImGui.EndDisabled();
-        }
+        ImGui.EndDisabled();
     }
     
     /// <summary>
@@ -246,28 +198,18 @@ public static class KeyframeSequencePanel
         bool isCurrentKeyframe = player.State == PlaybackState.Playing && 
                                   player.CurrentKeyframeIndex == index;
         
-        // Highlight currently playing keyframe
-        float4 titleColor = isCurrentKeyframe 
-            ? new float4(0.0f, 1.0f, 0.0f, 1.0f)  // Green
-            : new float4(1.0f, 1.0f, 1.0f, 1.0f); // White
-        
         // Display indicator and title
         string indicator = isCurrentKeyframe ? "[►]" : "[ ]";
         string title = $"{indicator} {index + 1}. {animation.Name} ({animation.DurationSeconds:F1}s)";
-        
-        // Make title selectable/clickable
-        if (ImGui.Selectable(title, _selectedKeyframeIndex == index))
-        {
-            _selectedKeyframeIndex = index;
-        }
-        
-        // Apply color to title text if needed
+
+        ImGui.PushID(index);
         if (isCurrentKeyframe)
-        {
-            // Re-render with color (selectable doesn't support color directly)
-            ImGui.SameLine(0, -ImGui.CalcTextSize(title).X - 4);
-            ImGui.TextColored(titleColor, title);
-        }
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(0.0f, 1.0f, 0.0f, 1.0f)));
+        if (ImGui.Selectable(title, _selectedKeyframeIndex == index))
+            _selectedKeyframeIndex = index;
+        if (isCurrentKeyframe)
+            ImGui.PopStyleColor();
+        ImGui.PopID();
         
         ImGui.Indent();
         
@@ -308,58 +250,65 @@ public static class KeyframeSequencePanel
     /// </summary>
     private static void RenderReturnToStartControls(KeyframeSequencePlayer player)
     {
-        ImGui.Text("Return to Start Settings:");
-        ImGui.Indent();
-        
-        // Return to start enabled checkbox
-        bool returnEnabled = player.ReturnToStartEnabled;
-        if (ImGui.Checkbox("Return to Start After Sequence", ref returnEnabled))
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##cco_rts", 2, tableFlags))
         {
-            player.ReturnToStartEnabled = returnEnabled;
-        }
-        
-        // Return duration slider
-        float returnDuration = (float)player.ReturnToStartDuration;
-        if (ImGui.SliderFloat("Return Duration (s)", ref returnDuration, 1.0f, 10.0f))
-        {
-            player.ReturnToStartDuration = returnDuration;
-        }
-        
-        // Return easing dropdown
-        int returnEasing = (int)player.ReturnToStartEasing;
-        string[] returnEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-        if (ImGui.Combo("Return Easing", ref returnEasing, returnEasingNames, returnEasingNames.Length))
-        {
-            _returnToStartEasing = (Animation.EasingType)returnEasing;
-            player.ReturnToStartEasing = _returnToStartEasing;
-        }
-        else
-        {
-            // Sync the tracking variable with the player's current value
-            _returnToStartEasing = player.ReturnToStartEasing;
-        }
-        
-        // Show EasingPowerStart for EaseIn and EaseInOut
-        if (_returnToStartEasing == EasingType.EaseIn || _returnToStartEasing == EasingType.EaseInOut)
-        {
-            float powerStart = (float)player.ReturnToStartEasingPowerStart;
-            if (ImGui.SliderFloat("Easing Power (Start)", ref powerStart, 1.0f, 6.0f))
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Return to Start");
+            ImGui.TableNextColumn();
+            bool returnEnabled = player.ReturnToStartEnabled;
+            if (ImGui.Checkbox("##cco_rts_chk", ref returnEnabled))
+                player.ReturnToStartEnabled = returnEnabled;
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            float returnDuration = (float)player.ReturnToStartDuration;
+            if (ImGui.DragFloat("##cco_rts_dur", ref returnDuration, 0.1f, 1.0f, 10.0f))
+                player.ReturnToStartDuration = returnDuration;
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            int returnEasing = (int)player.ReturnToStartEasing;
+            string[] returnEasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+            if (ImGui.Combo("##cco_rts_eas", ref returnEasing, returnEasingNames, returnEasingNames.Length))
             {
-                player.ReturnToStartEasingPowerStart = powerStart;
+                _returnToStartEasing = (EasingType)returnEasing;
+                player.ReturnToStartEasing = _returnToStartEasing;
             }
-        }
-        
-        // Show EasingPowerEnd for EaseOut and EaseInOut
-        if (_returnToStartEasing == EasingType.EaseOut || _returnToStartEasing == EasingType.EaseInOut)
-        {
-            float powerEnd = (float)player.ReturnToStartEasingPowerEnd;
-            if (ImGui.SliderFloat("Easing Power (End)", ref powerEnd, 1.0f, 6.0f))
+            else
             {
-                player.ReturnToStartEasingPowerEnd = powerEnd;
+                _returnToStartEasing = player.ReturnToStartEasing;
             }
+
+            if (_returnToStartEasing == EasingType.EaseIn || _returnToStartEasing == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                float powerStart = (float)player.ReturnToStartEasingPowerStart;
+                if (ImGui.DragFloat("##cco_rts_ps", ref powerStart, 0.1f, 1.0f, 6.0f))
+                    player.ReturnToStartEasingPowerStart = powerStart;
+            }
+
+            if (_returnToStartEasing == EasingType.EaseOut || _returnToStartEasing == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                float powerEnd = (float)player.ReturnToStartEasingPowerEnd;
+                if (ImGui.DragFloat("##cco_rts_pe", ref powerEnd, 0.1f, 1.0f, 6.0f))
+                    player.ReturnToStartEasingPowerEnd = powerEnd;
+            }
+
+            ImGui.EndTable();
         }
-        
-        ImGui.Unindent();
+        ImGui.PopStyleVar();
     }
     
     /// <summary>

@@ -81,6 +81,8 @@ public class CameraControllerOverrideSubmod : ISubmod
     private float _spiralZoomOutEasingPowerEnd = 3.0f;
     private float _spiralZoomOutDegrees = 360.0f;
 
+    private static readonly string[] EasingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+
     public void Initialize()
     {
         Console.WriteLine("camera-controller-override.lib: CameraControllerOverrideSubmod initialized");
@@ -95,161 +97,36 @@ public class CameraControllerOverrideSubmod : ISubmod
 
     public void RenderContent()
     {
-        // Zoom Out Animation Configuration
-        if (ImGui.CollapsingHeader("Zoom Out Animation"))
+        SubmodUI.BeginContentArea("##cco_content");
+
+        ImGui.SeparatorText("Zoom Animations");
+
+        if (ImGui.CollapsingHeader("Zoom Out"))
         {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Speed (m/s)", ref _zoomOutSpeed, 1.0f, 250.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##ZoomOut", ref _zoomOutDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##ZoomOut", ref _zoomOutEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var zoomOutEasingType = (EasingType)_zoomOutEasing;
-            if (zoomOutEasingType == EasingType.EaseIn || zoomOutEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##ZoomOut", ref _zoomOutEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (zoomOutEasingType == EasingType.EaseOut || zoomOutEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##ZoomOut", ref _zoomOutEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence"))
-            {
-                var animation = new ZoomOutAnimation(
+            if (RenderZoomParamsTable("zoomout", ref _zoomOutSpeed, ref _zoomOutDuration, ref _zoomOutEasing, ref _zoomOutEasingPowerStart, ref _zoomOutEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new ZoomOutAnimation(
                     speedMetersPerSecond: _zoomOutSpeed,
                     durationSeconds: _zoomOutDuration,
                     easing: (EasingType)_zoomOutEasing,
                     easingPowerStart: _zoomOutEasingPowerStart,
-                    easingPowerEnd: _zoomOutEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+                    easingPowerEnd: _zoomOutEasingPowerEnd));
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-
-        // Zoom In Animation Configuration
-        if (ImGui.CollapsingHeader("Zoom In Animation"))
+        if (ImGui.CollapsingHeader("Zoom In"))
         {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Speed (m/s)##ZoomIn", ref _zoomInSpeed, 1.0f, 250.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##ZoomIn", ref _zoomInDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##ZoomIn", ref _zoomInEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var zoomInEasingType = (EasingType)_zoomInEasing;
-            if (zoomInEasingType == EasingType.EaseIn || zoomInEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##ZoomIn", ref _zoomInEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (zoomInEasingType == EasingType.EaseOut || zoomInEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##ZoomIn", ref _zoomInEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##ZoomIn"))
-            {
-                var animation = new ZoomInAnimation(
+            if (RenderZoomParamsTable("zoomin", ref _zoomInSpeed, ref _zoomInDuration, ref _zoomInEasing, ref _zoomInEasingPowerStart, ref _zoomInEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new ZoomInAnimation(
                     speedMetersPerSecond: _zoomInSpeed,
                     durationSeconds: _zoomInDuration,
                     easing: (EasingType)_zoomInEasing,
                     easingPowerStart: _zoomInEasingPowerStart,
-                    easingPowerEnd: _zoomInEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+                    easingPowerEnd: _zoomInEasingPowerEnd));
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-
-        // Zoom In To Offset Animation Configuration
-        if (ImGui.CollapsingHeader("Zoom In To Offset Animation"))
+        if (ImGui.CollapsingHeader("Zoom In To Offset"))
         {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Speed (m/s)##ZoomInOffset", ref _zoomInOffsetSpeed, 1.0f, 250.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##ZoomInOffset", ref _zoomInOffsetDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##ZoomInOffset", ref _zoomInOffsetEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var zoomInOffsetEasingType = (EasingType)_zoomInOffsetEasing;
-            if (zoomInOffsetEasingType == EasingType.EaseIn || zoomInOffsetEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##ZoomInOffset", ref _zoomInOffsetEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (zoomInOffsetEasingType == EasingType.EaseOut || zoomInOffsetEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##ZoomInOffset", ref _zoomInOffsetEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.SliderFloat("X Offset (m)##ZoomInOffset", ref _zoomInOffsetX, -20.0f, 20.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Y Offset (m)##ZoomInOffset", ref _zoomInOffsetY, -20.0f, 20.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Z Offset (m)##ZoomInOffset", ref _zoomInOffsetZ, -20.0f, 20.0f))
-            {
-                // Value updated
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##ZoomInOffset"))
-            {
-                var animation = new ZoomInToOffsetAnimation(
+            if (RenderZoomInToOffsetSection("zoomoffset", ref _zoomInOffsetSpeed, ref _zoomInOffsetDuration, ref _zoomInOffsetEasing, ref _zoomInOffsetEasingPowerStart, ref _zoomInOffsetEasingPowerEnd, ref _zoomInOffsetX, ref _zoomInOffsetY, ref _zoomInOffsetZ))
+                _sequencePlayer.AddKeyframe(new ZoomInToOffsetAnimation(
                     speedMetersPerSecond: _zoomInOffsetSpeed,
                     durationSeconds: _zoomInOffsetDuration,
                     easing: (EasingType)_zoomInOffsetEasing,
@@ -257,315 +134,405 @@ public class CameraControllerOverrideSubmod : ISubmod
                     offsetY: _zoomInOffsetY,
                     offsetZ: _zoomInOffsetZ,
                     easingPowerStart: _zoomInOffsetEasingPowerStart,
-                    easingPowerEnd: _zoomInOffsetEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+                    easingPowerEnd: _zoomInOffsetEasingPowerEnd));
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-
-        // Spiral Zoom In Animation Configuration
-        if (ImGui.CollapsingHeader("Spiral Zoom In Animation"))
+        if (ImGui.CollapsingHeader("Spiral Zoom Out"))
         {
-            ImGui.Indent();
+            if (RenderSpiralZoomParamsTable("spiralout", ref _spiralZoomOutSpeed, ref _spiralZoomOutDuration, ref _spiralZoomOutEasing, ref _spiralZoomOutEasingPowerStart, ref _spiralZoomOutEasingPowerEnd, ref _spiralZoomOutDegrees))
+                _sequencePlayer.AddKeyframe(new SpiralZoomOutAnimation(
+                    speedMetersPerSecond: _spiralZoomOutSpeed,
+                    durationSeconds: _spiralZoomOutDuration,
+                    easing: (EasingType)_spiralZoomOutEasing,
+                    spiralDegrees: _spiralZoomOutDegrees,
+                    easingPowerStart: _spiralZoomOutEasingPowerStart,
+                    easingPowerEnd: _spiralZoomOutEasingPowerEnd));
+        }
 
-            if (ImGui.SliderFloat("Speed (m/s)##SpiralZoomIn", ref _spiralZoomInSpeed, 1.0f, 250.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##SpiralZoomIn", ref _spiralZoomInDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##SpiralZoomIn", ref _spiralZoomInEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var spiralZoomInEasingType = (EasingType)_spiralZoomInEasing;
-            if (spiralZoomInEasingType == EasingType.EaseIn || spiralZoomInEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##SpiralZoomIn", ref _spiralZoomInEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (spiralZoomInEasingType == EasingType.EaseOut || spiralZoomInEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##SpiralZoomIn", ref _spiralZoomInEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomIn", ref _spiralZoomInDegrees, -1080.0f, 1080.0f))
-            {
-                // Value updated
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##SpiralZoomIn"))
-            {
-                var animation = new SpiralZoomInAnimation(
+        if (ImGui.CollapsingHeader("Spiral Zoom In"))
+        {
+            if (RenderSpiralZoomParamsTable("spiralin", ref _spiralZoomInSpeed, ref _spiralZoomInDuration, ref _spiralZoomInEasing, ref _spiralZoomInEasingPowerStart, ref _spiralZoomInEasingPowerEnd, ref _spiralZoomInDegrees))
+                _sequencePlayer.AddKeyframe(new SpiralZoomInAnimation(
                     speedMetersPerSecond: _spiralZoomInSpeed,
                     durationSeconds: _spiralZoomInDuration,
                     easing: (EasingType)_spiralZoomInEasing,
                     spiralDegrees: _spiralZoomInDegrees,
                     easingPowerStart: _spiralZoomInEasingPowerStart,
-                    easingPowerEnd: _spiralZoomInEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+                    easingPowerEnd: _spiralZoomInEasingPowerEnd));
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
+        ImGui.SeparatorText("Orbit Animations");
 
-        // Shake Animation Configuration
-        if (ImGui.CollapsingHeader("Shake Animation"))
+        if (ImGui.CollapsingHeader("Orbit"))
         {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Duration (s)##Shake", ref _shakeDuration, 1.0f, 10.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderInt("Shake Count##Shake", ref _shakeCount, 1, 20))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Amplitude (degrees)##Shake", ref _shakeAmplitude, 1.0f, 45.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Speed Modifier##Shake", ref _shakeSpeed, 0.5f, 3.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##Shake", ref _shakeEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var shakeEasingType = (EasingType)_shakeEasing;
-            if (shakeEasingType == EasingType.EaseIn || shakeEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##Shake", ref _shakeEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (shakeEasingType == EasingType.EaseOut || shakeEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##Shake", ref _shakeEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##Shake"))
-            {
-                var animation = new ShakeAnimation(
-                    durationSeconds: _shakeDuration,
-                    shakeCount: _shakeCount,
-                    amplitudeDegrees: _shakeAmplitude,
-                    shakeSpeed: _shakeSpeed,
-                    easing: (EasingType)_shakeEasing,
-                    easingPowerStart: _shakeEasingPowerStart,
-                    easingPowerEnd: _shakeEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
-        }
-
-        ImGui.Spacing();
-        ImGui.Separator();
-
-        // Orbit Animation Configuration
-        if (ImGui.CollapsingHeader("Orbit Animation"))
-        {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Degrees##Orbit", ref _orbitDegrees, 90.0f, 1080.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##Orbit", ref _orbitDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##Orbit", ref _orbitEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var orbitEasingType = (EasingType)_orbitEasing;
-            if (orbitEasingType == EasingType.EaseIn || orbitEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##Orbit", ref _orbitEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (orbitEasingType == EasingType.EaseOut || orbitEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##Orbit", ref _orbitEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##Orbit"))
-            {
-                var animation = new OrbitAnimation(
+            if (RenderOrbitParamsTable("orbit", ref _orbitDegrees, ref _orbitDuration, ref _orbitEasing, ref _orbitEasingPowerStart, ref _orbitEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new OrbitAnimation(
                     degrees: _orbitDegrees,
                     durationSeconds: _orbitDuration,
                     easing: (EasingType)_orbitEasing,
                     easingPowerStart: _orbitEasingPowerStart,
-                    easingPowerEnd: _orbitEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+                    easingPowerEnd: _orbitEasingPowerEnd));
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-
-        // Loopy Orbit Animation Configuration
-        if (ImGui.CollapsingHeader("Loopy Orbit Animation"))
+        if (ImGui.CollapsingHeader("Loopy Orbit"))
         {
-            ImGui.Indent();
-
-            if (ImGui.SliderFloat("Degrees##Loopy", ref _loopyOrbitDegrees, 90.0f, 1080.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Loop Interval##Loopy", ref _loopyLoopInterval, 10.0f, 180.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Amplitude##Loopy", ref _loopyAmplitude, 10.0f, 200.0f))
-            {
-                // Value updated
-            }
-
-            if (ImGui.SliderFloat("Duration (s)##Loopy", ref _loopyDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##Loopy", ref _loopyEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var loopyEasingType = (EasingType)_loopyEasing;
-            if (loopyEasingType == EasingType.EaseIn || loopyEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##Loopy", ref _loopyEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (loopyEasingType == EasingType.EaseOut || loopyEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##Loopy", ref _loopyEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##Loopy"))
-            {
-                var animation = new LoopyOrbitAnimation(
+            if (RenderLoopyOrbitParamsTable("loopy", ref _loopyOrbitDegrees, ref _loopyLoopInterval, ref _loopyAmplitude, ref _loopyDuration, ref _loopyEasing, ref _loopyEasingPowerStart, ref _loopyEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new LoopyOrbitAnimation(
                     degrees: _loopyOrbitDegrees,
                     loopIntervalDegrees: _loopyLoopInterval,
                     amplitudeMeters: _loopyAmplitude,
                     durationSeconds: _loopyDuration,
                     easing: (EasingType)_loopyEasing,
                     easingPowerStart: _loopyEasingPowerStart,
-                    easingPowerEnd: _loopyEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
+                    easingPowerEnd: _loopyEasingPowerEnd));
+        }
+
+        ImGui.SeparatorText("Effects");
+
+        if (ImGui.CollapsingHeader("Shake"))
+        {
+            if (RenderShakeParamsTable("shake", ref _shakeDuration, ref _shakeCount, ref _shakeAmplitude, ref _shakeSpeed, ref _shakeEasing, ref _shakeEasingPowerStart, ref _shakeEasingPowerEnd))
+                _sequencePlayer.AddKeyframe(new ShakeAnimation(
+                    durationSeconds: _shakeDuration,
+                    shakeCount: _shakeCount,
+                    amplitudeDegrees: _shakeAmplitude,
+                    shakeSpeed: _shakeSpeed,
+                    easing: (EasingType)_shakeEasing,
+                    easingPowerStart: _shakeEasingPowerStart,
+                    easingPowerEnd: _shakeEasingPowerEnd));
+        }
+
+        ImGui.SeparatorText("Keyframe Sequence");
+        KeyframeSequencePanel.Render(_sequencePlayer);
+
+        SubmodUI.EndContentArea();
+    }
+
+    private bool RenderZoomParamsTable(string id, ref float speed, ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_zoom_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Speed (m/s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##speed_{id}", ref speed, 1f, 1f, 250f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
             }
 
-            ImGui.Unindent();
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        ImGui.Separator();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
 
-        // Spiral Zoom Out Animation Configuration
-        if (ImGui.CollapsingHeader("Spiral Zoom Out Animation"))
+    private bool RenderOrbitParamsTable(string id, ref float degrees, ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_orbit_{id}", 2, tableFlags))
         {
-            ImGui.Indent();
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
-            if (ImGui.SliderFloat("Speed (m/s)##SpiralZoomOut", ref _spiralZoomOutSpeed, 1.0f, 250.0f))
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Degrees");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##deg_{id}", ref degrees, 1f, 90f, 1080f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
             {
-                // Value updated
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
             }
 
-            if (ImGui.SliderFloat("Duration (s)##SpiralZoomOut", ref _spiralZoomOutDuration, 1.0f, 30.0f))
-            {
-                // Value updated
-            }
-
-            string[] easingNames = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
-            if (ImGui.Combo("Easing##SpiralZoomOut", ref _spiralZoomOutEasing, easingNames, easingNames.Length))
-            {
-                // Value updated
-            }
-
-            var spiralZoomOutEasingType = (EasingType)_spiralZoomOutEasing;
-            if (spiralZoomOutEasingType == EasingType.EaseIn || spiralZoomOutEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (Start)##SpiralZoomOut", ref _spiralZoomOutEasingPowerStart, 1.0f, 6.0f);
-            }
-            if (spiralZoomOutEasingType == EasingType.EaseOut || spiralZoomOutEasingType == EasingType.EaseInOut)
-            {
-                ImGui.SliderFloat("Easing Power (End)##SpiralZoomOut", ref _spiralZoomOutEasingPowerEnd, 1.0f, 6.0f);
-            }
-
-            // Spiral Degrees slider (negative = counter-clockwise)
-            if (ImGui.SliderFloat("Spiral Degrees##SpiralZoomOut", ref _spiralZoomOutDegrees, -1080.0f, 1080.0f))
-            {
-                // Value updated
-            }
-
-            ImGui.Spacing();
-
-            if (ImGui.Button("Add to Sequence##SpiralZoomOut"))
-            {
-                var animation = new SpiralZoomOutAnimation(
-                    speedMetersPerSecond: _spiralZoomOutSpeed,
-                    durationSeconds: _spiralZoomOutDuration,
-                    easing: (EasingType)_spiralZoomOutEasing,
-                    spiralDegrees: _spiralZoomOutDegrees,
-                    easingPowerStart: _spiralZoomOutEasingPowerStart,
-                    easingPowerEnd: _spiralZoomOutEasingPowerEnd
-                );
-                _sequencePlayer.AddKeyframe(animation);
-            }
-
-            ImGui.Unindent();
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        ImGui.Separator();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
 
-        // Keyframe Sequence Panel
-        if (ImGui.CollapsingHeader("Keyframe Sequence"))
+    private bool RenderLoopyOrbitParamsTable(string id, ref float degrees, ref float loopInterval, ref float amplitude, ref float duration, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_loopy_{id}", 2, tableFlags))
         {
-            ImGui.Indent();
-            KeyframeSequencePanel.Render(_sequencePlayer);
-            ImGui.Unindent();
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Degrees");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##deg_{id}", ref degrees, 1f, 90f, 1080f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Loop Interval (°)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##li_{id}", ref loopInterval, 1f, 10f, 180f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Amplitude (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##amp_{id}", ref amplitude, 1f, 10f, 200f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
+
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
+
+    private bool RenderShakeParamsTable(string id, ref float duration, ref int count, ref float amplitude, ref float speed, ref int easing, ref float powerStart, ref float powerEnd)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_shake_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 10f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Count");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragInt($"##cnt_{id}", ref count, 1f, 1, 20);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Amplitude (°)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##amp_{id}", ref amplitude, 0.1f, 1f, 45f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Speed");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##spd_{id}", ref speed, 0.05f, 0.5f, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
+
+    private bool RenderSpiralZoomParamsTable(string id, ref float speed, ref float duration, ref int easing, ref float powerStart, ref float powerEnd, ref float spiralDegrees)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_spiral_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Speed (m/s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##speed_{id}", ref speed, 1f, 1f, 250f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Spiral Degrees");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##sdeg_{id}", ref spiralDegrees, 1f, -1080f, 1080f);
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
+    }
+
+    private bool RenderZoomInToOffsetSection(string id, ref float speed, ref float duration, ref int easing, ref float powerStart, ref float powerEnd, ref float offsetX, ref float offsetY, ref float offsetZ)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##cco_offset_{id}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Speed (m/s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##speed_{id}", ref speed, 1f, 1f, 250f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##dur_{id}", ref duration, 0.1f, 1f, 30f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.Combo($"##eas_{id}", ref easing, EasingNames, EasingNames.Length);
+
+            var easingType = (EasingType)easing;
+            if (easingType == EasingType.EaseIn || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (Start)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##ps_{id}", ref powerStart, 0.1f, 1f, 6f);
+            }
+            if (easingType == EasingType.EaseOut || easingType == EasingType.EaseInOut)
+            {
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Power (End)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat($"##pe_{id}", ref powerEnd, 0.1f, 1f, 6f);
+            }
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("X Offset (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##ox_{id}", ref offsetX, 0.1f, -20f, 20f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Y Offset (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##oy_{id}", ref offsetY, 0.1f, -20f, 20f);
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Z Offset (m)");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat($"##oz_{id}", ref offsetZ, 0.1f, -20f, 20f);
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        return ImGui.Button($" + Add to Sequence ##{id}");
     }
 }
