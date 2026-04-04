@@ -27,7 +27,7 @@ public sealed class ConManSubmod : ISubmod
   private ImGuiTextFilter _defaultFilter = new ImGuiTextFilter();
 
   // Delete confirmation
-  private bool _confirmDelete;
+  private bool _pendingOpenDelete;
 
   public void Initialize()
   {
@@ -118,11 +118,12 @@ public sealed class ConManSubmod : ISubmod
       if (ImGui.Button(" Apply ##cm", new float2(halfBtnW, 0)))
         _layoutManager.ApplyLayout(names[_selectedLayoutIndex]);
       ImGui.SameLine();
+      ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+      ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
       if (ImGui.Button(" Delete ##cm", new float2(halfBtnW, 0)))
-      {
-        _confirmDelete = true;
-        ImGui.OpenPopup("##cm_confirm_delete");
-      }
+        _pendingOpenDelete = true;
+      ImGui.PopStyleColor();
+      ImGui.PopStyleColor();
       if (!canApply) ImGui.EndDisabled();
 
       // ---- Save current row ----
@@ -230,6 +231,12 @@ public sealed class ConManSubmod : ISubmod
     }
 
     ImGui.Spacing();
+    // Deferred popup open at content area scope (outside table ID stack)
+    if (_pendingOpenDelete)
+    {
+      ImGui.OpenPopup("##cm_confirm_delete");
+      _pendingOpenDelete = false;
+    }
     RenderDeleteConfirmPopup();
     RenderGaugeSummary();
 
@@ -244,29 +251,28 @@ public sealed class ConManSubmod : ISubmod
     var names = _layoutManager.GetLayoutNames();
     bool canDelete = _selectedLayoutIndex >= 0 && _selectedLayoutIndex < names.Length;
 
-    if (ImGui.BeginPopup("##cm_confirm_delete"))
+    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 16f));
+    bool open = true;
+    bool began = ImGui.BeginPopupModal("##cm_confirm_delete", ref open, ImGuiWindowFlags.AlwaysAutoResize);
+    ImGui.PopStyleVar();
+    if (!began) return;
+
+    if (canDelete)
     {
-      if (_confirmDelete && canDelete)
+      string deleteName = names[_selectedLayoutIndex];
+      ImGui.Text($"Delete layout '{deleteName}'?");
+      ImGui.Spacing();
+      if (ImGui.Button(" Yes, Delete ##cm"))
       {
-        string deleteName = names[_selectedLayoutIndex];
-        ImGui.Text($"Delete layout '{deleteName}'?");
-        ImGui.Spacing();
-        if (ImGui.Button("Yes, Delete##cm"))
-        {
-          _layoutManager.DeleteLayout(deleteName);
-          _selectedLayoutIndex = -1;
-          _confirmDelete = false;
-          ImGui.CloseCurrentPopup();
-        }
-        ImGui.SameLine();
-        if (ImGui.Button("Cancel##cm"))
-        {
-          _confirmDelete = false;
-          ImGui.CloseCurrentPopup();
-        }
+        _layoutManager.DeleteLayout(deleteName);
+        _selectedLayoutIndex = -1;
+        ImGui.CloseCurrentPopup();
       }
-      ImGui.EndPopup();
+      ImGui.SameLine(0, 8);
+      if (ImGui.Button(" Cancel ##cm"))
+        ImGui.CloseCurrentPopup();
     }
+    ImGui.EndPopup();
   }
 
   // --- Debug (live gauge data) ---
