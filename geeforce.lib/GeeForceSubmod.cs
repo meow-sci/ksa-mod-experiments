@@ -36,7 +36,9 @@ public sealed class GeeForceSubmod : ISubmod
 
     public void RenderContent()
     {
+        SubmodUI.BeginContentArea("##gf_content");
         GForceUI.RenderContent(_recorder, SampleIntervalSec);
+        SubmodUI.EndContentArea();
     }
 
     public void Dispose() { }
