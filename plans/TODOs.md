@@ -1,7 +1,5 @@
-- finish redesigning mod imgui contents and follow new established child window pattern and padding for consistency
 - refactor all UIs to optimize ImGui code
     - pre-compute data whenever possible and cache in instance or static variables as appropriate
     - minimize re-calculating values unnecessarily
     - ensure imgui code doesnt run when the window, child window or collapsed headers etc are not open/visible
-- remember imgui window layout position and collapsible header state (can we just use the default imgui persistence mechanism?)
-- remember which mods were visibile/hidden
+
