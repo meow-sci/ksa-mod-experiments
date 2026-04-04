@@ -40,6 +40,7 @@ public class Mod
     private bool _expandAll;
     private double _timeSinceLastSave;
     private bool _autoSaveEnabled = false;
+    private bool _showModTooltips = true;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -87,6 +88,7 @@ public class Mod
                 if (_submodVisibility.ContainsKey(kvp.Key))
                     _submodVisibility[kvp.Key] = kvp.Value;
             _autoSaveEnabled = GrantState.AutoSaveEnabled;
+            _showModTooltips = GrantState.ShowModTooltips;
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
@@ -191,6 +193,10 @@ public class Mod
                             _submodVisibility[s.Name] = false;
                     ImGui.Separator();
 
+                    if (ImGui.MenuItem("Submod Tooltips", "", ref _showModTooltips))
+                        GrantState.ShowModTooltips = _showModTooltips;
+                    ImGui.Separator();
+
                     var sorted = new List<ISubmod>(_submods);
                     sorted.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
                     foreach (var s in sorted)
@@ -243,9 +249,10 @@ public class Mod
                 else
                     ImGui.SetNextItemOpen(_headerOpen.GetValueOrDefault(submod.Name, true), ImGuiCond.Once);
 
-                bool isOpen = ImGui.CollapsingHeader($"{submod.Name}  (?)", ImGuiTreeNodeFlags.DefaultOpen);
+                var headerLabel = _showModTooltips ? $"{submod.Name}  (?)" : submod.Name;
+                bool isOpen = ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen);
                 _headerOpen[submod.Name] = isOpen;
-                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayNormal))
+                if (_showModTooltips && ImGui.IsItemHovered(ImGuiHoveredFlags.DelayNormal))
                     ImGui.SetTooltip(submod.Tooltip);
 
                 if (isOpen)

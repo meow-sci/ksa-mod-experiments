@@ -22,6 +22,7 @@ internal static class GrantState
 
     public static int SaveIntervalSeconds { get; set; } = DefaultSaveInterval;
     public static bool AutoSaveEnabled { get; set; } = DefaultAutoSaveEnabled;
+    public static bool ShowModTooltips { get; set; } = true;
 
     public static void LoadImGuiWindowState()
     {
@@ -119,6 +120,8 @@ internal static class GrantState
                     SaveIntervalSeconds = Math.Clamp((int)interval, 1, 30);
                 if (settings.TryGetValue("auto_save_enabled", out var autoSaveObj) && autoSaveObj is bool autoSave)
                     AutoSaveEnabled = autoSave;
+                if (settings.TryGetValue("show_mod_tooltips", out var tooltipsObj) && tooltipsObj is bool tooltips)
+                    ShowModTooltips = tooltips;
             }
 
             Console.WriteLine("grant: Loaded submod state");
@@ -154,6 +157,7 @@ internal static class GrantState
             var settings = new TomlTable();
             settings["save_interval"] = (long)SaveIntervalSeconds;
             settings["auto_save_enabled"] = AutoSaveEnabled;
+            settings["show_mod_tooltips"] = ShowModTooltips;
             root["settings"] = settings;
 
             File.WriteAllText(Path.Combine(_stateDir, StateTomlFile), Toml.FromModel(root));
