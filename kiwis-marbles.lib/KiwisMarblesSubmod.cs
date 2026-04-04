@@ -38,308 +38,363 @@ public sealed class KiwisMarblesSubmod : ISubmod
 
     public void RenderContent()
     {
-        // --- Create Weld ---
-        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Create Weld");
-        ImGui.Separator();
-        ImGui.Indent();
-        ImGui.Indent();
+        SubmodUI.BeginContentArea("##km_content");
+
+        RenderCreateSection();
+
+        if (_welds.Count > 0)
+        {
+            ImGui.Spacing();
+            ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
+
+            CelestialWeldEntry? toRemove = null;
+            for (int i = 0; i < _welds.Count; i++)
+                RenderWeldSection(_welds[i], i, ref toRemove);
+            if (toRemove != null)
+                RemoveWeld(toRemove);
+        }
+
+        SubmodUI.EndContentArea();
+    }
+
+    private void RenderCreateSection()
+    {
+        ImGui.SeparatorText("Create Weld");
 
         var celestials = CelestialProvider.GetAllCelestials();
         var orbiters = CelestialProvider.GetAllOrbiters();
 
-        if (celestials.Count == 0)
+        if (celestials.Count == 0) { ImGui.TextDisabled("No celestial bodies available."); return; }
+        if (orbiters.Count == 0) { ImGui.TextDisabled("No orbiters available."); return; }
+
+        // Source and Target combos in a 2-column SizingStretchProp table
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##km_selectors", 2, tableFlags))
         {
-            ImGui.Text("No celestial bodies available.");
-        }
-        else if (orbiters.Count == 0)
-        {
-            ImGui.Text("No orbiters available.");
-        }
-        else
-        {
-            // Source dropdown (celestial bodies only)
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            // Build arrays
             var celestialIds = new string[celestials.Count];
-            for (int i = 0; i < celestials.Count; i++)
-                celestialIds[i] = celestials[i].Id;
+            for (int i = 0; i < celestials.Count; i++) celestialIds[i] = celestials[i].Id;
+            var orbiterIds = new string[orbiters.Count];
+            for (int i = 0; i < orbiters.Count; i++) orbiterIds[i] = orbiters[i].Id;
 
             _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, celestials.Count - 1);
-            string sourcePrev = celestialIds[_pendingSourceIndex];
+            _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, orbiters.Count - 1);
 
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-            ImGui.SetNextItemWidth(-185f);
-            if (ImGui.BeginCombo("##kmsrc", sourcePrev, ImGuiComboFlags.HeightRegular))
+            // Source row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Source");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.BeginCombo("##kmsrc", celestialIds[_pendingSourceIndex]))
             {
-                if (ImGui.IsWindowAppearing())
-                {
-                    ImGui.SetKeyboardFocusHere();
-                    _sourceFilter.Clear();
-                }
+                if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _sourceFilter.Clear(); }
                 _sourceFilter.Draw("##kmsrcfilter", -1f);
                 for (int i = 0; i < celestials.Count; i++)
                 {
                     if (_sourceFilter.PassFilter(celestialIds[i]))
                     {
                         bool sel = _pendingSourceIndex == i;
-                        if (ImGui.Selectable(celestialIds[i], sel))
-                            _pendingSourceIndex = i;
+                        if (ImGui.Selectable(celestialIds[i], sel)) _pendingSourceIndex = i;
                         if (sel) ImGui.SetItemDefaultFocus();
                     }
                 }
                 ImGui.EndCombo();
             }
-            ImGui.PopStyleColor();
-            ImGui.SameLine();
-            ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Source (planet/moon)");
+            ImGui.SetItemTooltip("Source: the celestial body (planet or moon) that will be moved and locked\nto the target's position each frame.");
 
-            // Target dropdown (any orbiter)
-            var orbiterIds = new string[orbiters.Count];
-            for (int i = 0; i < orbiters.Count; i++)
-                orbiterIds[i] = orbiters[i].Id;
-
-            _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, orbiters.Count - 1);
-            string targetPrev = orbiterIds[_pendingTargetIndex];
-
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.RadioactiveGreen));
-            ImGui.SetNextItemWidth(-185f);
-            if (ImGui.BeginCombo("##kmtgt", targetPrev, ImGuiComboFlags.HeightRegular))
+            // Target row
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Target");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.BeginCombo("##kmtgt", orbiterIds[_pendingTargetIndex]))
             {
-                if (ImGui.IsWindowAppearing())
-                {
-                    ImGui.SetKeyboardFocusHere();
-                    _targetFilter.Clear();
-                }
+                if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _targetFilter.Clear(); }
                 _targetFilter.Draw("##kmtgtfilter", -1f);
                 for (int i = 0; i < orbiters.Count; i++)
                 {
                     if (_targetFilter.PassFilter(orbiterIds[i]))
                     {
                         bool sel = _pendingTargetIndex == i;
-                        if (ImGui.Selectable(orbiterIds[i], sel))
-                            _pendingTargetIndex = i;
+                        if (ImGui.Selectable(orbiterIds[i], sel)) _pendingTargetIndex = i;
                         if (sel) ImGui.SetItemDefaultFocus();
                     }
                 }
                 ImGui.EndCombo();
             }
-            ImGui.PopStyleColor();
-            ImGui.SameLine();
-            ImGui.TextColored((float4)KSAColor.Xkcd.RadioactiveGreen, "Target (any orbiter)");
+            ImGui.SetItemTooltip("Target: any orbiter (vehicle or another celestial) that the source will follow.");
 
-            var selectedSource = celestials[_pendingSourceIndex];
-            var selectedTarget = orbiters[_pendingTargetIndex];
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
 
-            // Surface placement helper
-            if (selectedTarget is Celestial targetCelestialPreview && (IOrbiter)selectedSource != selectedTarget)
-            {
-                double tR = targetCelestialPreview.MeanRadius;
-                double sR = selectedSource.MeanRadius;
-                double surfaceDist = tR + sR;
-                ImGui.Spacing();
-                ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
-                    $"  Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}   Center dist (surface): {FormatKm(surfaceDist)}");
-                if (ImGui.Button("Place on Surface (along X+)##kmsurfX"))
-                {
-                    double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
-                    _pendingOffset = new float3((float)(surfaceDist / s), 0f, 0f);
-                }
-                ImGui.SameLine();
-                if (ImGui.Button("Place on Surface (along Y+)##kmsurfY"))
-                {
-                    double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
-                    _pendingOffset = new float3(0f, (float)(surfaceDist / s), 0f);
-                }
-                ImGui.SameLine();
-                if (ImGui.Button("Place on Surface (along Z+)##kmsurfZ"))
-                {
-                    double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
-                    _pendingOffset = new float3(0f, 0f, (float)(surfaceDist / s));
-                }
-            }
+        var selectedSource = celestials[_pendingSourceIndex];
+        var selectedTarget = orbiters[_pendingTargetIndex];
 
-            // CCI offset input with unit scale selector
+        // Surface placement helper
+        if (selectedTarget is Celestial targetCelestialPreview && (IOrbiter)selectedSource != selectedTarget)
+        {
+            double tR = targetCelestialPreview.MeanRadius;
+            double sR = selectedSource.MeanRadius;
+            double surfaceDist = tR + sR;
             ImGui.Spacing();
-            ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-            ImGui.SetNextItemWidth(-100f);
+            ImGui.TextColored(new float4(0.6f, 0.8f, 0.6f, 1f),
+                $"Target r: {FormatKm(tR)}   Source r: {FormatKm(sR)}   Surface dist: {FormatKm(surfaceDist)}");
+
+            if (ImGui.Button(" +X ##kmsurfX"))
+            {
+                double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+                _pendingOffset = new float3((float)(surfaceDist / s), 0f, 0f);
+            }
+            ImGui.SetItemTooltip("Place source on surface of target along X+ axis");
+            ImGui.SameLine(0, 6);
+            if (ImGui.Button(" +Y ##kmsurfY"))
+            {
+                double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+                _pendingOffset = new float3(0f, (float)(surfaceDist / s), 0f);
+            }
+            ImGui.SetItemTooltip("Place source on surface of target along Y+ axis");
+            ImGui.SameLine(0, 6);
+            if (ImGui.Button(" +Z ##kmsurfZ"))
+            {
+                double s = OffsetScaleFactors[_pendingOffsetScaleIndex];
+                _pendingOffset = new float3(0f, 0f, (float)(surfaceDist / s));
+            }
+            ImGui.SetItemTooltip("Place source on surface of target along Z+ axis");
+        }
+
+        // CCI Offset in a 2-column table row, DragFloat3 + unit combo in widget column
+        ImGui.Spacing();
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##km_offset_row", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+        {
+            ImGui.TableSetupColumn("##lbl2", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget2", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("CCI Offset");
+            ImGui.SetItemTooltip("CCI (Center-of-Children-Independent) offset: the 3D displacement\nfrom the target's position where the source will be placed, in the chosen unit.");
+            ImGui.TableNextColumn();
+            float unitComboW = ImGui.CalcTextSize("Gm    ").X + ImGui.GetStyle().FramePadding.X * 2 + 20f;
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - unitComboW - ImGui.GetStyle().ItemSpacing.X);
             ImGui.DragFloat3("##kmoffset", ref _pendingOffset, 1f, 0f, 0f);
             ImGui.SameLine();
-            ImGui.SetNextItemWidth(82f);
+            ImGui.SetNextItemWidth(unitComboW);
             ImGui.Combo("##kmunit", ref _pendingOffsetScaleIndex, OffsetScaleLabels, OffsetScaleLabels.Length);
 
-            // Show computed offset in meters
-            double scale = OffsetScaleFactors[_pendingOffsetScaleIndex];
-            double3 computedOffset = new(
-                _pendingOffset.X * scale,
-                _pendingOffset.Y * scale,
-                _pendingOffset.Z * scale
-            );
-            ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
-                $"  = ({computedOffset.X:G5}, {computedOffset.Y:G5}, {computedOffset.Z:G5}) m");
-
-            ImGui.Separator();
-
-            if ((IOrbiter)selectedSource == selectedTarget)
-            {
-                ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), "Source and target must differ.");
-            }
-            else
-            {
-                if (_weldError != null)
-                    ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), _weldError);
-
-                if (ImGui.Button("Create Weld##kmweld"))
-                    InitiateWeld(selectedSource, selectedTarget, computedOffset);
-            }
+            ImGui.EndTable();
         }
+        ImGui.PopStyleVar(); // CellPadding
 
-        ImGui.Unindent();
-        ImGui.Unindent();
+        double scale = OffsetScaleFactors[_pendingOffsetScaleIndex];
+        double3 computedOffset = new(_pendingOffset.X * scale, _pendingOffset.Y * scale, _pendingOffset.Z * scale);
+        ImGui.TextDisabled($"= ({computedOffset.X:G5}, {computedOffset.Y:G5}, {computedOffset.Z:G5}) m");
 
-        // --- Active Welds ---
         ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.TextColored((float4)KSAColor.Xkcd.Custard, "Active Welds");
-        ImGui.Separator();
 
-        CelestialWeldEntry? toRemoveEntry = null;
-        for (int i = 0; i < _welds.Count; i++)
+        if ((IOrbiter)selectedSource == selectedTarget)
         {
-            ImGui.Spacing();
-            var weld = _welds[i];
-            string header = $"Weld {i + 1}: {weld.Source.Id} -> {weld.Target.Id}";
+            ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), "Source and target must differ.");
+        }
+        else
+        {
+            if (_weldError != null)
+                ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), _weldError);
 
-            if (ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
-            {
-                ImGui.Indent();
-                ImGui.Indent();
+            if (ImGui.Button(" Create Weld ##kmweld"))
+                InitiateWeld(selectedSource, selectedTarget, computedOffset);
+        }
+    }
 
-                ImGui.Text($"Source: {weld.Source.Id}  ->  Target: {weld.Target.Id}");
-                string parentName = weld.Source.Parent?.Id ?? "unknown";
-                ImGui.TextColored(new float4(0.5f, 0.8f, 1f, 1f), $"Source parent: {parentName}");
-                ImGui.Separator();
+    private void RenderWeldSection(CelestialWeldEntry weld, int i, ref CelestialWeldEntry? toRemove)
+    {
+        ImGui.PushID(i);
 
-                // Ensure edit state exists for this weld index
-                if (!_weldEditState.ContainsKey(i))
-                {
-                    int si = 1; // default km
-                    double sf = OffsetScaleFactors[si];
-                    _weldEditState[i] = (
-                        new float3((float)(weld.Offset.X / sf), (float)(weld.Offset.Y / sf), (float)(weld.Offset.Z / sf)),
-                        si
-                    );
-                }
-
-                var (proxy, scaleIdx) = _weldEditState[i];
-                bool targetIsCelestial = weld.Target is Celestial;
-
-                // Initialize surface state if needed
-                if (targetIsCelestial && !_weldSurfaceState.ContainsKey(i))
-                {
-                    var (initLon, initLat) = OffsetToLonLat(weld.Offset);
-                    _weldSurfaceState[i] = (initLon, initLat, 0f, false);
-                }
-
-                bool surfMode = targetIsCelestial && _weldSurfaceState.ContainsKey(i) && _weldSurfaceState[i].surfaceMode;
-                bool newSurfMode = surfMode;
-
-                if (targetIsCelestial)
-                    ImGui.Checkbox($"Surface Orbit Mode##{i}", ref newSurfMode);
-
-                if (targetIsCelestial && newSurfMode)
-                {
-                    var targetCel = (Celestial)weld.Target;
-                    double dist = targetCel.MeanRadius + weld.Source.MeanRadius;
-
-                    float curLon = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f;
-                    float curLat = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f;
-                    float curRadialKm = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f;
-
-                    // If just switched into surface mode, initialize angles from current offset
-                    if (!surfMode)
-                    {
-                        var (initLon2, initLat2) = OffsetToLonLat(weld.Offset);
-                        curLon = initLon2;
-                        curLat = initLat2;
-                        curRadialKm = 0f;
-                    }
-
-                    double actualDist = dist + curRadialKm * 1_000.0;
-                    ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
-                        $"  Surface dist: {FormatKm(dist)}  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
-
-                    ImGui.SetNextItemWidth(-1f);
-                    bool lonChanged = ImGui.DragFloat($"Longitude (left/right)##{i}", ref curLon, 0.3f, -360f, 360f, "%.1f deg");
-                    ImGui.SetNextItemWidth(-1f);
-                    bool latChanged = ImGui.DragFloat($"Latitude (up/down)##{i}", ref curLat, 0.3f, -360f, 360f, "%.1f deg");
-                    ImGui.SetNextItemWidth(-1f);
-                    bool radChanged = ImGui.DragFloat($"Altitude offset (in/out)##{i}", ref curRadialKm, 1f, -float.MaxValue, float.MaxValue, "%.1f km");
-
-                    if (lonChanged || latChanged || radChanged || !surfMode)
-                    {
-                        actualDist = dist + curRadialKm * 1_000.0;
-                        double lonRad = curLon * Math.PI / 180.0;
-                        double latRad = curLat * Math.PI / 180.0;
-                        weld.Offset = new double3(
-                            actualDist * Math.Cos(latRad) * Math.Cos(lonRad),
-                            actualDist * Math.Cos(latRad) * Math.Sin(lonRad),
-                            actualDist * Math.Sin(latRad)
-                        );
-                        double sf2 = OffsetScaleFactors[scaleIdx];
-                        proxy = new float3(
-                            (float)(weld.Offset.X / sf2),
-                            (float)(weld.Offset.Y / sf2),
-                            (float)(weld.Offset.Z / sf2)
-                        );
-                    }
-
-                    _weldSurfaceState[i] = (curLon, curLat, curRadialKm, true);
-                }
-                else
-                {
-                    // Raw CCI offset controls
-                    ImGui.TextColored((float4)KSAColor.Xkcd.Orangeish, "CCI Offset (x / y / z)");
-                    ImGui.SameLine();
-                    ImGui.SetNextItemWidth(82f);
-                    if (ImGui.Combo($"##kmwunit{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
-                    {
-                        double newSf = OffsetScaleFactors[scaleIdx];
-                        proxy = new float3(
-                            (float)(weld.Offset.X / newSf),
-                            (float)(weld.Offset.Y / newSf),
-                            (float)(weld.Offset.Z / newSf)
-                        );
-                    }
-
-                    ImGui.SetNextItemWidth(-1f);
-                    if (ImGui.DragFloat3($"##kmwoffset{i}", ref proxy, 1f, 0f, 0f))
-                    {
-                        double sf = OffsetScaleFactors[scaleIdx];
-                        weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
-                    }
-
-                    if (targetIsCelestial)
-                        _weldSurfaceState[i] = (_weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f,
-                                                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f,
-                                                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f,
-                                                false);
-                }
-
-                _weldEditState[i] = (proxy, scaleIdx);
-
-                // Show actual offset in meters
-                ImGui.TextColored(new float4(0.5f, 0.5f, 0.5f, 1f),
-                    $"  = ({weld.Offset.X:G5}, {weld.Offset.Y:G5}, {weld.Offset.Z:G5}) m");
-
-                ImGui.Separator();
-                if (ImGui.Button($"Unweld##{i}"))
-                    toRemoveEntry = weld;
-
-                ImGui.Unindent();
-                ImGui.Unindent();
-            }
+        string header = $"Weld {i + 1}: {weld.Source.Id} \u2192 {weld.Target.Id}##km_weld_{i}";
+        if (!ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.PopID();
+            return;
         }
 
-        if (toRemoveEntry != null)
-            RemoveWeld(toRemoveEntry);
+        // Gary's Torch bordered child window pattern
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild($"km_child_{i}", new float2(childW, 0),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+            ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar(); // WindowPadding
+
+        // Info row
+        string parentName = weld.Source.Parent?.Id ?? "unknown";
+        ImGui.TextDisabled($"Source parent: {parentName}");
+
+        // Ensure edit state exists
+        if (!_weldEditState.ContainsKey(i))
+        {
+            int si = 1;
+            double sf = OffsetScaleFactors[si];
+            _weldEditState[i] = (
+                new float3((float)(weld.Offset.X / sf), (float)(weld.Offset.Y / sf), (float)(weld.Offset.Z / sf)),
+                si
+            );
+        }
+
+        var (proxy, scaleIdx) = _weldEditState[i];
+        bool targetIsCelestial = weld.Target is Celestial;
+
+        if (targetIsCelestial && !_weldSurfaceState.ContainsKey(i))
+        {
+            var (initLon, initLat) = OffsetToLonLat(weld.Offset);
+            _weldSurfaceState[i] = (initLon, initLat, 0f, false);
+        }
+
+        bool surfMode = targetIsCelestial && _weldSurfaceState.ContainsKey(i) && _weldSurfaceState[i].surfaceMode;
+        bool newSurfMode = surfMode;
+
+        // Offset controls section using 2-column table
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable($"##km_weld_tbl_{i}", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            if (targetIsCelestial)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Surface Mode");
+                ImGui.TableNextColumn();
+                ImGui.Checkbox($"##km_surf_chk_{i}", ref newSurfMode);
+                ImGui.SetItemTooltip("Lock source to the surface of the target celestial body using longitude/latitude.");
+            }
+
+            if (!newSurfMode)
+            {
+                // Unit selector row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Unit");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                if (ImGui.Combo($"##km_wunit_{i}", ref scaleIdx, OffsetScaleLabels, OffsetScaleLabels.Length))
+                {
+                    double newSf = OffsetScaleFactors[scaleIdx];
+                    proxy = new float3((float)(weld.Offset.X / newSf), (float)(weld.Offset.Y / newSf), (float)(weld.Offset.Z / newSf));
+                }
+
+                // Offset DragFloat3 row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Offset (x/y/z)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat3($"##km_woffset_{i}", ref proxy, 1f, 0f, 0f))
+                {
+                    double sf = OffsetScaleFactors[scaleIdx];
+                    weld.Offset = new double3(proxy.X * sf, proxy.Y * sf, proxy.Z * sf);
+                }
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        if (targetIsCelestial && newSurfMode)
+        {
+            var targetCel = (Celestial)weld.Target;
+            double dist = targetCel.MeanRadius + weld.Source.MeanRadius;
+
+            float curLon = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f;
+            float curLat = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f;
+            float curRadialKm = _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f;
+
+            if (!surfMode)
+            {
+                var (initLon2, initLat2) = OffsetToLonLat(weld.Offset);
+                curLon = initLon2; curLat = initLat2; curRadialKm = 0f;
+            }
+
+            ImGui.TextDisabled($"Surface dist: {FormatKm(dist)}  (target r: {FormatKm(targetCel.MeanRadius)} + source r: {FormatKm(weld.Source.MeanRadius)})");
+
+            bool lonChanged = false, latChanged = false, radChanged = false;
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable($"##km_surf_tbl_{i}", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+            {
+                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Longitude (\u00b0)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                lonChanged = ImGui.DragFloat($"##km_lon_{i}", ref curLon, 0.3f, -360f, 360f, "%.1f");
+
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Latitude (\u00b0)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                latChanged = ImGui.DragFloat($"##km_lat_{i}", ref curLat, 0.3f, -360f, 360f, "%.1f");
+
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Altitude (km)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                radChanged = ImGui.DragFloat($"##km_alt_{i}", ref curRadialKm, 1f, -float.MaxValue, float.MaxValue, "%.1f");
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar(); // CellPadding
+
+            if (lonChanged || latChanged || radChanged || !surfMode)
+            {
+                double actualDist = dist + curRadialKm * 1_000.0;
+                double lonRad = curLon * Math.PI / 180.0;
+                double latRad = curLat * Math.PI / 180.0;
+                weld.Offset = new double3(
+                    actualDist * Math.Cos(latRad) * Math.Cos(lonRad),
+                    actualDist * Math.Cos(latRad) * Math.Sin(lonRad),
+                    actualDist * Math.Sin(latRad)
+                );
+                double sf2 = OffsetScaleFactors[scaleIdx];
+                proxy = new float3((float)(weld.Offset.X / sf2), (float)(weld.Offset.Y / sf2), (float)(weld.Offset.Z / sf2));
+            }
+
+            _weldSurfaceState[i] = (curLon, curLat, curRadialKm, true);
+        }
+        else if (targetIsCelestial)
+        {
+            _weldSurfaceState[i] = (
+                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lon : 0f,
+                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].lat : 0f,
+                _weldSurfaceState.ContainsKey(i) ? _weldSurfaceState[i].radialKm : 0f,
+                false
+            );
+        }
+
+        _weldEditState[i] = (proxy, scaleIdx);
+
+        ImGui.TextDisabled($"= ({weld.Offset.X:G5}, {weld.Offset.Y:G5}, {weld.Offset.Z:G5}) m");
+
+        ImGui.Spacing();
+
+        // Unweld button styled as destructive
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32((float4)KSAColor.Xkcd.Scarlet));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32((float4)KSAColor.Xkcd.PaleGrey));
+        if (ImGui.Button($" Unweld ##km_{i}"))
+            toRemove = weld;
+        ImGui.PopStyleColor();
+        ImGui.PopStyleColor();
+
+        ImGui.Spacing();
+        ImGui.EndChild();
+
+        ImGui.PopID();
     }
 
     public void Dispose() { }
