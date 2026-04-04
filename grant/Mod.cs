@@ -262,6 +262,14 @@ public class Mod
                 _windowVisible = false;
         }
         ImGui.End();
+
+        // Floating windows (e.g. editor popups) are rendered unconditionally so they
+        // are not affected by whether the parent collapsing section is open.
+        foreach (var submod in _submods)
+        {
+            try { submod.RenderFloatingWindows(); }
+            catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
+        }
     }
 
     private void SaveAll()

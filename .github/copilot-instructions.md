@@ -1,12 +1,8 @@
----
-applyTo: '**'
----
-
 # repository maintenance
 
 - `REPOSITORY_INDEX.md` - MUST be maintained with high level information about every csharp project and what it does to act as a discovery guide for ai coding agents
-- a REAMDME.md file MUST be maintained in each csharp project folder with more detailed information about the mod, its features, and how to use it. Always refer to these README.md files for in-depth understanding of each mod's capabilities and implementation details.
-- MUST when creating or modifying mods and mod.lib libraries, ensure that `REPOSITORY_INDEX.md` is updated and the repostories README.md is updated accordingly
+- a README.md file MUST be maintained in each csharp project folder with more detailed information about the mod, its features, and how to use it. Always refer to these README.md files for in-depth understanding of each mod's capabilities and implementation details.
+- MUST when creating or modifying mods and mod.lib libraries, ensure that `REPOSITORY_INDEX.md` is updated and the repositories README.md is updated accordingly
 
 # existing funcionality discovery
 

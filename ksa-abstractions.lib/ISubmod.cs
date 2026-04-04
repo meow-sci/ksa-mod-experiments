@@ -21,6 +21,14 @@ public interface ISubmod
     /// </summary>
     void RenderContent();
 
+    /// <summary>
+    /// Renders any floating/secondary ImGui windows (e.g. stand-alone editor windows).
+    /// Called every frame regardless of whether the submod's section is collapsed, so
+    /// windows opened by this submod remain consistent with their own visibility state.
+    /// Default implementation is a no-op.
+    /// </summary>
+    void RenderFloatingWindows() { }
+
     /// <summary>Called during unload to clean up resources.</summary>
     void Dispose();
 }

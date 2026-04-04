@@ -113,7 +113,10 @@ public sealed class SkittlesSubmod : ISubmod
         if (!canDelete) ImGui.EndDisabled();
 
         SubmodUI.EndContentArea();
+    }
 
+    public void RenderFloatingWindows()
+    {
         if (_editorVisible)
             RenderEditorWindow();
     }
