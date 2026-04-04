@@ -42,8 +42,8 @@ public sealed class EternalFlameSubmod : ISubmod
 
     private void RenderVehicleSelector()
     {
-        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
-        if (vehicles == null || vehicles.Count == 0)
+        var vehicles = VehicleProvider.GetAllVehicles();
+        if (vehicles.Count == 0)
         {
             ImGui.TextDisabled("No vehicles available");
             return;
@@ -94,9 +94,8 @@ public sealed class EternalFlameSubmod : ISubmod
 
     private void RenderAddButton()
     {
-        var vehicles = Universe.CurrentSystem?.Vehicles.GetList();
+        var vehicles = VehicleProvider.GetAllVehicles();
         bool canAdd = _selectedVehicleIndex >= 0
-            && vehicles != null
             && _selectedVehicleIndex < vehicles.Count;
 
         if (!canAdd) ImGui.BeginDisabled();
