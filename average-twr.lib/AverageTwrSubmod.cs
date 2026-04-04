@@ -117,7 +117,7 @@ public sealed class AverageTwrSubmod : ISubmod
         ImGui.SameLine(0, 8);
 
         if (n == 0) ImGui.BeginDisabled();
-        if (ImGui.Button(" ↺ Reset ##atwr"))
+        if (ImGui.Button(" Reset ##atwr"))
             _accumulator.Reset();
         if (n == 0) ImGui.EndDisabled();
 

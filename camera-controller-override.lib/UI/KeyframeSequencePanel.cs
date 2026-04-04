@@ -125,7 +125,7 @@ public static class KeyframeSequencePanel
         ImGui.SameLine(0, 8);
 
         ImGui.BeginDisabled(!isPlaying);
-        if (ImGui.Button(" ⏸ Pause ##cco")) player.Pause();
+        if (ImGui.Button(" ■ Pause ##cco")) player.Pause();
         ImGui.EndDisabled();
 
         ImGui.SameLine(0, 8);
@@ -137,7 +137,7 @@ public static class KeyframeSequencePanel
         ImGui.SameLine(0, 8);
 
         ImGui.BeginDisabled(isStopped);
-        if (ImGui.Button(" ⏹ Stop ##cco")) player.Stop();
+        if (ImGui.Button(" ■ Stop ##cco")) player.Stop();
         ImGui.EndDisabled();
 
         ImGui.SameLine(0, 8);
