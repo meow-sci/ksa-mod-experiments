@@ -74,7 +74,7 @@ public class Mod
 
     private void RenderWindow()
     {
-        ImGui.SetNextWindowSize(new float2(520, 440), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(560, 680), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("G-Force Monitor", ref _windowVisible))
             _submod.RenderContent();
         ImGui.End();

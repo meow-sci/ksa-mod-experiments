@@ -15,8 +15,10 @@ public sealed class GeeForceSubmod : ISubmod
 
     public void Initialize()
     {
-        int capacity = GForceUI.GetRequiredCapacity(SampleIntervalSec);
-        _recorder = new GForceRecorder(capacity, SampleIntervalSec);
+        // Always allocate up to 1 hour of samples so all recorded data is retained.
+        // The view window selection in the UI controls how much is displayed.
+        int maxCapacity = (int)(3600.0 / SampleIntervalSec);
+        _recorder = new GForceRecorder(maxCapacity, SampleIntervalSec);
     }
 
     public void Update(double dt)

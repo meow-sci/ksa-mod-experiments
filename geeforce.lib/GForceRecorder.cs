@@ -31,7 +31,7 @@ public class GForceRecorder
     public int JerkBreaches { get; private set; }
     public int PeakIndex { get; private set; }
     public GForceSample Latest { get; private set; }
-    public bool IsRecording { get; set; } = true;
+    public bool IsRecording { get; set; } = false;
 
     public int Count => _count;
     public int Capacity => _buffer.Length;
