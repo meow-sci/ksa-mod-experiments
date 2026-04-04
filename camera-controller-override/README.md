@@ -9,13 +9,15 @@ Camera Controller Override lets you:
 - **Orbital movements** - Orbit and loopy-orbit animations with circular paths
 - **Spiral effects** - Combined rotation and zoom for dramatic camera movements
 - **Shake effects** - Vibration animations for impact/collision scenes
+- **Pan movement** - Translate the camera by an offset while tracking the target
+- **Rotation control** - Rotate camera look-direction (yaw/pitch) from a fixed point
 - **Keyframe sequences** - Chain multiple animations together
 - **Custom easing** - Adjust acceleration/deceleration with easing power parameter
 - **Return-to-start** - Automatically animate back to initial camera position
 
 ## Features
 
-- **8+ animation types** - Zoom in/out, spiral zoom, standard orbit, loopy orbit, shake, and more
+- **10 animation types** - Zoom in/out, spiral zoom, orbit, loopy orbit, shake, pan, rotate, and more
 - **Easing function support** - Linear, EaseIn, EaseOut and configurable power parameter
 - **Duration control** - Specify animation length in seconds
 - **Keyframe sequencing** - Play multiple animations in sequence
@@ -98,6 +100,8 @@ public interface IKeyframeAnimation
 | Orbit | Circular orbit around target | duration, degrees, easing |
 | LoopyOrbit | Oscillating orbital figure-8 | loop interval, amplitude, duration, easing |
 | Shake | Vibration animation | duration, count, amplitude, speed, easing |
+| Pan | Translate camera by offset | offset (x/y/z), duration, easing |
+| Rotate | Rotate camera look-direction | yaw, pitch, duration, easing |
 
 ### Easing Functions
 
@@ -181,6 +185,24 @@ distance = startDistance + progress * speedDelta
 for each axis:
     shake = sin(time * speed * TAU) * amplitude * sin(π * progress)
     // Shake intensity fades as progress approaches 1.0
+```
+
+### Pan Animation
+```
+// Absolute offset interpolation from start position
+position = startPosition + offset * easedProgress
+// Camera continues tracking the target throughout the pan
+```
+
+### Rotate Animation
+```
+// Absolute rotation from start orientation using yaw/pitch
+yawQuat = CreateFromAxisAngle(startUpAxis, yaw * easedProgress)
+pitchQuat = CreateFromAxisAngle(startRightAxis, pitch * easedProgress)
+rotation = yawQuat * pitchQuat * startRotation
+// Camera position stays fixed; only look-direction changes
+// Positive yaw = look right, negative = look left
+// Positive pitch = look up, negative = look down
 ```
 
 ## Usage Example
