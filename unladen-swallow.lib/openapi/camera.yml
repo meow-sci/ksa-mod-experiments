@@ -1,0 +1,622 @@
+openapi: 3.1.0
+
+info:
+  title: Unladen Swallow — Camera Animation API
+  version: 1.0.0
+  description: >
+    Camera animation control endpoints for the Unladen Swallow RPC server.
+    Allows running sequenced camera animations with optional grouped (simultaneous)
+    steps and return-to-start behavior.
+    Listens on http://localhost:7887.
+
+servers:
+  - url: http://localhost:7887
+    description: Local KSA mod server
+
+paths:
+
+  /camera/animate:
+    post:
+      summary: Start a camera animation sequence
+      description: >
+        Submits a sequence of camera animation steps for playback.
+        Each step is either a single animation or a group of animations
+        that play simultaneously. If an animation is already running, it
+        is stopped and replaced. Optionally configure a return-to-start
+        animation that plays after the sequence completes.
+      operationId: startCameraAnimation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CameraAnimateRequest'
+            examples:
+              simpleOrbit:
+                summary: Simple orbit with return to start
+                value:
+                  sequence:
+                    - orbit:
+                        degrees: 360
+                        durationSeconds: 10.0
+                        easing: easeInOut
+                  returnToStart:
+                    durationSeconds: 3.0
+                    easing: easeInOut
+              zoomAndOrbit:
+                summary: Zoom out then orbit
+                value:
+                  sequence:
+                    - zoomOut:
+                        speedMetersPerSecond: 5.0
+                        durationSeconds: 3.0
+                        easing: easeOut
+                    - orbit:
+                        degrees: 180
+                        durationSeconds: 8.0
+                        easing: easeInOut
+              groupExample:
+                summary: Simultaneous orbit + zoom out
+                value:
+                  sequence:
+                    - group:
+                        - orbit:
+                            degrees: 360
+                            durationSeconds: 10.0
+                            easing: linear
+                        - zoomOut:
+                            speedMetersPerSecond: 2.0
+                            durationSeconds: 10.0
+                            easing: easeIn
+      responses:
+        '200':
+          description: Animation started successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraAnimateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ModNotLoaded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /camera/status:
+    get:
+      summary: Get current camera animation status
+      description: >
+        Returns the current playback state of the camera animation system,
+        including whether an animation is playing, the current keyframe index,
+        and elapsed time.
+      operationId: getCameraStatus
+      responses:
+        '200':
+          description: Current playback status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraStatusResponse'
+        '503':
+          $ref: '#/components/responses/ModNotLoaded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /camera/stop:
+    delete:
+      summary: Stop running camera animation
+      description: >
+        Stops any running camera animation immediately and returns the
+        previous playback state. If no animation is running, returns
+        "Stopped" as the previous state.
+      operationId: stopCameraAnimation
+      responses:
+        '200':
+          description: Animation stopped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraStopResponse'
+        '503':
+          $ref: '#/components/responses/ModNotLoaded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  schemas:
+
+    # ── Easing ──────────────────────────────────────────────────────────────
+
+    CameraEasingType:
+      type: string
+      enum: [linear, easeIn, easeOut, easeInOut]
+      description: >
+        Easing function for animation interpolation.
+        linear: constant speed.
+        easeIn: slow start, fast end.
+        easeOut: fast start, slow end.
+        easeInOut: smooth acceleration and deceleration.
+
+    # ── Animation Common Base ───────────────────────────────────────────────
+
+    AnimationBase:
+      type: object
+      description: Common properties shared by all animation types.
+      properties:
+        durationSeconds:
+          type: number
+          format: double
+          description: Total duration of the animation in seconds.
+          example: 5.0
+        easing:
+          $ref: '#/components/schemas/CameraEasingType'
+          default: linear
+        easingPowerStart:
+          type: number
+          format: double
+          description: >
+            Power parameter for the acceleration phase of easing (1.0=linear,
+            2.0=quadratic, 3.0=cubic). Higher values produce a more extreme curve.
+          default: 3.0
+          example: 3.0
+        easingPowerEnd:
+          type: number
+          format: double
+          description: Power parameter for the deceleration phase of easing.
+          default: 3.0
+          example: 3.0
+      required:
+        - durationSeconds
+
+    # ── Individual Animation Types ─────────────────────────────────────────
+
+    CameraZoomOut:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Move camera away from the target at a given speed.
+          properties:
+            speedMetersPerSecond:
+              type: number
+              format: double
+              description: Movement speed away from target in meters per second.
+              example: 5.0
+          required:
+            - speedMetersPerSecond
+
+    CameraZoomIn:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Move camera toward the target at a given speed (stops at 1m minimum distance).
+          properties:
+            speedMetersPerSecond:
+              type: number
+              format: double
+              description: Movement speed toward target in meters per second.
+              example: 5.0
+          required:
+            - speedMetersPerSecond
+
+    CameraZoomInToOffset:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Zoom toward a specific point offset from the camera target.
+          properties:
+            speedMetersPerSecond:
+              type: number
+              format: double
+              example: 5.0
+            offsetX:
+              type: number
+              format: double
+              description: X offset from target in meters.
+              example: 10.0
+            offsetY:
+              type: number
+              format: double
+              description: Y offset from target in meters.
+              example: 0.0
+            offsetZ:
+              type: number
+              format: double
+              description: Z offset from target in meters.
+              example: 5.0
+          required:
+            - speedMetersPerSecond
+            - offsetX
+            - offsetY
+            - offsetZ
+
+    CameraOrbit:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Circular orbit around the camera target. Positive degrees = counterclockwise.
+          properties:
+            degrees:
+              type: number
+              format: double
+              description: Total orbit angle in degrees.
+              example: 360.0
+          required:
+            - degrees
+
+    CameraLoopyOrbit:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: >
+            Orbit with sinusoidal in/out oscillation. Camera orbits while
+            moving in and out at regular intervals.
+          properties:
+            degrees:
+              type: number
+              format: double
+              description: Total orbit angle in degrees.
+              example: 360.0
+            loopIntervalDegrees:
+              type: number
+              format: double
+              description: Degrees between oscillation peaks.
+              example: 90.0
+            amplitudeMeters:
+              type: number
+              format: double
+              description: Oscillation amplitude in meters.
+              example: 50.0
+          required:
+            - degrees
+            - loopIntervalDegrees
+            - amplitudeMeters
+
+    CameraSpiralZoomIn:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Zoom in while spiraling around the camera look axis.
+          properties:
+            speedMetersPerSecond:
+              type: number
+              format: double
+              example: 5.0
+            spiralDegrees:
+              type: number
+              format: double
+              description: Total spiral rotation in degrees.
+              example: 720.0
+          required:
+            - speedMetersPerSecond
+            - spiralDegrees
+
+    CameraSpiralZoomOut:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Zoom out while spiraling around the camera look axis.
+          properties:
+            speedMetersPerSecond:
+              type: number
+              format: double
+              example: 5.0
+            spiralDegrees:
+              type: number
+              format: double
+              description: Total spiral rotation in degrees.
+              example: 720.0
+          required:
+            - speedMetersPerSecond
+            - spiralDegrees
+
+    CameraShake:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: >
+            Head-shaking yaw rotation effect using sinusoidal oscillation.
+            Useful as a group member alongside other animations.
+          properties:
+            shakeCount:
+              type: integer
+              description: Number of full shake oscillations.
+              example: 5
+            amplitudeDegrees:
+              type: number
+              format: double
+              description: Maximum yaw deflection in degrees.
+              example: 10.0
+            shakeSpeed:
+              type: number
+              format: double
+              description: Speed multiplier for shake oscillation.
+              example: 1.0
+          required:
+            - shakeCount
+            - amplitudeDegrees
+            - shakeSpeed
+
+    CameraPan:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: >
+            Camera-local offset movement. Axes are relative to current camera
+            orientation: X=right, Y=up, Z=forward.
+          properties:
+            offsetX:
+              type: number
+              format: double
+              description: Right offset in meters.
+              example: 5.0
+            offsetY:
+              type: number
+              format: double
+              description: Up offset in meters.
+              example: 0.0
+            offsetZ:
+              type: number
+              format: double
+              description: Forward offset in meters.
+              example: 0.0
+          required:
+            - offsetX
+            - offsetY
+            - offsetZ
+
+    CameraRotate:
+      allOf:
+        - $ref: '#/components/schemas/AnimationBase'
+        - type: object
+          description: Yaw and pitch rotation from a fixed camera position.
+          properties:
+            yawDegrees:
+              type: number
+              format: double
+              description: Total yaw rotation in degrees.
+              example: 45.0
+            pitchDegrees:
+              type: number
+              format: double
+              description: Total pitch rotation in degrees. Negative = look up.
+              example: -15.0
+          required:
+            - yawDegrees
+            - pitchDegrees
+
+    # ── Sequence Step ──────────────────────────────────────────────────────
+
+    CameraSequenceStep:
+      type: object
+      description: >
+        A single step in a camera animation sequence. Set exactly ONE animation
+        type property, OR set "group" to run multiple animations simultaneously.
+        Nested groups (groups inside groups) are not allowed.
+      properties:
+        zoomOut:
+          $ref: '#/components/schemas/CameraZoomOut'
+        zoomIn:
+          $ref: '#/components/schemas/CameraZoomIn'
+        zoomInToOffset:
+          $ref: '#/components/schemas/CameraZoomInToOffset'
+        orbit:
+          $ref: '#/components/schemas/CameraOrbit'
+        loopyOrbit:
+          $ref: '#/components/schemas/CameraLoopyOrbit'
+        spiralZoomIn:
+          $ref: '#/components/schemas/CameraSpiralZoomIn'
+        spiralZoomOut:
+          $ref: '#/components/schemas/CameraSpiralZoomOut'
+        shake:
+          $ref: '#/components/schemas/CameraShake'
+        pan:
+          $ref: '#/components/schemas/CameraPan'
+        rotate:
+          $ref: '#/components/schemas/CameraRotate'
+        group:
+          type: array
+          description: >
+            Array of animation steps to play simultaneously. Each entry must
+            be a single animation (no nested groups). The group's duration
+            equals the longest child animation; shorter animations freeze at
+            their final state.
+          items:
+            $ref: '#/components/schemas/CameraSequenceStep'
+
+    # ── Return to Start ────────────────────────────────────────────────────
+
+    CameraReturnToStart:
+      type: object
+      description: >
+        Configuration for the return-to-start animation that plays after the
+        sequence completes. Smoothly animates the camera position and rotation
+        back to where it was when the sequence began. Omit this object entirely
+        to skip the return animation.
+      properties:
+        durationSeconds:
+          type: number
+          format: double
+          description: Duration of the return animation in seconds. Clamped to 1.0–10.0.
+          default: 3.0
+          example: 3.0
+        easing:
+          $ref: '#/components/schemas/CameraEasingType'
+          default: easeInOut
+        easingPowerStart:
+          type: number
+          format: double
+          default: 3.0
+        easingPowerEnd:
+          type: number
+          format: double
+          default: 3.0
+
+    # ── Request / Response ─────────────────────────────────────────────────
+
+    CameraAnimateRequest:
+      type: object
+      description: Request body for POST /camera/animate.
+      properties:
+        sequence:
+          type: array
+          description: Ordered list of animation steps to execute sequentially.
+          items:
+            $ref: '#/components/schemas/CameraSequenceStep'
+          minItems: 1
+        returnToStart:
+          $ref: '#/components/schemas/CameraReturnToStart'
+          description: >
+            Optional. If provided, camera returns to its starting position and
+            rotation after the sequence completes. If omitted, camera stays at
+            final position.
+      required:
+        - sequence
+
+    CameraAnimateResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CameraAnimateResult'
+
+    CameraAnimateResult:
+      type: object
+      properties:
+        keyframeCount:
+          type: integer
+          description: Number of keyframes in the submitted sequence.
+          example: 3
+        totalDurationSeconds:
+          type: number
+          format: double
+          description: Total duration of all keyframes combined (excludes return-to-start).
+          example: 18.0
+        returnToStartEnabled:
+          type: boolean
+          description: Whether return-to-start was configured.
+          example: true
+      required:
+        - keyframeCount
+        - totalDurationSeconds
+        - returnToStartEnabled
+
+    CameraStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CameraPlaybackStatus'
+
+    CameraPlaybackStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [Stopped, Playing, Paused]
+          description: Current playback state.
+          example: Playing
+        isReturningToStart:
+          type: boolean
+          description: Whether the return-to-start animation is currently playing.
+          example: false
+        currentKeyframeIndex:
+          type: integer
+          description: 0-based index of the currently playing keyframe.
+          example: 1
+        totalKeyframes:
+          type: integer
+          description: Total number of keyframes in the loaded sequence.
+          example: 3
+        totalElapsedTime:
+          type: number
+          format: double
+          description: Total seconds elapsed since playback started.
+          example: 5.2
+        totalDurationSeconds:
+          type: number
+          format: double
+          description: Total duration of all keyframes.
+          example: 18.0
+      required:
+        - state
+        - isReturningToStart
+        - currentKeyframeIndex
+        - totalKeyframes
+        - totalElapsedTime
+        - totalDurationSeconds
+
+    CameraStopResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CameraStopResult'
+
+    CameraStopResult:
+      type: object
+      properties:
+        previousState:
+          type: string
+          enum: [Stopped, Playing, Paused]
+          description: The playback state before the stop was issued.
+          example: Playing
+      required:
+        - previousState
+
+    # ── Shared ─────────────────────────────────────────────────────────────
+
+    ApiResponseBase:
+      type: object
+      description: Standard API response envelope wrapping all successful responses.
+      properties:
+        status:
+          type: string
+          description: Always "ok" for successful responses.
+          example: ok
+        data:
+          description: Response payload (type varies by endpoint).
+      required:
+        - status
+        - data
+
+    ErrorResponse:
+      type: object
+      description: Error response envelope returned on 4xx/5xx.
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: An unexpected error occurred.
+      required:
+        - status
+        - message
+
+  responses:
+
+    BadRequest:
+      description: Bad request — missing or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ModNotLoaded:
+      description: Camera controller override mod is not currently loaded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Unexpected server-side error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
