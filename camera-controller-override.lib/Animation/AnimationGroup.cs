@@ -10,20 +10,21 @@ namespace MeowSci.CameraControllerOverrideLib.Animation;
 /// Runs multiple animations simultaneously by compositing their effects.
 ///
 /// Position-contributing animations (Pan, Zoom, Orbit, etc.) each run in an isolated
-/// virtual transform. Their position deltas from the base state are summed to produce
-/// the final composed position.
+/// virtual transform. Their offset-from-target deltas are summed to produce the
+/// final composed position relative to the current target.
 ///
 /// Rotation-only animations (Rotate, Shake) are handled specially: after LookAt rotation
 /// is computed from the composed position, their yaw/pitch contributions are applied
 /// on top using the current view axes.
 ///
-/// The group's duration equals the longest child animation. Shorter animations freeze
-/// at their final state when they complete.
+/// All position tracking is target-relative so the group correctly follows a moving
+/// spacecraft. The group's duration equals the longest child animation. Shorter
+/// animations freeze at their final state when they complete.
 /// </summary>
 public class AnimationGroup : IKeyframeAnimation
 {
     private readonly List<GroupEntry> _entries = new();
-    private double3 _basePosition;
+    private double3 _baseOffset;       // camera offset from target at init
     private doubleQuat _baseRotation;
     private string _description = "Empty group";
 
@@ -49,29 +50,33 @@ public class AnimationGroup : IKeyframeAnimation
 
     public void Initialize(Controller controller, Transform3D transform)
     {
-        _basePosition = transform.PositionEcl;
+        double3 targetPos = AnimationHelpers.GetTargetPosition(controller, transform.PositionEcl);
+        _baseOffset = transform.PositionEcl - targetPos;
         _baseRotation = transform.LocalRotation;
 
         foreach (var entry in _entries)
         {
-            transform.PositionEcl = _basePosition;
+            transform.PositionEcl = targetPos + _baseOffset;
             transform.LocalRotation = _baseRotation;
             entry.Animation.Initialize(controller, transform);
-            entry.VirtualPosition = _basePosition;
+            entry.VirtualOffset = _baseOffset;
             entry.VirtualRotation = _baseRotation;
             entry.IsFinalized = false;
         }
 
-        transform.PositionEcl = _basePosition;
+        transform.PositionEcl = targetPos + _baseOffset;
         transform.LocalRotation = _baseRotation;
 
-        Console.WriteLine($"[AnimationGroup] Initialize: {_entries.Count} animations, duration={DurationSeconds:F1}s");
+        Console.WriteLine($"[AnimationGroup] Initialize: {_entries.Count} animations, duration={DurationSeconds:F1}s, baseOffset={_baseOffset}");
     }
 
     public bool Update(Controller controller, Transform3D transform, double deltaTime, double elapsedTime)
     {
-        // Phase 1: Update position-contributing animations in virtual state, collect deltas
-        double3 totalPositionDelta = double3.Zero;
+        double3 currentTargetPos = LookAtTargetProvider?.Invoke(controller)
+            ?? AnimationHelpers.GetTargetPosition(controller);
+
+        // Phase 1: Update position-contributing animations in virtual state, collect offset deltas
+        double3 totalOffsetDelta = double3.Zero;
 
         foreach (var entry in _entries)
         {
@@ -80,38 +85,38 @@ public class AnimationGroup : IKeyframeAnimation
 
             if (entry.IsFinalized)
             {
-                totalPositionDelta += entry.VirtualPosition - _basePosition;
+                totalOffsetDelta += entry.VirtualOffset - _baseOffset;
                 continue;
             }
 
-            transform.PositionEcl = entry.VirtualPosition;
+            // Set virtual transform relative to current target
+            transform.PositionEcl = currentTargetPos + entry.VirtualOffset;
             transform.LocalRotation = entry.VirtualRotation;
 
             bool complete = entry.Animation.Update(controller, transform, deltaTime, elapsedTime);
 
-            entry.VirtualPosition = transform.PositionEcl;
+            // Extract offset from current target
+            entry.VirtualOffset = transform.PositionEcl - currentTargetPos;
             entry.VirtualRotation = transform.LocalRotation;
 
             if (complete)
                 entry.IsFinalized = true;
 
-            totalPositionDelta += entry.VirtualPosition - _basePosition;
+            totalOffsetDelta += entry.VirtualOffset - _baseOffset;
         }
 
-        // Phase 2: Apply composed position
-        transform.PositionEcl = _basePosition + totalPositionDelta;
+        // Phase 2: Apply composed position (target-relative)
+        transform.PositionEcl = currentTargetPos + _baseOffset + totalOffsetDelta;
 
         // Phase 3: Compute LookAt rotation from composed position
         transform.LocalRotation = _baseRotation;
-        double3 targetPos = LookAtTargetProvider?.Invoke(controller)
-            ?? AnimationHelpers.GetTargetPosition(controller);
-        AnimationHelpers.LookAtTarget(transform, targetPos);
+        AnimationHelpers.LookAtTarget(transform, currentTargetPos);
 
         // Phase 4: Apply rotation animation contributions on top of LookAt
         ApplyRotationContributions(transform, elapsedTime);
 
         if (elapsedTime < deltaTime * 1.5)
-            Console.WriteLine($"[AnimationGroup] First frame: posDelta={totalPositionDelta}, pos={transform.PositionEcl}");
+            Console.WriteLine($"[AnimationGroup] First frame: offsetDelta={totalOffsetDelta}, pos={transform.PositionEcl}");
 
         if (elapsedTime >= DurationSeconds)
         {
@@ -127,11 +132,11 @@ public class AnimationGroup : IKeyframeAnimation
         foreach (var entry in _entries)
         {
             entry.Animation.Reset();
-            entry.VirtualPosition = double3.Zero;
+            entry.VirtualOffset = double3.Zero;
             entry.VirtualRotation = doubleQuat.Identity;
             entry.IsFinalized = false;
         }
-        _basePosition = double3.Zero;
+        _baseOffset = double3.Zero;
         _baseRotation = doubleQuat.Identity;
     }
 
@@ -219,12 +224,12 @@ public class AnimationGroup : IKeyframeAnimation
     }
 
     /// <summary>
-    /// Tracks per-animation virtual state for delta extraction.
+    /// Tracks per-animation virtual state for offset-delta extraction.
     /// </summary>
     private sealed class GroupEntry
     {
         public IKeyframeAnimation Animation { get; }
-        public double3 VirtualPosition { get; set; }
+        public double3 VirtualOffset { get; set; }       // offset from target
         public doubleQuat VirtualRotation { get; set; }
         public bool IsFinalized { get; set; }
 
