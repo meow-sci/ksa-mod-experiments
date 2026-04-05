@@ -211,6 +211,23 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 
 ---
 
+## Kitten Spawning & Customization Mods
+
+### [doh](doh) / [doh.lib](doh.lib)
+Programmatic kitten spawning with per-kitten GPU material customization. Spawns KittenEva entities at arbitrary positions with unique tint colors via runtime MaterialData creation in GpuMaterialSystem.
+- Vehicle-relative positioning with configurable body-frame offset (XYZ)
+- Batch spawning (1–20 kittens) with chain offsets
+- Character selection from ModLibrary or random assignment
+- Per-kitten material tinting via custom AlbedoColor on cloned GPU materials
+- Unique or shared material sets for batch spawns
+- Live recoloring of spawned kittens via GPU buffer writes
+- Individual despawn or despawn-all management
+- Spawned kitten registry with full tracking
+- F8 ImGui window with vehicle/character combos (filterable), color picker, kitten list table
+- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
+
+---
+
 ## Visual Customization Mods
 
 ### [humble-arteest](humble-arteest) / [humble-arteest.lib](humble-arteest.lib)

@@ -46,6 +46,10 @@
       <HintPath>$(KSAFolder)CommunityToolkit.HighPerformance.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Planet.Core" Condition="Exists('$(KSAFolder)Planet.Core.dll')">
+      <HintPath>$(KSAFolder)Planet.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
