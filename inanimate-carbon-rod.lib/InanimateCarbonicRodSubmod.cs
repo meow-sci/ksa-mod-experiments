@@ -8,7 +8,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.InanimateCarbonRodLib;
 
-public sealed class InanimeCarbonicRodSubmod : ISubmod
+public sealed class InanimateCarbonRodSubmod : ISubmod
 {
     public string Name => "Inanimate Carbon Rod";
     public string Tooltip => "Generates and displays thumbnail previews of vehicle sub-parts.";

@@ -45,7 +45,7 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 | `SingleSubpartGenerator.cs` | Hi-res single-subpart multi-view generator |
 | `SubpartViewerWindow.cs` | Single-subpart detail viewer with animation |
 | `LdrPostPassCommand.cs` | Post-pass blit command: HDR→LDR format conversion (R16G16B16A16SFloat → R8G8B8A8UNorm) |
-| `InanimeCarbonicRodSubmod.cs` | `ISubmod` implementation with full ImGui UI |
+| `InanimateCarbonRodSubmod.cs` | `ISubmod` implementation with full ImGui UI |
 
 ## Technical Details
 

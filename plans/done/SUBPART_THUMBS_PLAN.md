@@ -89,7 +89,7 @@ ksa-mod-experiments/
 │   ├── inanimate-carbon-rod.lib.csproj
 │   ├── SubpartThumbnailCache.cs          ← Static cache of generated thumbnails
 │   ├── SubpartThumbnailGenerator.cs      ← On-demand Vulkan rendering logic
-│   └── InanimeCarbonicRodSubmod.cs       ← ISubmod: ImGui UI + orchestration
+│   └── InanimateCarbonRodSubmod.cs       ← ISubmod: ImGui UI + orchestration
 │
 └── inanimate-carbon-rod/
     ├── inanimate-carbon-rod.csproj
@@ -653,9 +653,9 @@ public sealed class SubpartThumbnailGenerator
 
 ---
 
-### TASK 4 — InanimeCarbonicRodSubmod (ISubmod Implementation)
+### TASK 4 — InanimateCarbonRodSubmod (ISubmod Implementation)
 
-**File**: `inanimate-carbon-rod.lib/InanimeCarbonicRodSubmod.cs`
+**File**: `inanimate-carbon-rod.lib/InanimateCarbonRodSubmod.cs`
 
 **Goal**: The `ISubmod` that wires the generator and cache to an ImGui UI. This class is used by
 both the standalone mod and the grant supermod.
@@ -677,7 +677,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.InanimateCarbonRodLib;
 
-public sealed class InanimeCarbonicRodSubmod : ISubmod
+public sealed class InanimateCarbonRodSubmod : ISubmod
 {
     public string Name => "Inanimate Carbon Rod";
 
@@ -809,7 +809,7 @@ public class Mod
 {
     public bool ImmediateUnload => false;
 
-    private InanimeCarbonicRodSubmod _submod = null!;
+    private InanimateCarbonRodSubmod _submod = null!;
     private bool _isInitialized;
     private bool _isDisposed;
     private bool _windowVisible;
@@ -822,7 +822,7 @@ public class Mod
     {
         try
         {
-            _submod = new InanimeCarbonicRodSubmod();
+            _submod = new InanimateCarbonRodSubmod();
             _submod.Initialize();
             _isInitialized = true;
             Console.WriteLine("inanimate-carbon-rod: Loaded.");
@@ -891,7 +891,7 @@ public class Mod
 
 ### TASK 6 — Grant Supermod Integration
 
-**Goal**: Register `inanimate-carbon-rod.lib` with the grant supermod so `InanimeCarbonicRodSubmod`
+**Goal**: Register `inanimate-carbon-rod.lib` with the grant supermod so `InanimateCarbonRodSubmod`
 appears as a collapsible section in the grant window.
 
 **Files to modify**:
@@ -910,8 +910,8 @@ Add a `ProjectReference` to the lib (alongside existing .lib references):
 2. In `OnFullyLoaded()`, instantiate and add the submod to `_submods` in the desired display order
    (alphabetically or logically near related submods):
    ```csharp
-   var inanimeCarbonicRod = new InanimeCarbonicRodSubmod();
-   _submods.Add(inanimeCarbonicRod);
+   var inanimateCarbonCarbonicRod = new InanimateCarbonRodSubmod();
+   _submods.Add(inanimateCarbonCarbonicRod);
    ```
    The rest of the grant initialization loop (`Initialize()`, `_submodVisibility` registration)
    already handles all submods uniformly — no further changes needed.

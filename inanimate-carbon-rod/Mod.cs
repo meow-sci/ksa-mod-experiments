@@ -11,7 +11,7 @@ public class Mod
 {
     public bool ImmediateUnload => false;
 
-    private InanimeCarbonicRodSubmod _submod = null!;
+    private InanimateCarbonRodSubmod _submod = null!;
     private bool _isInitialized;
     private bool _isDisposed;
     private bool _windowVisible;
@@ -24,7 +24,7 @@ public class Mod
     {
         try
         {
-            _submod = new InanimeCarbonicRodSubmod();
+            _submod = new InanimateCarbonRodSubmod();
             _submod.Initialize();
             _isInitialized = true;
             Console.WriteLine("inanimate-carbon-rod: Initialized (standalone)");

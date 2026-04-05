@@ -64,7 +64,7 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
-            _submods.Add(new InanimeCarbonicRodSubmod());
+            _submods.Add(new InanimateCarbonRodSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);

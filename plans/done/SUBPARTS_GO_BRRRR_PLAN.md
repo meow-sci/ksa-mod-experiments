@@ -27,7 +27,7 @@ Each task stands alone. Implement any one, any combination, or all three in any 
 | `inanimate-carbon-rod.lib/SubpartThumbnailGenerator.cs` | Bulk renderer — renders all subpart thumbnails, one batch per frame |
 | `inanimate-carbon-rod.lib/SingleSubpartGenerator.cs` | Single-subpart renderer — generates hi-res views for viewing a single subpart |
 | `inanimate-carbon-rod.lib/SubpartThumbnailCache.cs` | Static dictionary holding `SubpartThumbnailEntry` keyed by `PartTemplate.Id` |
-| `inanimate-carbon-rod.lib/InanimeCarbonicRodSubmod.cs` | ImGui UI — grid display, filter, virtual scrolling, descriptor management |
+| `inanimate-carbon-rod.lib/InanimateCarbonRodSubmod.cs` | ImGui UI — grid display, filter, virtual scrolling, descriptor management |
 | `inanimate-carbon-rod.lib/SubpartViewerWindow.cs` | Single-subpart detail viewer with animation and hi-res regeneration |
 | `inanimate-carbon-rod.lib/inanimate-carbon-rod.lib.csproj` | Library csproj with Vulkan DLL references |
 
@@ -887,7 +887,7 @@ if (_stagingBuffer != null)
 }
 ```
 
-### 3.6 — Modify `InanimeCarbonicRodSubmod.cs` — UI changes
+### 3.6 — Modify `InanimateCarbonRodSubmod.cs` — UI changes
 
 **The grid rendering must change** from reading `SubpartThumbnailCache` (GPU images) to reading `CpuThumbnailCache` (CPU data) and using `GpuThumbnailPool` for display.
 
