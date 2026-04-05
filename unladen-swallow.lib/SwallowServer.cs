@@ -94,6 +94,21 @@ public sealed class SwallowServer
             .Add("animate", CameraAnimateEndpoint.Create())
             .Add("stop", CameraStopEndpoint.Create()));
 
+        // GET    /torch/welds           — list active welds
+        // POST   /torch/welds           — create a new weld
+        // DELETE /torch/welds           — unweld (remove a weld)
+        // POST   /torch/welds/modify    — modify weld immediately
+        // POST   /torch/welds/animate   — animate weld to target state
+        // GET    /torch/presets         — list all presets
+        // POST   /torch/presets         — save/update a preset
+        // DELETE /torch/presets         — delete a preset
+        api.Add("torch", Layout.Create()
+            .Add("welds", Layout.Create()
+                .Add(TorchWeldsEndpoint.Create())
+                .Add("modify", TorchWeldModifyEndpoint.Create())
+                .Add("animate", TorchWeldAnimateEndpoint.Create()))
+            .Add("presets", TorchPresetsEndpoint.Create()));
+
         // CORS — allow all origins
         api.Add(CorsPolicy.Permissive());
 
