@@ -18,6 +18,9 @@ public sealed class GarrysTorchSubmod : ISubmod
     private readonly List<WeldEntry> _welds = new();
     public IReadOnlyList<WeldEntry> Welds => _welds;
     private readonly PresetManager _presetManager = new();
+    private readonly WeldAnimationManager _animationManager = new();
+
+    public WeldAnimationManager AnimationManager => _animationManager;
 
     // Create weld form state
     private int _pendingSourceIndex = -1;
@@ -54,6 +57,8 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     public void Update(double dt)
     {
+        _animationManager.Update(dt);
+
         var toRemove = new List<WeldEntry>();
         foreach (var weld in _welds)
             if (!WeldEngine.UpdateWeld(weld)) toRemove.Add(weld);
@@ -98,6 +103,7 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     public void Dispose()
     {
+        _animationManager.Clear();
         foreach (var weld in _welds)
             WeldEngine.ApplyVehicleScale(weld.Source, 1.0f);
         _welds.Clear();
@@ -515,6 +521,29 @@ public sealed class GarrysTorchSubmod : ISubmod
     public bool SavePreset(string name, WeldPreset preset) => _presetManager.SavePreset(name, preset);
     public bool DeletePreset(string name) => _presetManager.DeletePreset(name);
 
+    /// <summary>Starts or queues an animated transition of a weld's position, rotation, and scale.</summary>
+    public string? AnimateWeld(
+        string sourceVehicleId,
+        float3 targetPosition, float3 targetRotation, float targetScale,
+        double durationSeconds, WeldEasingType easing,
+        double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
+    {
+        var weld = FindWeld(sourceVehicleId);
+        if (weld == null)
+            return $"No active weld found with source: {sourceVehicleId}";
+
+        if (durationSeconds <= 0)
+            return "Duration must be greater than 0";
+
+        var animation = new WeldAnimation(
+            weld.Position, weld.Rotation, weld.Scale,
+            targetPosition, targetRotation, targetScale,
+            durationSeconds, easing, easingPowerStart, easingPowerEnd);
+
+        _animationManager.Enqueue(weld, animation);
+        return null;
+    }
+
     // ---- Weld Logic (Internal) ----
 
     private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation,
@@ -536,6 +565,7 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     private void RemoveWeld(WeldEntry entry)
     {
+        _animationManager.CancelAll(entry);
         WeldEngine.ApplyVehicleScale(entry.Source, 1.0f);
         Console.WriteLine($"garrys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
         _welds.Remove(entry);
