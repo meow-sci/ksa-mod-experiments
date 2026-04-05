@@ -18,6 +18,10 @@ Headless library providing programmatic kitten spawning and per-kitten GPU mater
 
 - **`KittenMaterialSet`** — Holds per-kitten GPU material handles (body, head, eye, fur) with a tint color. `UpdateTint()` writes directly to the GPU buffer for live recoloring.
 
+### DohSubmod (`DohSubmod.cs`)
+
+- **`DohSubmod`** — `ISubmod` implementation for grant supermod integration. Encapsulates the full spawning UI (vehicle/character selection, offset, batch count, color picker, kitten list with live recoloring and despawn). Also used by standalone `doh/Mod.cs` to avoid code duplication.
+
 ### Spawning (`Spawning/`)
 
 - **`KittenSpawner`** — Core spawning engine replicating `EVADoor.CreateKittenEva()`. Supports:

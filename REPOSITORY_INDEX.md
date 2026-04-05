@@ -224,7 +224,8 @@ Programmatic kitten spawning with per-kitten GPU material customization. Spawns 
 - Individual despawn or despawn-all management
 - Spawned kitten registry with full tracking
 - F8 ImGui window with vehicle/character combos (filterable), color picker, kitten list table
-- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
+- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking), `DohSubmod` (ISubmod for grant integration). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
+- **Grant integration**: DOH is available as a submod in the grant supermod via `DohSubmod`.
 
 ---
 
