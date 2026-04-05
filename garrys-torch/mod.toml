@@ -1,0 +1,7 @@
+name = "garrys-torch"
+description = "garrys-torch"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.GarrysTorch"

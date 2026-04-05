@@ -9,7 +9,7 @@ as an output, these are:
 - blinken
 - byo-music
 - camera-controller-override
-- garys-torch
+- garrys-torch
 - geeforce
 - ifeel-seen
 - kitten-animations

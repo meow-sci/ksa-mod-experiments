@@ -2,9 +2,9 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
-using MeowSci.GarysTorchLib;
+using MeowSci.GarrysTorchLib;
 
-namespace MeowSci.GarysTorch;
+namespace MeowSci.GarrysTorch;
 
 [StarMapMod]
 public class Mod
@@ -14,7 +14,7 @@ public class Mod
     private bool _isInitialized;
     private bool _isDisposed;
     private bool _windowVisible;
-    private GarysTorchSubmod _submod = null!;
+    private GarrysTorchSubmod _submod = null!;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -24,14 +24,14 @@ public class Mod
     {
         try
         {
-            _submod = new GarysTorchSubmod();
+            _submod = new GarrysTorchSubmod();
             Patcher.Patch();
             _submod.Initialize();
             _isInitialized = true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Error during initialization: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error during initialization: {ex.Message}");
         }
     }
 
@@ -53,7 +53,7 @@ public class Mod
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Error in OnAfterUi: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error in OnAfterUi: {ex.Message}");
         }
     }
 
@@ -68,14 +68,14 @@ public class Mod
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Error during unload: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error during unload: {ex.Message}");
         }
     }
 
     private void RenderWindow()
     {
         ImGui.SetNextWindowSize(new float2(450, 500), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("Gary's Torch###garys-torch", ref _windowVisible))
+        if (ImGui.Begin("Garry's Torch###garrys-torch", ref _windowVisible))
             _submod.RenderContent();
         ImGui.End();
     }

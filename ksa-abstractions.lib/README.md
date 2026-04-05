@@ -92,7 +92,7 @@ foreach (var part in parts)
 This is used by mods like:
 - **blinken**: Scanning for pixel grid parts
 - **zippo**: Finding light components
-- **garys-torch**: Vehicle inspection
+- **garrys-torch**: Vehicle inspection
 
 ### Reflection Pattern
 Mods frequently access private KSA internals:

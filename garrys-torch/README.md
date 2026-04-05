@@ -1,10 +1,10 @@
-# Gary's Torch - Vehicle Welding System
+# Garry's Torch - Vehicle Welding System
 
 A vehicle docking/attached system that welds one vehicle to another with full support for position offsets, rotation alignment, and uniform scaling. Welds are persistent per-frame—children move relative to their parent vehicle.
 
 ## Overview
 
-Gary's Torch allows you to:
+Garry's Torch allows you to:
 - **Weld two vehicles together** - Attach a source vehicle to a target vehicle
 - **Configure relative position** - Separate the vehicles on XYZ axes in the target's body frame
 - **Rotate freely** - Apply pitch/yaw/roll rotations independently
@@ -63,7 +63,7 @@ Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/
 - Cached preset name list for UI performance
 - TOML format via Tomlyn library
 
-### UI (Mod.cs / GarysTorchSubmod)
+### UI (Mod.cs / GarrysTorchSubmod)
 
 ImGui window with:
 - **Create Weld section** - Collapsible header with filterable source/target vehicle combos

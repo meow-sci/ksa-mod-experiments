@@ -1,6 +1,6 @@
 using Brutal.Numerics;
 
-namespace MeowSci.GarysTorchLib;
+namespace MeowSci.GarrysTorchLib;
 
 /// <summary>Preset weld configuration (position/rotation/scale/lockRotation).</summary>
 public struct WeldPreset

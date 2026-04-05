@@ -1,6 +1,6 @@
 # Kiwi's Marbles — Implementation Plan
 
-A mod for repositioning celestial bodies (planets, moons) in-game by "welding" them to follow other celestial bodies or vehicles at user-defined offsets. Design mirrors `garys-torch` (vehicle welding) adapted for the celestial body API.
+A mod for repositioning celestial bodies (planets, moons) in-game by "welding" them to follow other celestial bodies or vehicles at user-defined offsets. Design mirrors `garrys-torch` (vehicle welding) adapted for the celestial body API.
 
 ---
 
@@ -21,9 +21,9 @@ kiwis-marbles/
   └── mod.toml                     (EXISTS — no changes needed)
 ```
 
-### Key Differences from garys-torch
+### Key Differences from garrys-torch
 
-| Aspect | garys-torch (Vehicles) | kiwis-marbles (Celestials) |
+| Aspect | garrys-torch (Vehicles) | kiwis-marbles (Celestials) |
 |--------|----------------------|--------------------------|
 | Source type | `Vehicle` | `Celestial` (the class, not the struct) |
 | Target type | `Vehicle` | `IOrbiter` (can be `Celestial` or `Vehicle`) |
@@ -152,12 +152,12 @@ public class CelestialWeldEntry
 ```
 
 **Design decisions**:
-- `Source` is `Celestial` (not `IOrbiter`) because only celestial bodies should be moved by this mod. Vehicles are handled by garys-torch.
+- `Source` is `Celestial` (not `IOrbiter`) because only celestial bodies should be moved by this mod. Vehicles are handled by garrys-torch.
 - `Target` is `IOrbiter` so it can be either a `Celestial` or a `Vehicle`. Both implement `IOrbiter` which provides `GetPositionCci()`, `GetVelocityCci()`, `Orbit.Parent`, etc.
 - `Offset` is `double3` (not `float3`) because celestial distances require double precision. A `float3` maxes out at ~1e38 which is technically enough, but intermediate calculations with doubles avoid precision loss.
 - No rotation or scale fields — celestial bodies have their own angular velocity (not controllable like vehicle body rates) and their rendering is via `DistantSphereRenderer` (not part-based scaling).
 
-**Reference**: Modeled after `garys-torch.lib/WeldEntry.cs`:
+**Reference**: Modeled after `garrys-torch.lib/WeldEntry.cs`:
 ```csharp
 public class WeldEntry
 {
@@ -343,9 +343,9 @@ public static class CelestialWeldEngine
    ```csharp
    double3 newSrcPosCci = tgtPosCci + entry.Offset;
    ```
-   This is simpler than garys-torch's body-frame-relative offset because celestial bodies don't have a meaningful body orientation for positioning purposes.
+   This is simpler than garrys-torch's body-frame-relative offset because celestial bodies don't have a meaningful body orientation for positioning purposes.
 
-5. **Topological sort**: Identical algorithm to garys-torch's `WeldEngine.TopologicalSort()`. The cast `(IOrbiter)x.Source` is needed because `Source` is `Celestial` and `Target` is `IOrbiter` — we need to compare them as the same type.
+5. **Topological sort**: Identical algorithm to garrys-torch's `WeldEngine.TopologicalSort()`. The cast `(IOrbiter)x.Source` is needed because `Source` is `Celestial` and `Target` is `IOrbiter` — we need to compare them as the same type.
 
 6. **Orbit line color**: Preserved via `entry.Source.OrbitColor`. This should be available from the `IOrbiter` interface or from the existing orbit. Check at implementation time — if `OrbitColor` isn't directly accessible, get it from `entry.Source.Orbit.OrbitLineColor`.
 
@@ -377,7 +377,7 @@ public static class CelestialWeldEngine
 </Project>
 ```
 
-**Replace with** (modeled after `garys-torch.lib/garys-torch.lib.csproj`):
+**Replace with** (modeled after `garrys-torch.lib/garrys-torch.lib.csproj`):
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -427,10 +427,10 @@ public static class CelestialWeldEngine
   </ItemGroup>
 ```
 
-**Reference**: garys-torch.csproj has these ProjectReferences:
+**Reference**: garrys-torch.csproj has these ProjectReferences:
 ```xml
   <ItemGroup>
-    <ProjectReference Include="..\garys-torch.lib\garys-torch.lib.csproj" />
+    <ProjectReference Include="..\garrys-torch.lib\garrys-torch.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
   </ItemGroup>
 ```
@@ -519,7 +519,7 @@ public class Mod
         {
             if (!_isInitialized || _isDisposed) return;
 
-            // Toggle window with F9 (different key from garys-torch's F11)
+            // Toggle window with F9 (different key from garrys-torch's F11)
             if (ImGui.IsKeyPressed(ImGuiKey.F9))
                 _windowVisible = !_windowVisible;
 
@@ -556,7 +556,7 @@ public class Mod
     }
 ```
 
-**Key choice**: Use `F9` instead of `F11` to avoid conflict with garys-torch. Check existing mods for key conflicts — if F9 is taken, use another key. Could also be made configurable in a future iteration.
+**Key choice**: Use `F9` instead of `F11` to avoid conflict with garrys-torch. Check existing mods for key conflicts — if F9 is taken, use another key. Could also be made configurable in a future iteration.
 
 ### 5c: Weld Management Methods
 
@@ -608,7 +608,7 @@ public class Mod
     }
 ```
 
-**Reference**: Directly mirrors `garys-torch/Mod.cs` `InitiateWeld()` / `RemoveWeld()` / `SortWelds()`.
+**Reference**: Directly mirrors `garrys-torch/Mod.cs` `InitiateWeld()` / `RemoveWeld()` / `SortWelds()`.
 
 ### 5d: RenderWindow — ImGui UI
 
@@ -791,7 +791,7 @@ public class Mod
 5. **Validation**: Prevents welding a body to itself
 6. **Active welds**: Collapsing sections with live-editable offset, parent info display, and unweld button
 
-**ImGui conventions** follow garys-torch exactly:
+**ImGui conventions** follow garrys-torch exactly:
 - `ImGui.Begin("Title###id", ref _windowVisible)` — unique ID with `###`
 - `ImGui.SetNextWindowSize(size, ImGuiCond.FirstUseEver)` — default size
 - `ImGui.TextColored()` with `KSAColor.Xkcd.*` for themed text
@@ -837,7 +837,7 @@ Replace the template README with actual mod documentation covering:
 - Data structures documentation
 - Key game APIs used
 
-Follow the style of `garys-torch/README.md` for consistency.
+Follow the style of `garrys-torch/README.md` for consistency.
 
 ### 7b: Update REPOSITORY_INDEX.md
 

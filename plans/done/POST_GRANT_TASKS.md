@@ -6,7 +6,7 @@
 - lift the data model abstraction for this to ksa-abstractions.lib
 - 
 
-# refactor garys-torch to be garrys-torch
+# refactor garrys-torch to be garrys-torch
 
 
 # garrys-torch features

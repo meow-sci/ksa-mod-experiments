@@ -227,7 +227,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
             return;
         }
 
-        // Gary's Torch bordered child window pattern
+        // Garry's Torch bordered child window pattern
         var wpadX = ImGui.GetStyle().WindowPadding.X;
         float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);

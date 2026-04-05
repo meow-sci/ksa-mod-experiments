@@ -32,7 +32,7 @@
 
 - add a vertical spacer before the "Glass" line and before the end of the mod ui for nicer look-n-feel
 
-# garys-torch
+# garrys-torch
 
 - add a vertical spacer before the "Create Weld" line and before the end of the mod ui for nicer look-n-feel
 - make the comboboxes / labels use imgui horizontal layout tools instead of absolute offsets, the label should be natural size and combobox flex grow

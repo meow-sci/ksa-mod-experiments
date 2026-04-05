@@ -10,7 +10,7 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 | Blinky — Dynamic LCD Grid | Builds and controls pixel grids on vehicle light parts |
 | Camera Controller Override | 8 camera animation types (zoom, spiral, orbit, shake) with keyframe sequencing |
 | Eternal Flame — Infinite Fuel | Monitors vehicles and periodically refills all fuel tanks |
-| Gary's Torch | Welds vehicles together with position/rotation/scale offsets |
+| Garry's Torch | Welds vehicles together with position/rotation/scale offsets |
 | G-Force Monitor | Records and displays g-forces at 40 Hz with history, peak detection, and jerk analysis |
 | Glass — Camera Lens | Overrides camera FOV with presets or manual control |
 | I Feel Seen | Forces vehicle render data updates at any distance |
@@ -38,4 +38,4 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 
 ## Dependencies
 
-All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.
+All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.

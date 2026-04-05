@@ -5,7 +5,7 @@ using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.GarysTorchLib;
+namespace MeowSci.GarrysTorchLib;
 
 /// <summary>Stateless core weld computation logic.</summary>
 public static class WeldEngine
@@ -18,7 +18,7 @@ public static class WeldEngine
     {
         if (entry.Source.Parent != entry.Target.Parent)
         {
-            Console.WriteLine("garys-torch: Parent body mismatch, unwelding");
+            Console.WriteLine("garrys-torch: Parent body mismatch, unwelding");
             return false;
         }
 
@@ -30,7 +30,7 @@ public static class WeldEngine
         if (double.IsNaN(tgtPosCci.X) || double.IsNaN(tgtPosCci.Y) || double.IsNaN(tgtPosCci.Z) ||
             double.IsNaN(tgtVelCci.X) || double.IsNaN(tgtVelCci.Y) || double.IsNaN(tgtVelCci.Z))
         {
-            Console.WriteLine("garys-torch: NaN detected in target vehicle state, skipping weld update");
+            Console.WriteLine("garrys-torch: NaN detected in target vehicle state, skipping weld update");
             return true;
         }
 
@@ -38,7 +38,7 @@ public static class WeldEngine
         tgtBody2Cci = tgtBody2Cci.NormalizedOrZero();
         if (tgtBody2Cci == default)
         {
-            Console.WriteLine("garys-torch: zero/NaN quaternion in target orientation, skipping weld update");
+            Console.WriteLine("garrys-torch: zero/NaN quaternion in target orientation, skipping weld update");
             return true;
         }
 
@@ -70,7 +70,7 @@ public static class WeldEngine
             // Guard against NaN body rates that can feed back into physics
             if (double.IsNaN(newBodyRates.X) || double.IsNaN(newBodyRates.Y) || double.IsNaN(newBodyRates.Z))
             {
-                Console.WriteLine("garys-torch: NaN detected in body rates, resetting to zero");
+                Console.WriteLine("garrys-torch: NaN detected in body rates, resetting to zero");
                 newBodyRates = new double3(0, 0, 0);
             }
         }
@@ -145,7 +145,7 @@ public static class WeldEngine
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"garys-torch: KittenEva scale error: {ex.Message}");
+                Console.WriteLine($"garrys-torch: KittenEva scale error: {ex.Message}");
             }
         }
     }
@@ -206,7 +206,7 @@ public static class WeldEngine
         if (sorted.Count == welds.Count)
             return sorted;
 
-        Console.WriteLine("garys-torch: TopologicalSort: cycle detected, leaving order as-is.");
+        Console.WriteLine("garrys-torch: TopologicalSort: cycle detected, leaving order as-is.");
         return new List<WeldEntry>(welds);
     }
 }

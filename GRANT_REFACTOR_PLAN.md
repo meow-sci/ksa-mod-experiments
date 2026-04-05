@@ -22,7 +22,7 @@ This document defines a sequenced set of refactoring tasks to restructure the `k
 | `blinken` | `blinken` | `MeowSci.Blinken` | `MeowSci.BlinkenLib` | No (boilerplate only) | `LcdAnimationPixels.cs`, `scripts/`, `svgs/` |
 | `byo-music` | `byo-music` | `MeowSci.ByoMusic` | `MeowSci.ByoMusicLib` | No (boilerplate only) | `Assets.xml`, `Music/` dir |
 | `camera-controller-override` | `camera-controller-override` | `MeowSci.CameraControllerOverride` | `MeowSci.CameraControllerOverrideLib` | **Yes** (2 prefix patches: `OrbitController.OnFrame`, `FlyController.OnFrame`) | `Animation/*.cs`, `UI/*.cs` |
-| `garys-torch` | `garys-torch` | `MeowSci.GarysTorch` | `MeowSci.GarysTorchLib` | No (boilerplate only) | None |
+| `garrys-torch` | `garrys-torch` | `MeowSci.GarrysTorch` | `MeowSci.GarrysTorchLib` | No (boilerplate only) | None |
 | `geeforce` | `geeforce` | `MeowSci.GeeForce` | `MeowSci.GeeForceLib` | No (boilerplate only) | `GForceRecorder.cs`, `GForceUI.cs` |
 | `i-feel-seen` | `i-feel-seen` | `MeowSci.IFeelSeen` | `MeowSci.IFeelSeenLib` | **Yes** (2 prefix patches: `Vehicle.GetWorldMatrix`, `Vehicle.UpdateRenderData`) | None |
 | `kitten-animations` | `kitten-animations` | `MeowSci.KittenAnimations` | `MeowSci.KittenAnimationsLib` | No (boilerplate only) | None |
@@ -55,11 +55,11 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 | KSA API | Mods Using It | Abstraction |
 |---------|---------------|-------------|
-| `Program.ControlledVehicle` | average-twr, blinken, geeforce, garys-torch, kitten-animations, i-feel-seen | `VehicleProvider.GetControlledVehicle()` |
-| `Universe.CurrentSystem?.Vehicles?.GetList()` | zippo, i-feel-seen, garys-torch | `VehicleProvider.GetAllVehicles()` |
-| `vehicle.Parts.Parts` (part tree traversal) | zippo, blinken, garys-torch, i-feel-seen | `PartHelpers.TraverseParts(vehicle)` |
-| Reflection-based field access (`GetField/SetField` via BindingFlags) | zippo, kitten-animations, garys-torch | `ReflectionHelpers.GetFieldValue<T>()` / `SetFieldValue()` |
-| `Universe.GetElapsedSimTime()` | geeforce, garys-torch | `SimTimeProvider.GetElapsedTime()` |
+| `Program.ControlledVehicle` | average-twr, blinken, geeforce, garrys-torch, kitten-animations, i-feel-seen | `VehicleProvider.GetControlledVehicle()` |
+| `Universe.CurrentSystem?.Vehicles?.GetList()` | zippo, i-feel-seen, garrys-torch | `VehicleProvider.GetAllVehicles()` |
+| `vehicle.Parts.Parts` (part tree traversal) | zippo, blinken, garrys-torch, i-feel-seen | `PartHelpers.TraverseParts(vehicle)` |
+| Reflection-based field access (`GetField/SetField` via BindingFlags) | zippo, kitten-animations, garrys-torch | `ReflectionHelpers.GetFieldValue<T>()` / `SetFieldValue()` |
+| `Universe.GetElapsedSimTime()` | geeforce, garrys-torch | `SimTimeProvider.GetElapsedTime()` |
 
 ---
 
@@ -105,7 +105,7 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 5. **Create `ReflectionHelpers.cs`** in namespace `MeowSci.KsaAbstractions`:
    ```csharp
    // Reflection utilities for accessing private/internal KSA fields
-   // Used by zippo (LightModule fields), kitten-animations (KittenEva._renderable), garys-torch (KittenEva scale)
+   // Used by zippo (LightModule fields), kitten-animations (KittenEva._renderable), garrys-torch (KittenEva scale)
    public static class ReflectionHelpers
    {
      private static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
@@ -382,14 +382,14 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 ---
 
-### TASK 5: Refactor `garys-torch`
+### TASK 5: Refactor `garrys-torch`
 
-**Goal:** Split `garys-torch` into mod shell + library. Rename to `MeowSci.*`.
+**Goal:** Split `garrys-torch` into mod shell + library. Rename to `MeowSci.*`.
 
 **Context:**
 - **Current code:** `Mod.cs` (~large, monolithic — all logic in one file). `Patcher.cs` (boilerplate only).
 - **Current namespace:** `mod`
-- **Current AssemblyName:** `garys-torch`
+- **Current AssemblyName:** `garrys-torch`
 - **Functionality:** Vehicle "welding" — rigidly couples one vehicle to another with configurable position offset (xyz), Euler rotation (pitch/yaw/roll), uniform scale. Supports multiple simultaneous welds with topological sorting for dependency ordering. Includes preset configurations.
 - **KSA APIs used:**
   - `Program.ControlledVehicle` → abstract to `VehicleProvider`
@@ -404,12 +404,12 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 **Steps:**
 
-1. **Create `garys-torch.lib/` directory** and `garys-torch.lib.csproj`:
-   - `AssemblyName=MeowSci.GarysTorchLib`, `RootNamespace=MeowSci.GarysTorchLib`
+1. **Create `garrys-torch.lib/` directory** and `garrys-torch.lib.csproj`:
+   - `AssemblyName=MeowSci.GarrysTorchLib`, `RootNamespace=MeowSci.GarrysTorchLib`
    - `<ProjectReference>` to `ksa-abstractions.lib`
    - Add game DLL references (needs Vehicle, Part, Orbit, KittenEva types)
 
-2. **Create lib source files** in namespace `MeowSci.GarysTorchLib`:
+2. **Create lib source files** in namespace `MeowSci.GarrysTorchLib`:
    - **`WeldEntry.cs`** — data class:
      ```csharp
      public class WeldEntry
@@ -439,21 +439,21 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
      }
      ```
 
-3. **Refactor `garys-torch/` mod project:**
+3. **Refactor `garrys-torch/` mod project:**
    - Update csproj:
-     - `AssemblyName=MeowSci.GarysTorch`, `RootNamespace=MeowSci.GarysTorch`
-     - `<ProjectReference>` to `garys-torch.lib` and `ksa-abstractions.lib`
+     - `AssemblyName=MeowSci.GarrysTorch`, `RootNamespace=MeowSci.GarrysTorch`
+     - `<ProjectReference>` to `garrys-torch.lib` and `ksa-abstractions.lib`
      - Add `MeowSci.*.dll/pdb` auto-copy
    - Update `Mod.cs`:
-     - Namespace → `MeowSci.GarysTorch`
+     - Namespace → `MeowSci.GarrysTorch`
      - Extract weld logic to use `WeldEngine` from lib
      - Replace `Program.ControlledVehicle` with `VehicleProvider.GetControlledVehicle()`
      - Replace `Universe.CurrentSystem?.Vehicles?.GetList()` with `VehicleProvider.GetAllVehicles()`
      - Replace inline reflection with `ReflectionHelpers` from abstractions where applicable
      - Keep ImGui rendering in mod
-   - Update `Patcher.cs`: namespace → `MeowSci.GarysTorch`
+   - Update `Patcher.cs`: namespace → `MeowSci.GarrysTorch`
 
-4. **Add `garys-torch.lib` to solution**
+4. **Add `garrys-torch.lib` to solution**
 
 5. **Verify:** `dotnet build`
 
@@ -743,7 +743,7 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
      <ProjectReference Include="..\blinken.lib\blinken.lib.csproj" />
      <ProjectReference Include="..\byo-music.lib\byo-music.lib.csproj" />
      <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />
-     <ProjectReference Include="..\garys-torch.lib\garys-torch.lib.csproj" />
+     <ProjectReference Include="..\garrys-torch.lib\garrys-torch.lib.csproj" />
      <ProjectReference Include="..\geeforce.lib\geeforce.lib.csproj" />
      <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
      <ProjectReference Include="..\kitten-animations.lib\kitten-animations.lib.csproj" />
@@ -776,7 +776,7 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
      - `blinken.lib/blinken.lib.csproj`
      - `byo-music.lib/byo-music.lib.csproj`
      - `camera-controller-override.lib/camera-controller-override.lib.csproj`
-     - `garys-torch.lib/garys-torch.lib.csproj`
+     - `garrys-torch.lib/garrys-torch.lib.csproj`
      - `geeforce.lib/geeforce.lib.csproj`
      - `i-feel-seen.lib/i-feel-seen.lib.csproj`
      - `kitten-animations.lib/kitten-animations.lib.csproj`
@@ -785,7 +785,7 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 2. **Verify all `DistDir` consistency:**
    - All mod projects should use `$(SelectedDistModDir)modname\` pattern (from `Directory.Build.props`) rather than hardcoded paths where possible
-   - Current state: some use `$(SelectedDistModDir)` (average-twr, blinken), others use hardcoded `C:\Program Files\...` paths (byo-music, camera-controller-override, garys-torch, geeforce, i-feel-seen, grant, zippo) — standardize all to use `$(SelectedDistModDir)`
+   - Current state: some use `$(SelectedDistModDir)` (average-twr, blinken), others use hardcoded `C:\Program Files\...` paths (byo-music, camera-controller-override, garrys-torch, geeforce, i-feel-seen, grant, zippo) — standardize all to use `$(SelectedDistModDir)`
 
 3. **Verify all `CopyCustomContent` targets:**
    - Every mod project must include the `MeowSci.*.dll;MeowSci.*.pdb` auto-copy block
@@ -810,7 +810,7 @@ TASK 0 (ksa-abstractions.lib)
   ├──> TASK 2 (blinken)
   ├──> TASK 3 (byo-music)
   ├──> TASK 4 (camera-controller-override)
-  ├──> TASK 5 (garys-torch)
+  ├──> TASK 5 (garrys-torch)
   ├──> TASK 6 (geeforce)
   ├──> TASK 7 (i-feel-seen)
   ├──> TASK 8 (kitten-animations)
@@ -837,7 +837,7 @@ Task 11 is final verification after everything is complete.
 | `blinken` + `blinken.lib` | `MeowSci.Blinken` | `MeowSci.BlinkenLib` | `MeowSci.Blinken` | `MeowSci.BlinkenLib` |
 | `byo-music` + `byo-music.lib` | `MeowSci.ByoMusic` | `MeowSci.ByoMusicLib` | `MeowSci.ByoMusic` | `MeowSci.ByoMusicLib` |
 | `camera-controller-override` + `.lib` | `MeowSci.CameraControllerOverride` | `MeowSci.CameraControllerOverrideLib` | `MeowSci.CameraControllerOverride` | `MeowSci.CameraControllerOverrideLib` |
-| `garys-torch` + `garys-torch.lib` | `MeowSci.GarysTorch` | `MeowSci.GarysTorchLib` | `MeowSci.GarysTorch` | `MeowSci.GarysTorchLib` |
+| `garrys-torch` + `garrys-torch.lib` | `MeowSci.GarrysTorch` | `MeowSci.GarrysTorchLib` | `MeowSci.GarrysTorch` | `MeowSci.GarrysTorchLib` |
 | `geeforce` + `geeforce.lib` | `MeowSci.GeeForce` | `MeowSci.GeeForceLib` | `MeowSci.GeeForce` | `MeowSci.GeeForceLib` |
 | `i-feel-seen` + `i-feel-seen.lib` | `MeowSci.IFeelSeen` | `MeowSci.IFeelSeenLib` | `MeowSci.IFeelSeen` | `MeowSci.IFeelSeenLib` |
 | `kitten-animations` + `.lib` | `MeowSci.KittenAnimations` | `MeowSci.KittenAnimationsLib` | `MeowSci.KittenAnimations` | `MeowSci.KittenAnimationsLib` |

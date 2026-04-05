@@ -28,7 +28,7 @@ Infinite fuel hack. Monitors selected vehicles and periodically refills their co
 - Background refill loop runs independently of UI visibility
 - F11 window toggle
 
-### [garys-torch](garys-torch) / [garys-torch.lib](garys-torch.lib)
+### [garrys-torch](garrys-torch) / [garrys-torch.lib](garrys-torch.lib)
 Vehicle welding system. Attaches one vehicle to another with support for position offsets, rotation, and uniform scaling. Welds persist per-frame.
 - Vehicle-to-vehicle welding with position offset (XYZ in body frame)
 - Per-weld rotation offset (pitch/yaw/roll)
@@ -247,13 +247,13 @@ On-demand subpart thumbnail generator. The game skips thumbnail generation for s
 ### [grant](grant)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all 15 submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Gary's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Inanimate Carbon Rod, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Inanimate Carbon Rod, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, inanimate-carbon-rod.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, inanimate-carbon-rod.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

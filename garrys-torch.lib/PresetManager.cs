@@ -7,7 +7,7 @@ using Tomlyn;
 using Tomlyn.Model;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.GarysTorchLib;
+namespace MeowSci.GarrysTorchLib;
 
 /// <summary>Manages named weld presets persisted to a TOML file.</summary>
 public sealed class PresetManager
@@ -32,7 +32,7 @@ public sealed class PresetManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Failed to create config directory: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Failed to create config directory: {ex.Message}");
         }
         Load();
     }
@@ -67,7 +67,7 @@ public sealed class PresetManager
         _presets[name] = preset;
         _cacheValid = false;
         Save();
-        Console.WriteLine($"garys-torch: Saved preset '{name}'");
+        Console.WriteLine($"garrys-torch: Saved preset '{name}'");
         return true;
     }
 
@@ -78,7 +78,7 @@ public sealed class PresetManager
 
         _cacheValid = false;
         Save();
-        Console.WriteLine($"garys-torch: Deleted preset '{name}'");
+        Console.WriteLine($"garrys-torch: Deleted preset '{name}'");
         return true;
     }
 
@@ -118,11 +118,11 @@ public sealed class PresetManager
                 }
             }
 
-            Console.WriteLine($"garys-torch: Loaded {_presets.Count} preset(s)");
+            Console.WriteLine($"garrys-torch: Loaded {_presets.Count} preset(s)");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Failed to load presets: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Failed to load presets: {ex.Message}");
         }
     }
 
@@ -154,7 +154,7 @@ public sealed class PresetManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Failed to save presets: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Failed to save presets: {ex.Message}");
         }
     }
 

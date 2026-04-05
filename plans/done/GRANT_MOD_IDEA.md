@@ -7,7 +7,7 @@ what I want to do is combine the following mods functionality all into grant:
 - average-twr
 - blinky
 - eternal-flame
-- garys-torch
+- garrys-torch
 - glass
 - i-feel-seen
 - kiwis-marbles

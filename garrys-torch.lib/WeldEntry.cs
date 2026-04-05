@@ -1,7 +1,7 @@
 using Brutal.Numerics;
 using KSA;
 
-namespace MeowSci.GarysTorchLib;
+namespace MeowSci.GarrysTorchLib;
 
 /// <summary>Represents a single active weld between two vehicles.</summary>
 public class WeldEntry

@@ -19,7 +19,7 @@ side for all submods rendered inside the Grant unified window.
 This plan covers two layers of work for each non-conformant submod:
 1. **Conformance** — add the `SubmodUI` wrapper and remove ad-hoc padding substitutes.
 2. **UI Redesign** — apply the layout patterns established in the conformant mods
-   (`glass`, `con-man`, `garys-torch`, `i-feel-seen`, `vehicle-paint`) to improve
+   (`glass`, `con-man`, `garrys-torch`, `i-feel-seen`, `vehicle-paint`) to improve
    usability, visual clarity, and consistency for game players.
 
 ---
@@ -50,7 +50,7 @@ before writing any ImGui code:
 | `eternal-flame.lib/EternalFlameSubmod.cs` | Simple flat content area, table with RowBg + ScrollY |
 | `glass.lib/GlassSubmod.cs` | 2-column proportional table (1fr label + 3fr widget), `AlignTextToFramePadding` |
 | `con-man.lib/ConManSubmod.cs` | 3-column fixed-fit table, `BeginDisabled/EndDisabled`, modal popup inside content area |
-| `garys-torch.lib/GarysTorchSubmod.cs` | Bordered child-window per list item, preset modal, `SeparatorText` section dividers |
+| `garrys-torch.lib/GarrysTorchSubmod.cs` | Bordered child-window per list item, preset modal, `SeparatorText` section dividers |
 | `i-feel-seen.lib/IFeelSeenSubmod.cs` | 2-column proportional table for selector, fixed-fit table for list, `PushID(i)` in loops |
 | `humble-arteest.lib/VehiclePaintSubmod.cs` | Filtered combo helper, per-part table with `ScrollY`, status message pattern |
 | `blinky.lib/BlinkySubmod.cs` | Menu bar, `SeparatorText` with dynamic counts, `CollapsingHeader` with `DefaultOpen` |
@@ -81,7 +81,7 @@ before writing any ImGui code:
    simple single-string tips.
 
 8. **Filtered combos.** Any combo with more than ~5 items should use `ImGuiTextFilter`
-   with `IsWindowAppearing` auto-focus (see `garys-torch` / `i-feel-seen` for the
+   with `IsWindowAppearing` auto-focus (see `garrys-torch` / `i-feel-seen` for the
    exact pattern).
 
 9. **Status messages** should use `TextColored(red, msg)` for errors and
@@ -480,7 +480,7 @@ PopStyleColor` pattern with a standard 3-column table:
 - Column 2: filtered combo (stretch)
 - Column 3: (empty — reserved for future buttons or align with active-weld table)
 
-Use `ImGuiTextFilter` combos following the `garys-torch` pattern (auto-focus on
+Use `ImGuiTextFilter` combos following the `garrys-torch` pattern (auto-focus on
 `IsWindowAppearing`, `filter.Draw(...)` before items).
 
 Remove the `PushStyleColor(Text, RadioactiveGreen)` calls. The standard combo text
@@ -515,14 +515,14 @@ three compact axis buttons and a tooltip per button:
 ```
 Add `SetItemTooltip("Place source on surface of target along X+ axis")` etc.
 
-**Active Welds — follow Gary's Torch bordered-child pattern**
+**Active Welds — follow Garry's Torch bordered-child pattern**
 
 In `RemoveWeld`, each active weld currently renders inside a `CollapsingHeader`
-with a double-indent body. Replace with the `garys-torch` bordered-child-window
+with a double-indent body. Replace with the `garrys-torch` bordered-child-window
 pattern:
 - `CollapsingHeader("Weld N: Source → Target##km_weld_N", DefaultOpen)` opens the header.
 - Immediately after, open a bordered auto-height child window (same style as
-  `garys-torch`'s `gt_child_{index}`) with `WindowPadding (20,10)`.
+  `garrys-torch`'s `gt_child_{index}`) with `WindowPadding (20,10)`.
 - Inside the child: source → target info row, offset controls, Unweld button.
 - This makes each active weld visually self-contained.
 
@@ -531,20 +531,20 @@ Inside each active-weld child:
 - Keep "Surface Orbit Mode" checkbox and its lon/lat/altitude sliders in a 2-column
   table following the label-widget pattern.
 - Put the "Unweld" button at the bottom with `PushStyleColor(Button, Scarlet)` /
-  `PopStyleColor()` as in Gary's Torch for a clear destructive-action indicator.
+  `PopStyleColor()` as in Garry's Torch for a clear destructive-action indicator.
 
 ### Checklist
 
 - [ ] Add `SubmodUI.BeginContentArea("##km_content");` as the first statement in `RenderContent()`.
 - [ ] Replace `TextColored + Separator` + double-`Indent` for "Create Weld" with `ImGui.SeparatorText("Create Weld")`.
-- [ ] Replace Source/Target combo layout with a 3-column `SizingFixedFit | NoPadOuterX` table (`CellPadding (6,6)`) following the `garys-torch` `RenderFilteredCombo` pattern.
+- [ ] Replace Source/Target combo layout with a 3-column `SizingFixedFit | NoPadOuterX` table (`CellPadding (6,6)`) following the `garrys-torch` `RenderFilteredCombo` pattern.
 - [ ] Remove `PushStyleColor(Text, RadioactiveGreen)` / `PopStyleColor()` calls on the Source and Target combos.
 - [ ] Add `SetItemTooltip(...)` after the Source and Target combos explaining each role.
 - [ ] Replace CCI offset `SetNextItemWidth(-100f) + SameLine + SetNextItemWidth(82f)` layout with a 2-column table row with the `DragFloat3` in the widget column and unit `Combo` at the right edge.
 - [ ] Add a `SetItemTooltip` on the offset control explaining CCI offset.
 - [ ] Replace the three "Place on Surface" buttons with compact `[ +X ]`, `[ +Y ]`, `[ +Z ]` buttons with `SetItemTooltip`.
 - [ ] Replace `TextColored + Separator` for "Active Welds" with `ImGui.SeparatorText($"Active Welds ( {_welds.Count} )")`.
-- [ ] Replace double-indent inside each active-weld `CollapsingHeader` body with the Gary's Torch bordered-child-window pattern.
+- [ ] Replace double-indent inside each active-weld `CollapsingHeader` body with the Garry's Torch bordered-child-window pattern.
 - [ ] Inside each active-weld child, put offset controls in a 2-column table with `AlignTextToFramePadding` labels.
 - [ ] Inside each active-weld child, put surface-mode lon/lat/altitude sliders in a 2-column table.
 - [ ] Style the "Unweld" button with `PushStyleColor(Button, Scarlet)` + `PushStyleColor(Text, PaleGrey)`.
@@ -792,7 +792,7 @@ then a 2-column table for all per-light parameters:
 - [ ] Add `SubmodUI.BeginContentArea("##zp_content");` as the first statement in `RenderContent()`.
 - [ ] Remove `ImGui.TextColored(...); ImGui.Separator(); ImGui.Spacing();` from the top.
 - [ ] Add a 2-column `SizingStretchProp | NoPadOuterX` table with `CellPadding (6,6)` for Vehicle and Light Part selectors.
-- [ ] Replace raw `ImGui.Combo("Vehicle##zp", ...)` with a filterable combo following the `garys-torch` `RenderFilteredCombo` pattern in the Vehicle row.
+- [ ] Replace raw `ImGui.Combo("Vehicle##zp", ...)` with a filterable combo following the `garrys-torch` `RenderFilteredCombo` pattern in the Vehicle row.
 - [ ] Replace raw `ImGui.Combo("Light Part##zp", ...)` with a filterable combo in the Light Part row.
 - [ ] Move `Dbg##zp` button outside the selector table; place it inside a `CollapsingHeader("Debug", default-closed)`.
 - [ ] Add `ImGui.SeparatorText("Light Controls")` before the per-light-part controls (only shown when a part is selected).
@@ -826,11 +826,11 @@ then a 2-column table for all per-light parameters:
 - **`EndContentArea` position:** Always the very last line of `RenderContent()`, except for top-level `ImGui.Begin/End` blocks (e.g., `RenderEditorWindow`) which must live outside the child.
 - **Do not nest `BeginContentArea` calls.** Each submod gets exactly one `BeginContentArea` / `EndContentArea` pair.
 - **Redesign scope:** UI changes are confined to `RenderContent()` and any private `Render*` helper methods. Non-UI fields, logic classes, and other files in the lib are out of scope unless a specific checklist item says otherwise.
-- **Split large `RenderContent` methods into private helpers** (like `RenderCreateSection`, `RenderWeldSection` in Gary's Torch) so each method stays under ~80 lines.
+- **Split large `RenderContent` methods into private helpers** (like `RenderCreateSection`, `RenderWeldSection` in Garry's Torch) so each method stays under ~80 lines.
 - **Conformant reference files to study before implementing:**
   - `eternal-flame.lib/EternalFlameSubmod.cs` — simple flat layout
   - `glass.lib/GlassSubmod.cs` — minimal 2-column table
   - `con-man.lib/ConManSubmod.cs` — 3-column fixed table, popups
-  - `garys-torch.lib/GarysTorchSubmod.cs` — bordered child-windows, filtered combos, modals
+  - `garrys-torch.lib/GarrysTorchSubmod.cs` — bordered child-windows, filtered combos, modals
   - `i-feel-seen.lib/IFeelSeenSubmod.cs` — compact selector + list table
   - `humble-arteest.lib/VehiclePaintSubmod.cs` — scrollable per-part table, status messages

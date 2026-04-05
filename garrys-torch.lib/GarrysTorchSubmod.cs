@@ -5,9 +5,9 @@ using Brutal.ImGuiApi;
 using KSA;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.GarysTorchLib;
+namespace MeowSci.GarrysTorchLib;
 
-public sealed class GarysTorchSubmod : ISubmod
+public sealed class GarrysTorchSubmod : ISubmod
 {
     public string Name => "Garry's Torch";
     public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
@@ -453,13 +453,13 @@ public sealed class GarysTorchSubmod : ISubmod
         _pendingLockRotation = true;
 
         SortWelds();
-        Console.WriteLine($"garys-torch: Welded {source.Id} to {target.Id}");
+        Console.WriteLine($"garrys-torch: Welded {source.Id} to {target.Id}");
     }
 
     private void RemoveWeld(WeldEntry entry)
     {
         WeldEngine.ApplyVehicleScale(entry.Source, 1.0f);
-        Console.WriteLine($"garys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
+        Console.WriteLine($"garrys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
         _welds.Remove(entry);
     }
 

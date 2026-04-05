@@ -1,8 +1,8 @@
-# Gary's Torch — Mod Overview
+# Garry's Torch — Mod Overview
 
 ## What It Does
 
-Gary's Torch is a vehicle welding mod for KSA. It lets you attach ("weld") one vehicle to another in-game so the source vehicle follows the target vehicle's position and orientation each frame. Welded vehicles can be repositioned, rotated, and scaled via an ImGui control panel toggled with F11. Multiple simultaneous welds are supported.
+Garry's Torch is a vehicle welding mod for KSA. It lets you attach ("weld") one vehicle to another in-game so the source vehicle follows the target vehicle's position and orientation each frame. Welded vehicles can be repositioned, rotated, and scaled via an ImGui control panel toggled with F11. Multiple simultaneous welds are supported.
 
 ## Features
 

@@ -8,7 +8,7 @@ using MeowSci.KsaAbstractions;
 using MeowSci.AverageTwrLib;
 using MeowSci.BlinkyLib;
 using MeowSci.EternalFlameLib;
-using MeowSci.GarysTorchLib;
+using MeowSci.GarrysTorchLib;
 using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
@@ -60,7 +60,7 @@ public class Mod
             _submods.Add(cameraOverride);
             _submods.Add(new ConManSubmod());
             _submods.Add(new EternalFlameSubmod());
-            _submods.Add(new GarysTorchSubmod());
+            _submods.Add(new GarrysTorchSubmod());
             _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);

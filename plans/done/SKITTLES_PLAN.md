@@ -46,7 +46,7 @@ skittles/              — Mod entry point + UI
 
 ### 1.1 Create `skittles.lib/skittles.lib.csproj`
 
-Create the file `skittles.lib/skittles.lib.csproj` with the standard `.lib` project pattern. Follow the exact pattern from `garys-torch.lib/garys-torch.lib.csproj`:
+Create the file `skittles.lib/skittles.lib.csproj` with the standard `.lib` project pattern. Follow the exact pattern from `garrys-torch.lib/garrys-torch.lib.csproj`:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -91,7 +91,7 @@ No `ksa-abstractions.lib` reference is needed — Skittles only interacts with I
 
 ### 1.2 Create `skittles/skittles.csproj`
 
-Create the file `skittles/skittles.csproj` following the `garys-torch/garys-torch.csproj` pattern:
+Create the file `skittles/skittles.csproj` following the `garrys-torch/garrys-torch.csproj` pattern:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">

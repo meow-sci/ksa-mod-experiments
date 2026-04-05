@@ -49,7 +49,7 @@ public static class VehicleLookup
 `unladen-swallow.lib.csproj` currently references `ksa-abstractions.lib`, `glass.lib`, and `blinky.lib`. New feature groups will require adding:
 
 - `eternal-flame.lib`
-- `garys-torch.lib`
+- `garrys-torch.lib`
 - `i-feel-seen.lib`
 - `zippo.lib`
 - `camera-controller-override.lib`
@@ -196,11 +196,11 @@ public record FuelToggleRequest(bool Active);
 
 ---
 
-## Feature Set 4: Vehicle Welding (Gary's Torch)
+## Feature Set 4: Vehicle Welding (Garry's Torch)
 
 **Route prefix**: `/welds`
 **OpenAPI spec file**: `openapi-welds.yaml`
-**Lib dependency**: `garys-torch.lib` (new reference)
+**Lib dependency**: `garrys-torch.lib` (new reference)
 
 Expose the vehicle-to-vehicle welding system for scripted camera rigs, vehicle assemblies, and formation flying.
 
@@ -234,9 +234,9 @@ public record WeldPresetListResponse(WeldPresetInfo[] Presets);
 
 ### Implementation Tasks
 
-1. Add project reference: `unladen-swallow.lib` → `garys-torch.lib`
-2. **Expose weld management API** in `garys-torch.lib`:
-   - Make `GarysTorchSubmod` expose its `_welds` list via a public read-only property
+1. Add project reference: `unladen-swallow.lib` → `garrys-torch.lib`
+2. **Expose weld management API** in `garrys-torch.lib`:
+   - Make `GarrysTorchSubmod` expose its `_welds` list via a public read-only property
    - Extract `InitiateWeld()` and `RemoveWeld()` into public methods (or a separate `WeldManager` class)
    - Add an `UpdateWeldParams(int index, ...)` method for PATCH support
 3. Add API types to `ApiTypes.cs`
@@ -819,7 +819,7 @@ Each feature group gets its own OpenAPI spec file, stored in `unladen-swallow.li
 | `openapi-core.yaml` | Vehicle queries, game state, health |
 | `openapi-engines.yaml` | Engine ignite/shutdown/list |
 | `openapi-fuel.yaml` | Fuel monitoring and refill |
-| `openapi-welds.yaml` | Vehicle welding (Gary's Torch) |
+| `openapi-welds.yaml` | Vehicle welding (Garry's Torch) |
 | `openapi-visibility.yaml` | Render distance override |
 | `openapi-lights.yaml` | Light control (Zippo) |
 | `openapi-camera.yaml` | FOV control + camera animation sequences |
@@ -858,7 +858,7 @@ This requires embedding the YAML files as resources in the assembly or reading t
 
 ## Submod Instance Access Pattern
 
-Many feature sets require accessing the `.lib` submod instances (e.g., `EternalFlameSubmod.FuelManager`, `GarysTorchSubmod._welds`). Since `grant` instantiates all submods and `unladen-swallow.lib` runs in the same process, we need a cross-submod access pattern.
+Many feature sets require accessing the `.lib` submod instances (e.g., `EternalFlameSubmod.FuelManager`, `GarrysTorchSubmod._welds`). Since `grant` instantiates all submods and `unladen-swallow.lib` runs in the same process, we need a cross-submod access pattern.
 
 ### Recommended Approach: Static Singleton on Manager/Submod
 

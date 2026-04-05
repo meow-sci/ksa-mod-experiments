@@ -4,12 +4,12 @@ using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
 
-namespace MeowSci.GarysTorch;
+namespace MeowSci.GarrysTorch;
 
 [HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("garys-torch");
+    private static Harmony? _harmony = new Harmony("garrys-torch");
 
     public static void Patch()
     {
@@ -20,7 +20,7 @@ internal static class Patcher
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Error applying patches: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error applying patches: {ex.Message}");
         }
     }
 
@@ -29,12 +29,12 @@ internal static class Patcher
         try
         {
             if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
-            _harmony?.UnpatchAll("garys-torch");
+            _harmony?.UnpatchAll("garrys-torch");
             _harmony = null;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"garys-torch: Error removing patches: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error removing patches: {ex.Message}");
         }
     }
 

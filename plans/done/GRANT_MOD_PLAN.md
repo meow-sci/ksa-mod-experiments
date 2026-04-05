@@ -11,7 +11,7 @@ Unify 11 standalone mods into a single **grant** supermod that presents one top-
 | average-twr | average-twr.lib | No (empty) | Yes — TWR sample collection at 100Hz |
 | blinky | blinky.lib | Yes — render-skip patches (3 prefix patches on `PartModelModule`, `PartModelDynamicModule`, `PartModelGlassModule`) | No (ticks in `OnAfterUi`) |
 | eternal-flame | eternal-flame.lib | No (empty) | Yes — `FuelManager.Update(dt)` |
-| garys-torch | garys-torch.lib | No (empty) | No (welds update in `OnAfterUi`) |
+| garrys-torch | garrys-torch.lib | No (empty) | No (welds update in `OnAfterUi`) |
 | glass | glass.lib | Yes — `Camera.ChangeFieldOfView` prefix, `Camera.UpdateProjection` prefix | No |
 | i-feel-seen | i-feel-seen.lib | Yes — `Vehicle.GetWorldMatrix` prefix, `Vehicle.UpdateRenderData` prefix (require `VehicleTracker` instance) | No |
 | kiwis-marbles | kiwis-marbles.lib | No (empty) | No (welds update in `OnAfterUi`) |
@@ -34,7 +34,7 @@ Unify 11 standalone mods into a single **grant** supermod that presents one top-
 │    [Grid config, build control, patterns, scroll, debug]    │
 │  ▼ Eternal Flame — Infinite Fuel                            │
 │    [Vehicle selector, refill slider, monitored table]       │
-│  ▼ Gary's Torch                                             │
+│  ▼ Garry's Torch                                             │
 │    [Create weld, active welds list]                         │
 │  ▼ Glass — Camera Lens                                      │
 │    [Presets, manual FOV, reset]                             │
@@ -241,23 +241,23 @@ internal interface IGrantSubmod
 
 ---
 
-### Task 4: Create `GarysTorchSubmod`
+### Task 4: Create `GarrysTorchSubmod`
 
-**Goal:** Implement the Gary's Torch vehicle welding submod panel for grant.
+**Goal:** Implement the Garry's Torch vehicle welding submod panel for grant.
 
 **Files to create:**
-- `grant/Submods/GarysTorchSubmod.cs`
+- `grant/Submods/GarrysTorchSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
-- `garys-torch.lib` → `WeldEntry`, `WeldEngine`, `WeldPreset`
+- `garrys-torch.lib` → `WeldEntry`, `WeldEngine`, `WeldPreset`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
 - Implements `IGrantSubmod`
-- `Name` = `"Gary's Torch"`
+- `Name` = `"Garry's Torch"`
 - `Initialize()` — no-op
-- `Update(dt)` — updates all active welds by calling `WeldEngine.UpdateWeld(weld)` for each, removes failed welds (same logic as `garys-torch/Mod.cs` `OnAfterUi`). Note: this MUST run every frame even if not visible, because welds must be maintained.
-- `RenderContent()` — replicates ImGui content from `garys-torch/Mod.cs` `RenderWindow()` without `ImGui.Begin`/`ImGui.End`:
+- `Update(dt)` — updates all active welds by calling `WeldEngine.UpdateWeld(weld)` for each, removes failed welds (same logic as `garrys-torch/Mod.cs` `OnAfterUi`). Note: this MUST run every frame even if not visible, because welds must be maintained.
+- `RenderContent()` — replicates ImGui content from `garrys-torch/Mod.cs` `RenderWindow()` without `ImGui.Begin`/`ImGui.End`:
   - "Create Weld" section with source/target combo boxes
   - "Starting Data" collapsible with position, rotation, scale, lock rotation controls
   - Preset selector + "I'm feeling lucky" button
@@ -265,7 +265,7 @@ internal interface IGrantSubmod
   - Per-weld editable position/rotation/scale/lock rotation + unweld button
 - `Dispose()` — unweld all active welds (reset scales to 1.0)
 
-**State fields (copied from `garys-torch/Mod.cs`):**
+**State fields (copied from `garrys-torch/Mod.cs`):**
 - `List<WeldEntry> _welds`
 - `int _pendingSourceIndex`, `_pendingTargetIndex`
 - `float3 _pendingPosition`, `_pendingRotation`
@@ -615,7 +615,7 @@ internal static class Patcher
 - `blinken.lib`
 - `byo-music.lib`
 - `camera-controller-override.lib`
-- `garys-torch.lib`
+- `garrys-torch.lib`
 - `geeforce.lib`
 - `i-feel-seen.lib`
 - `kitten-animations.lib`
@@ -664,7 +664,7 @@ internal static class Patcher
      1. `AverageTwrSubmod`
      2. `BlinkySubmod`
      3. `EternalFlameSubmod`
-     4. `GarysTorchSubmod`
+     4. `GarrysTorchSubmod`
      5. `GlassSubmod`
      6. `IFeelSeenSubmod`
      7. `KiwisMarblesSubmod`
@@ -800,7 +800,7 @@ Tasks can be executed in this suggested order, though Tasks 1–10 are independe
 | `grant/Submods/AverageTwrSubmod.cs` | Create | 1 |
 | `grant/Submods/BlinkySubmod.cs` | Create | 2 |
 | `grant/Submods/EternalFlameSubmod.cs` | Create | 3 |
-| `grant/Submods/GarysTorchSubmod.cs` | Create | 4 |
+| `grant/Submods/GarrysTorchSubmod.cs` | Create | 4 |
 | `grant/Submods/GlassSubmod.cs` | Create | 5 |
 | `grant/Submods/IFeelSeenSubmod.cs` | Create | 6 |
 | `grant/Submods/KiwisMarblesSubmod.cs` | Create | 7 |

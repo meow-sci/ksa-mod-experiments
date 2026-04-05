@@ -24,7 +24,7 @@ Similarly, 4 mods have Harmony patches that are defined in both the standalone m
 | average-twr | AverageTwrSubmod.cs (~90) | average-twr/Mod.cs (~90) | No real patches | No |
 | blinky | BlinkySubmod.cs (~480) | blinky/Mod.cs (~480) | render-skip (3 patches) | render-skip (3 patches) |
 | eternal-flame | EternalFlameSubmod.cs (~120) | eternal-flame/Mod.cs (~120) | No real patches | No |
-| garys-torch | GarysTorchSubmod.cs (~230) | garys-torch/Mod.cs (~230) | No real patches | No |
+| garrys-torch | GarrysTorchSubmod.cs (~230) | garrys-torch/Mod.cs (~230) | No real patches | No |
 | glass | GlassSubmod.cs (~90) | glass/Mod.cs (~90) | FOV (2 patches) | FOV (2 patches) |
 | i-feel-seen | IFeelSeenSubmod.cs (~70) | i-feel-seen/Mod.cs (~70) | render distance (2 patches) | render distance (2 patches) |
 | kiwis-marbles | KiwisMarblesSubmod.cs (~350) | kiwis-marbles/Mod.cs (~350) | No real patches | No |
@@ -151,12 +151,12 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 - **csproj change to `eternal-flame.lib.csproj`:** add `<ProjectReference>` to `ksa-abstractions.lib` (currently missing). Also needs ImGui + KSA dll references added matching other lib csprojs
 - **special notes:** references `FuelManager` from this lib, `Universe` from KSA
 
-### task 2.4: `garys-torch.lib/GarysTorchSubmod.cs`
+### task 2.4: `garrys-torch.lib/GarrysTorchSubmod.cs`
 
-- **source:** copy content from `grant/Submods/GarysTorchSubmod.cs` (~230 lines)
-- **namespace:** `MeowSci.GarysTorchLib`
-- **class:** `public sealed class GarysTorchSubmod : ISubmod`
-- **csproj change to `garys-torch.lib.csproj`:** already has `ksa-abstractions.lib` — no change needed
+- **source:** copy content from `grant/Submods/GarrysTorchSubmod.cs` (~230 lines)
+- **namespace:** `MeowSci.GarrysTorchLib`
+- **class:** `public sealed class GarrysTorchSubmod : ISubmod`
+- **csproj change to `garrys-torch.lib.csproj`:** already has `ksa-abstractions.lib` — no change needed
 - **special notes:** references `WeldEngine`, `WeldEntry`, `WeldPreset`, `VehicleProvider` — all already available
 
 ### task 2.5: `glass.lib/GlassSubmod.cs`
@@ -371,9 +371,9 @@ public class Mod
 - replace all ImGui rendering + fuel manager UI with `EternalFlameSubmod` delegation
 - add `<ProjectReference>` to `ksa-abstractions.lib` in csproj (for ISubmod)
 
-### task 4.4: simplify `garys-torch/Mod.cs`
+### task 4.4: simplify `garrys-torch/Mod.cs`
 
-- replace all ImGui rendering + welding UI with `GarysTorchSubmod` delegation
+- replace all ImGui rendering + welding UI with `GarrysTorchSubmod` delegation
 
 ### task 4.5: simplify `glass/Mod.cs`
 
@@ -458,7 +458,7 @@ All submod implementations now live in their respective `.lib` projects:
 - delete `grant/Submods/AverageTwrSubmod.cs`
 - delete `grant/Submods/BlinkySubmod.cs`
 - delete `grant/Submods/EternalFlameSubmod.cs`
-- delete `grant/Submods/GarysTorchSubmod.cs`
+- delete `grant/Submods/GarrysTorchSubmod.cs`
 - delete `grant/Submods/GlassSubmod.cs`
 - delete `grant/Submods/IFeelSeenSubmod.cs`
 - delete `grant/Submods/KiwisMarblesSubmod.cs`
@@ -481,7 +481,7 @@ Some `.lib` projects need new dependencies to support the submod classes (ImGui,
 | average-twr.lib | already has | no | already has | already has | — |
 | blinky.lib | already has | already has | already has | already has | add `BlinkyPatchState.cs` |
 | eternal-flame.lib | **ADD** | no | **ADD** (Brutal.ImGui, Brutal.ImGui.Abstractions, Brutal.Core.Numerics) | already has | — |
-| garys-torch.lib | already has | no | already has | already has | — |
+| garrys-torch.lib | already has | no | already has | already has | — |
 | glass.lib | **ADD** | **ADD** | **ADD** (Brutal.ImGui, Brutal.ImGui.Abstractions, Brutal.Core.Numerics, Brutal.Core.Common) | already has | add `StarMap.API` pkg |
 | i-feel-seen.lib | already has | **ADD** | already has | already has (via ksa-abstractions transitive) | — |
 | kiwis-marbles.lib | already has | no | **ADD** (Brutal.ImGui, Brutal.ImGui.Abstractions, Brutal.Core.Numerics) | already has | — |
@@ -559,7 +559,7 @@ phases 4 and 5 are **independent** of each other and can be done in parallel.
 | `blinky.lib/BlinkyPatchState.cs` | blinky.lib |
 | `blinky.lib/BlinkyPatches.cs` | blinky.lib |
 | `eternal-flame.lib/EternalFlameSubmod.cs` | eternal-flame.lib |
-| `garys-torch.lib/GarysTorchSubmod.cs` | garys-torch.lib |
+| `garrys-torch.lib/GarrysTorchSubmod.cs` | garrys-torch.lib |
 | `glass.lib/GlassSubmod.cs` | glass.lib |
 | `glass.lib/GlassPatches.cs` | glass.lib |
 | `i-feel-seen.lib/IFeelSeenSubmod.cs` | i-feel-seen.lib |
@@ -579,7 +579,7 @@ phases 4 and 5 are **independent** of each other and can be done in parallel.
 | `blinky/Patcher.cs` | simplify to call `BlinkyPatches` |
 | `eternal-flame/Mod.cs` | simplify to delegate to submod |
 | `eternal-flame/eternal-flame.csproj` | add ksa-abstractions.lib ref |
-| `garys-torch/Mod.cs` | simplify to delegate to submod |
+| `garrys-torch/Mod.cs` | simplify to delegate to submod |
 | `glass/Mod.cs` | simplify to delegate to submod |
 | `glass/Patcher.cs` | simplify to call `GlassPatches` |
 | `glass/glass.csproj` | add ksa-abstractions.lib ref |
@@ -609,7 +609,7 @@ phases 4 and 5 are **independent** of each other and can be done in parallel.
 | `grant/Submods/AverageTwrSubmod.cs` | moved to `average-twr.lib` |
 | `grant/Submods/BlinkySubmod.cs` | moved to `blinky.lib` |
 | `grant/Submods/EternalFlameSubmod.cs` | moved to `eternal-flame.lib` |
-| `grant/Submods/GarysTorchSubmod.cs` | moved to `garys-torch.lib` |
+| `grant/Submods/GarrysTorchSubmod.cs` | moved to `garrys-torch.lib` |
 | `grant/Submods/GlassSubmod.cs` | moved to `glass.lib` |
 | `grant/Submods/IFeelSeenSubmod.cs` | moved to `i-feel-seen.lib` |
 | `grant/Submods/KiwisMarblesSubmod.cs` | moved to `kiwis-marbles.lib` |
