@@ -7,8 +7,12 @@ namespace MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 /// <summary>
 /// Moves the camera from its current position by a specified (X, Y, Z) offset
-/// in ecliptic coordinates, with easing. The camera continues to look at the
+/// in camera-local coordinates, with easing. The camera continues to look at the
 /// target throughout the pan.
+///
+/// X = camera right, Y = camera up, Z = toward target (positive = zoom in)
+/// All offsets are relative to the camera's orientation at the start of the animation.
+/// Position tracks the target so the spacecraft stays in view as it moves.
 /// </summary>
 public class PanAnimation : IKeyframeAnimation
 {
@@ -22,7 +26,10 @@ public class PanAnimation : IKeyframeAnimation
     public double EasingPowerEnd { get; }
 
     // Runtime state
-    private double3 _startPosition;
+    private double3 _startOffset;    // camera pos relative to target at init
+    private double3 _cameraRight;    // camera's local right axis at init
+    private double3 _cameraUp;       // camera's local up axis at init
+    private double3 _cameraForward;  // toward target at init
 
     // Interface properties
     public string Name => "Pan";
@@ -59,8 +66,12 @@ public class PanAnimation : IKeyframeAnimation
 
     public void Initialize(Controller controller, Transform3D transform)
     {
-        _startPosition = transform.PositionEcl;
-        Console.WriteLine($"[PanAnimation] Initialize: startPosition={_startPosition}, offset=({OffsetX:F1}, {OffsetY:F1}, {OffsetZ:F1}), duration={DurationSeconds:F1}s, easing={Easing}");
+        double3 targetPos = AnimationHelpers.GetTargetPosition(controller, transform.PositionEcl);
+        _startOffset = transform.PositionEcl - targetPos;
+        _cameraRight = double3.UnitX.Transform(transform.LocalRotation);
+        _cameraUp = double3.UnitY.Transform(transform.LocalRotation);
+        _cameraForward = double3.Normalize(targetPos - transform.PositionEcl);
+        Console.WriteLine($"[PanAnimation] Initialize: startOffset={_startOffset}, offset=({OffsetX:F1}, {OffsetY:F1}, {OffsetZ:F1}), duration={DurationSeconds:F1}s, easing={Easing}");
     }
 
     public bool Update(Controller controller, Transform3D transform, double deltaTime, double elapsedTime)
@@ -74,13 +85,14 @@ public class PanAnimation : IKeyframeAnimation
             easedT = 1.0;
         }
 
-        var targetOffset = new double3(OffsetX, OffsetY, OffsetZ);
-        var currentOffset = targetOffset * easedT;
-        transform.PositionEcl = _startPosition + currentOffset;
+        var worldOffset = _cameraRight   * (OffsetX * easedT)
+                        + _cameraUp      * (OffsetY * easedT)
+                        + _cameraForward * (OffsetZ * easedT);
 
         var lookAtTarget = LookAtTargetProvider != null
             ? LookAtTargetProvider(controller)
-            : AnimationHelpers.GetTargetPosition(controller);
+            : AnimationHelpers.GetTargetPosition(controller, transform.PositionEcl);
+        transform.PositionEcl = lookAtTarget + _startOffset + worldOffset;
         AnimationHelpers.LookAtTarget(transform, lookAtTarget);
 
         if (elapsedTime < deltaTime * 1.5)
@@ -98,7 +110,10 @@ public class PanAnimation : IKeyframeAnimation
 
     public void Reset()
     {
-        _startPosition = double3.Zero;
+        _startOffset = double3.Zero;
+        _cameraRight = double3.Zero;
+        _cameraUp = double3.Zero;
+        _cameraForward = double3.Zero;
     }
 
     public Dictionary<string, string> GetDisplayProperties()
