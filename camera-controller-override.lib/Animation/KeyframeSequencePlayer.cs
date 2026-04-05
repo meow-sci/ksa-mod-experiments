@@ -198,6 +198,13 @@ public class KeyframeSequencePlayer
     /// </summary>
     private doubleQuat _returnFromRotation;
     
+    /// <summary>
+    /// The controller instance that started the current playback.
+    /// Used to prevent double-updates when both OrbitController and FlyController
+    /// fire OnFrame in the same frame with different Transform3D instances.
+    /// </summary>
+    private Controller? _activeController;
+    
     // Public methods
     
     /// <summary>
@@ -222,6 +229,7 @@ public class KeyframeSequencePlayer
         _isReturningToStart = false;
         _returnElapsedTime = 0.0;
         _returnFromOffset = double3.Zero;
+        _activeController = null;
         
         // Reset all animation state - CRITICAL: ensures no stale state from previous runs
         foreach (var keyframe in Keyframes)
@@ -278,6 +286,7 @@ public class KeyframeSequencePlayer
         _returnElapsedTime = 0.0;
         _returnFromOffset = double3.Zero;
         _returnFromRotation = doubleQuat.Identity;
+        _activeController = null;
         
         // Reset all animation state
         foreach (var keyframe in Keyframes)
@@ -423,6 +432,15 @@ public class KeyframeSequencePlayer
         {
             return false;
         }
+        
+        // Lock to the first controller that calls Update during this playback session.
+        // Both OrbitController.OnFrame and FlyController.OnFrame are patched with the
+        // same prefix, so Update can be called twice per frame with different Transform3D
+        // instances. Only the first (active) controller should drive the animation.
+        if (_activeController == null)
+            _activeController = controller;
+        else if (controller != _activeController)
+            return true; // Still skip normal camera control, but don't run animation logic
         
         // Capture start offset and rotation on first frame of playback
         if (!_hasStartedSequence)
