@@ -7,6 +7,7 @@
 const BASE_URL = "http://localhost:7887";
 
 const vehicleId = Bun.argv[2];
+const gridName = Bun.argv[3];
 
 if (!vehicleId) {
   console.error("Usage: bun run off.ts <vehicleId>");
@@ -23,7 +24,7 @@ async function main() {
     res = await fetch(`${BASE_URL}/blinky/off`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vehicleId }),
+      body: JSON.stringify({ vehicleId, gridName }),
     });
   } catch (err) {
     console.error("Network error:", err);
