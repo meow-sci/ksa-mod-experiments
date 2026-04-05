@@ -39,3 +39,174 @@ public record BlinkyGridInfo(string VehicleId, string GridName, int Rows, int Co
 
 /// <summary>Result returned by GET /blinky/grids.</summary>
 public record BlinkyGridListResult(BlinkyGridInfo[] Grids);
+
+// ── Camera Animation API Types ──────────────────────────────────────────────
+
+/// <summary>
+/// Easing type for camera animations. Values match CameraControllerOverrideLib.Animation.EasingType.
+/// </summary>
+public enum CameraEasingType
+{
+    Linear = 0,
+    EaseIn = 1,
+    EaseOut = 2,
+    EaseInOut = 3
+}
+
+/// <summary>A zoom-out animation step. Moves camera away from target.</summary>
+public record CameraZoomOut(
+    double SpeedMetersPerSecond,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A zoom-in animation step. Moves camera toward target (min 1m distance).</summary>
+public record CameraZoomIn(
+    double SpeedMetersPerSecond,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A zoom-in-to-offset animation step. Zooms toward a point offset from the target.</summary>
+public record CameraZoomInToOffset(
+    double SpeedMetersPerSecond,
+    double OffsetX,
+    double OffsetY,
+    double OffsetZ,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A circular orbit animation step around the camera target.</summary>
+public record CameraOrbit(
+    double Degrees,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>An orbit with sinusoidal in/out oscillation (loopy orbit).</summary>
+public record CameraLoopyOrbit(
+    double Degrees,
+    double LoopIntervalDegrees,
+    double AmplitudeMeters,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>Zoom in while spiraling around the camera look axis.</summary>
+public record CameraSpiralZoomIn(
+    double SpeedMetersPerSecond,
+    double SpiralDegrees,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>Zoom out while spiraling around the camera look axis.</summary>
+public record CameraSpiralZoomOut(
+    double SpeedMetersPerSecond,
+    double SpiralDegrees,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A head-shaking yaw rotation effect using sinusoidal oscillation.</summary>
+public record CameraShake(
+    int ShakeCount,
+    double AmplitudeDegrees,
+    double ShakeSpeed,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A camera-local offset movement (X=right, Y=up, Z=forward).</summary>
+public record CameraPan(
+    double OffsetX,
+    double OffsetY,
+    double OffsetZ,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>A yaw and pitch rotation from a fixed camera position.</summary>
+public record CameraRotate(
+    double YawDegrees,
+    double PitchDegrees,
+    double DurationSeconds,
+    CameraEasingType Easing = CameraEasingType.Linear,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>
+/// A single step in a camera animation sequence.
+/// Set exactly ONE animation type property, OR set Group to run animations simultaneously.
+/// Nested groups (groups inside groups) are not allowed.
+/// </summary>
+public record CameraSequenceStep(
+    CameraZoomOut? ZoomOut = null,
+    CameraZoomIn? ZoomIn = null,
+    CameraZoomInToOffset? ZoomInToOffset = null,
+    CameraOrbit? Orbit = null,
+    CameraLoopyOrbit? LoopyOrbit = null,
+    CameraSpiralZoomIn? SpiralZoomIn = null,
+    CameraSpiralZoomOut? SpiralZoomOut = null,
+    CameraShake? Shake = null,
+    CameraPan? Pan = null,
+    CameraRotate? Rotate = null,
+    CameraSequenceStep[]? Group = null
+);
+
+/// <summary>
+/// Optional return-to-start configuration. When included in requests, the camera
+/// animates back to its starting position and rotation after the sequence completes.
+/// </summary>
+public record CameraReturnToStart(
+    double DurationSeconds = 3.0,
+    CameraEasingType Easing = CameraEasingType.EaseInOut,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>Request body for POST /camera/animate.</summary>
+public record CameraAnimateRequest(
+    CameraSequenceStep[] Sequence,
+    CameraReturnToStart? ReturnToStart = null
+);
+
+/// <summary>Result returned by POST /camera/animate on success.</summary>
+public record CameraAnimateResult(
+    int KeyframeCount,
+    double TotalDurationSeconds,
+    bool ReturnToStartEnabled
+);
+
+/// <summary>Current camera animation playback status returned by GET /camera/status.</summary>
+public record CameraPlaybackStatus(
+    string State,
+    bool IsReturningToStart,
+    int CurrentKeyframeIndex,
+    int TotalKeyframes,
+    double TotalElapsedTime,
+    double TotalDurationSeconds
+);
+
+/// <summary>Result returned by DELETE /camera/stop.</summary>
+public record CameraStopResult(string PreviousState);
