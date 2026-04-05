@@ -105,6 +105,17 @@ public sealed class UnladenSwallowSubmod : ISubmod
             ImGui.TextDisabled("POST /blinky/animate            — set animated scroll");
             ImGui.TextDisabled("POST /blinky/static             — set static pixel data");
             ImGui.TextDisabled("POST /blinky/off                — clear grid");
+            ImGui.TextDisabled("GET    /camera/status                — camera playback state");
+            ImGui.TextDisabled("POST   /camera/animate               — run camera animation");
+            ImGui.TextDisabled("DELETE /camera/stop                  — stop camera animation");
+            ImGui.TextDisabled("GET    /torch/welds                  — list active welds");
+            ImGui.TextDisabled("POST   /torch/welds                  — create a weld");
+            ImGui.TextDisabled("DELETE /torch/welds                  — remove a weld");
+            ImGui.TextDisabled("POST   /torch/welds/modify            — modify weld immediately");
+            ImGui.TextDisabled("POST   /torch/welds/animate           — animate weld transition");
+            ImGui.TextDisabled("GET    /torch/presets                 — list presets");
+            ImGui.TextDisabled("POST   /torch/presets                 — save/update a preset");
+            ImGui.TextDisabled("DELETE /torch/presets                 — delete a preset");
         }
 
         SubmodUI.EndContentArea();
