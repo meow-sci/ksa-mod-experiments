@@ -47,5 +47,7 @@
     <Project Path="humble-arteest.lib/humble-arteest.lib.csproj" />
     <Project Path="steely-eyed-missile-kitten.lib/steely-eyed-missile-kitten.lib.csproj" />
     <Project Path="steely-eyed-missile-kitten/steely-eyed-missile-kitten.csproj" />
+    <Project Path="doh/doh.csproj" />
+    <Project Path="doh.lib/doh.lib.csproj" />
 
 </Solution>

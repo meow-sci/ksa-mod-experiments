@@ -1,0 +1,7 @@
+name = "doh"
+description = "Dynamically Originating Hominids — Programmatic kitten spawning with per-kitten material customization"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.Doh"
