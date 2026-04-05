@@ -193,7 +193,7 @@ Game UI layout manager for gauge canvases. Saves and restores HUD gauge visibili
 ## HTTP RPC Mods
 
 ### [unladen-swallow](unladen-swallow) / [unladen-swallow.lib](unladen-swallow.lib)
-HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib` and blinky pixel grid control via `blinky.lib`.
+HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib`, blinky pixel grid control via `blinky.lib`, and camera animation sequencing via `camera-controller-override.lib`.
 - F11 toggle ImGui window
 - Enable/disable HTTP server via checkbox
 - Live server status indicator (Running/Stopped)
@@ -204,7 +204,10 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `POST /blinky/static` — displays a static pixel pattern on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "...", "pixels": [...], "reset": true }`)
 - `POST /blinky/off` — turns off all pixels and stops scroll on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "..." }`)
 - `GET /blinky/grids` — lists all registered grids (optional `vehicleId` query filter)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, and `ksa-abstractions.lib`.
+- `POST /camera/animate` — runs a camera animation sequence (zoom, orbit, spiral, shake, pan, rotate, groups, return-to-start)
+- `GET /camera/status` — returns current playback state (Playing/Stopped/Paused, keyframe index, elapsed time)
+- `DELETE /camera/stop` — stops any running camera animation
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, and `ksa-abstractions.lib`.
 
 ---
 
