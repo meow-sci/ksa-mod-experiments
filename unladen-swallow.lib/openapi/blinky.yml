@@ -1,11 +1,10 @@
 openapi: 3.1.0
 
 info:
-  title: Unladen Swallow API
+  title: Unladen Swallow — Blinky API
   version: 1.0.0
   description: >
-    HTTP RPC server embedded in KSA mods via the unladen-swallow.lib library.
-    Exposes game state queries and control actions over a local HTTP interface.
+    Blinky LCD pixel grid control and management endpoints for the Unladen Swallow RPC server.
     Listens on http://localhost:7887.
 
 servers:
@@ -14,121 +13,7 @@ servers:
 
 paths:
 
-  # ── Health ──────────────────────────────────────────────────────────────────
-
-  /health:
-    get:
-      summary: Health check
-      description: Returns a simple status object to confirm the server is running.
-      operationId: getHealth
-      responses:
-        '200':
-          description: Server is healthy.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                required:
-                  - status
-
-  # ── FOV ─────────────────────────────────────────────────────────────────────
-
-  /fov:
-    get:
-      summary: Get current FOV state
-      description: Returns the current camera field-of-view state, including whether an override is active.
-      operationId: getFov
-      responses:
-        '200':
-          description: Current FOV state.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FovStateResponse'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    post:
-      summary: Set FOV override
-      description: >
-        Sets a camera FOV override. If `fov` is <= 0 the override is disabled
-        and the game's default FOV is restored.
-      operationId: setFov
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FovRequest'
-      responses:
-        '200':
-          description: Updated FOV state after applying the request.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FovStateResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  # ── Vehicle Actions ──────────────────────────────────────────────────────────
-
-  /vehicle/actions/ignite:
-    post:
-      summary: Ignite vehicle engine
-      description: Sends the main-ignite command to the specified vehicle's engine.
-      operationId: igniteVehicle
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VehicleActionRequest'
-      responses:
-        '200':
-          description: Engine ignition command accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VehicleActionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /vehicle/actions/shutdown:
-    post:
-      summary: Shut down vehicle engine
-      description: Sends the main-shutdown command to the specified vehicle's engine.
-      operationId: shutdownVehicle
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VehicleActionRequest'
-      responses:
-        '200':
-          description: Engine shutdown command accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VehicleActionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  # ── Blinky ───────────────────────────────────────────────────────────────────
+  # ── Blinky Control ───────────────────────────────────────────────────────────
 
   /blinky/animate:
     post:
@@ -383,97 +268,11 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-# ── Components ────────────────────────────────────────────────────────────────
-
 components:
 
   schemas:
 
-    # ── FOV types ──────────────────────────────────────────────────────────────
-
-    FovRequest:
-      type: object
-      description: >
-        Request body for setting the FOV override. Pass `fov` <= 0 to disable
-        the override and restore the game default.
-      properties:
-        fov:
-          type: number
-          format: float
-          description: Desired field-of-view in degrees. Use <= 0 to disable override.
-          example: 60.0
-      required:
-        - fov
-
-    FovState:
-      type: object
-      description: Current camera FOV state.
-      properties:
-        currentFovDegrees:
-          type: number
-          format: float
-          description: The actual FOV currently in use by the camera.
-          example: 60.0
-        overrideFovDegrees:
-          type: number
-          format: float
-          description: The FOV value stored as the override (may be 0 when override is inactive).
-          example: 60.0
-        isOverrideActive:
-          type: boolean
-          description: Whether a FOV override is currently applied.
-          example: true
-      required:
-        - currentFovDegrees
-        - overrideFovDegrees
-        - isOverrideActive
-
-    FovStateResponse:
-      allOf:
-        - $ref: '#/components/schemas/ApiResponseBase'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/FovState'
-
-    # ── Vehicle action types ────────────────────────────────────────────────────
-
-    VehicleActionRequest:
-      type: object
-      description: Identifies the target vehicle for an action.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-      required:
-        - vehicleId
-
-    VehicleActionResult:
-      type: object
-      description: Result of a vehicle action command.
-      properties:
-        vehicleId:
-          type: string
-          description: The vehicle ID the action was applied to.
-          example: "rocket-1"
-        action:
-          type: string
-          description: The action that was performed (e.g. "ignited" or "shutdown").
-          example: "ignited"
-      required:
-        - vehicleId
-        - action
-
-    VehicleActionResponse:
-      allOf:
-        - $ref: '#/components/schemas/ApiResponseBase'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/VehicleActionResult'
-
-    # ── Blinky types ───────────────────────────────────────────────────────────
+    # ── Shared pixel type ──────────────────────────────────────────────────────
 
     PixelCoord:
       type: object
@@ -490,6 +289,8 @@ components:
       required:
         - x
         - y
+
+    # ── Control request types ──────────────────────────────────────────────────
 
     BlinkyScrollRequest:
       type: object
@@ -561,7 +362,7 @@ components:
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid to animate on the target vehicle.
+          description: The name of the grid to target on the vehicle.
           example: "main"
       required:
         - vehicleId
@@ -596,6 +397,8 @@ components:
         - gridName
         - pattern
 
+    # ── Control result types ───────────────────────────────────────────────────
+
     BlinkyResult:
       type: object
       description: Result of a Blinky LCD grid operation.
@@ -628,7 +431,7 @@ components:
             data:
               $ref: '#/components/schemas/BlinkyResult'
 
-    # ── Blinky Grid Management types ───────────────────────────────────────────
+    # ── Grid management request types ─────────────────────────────────────────
 
     BlinkyGridVehicleRequest:
       type: object
@@ -640,7 +443,7 @@ components:
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid to animate on the target vehicle.
+          description: The name of the grid to target on the vehicle.
           example: "main"
       required:
         - vehicleId
@@ -659,7 +462,7 @@ components:
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid to animate on the target vehicle.
+          description: The name of the grid to create.
           example: "main"
         width:
           type: integer
@@ -747,7 +550,7 @@ components:
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid to animate on the target vehicle.
+          description: The name to register the scanned grid under.
           example: "main"
         enginePartId:
           type: string
@@ -758,6 +561,8 @@ components:
       required:
         - vehicleId
         - gridName
+
+    # ── Grid info types ────────────────────────────────────────────────────────
 
     BlinkyGridInfo:
       type: object
@@ -876,7 +681,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
     Conflict:
-      description: Conflict — a grid is already registered for the specified vehicle.
+      description: Conflict — a grid is already registered for the specified vehicle and name.
       content:
         application/json:
           schema:

@@ -1,0 +1,155 @@
+openapi: 3.1.0
+
+info:
+  title: Unladen Swallow — Vehicle API
+  version: 1.0.0
+  description: >
+    Vehicle engine control endpoints for the Unladen Swallow RPC server.
+    Listens on http://localhost:7887.
+
+servers:
+  - url: http://localhost:7887
+    description: Local KSA mod server
+
+paths:
+
+  /vehicle/actions/ignite:
+    post:
+      summary: Ignite vehicle engine
+      description: Sends the main-ignite command to the specified vehicle's engine.
+      operationId: igniteVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleActionRequest'
+      responses:
+        '200':
+          description: Engine ignition command accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /vehicle/actions/shutdown:
+    post:
+      summary: Shut down vehicle engine
+      description: Sends the main-shutdown command to the specified vehicle's engine.
+      operationId: shutdownVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleActionRequest'
+      responses:
+        '200':
+          description: Engine shutdown command accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  schemas:
+
+    VehicleActionRequest:
+      type: object
+      description: Identifies the target vehicle for an action.
+      properties:
+        vehicleId:
+          type: string
+          description: The unique identifier of the target vehicle.
+          example: "rocket-1"
+      required:
+        - vehicleId
+
+    VehicleActionResult:
+      type: object
+      description: Result of a vehicle action command.
+      properties:
+        vehicleId:
+          type: string
+          description: The vehicle ID the action was applied to.
+          example: "rocket-1"
+        action:
+          type: string
+          description: The action that was performed (e.g. "ignited" or "shutdown").
+          example: "ignited"
+      required:
+        - vehicleId
+        - action
+
+    VehicleActionResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/VehicleActionResult'
+
+    ApiResponseBase:
+      type: object
+      description: Standard API response envelope wrapping all successful responses.
+      properties:
+        status:
+          type: string
+          description: Always `"ok"` for successful responses.
+          example: ok
+        data:
+          description: The response payload. Type depends on the endpoint.
+      required:
+        - status
+        - data
+
+    ErrorResponse:
+      type: object
+      description: Error response envelope returned on 4xx/5xx.
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: "Vehicle not found: rocket-1."
+      required:
+        - status
+        - message
+
+  responses:
+
+    BadRequest:
+      description: Bad request — missing or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found (e.g. unknown vehicleId).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Unexpected server-side error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

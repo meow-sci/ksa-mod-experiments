@@ -1,0 +1,33 @@
+openapi: 3.1.0
+
+info:
+  title: Unladen Swallow — Health API
+  version: 1.0.0
+  description: >
+    Health check endpoint for the Unladen Swallow RPC server.
+    Listens on http://localhost:7887.
+
+servers:
+  - url: http://localhost:7887
+    description: Local KSA mod server
+
+paths:
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns a simple status object to confirm the server is running.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status

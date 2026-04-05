@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
  * scroll.ts — Render scrolling text to blinky LEDs via bitmap fonts.
- * Usage: bun run scroll.ts <vehicleId> <height> <text> [speed]
+ * Usage: bun run scroll.ts -v <vehicleId> -g <gridName> -h <height> -t <text> [-s <speed>]
  *
  * height snaps to: 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42 pixels tall.
  * speed defaults to 2.0 pixels/sec.
  */
+
+import { parseArgs } from "util";
 
 const BASE_URL = "http://localhost:7887";
 
@@ -13,20 +15,36 @@ const BASE_URL = "http://localhost:7887";
 // Argument parsing
 // ---------------------------------------------------------------------------
 
-const vehicleId = Bun.argv[2];
-const gridName = Bun.argv[3];
-const rawHeight = Bun.argv[4];
-const text = Bun.argv[5];
-const rawSpeed = Bun.argv[6];
-
 function usage(): never {
   console.error(
-    "Usage: bun run scroll.ts <vehicleId> <gridName> <height> <text> [speed]"
+    "Usage: bun run scroll.ts -v <vehicleId> -g <gridName> -h <height> -t <text> [-s <speed>]"
   );
-  console.error("  height  integer pixels tall (snaps to 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42)");
-  console.error("  speed   pixels/sec float (default 2.0)");
+  console.error("  -v, --vehicle  vehicle ID (required)");
+  console.error("  -g, --grid     grid name (required)");
+  console.error("  -h, --height   font height in pixels — snaps to 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42 (required)");
+  console.error("  -t, --text     text to scroll (required)");
+  console.error("  -s, --speed    scroll speed in pixels/sec (default: 2.0)");
   process.exit(1);
 }
+
+const { values: args } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    vehicle: { type: "string", short: "v" },
+    grid:    { type: "string", short: "g" },
+    height:  { type: "string", short: "h" },
+    text:    { type: "string", short: "t" },
+    speed:   { type: "string", short: "s" },
+  },
+  strict: true,
+  allowPositionals: false,
+});
+
+const vehicleId = args.vehicle;
+const gridName  = args.grid;
+const rawHeight = args.height;
+const text      = args.text;
+const rawSpeed  = args.speed;
 
 if (!vehicleId || !gridName || !rawHeight || text === undefined) usage();
 
