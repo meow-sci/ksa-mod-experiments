@@ -13,6 +13,7 @@
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
+    <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

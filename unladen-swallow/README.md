@@ -7,7 +7,8 @@ Provides an ImGui control window (F11) with an enable/disable checkbox to start 
 ## Features
 
 - **ImGui control window** (F11 toggle)
-- **Enable/disable HTTP server** via checkbox � start/stop without restarting the game
+- **Enable/disable HTTP server** via checkbox
+- **Camera animation sequencing** via `POST /camera/animate`, `GET /camera/status`, `DELETE /camera/stop` � start/stop without restarting the game
 - **Live status indicator** � shows Running/Stopped with the server URL
 - **Camera FOV control** via `GET /fov` and `POST /fov`
 - **Health check** via `GET /health`
@@ -63,6 +64,98 @@ Sets the camera FOV override. Send `fov` > 0 to activate override, or `fov` <= 0
 { "fov": 0 }
 ```
 
+## Camera Animation Endpoints
+
+### `POST /camera/animate`
+
+Starts a camera animation sequence. Accepts a list of steps executed sequentially. Each step is a single animation or a group of animations that play simultaneously. If an animation is already playing it is stopped first.
+
+Optionally include `returnToStart` to animate the camera back to its starting position after the sequence finishes.
+
+**Request:**
+```json
+{
+  "sequence": [
+    {
+      "orbit": {
+        "degrees": 360,
+        "durationSeconds": 10.0,
+        "easing": "easeInOut"
+      }
+    }
+  ],
+  "returnToStart": {
+    "durationSeconds": 3.0,
+    "easing": "easeInOut"
+  }
+}
+```
+
+**Multi-step (zoom out → orbit → zoom in):**
+```json
+{
+  "sequence": [
+    { "zoomOut": { "speedMetersPerSecond": 10.0, "durationSeconds": 3.0, "easing": "easeOut" } },
+    { "orbit": { "degrees": 180, "durationSeconds": 8.0, "easing": "easeInOut" } },
+    { "zoomIn": { "speedMetersPerSecond": 10.0, "durationSeconds": 3.0, "easing": "easeIn" } }
+  ]
+}
+```
+
+**Group step (simultaneous orbit + zoom out):**
+```json
+{
+  "sequence": [
+    {
+      "group": [
+        { "orbit": { "degrees": 360, "durationSeconds": 12.0, "easing": "linear" } },
+        { "zoomOut": { "speedMetersPerSecond": 3.0, "durationSeconds": 12.0, "easing": "easeIn" } }
+      ]
+    }
+  ]
+}
+```
+
+Available animation types: `zoomOut`, `zoomIn`, `zoomInToOffset`, `orbit`, `loopyOrbit`, `spiralZoomIn`, `spiralZoomOut`, `shake`, `pan`, `rotate`.
+
+All animations share: `durationSeconds` (required), `easing` (`linear`/`easeIn`/`easeOut`/`easeInOut`), `easingPowerStart`, `easingPowerEnd`.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "data": { "keyframeCount": 1, "totalDurationSeconds": 10.0, "returnToStartEnabled": true }
+}
+```
+
+### `GET /camera/status`
+
+Returns current playback state.
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "state": "Playing",
+    "isReturningToStart": false,
+    "currentKeyframeIndex": 0,
+    "totalKeyframes": 1,
+    "totalElapsedTime": 3.2,
+    "totalDurationSeconds": 10.0
+  }
+}
+```
+
+### `DELETE /camera/stop`
+
+Stops any running animation and returns the previous state.
+
+```json
+{ "status": "ok", "data": { "previousState": "Playing" } }
+```
+
+> **Requires:** `camera-controller-override` mod to be loaded. Returns 503 if it is not.
+
 ## Architecture
 
 ```
@@ -73,13 +166,20 @@ unladen-swallow (mod)
 
 unladen-swallow.lib
   -- SwallowServer: GenHTTP host on 0.0.0.0:7887
-  -- FovEndpoint: GET/POST /fov (game-thread-safe via GameThread.Scheduler)
-  -- ApiTypes: ApiResponse<T>, FovRequest, FovState records
-  -- references glass.lib (FovController)
-  -- references ksa-abstractions.lib (GameThread)
+  -- FovEndpoint: GET/POST /fov
+  -- BlinkyAnimateEndpoint, BlinkyStaticEndpoint, BlinkyOffEndpoint, BlinkyListEndpoint
+  -- CameraAnimateEndpoint: POST /camera/animate
+  -- CameraStatusEndpoint: GET /camera/status
+  -- CameraStopEndpoint: DELETE /camera/stop
+  -- ApiTypes: all request/response records
+  -- references glass.lib, blinky.lib, camera-controller-override.lib, ksa-abstractions.lib
 
 glass.lib
   -- FovController: static FOV state + SetFov/ApplyFov/DisableOverride
+
+camera-controller-override.lib
+  -- CameraControllerOverrideSubmod.Instance: static accessor for RPC
+  -- KeyframeSequencePlayer: animation playback engine
 
 ksa-abstractions.lib
   -- GameThread / GameStateQueue / IGameStateScheduler

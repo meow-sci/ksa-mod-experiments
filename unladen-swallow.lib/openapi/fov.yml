@@ -1,0 +1,147 @@
+openapi: 3.1.0
+
+info:
+  title: Unladen Swallow — FOV API
+  version: 1.0.0
+  description: >
+    Camera field-of-view control endpoints for the Unladen Swallow RPC server.
+    Listens on http://localhost:7887.
+
+servers:
+  - url: http://localhost:7887
+    description: Local KSA mod server
+
+paths:
+
+  /fov:
+    get:
+      summary: Get current FOV state
+      description: Returns the current camera field-of-view state, including whether an override is active.
+      operationId: getFov
+      responses:
+        '200':
+          description: Current FOV state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FovStateResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Set FOV override
+      description: >
+        Sets a camera FOV override. If `fov` is <= 0 the override is disabled
+        and the game's default FOV is restored.
+      operationId: setFov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FovRequest'
+      responses:
+        '200':
+          description: Updated FOV state after applying the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FovStateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  schemas:
+
+    FovRequest:
+      type: object
+      description: >
+        Request body for setting the FOV override. Pass `fov` <= 0 to disable
+        the override and restore the game default.
+      properties:
+        fov:
+          type: number
+          format: float
+          description: Desired field-of-view in degrees. Use <= 0 to disable override.
+          example: 60.0
+      required:
+        - fov
+
+    FovState:
+      type: object
+      description: Current camera FOV state.
+      properties:
+        currentFovDegrees:
+          type: number
+          format: float
+          description: The actual FOV currently in use by the camera.
+          example: 60.0
+        overrideFovDegrees:
+          type: number
+          format: float
+          description: The FOV value stored as the override (may be 0 when override is inactive).
+          example: 60.0
+        isOverrideActive:
+          type: boolean
+          description: Whether a FOV override is currently applied.
+          example: true
+      required:
+        - currentFovDegrees
+        - overrideFovDegrees
+        - isOverrideActive
+
+    FovStateResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FovState'
+
+    ApiResponseBase:
+      type: object
+      description: Standard API response envelope wrapping all successful responses.
+      properties:
+        status:
+          type: string
+          description: Always `"ok"` for successful responses.
+          example: ok
+        data:
+          description: The response payload. Type depends on the endpoint.
+      required:
+        - status
+        - data
+
+    ErrorResponse:
+      type: object
+      description: Error response envelope returned on 4xx/5xx.
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: "An unexpected error occurred."
+      required:
+        - status
+        - message
+
+  responses:
+
+    BadRequest:
+      description: Bad request — missing or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Unexpected server-side error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

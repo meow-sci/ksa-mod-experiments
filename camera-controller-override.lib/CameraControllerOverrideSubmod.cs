@@ -18,6 +18,11 @@ public class CameraControllerOverrideSubmod : ISubmod
     private readonly KeyframeSequencePlayer _sequencePlayer = new();
     public KeyframeSequencePlayer SequencePlayer => _sequencePlayer;
 
+    /// <summary>
+    /// Static accessor for RPC integration. Set when the submod initializes, cleared on dispose.
+    /// </summary>
+    public static CameraControllerOverrideSubmod? Instance { get; private set; }
+
     // Zoom Out configuration
     private float _zoomOutSpeed = 25.0f;
     private float _zoomOutDuration = 5.0f;
@@ -108,6 +113,7 @@ public class CameraControllerOverrideSubmod : ISubmod
 
     public void Initialize()
     {
+        Instance = this;
         Console.WriteLine("camera-controller-override.lib: CameraControllerOverrideSubmod initialized");
     }
 
@@ -195,6 +201,7 @@ public class CameraControllerOverrideSubmod : ISubmod
     public void Dispose()
     {
         Console.WriteLine("camera-controller-override.lib: CameraControllerOverrideSubmod disposed");
+        Instance = null;
     }
 
     public void RenderContent()

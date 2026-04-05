@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
  * scroll.ts — Render scrolling text to blinky LEDs via bitmap fonts.
- * Usage: bun run scroll.ts <vehicleId> <height> <text> [speed]
+ * Usage: bun run scroll.ts -v <vehicleId> -g <gridName> -h <height> -t <text> [-s <speed>]
  *
- * height snaps to: 5, 7, or 8 pixels tall.
+ * height snaps to: 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42 pixels tall.
  * speed defaults to 2.0 pixels/sec.
  */
+
+import { parseArgs } from "util";
 
 const BASE_URL = "http://localhost:7887";
 
@@ -13,21 +15,38 @@ const BASE_URL = "http://localhost:7887";
 // Argument parsing
 // ---------------------------------------------------------------------------
 
-const vehicleId = Bun.argv[2];
-const rawHeight = Bun.argv[3];
-const text = Bun.argv[4];
-const rawSpeed = Bun.argv[5];
-
 function usage(): never {
   console.error(
-    "Usage: bun run scroll.ts <vehicleId> <height> <text> [speed]"
+    "Usage: bun run scroll.ts -v <vehicleId> -g <gridName> -h <height> -t <text> [-s <speed>]"
   );
-  console.error("  height  integer pixels tall (snaps to 5, 7, or 8)");
-  console.error("  speed   pixels/sec float (default 2.0)");
+  console.error("  -v, --vehicle  vehicle ID (required)");
+  console.error("  -g, --grid     grid name (required)");
+  console.error("  -h, --height   font height in pixels — snaps to 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42 (required)");
+  console.error("  -t, --text     text to scroll (required)");
+  console.error("  -s, --speed    scroll speed in pixels/sec (default: 2.0)");
   process.exit(1);
 }
 
-if (!vehicleId || !rawHeight || text === undefined) usage();
+const { values: args } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    vehicle: { type: "string", short: "v" },
+    grid:    { type: "string", short: "g" },
+    height:  { type: "string", short: "h" },
+    text:    { type: "string", short: "t" },
+    speed:   { type: "string", short: "s" },
+  },
+  strict: true,
+  allowPositionals: false,
+});
+
+const vehicleId = args.vehicle;
+const gridName  = args.grid;
+const rawHeight = args.height;
+const text      = args.text;
+const rawSpeed  = args.speed;
+
+if (!vehicleId || !gridName || !rawHeight || text === undefined) usage();
 
 const height = parseInt(rawHeight, 10);
 if (isNaN(height) || height < 1) {
@@ -377,15 +396,58 @@ const font8: FontMap = {
 };
 
 // ---------------------------------------------------------------------------
+// Font scaling — integer-multiple only (pixel-perfect, no interpolation)
+// ---------------------------------------------------------------------------
+
+function scaleGlyph(glyph: Glyph, scaleX: number, scaleY: number): Glyph {
+  const result: Glyph = [];
+  for (const row of glyph) {
+    let scaledRow = "";
+    for (const bit of row) scaledRow += bit.repeat(scaleX);
+    for (let i = 0; i < scaleY; i++) result.push(scaledRow);
+  }
+  return result;
+}
+
+function scaleFont(font: FontMap, scaleX: number, scaleY: number): FontMap {
+  const result: FontMap = {};
+  for (const [ch, glyph] of Object.entries(font)) {
+    result[ch] = scaleGlyph(glyph, scaleX, scaleY);
+  }
+  return result;
+}
+
+// All sizes below are exact integer multiples of a base font — no interpolation.
+//   font5 (3×5):  ×2 = 6×10,   ×4 = 12×20
+//   font7 (4×7):  ×2 = 8×14,   ×6 = 24×42
+//   font8 (5×8):  ×2 = 10×16,  ×3 = 15×24,  ×4 = 20×32,  ×5 = 25×40
+const font10 = scaleFont(font5, 2, 2); // font5 ×2
+const font14 = scaleFont(font7, 2, 2); // font7 ×2
+const font16 = scaleFont(font8, 2, 2); // font8 ×2
+const font20 = scaleFont(font5, 4, 4); // font5 ×4
+const font24 = scaleFont(font8, 3, 3); // font8 ×3
+const font32 = scaleFont(font8, 4, 4); // font8 ×4
+const font40 = scaleFont(font8, 5, 5); // font8 ×5
+const font42 = scaleFont(font7, 6, 6); // font7 ×6
+
+// ---------------------------------------------------------------------------
 // Font size selection
 // ---------------------------------------------------------------------------
 
-type FontSize = 5 | 7 | 8;
+type FontSize = 5 | 7 | 8 | 10 | 14 | 16 | 20 | 24 | 32 | 40 | 42;
 
 function snapHeight(h: number): FontSize {
   if (h <= 6) return 5;
-  if (h === 7) return 7;
-  return 8;
+  if (h <= 7) return 7;
+  if (h <= 9) return 8;
+  if (h <= 12) return 10;
+  if (h <= 15) return 14;
+  if (h <= 18) return 16;
+  if (h <= 22) return 20;
+  if (h <= 28) return 24;
+  if (h <= 36) return 32;
+  if (h <= 41) return 40;
+  return 42;
 }
 
 function getFontConfig(size: FontSize): {
@@ -400,6 +462,22 @@ function getFontConfig(size: FontSize): {
       return { map: font7, fontWidth: 4, fontHeight: 7 };
     case 8:
       return { map: font8, fontWidth: 5, fontHeight: 8 };
+    case 10:
+      return { map: font10, fontWidth: 6, fontHeight: 10 };
+    case 14:
+      return { map: font14, fontWidth: 8, fontHeight: 14 };
+    case 16:
+      return { map: font16, fontWidth: 10, fontHeight: 16 };
+    case 20:
+      return { map: font20, fontWidth: 12, fontHeight: 20 };
+    case 24:
+      return { map: font24, fontWidth: 15, fontHeight: 24 };
+    case 32:
+      return { map: font32, fontWidth: 20, fontHeight: 32 };
+    case 40:
+      return { map: font40, fontWidth: 25, fontHeight: 40 };
+    case 42:
+      return { map: font42, fontWidth: 24, fontHeight: 42 };
   }
 }
 
@@ -455,7 +533,7 @@ async function main() {
     res = await fetch(`${BASE_URL}/blinky/animate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vehicleId, pixels, speed }),
+      body: JSON.stringify({ vehicleId, gridName, pixels, speed }),
     });
   } catch (err) {
     console.error("Network error:", err);
