@@ -35,10 +35,71 @@ public record BlinkyResult(string VehicleId, string GridName, string Action);
 // ── Blinky Grid List Types ──────────────────────────────────────────────────
 
 /// <summary>Information about a registered blinky grid.</summary>
-public record BlinkyGridInfo(string VehicleId, string GridName, int Rows, int Cols, bool IsScrolling);
+public record BlinkyGridInfo(
+    string VehicleId,
+    string GridName,
+    int Rows,
+    int Cols,
+    int PixelCount,
+    bool IsOwned,
+    bool IsScrolling,
+    float ScrollSpeed
+);
 
 /// <summary>Result returned by GET /blinky/grids.</summary>
 public record BlinkyGridListResult(BlinkyGridInfo[] Grids);
+
+// ── Blinky Grid Management Types ────────────────────────────────────────────
+
+/// <summary>Request body for POST /blinky/grids — builds a new pixel grid.</summary>
+public record BlinkyBuildGridRequest(
+    string VehicleId,
+    string GridName,
+    int? Width,
+    int? Height,
+    string? Layout,
+    float? Spacing,
+    float? OffsetX,
+    float? OffsetY,
+    float? OffsetZ,
+    string? EnginePartId,
+    double? PartScale
+);
+
+/// <summary>Request body for POST /blinky/grids/scan — scans a vehicle for a grid.</summary>
+public record BlinkyScanGridRequest(
+    string VehicleId,
+    string GridName,
+    string? EnginePartId
+);
+
+/// <summary>Result for POST /blinky/grids/scan-all.</summary>
+public record BlinkyScanAllResult(int Discovered, string[] Grids);
+
+/// <summary>Request body for POST /blinky/pattern.</summary>
+public record BlinkyPatternRequest(
+    string VehicleId,
+    string GridName,
+    string Pattern
+);
+
+/// <summary>Request body for POST /blinky/animate/builtin.</summary>
+public record BlinkyBuiltInScrollRequest(
+    string VehicleId,
+    string GridName,
+    float Speed
+);
+
+// ── Blinky Settings Types ───────────────────────────────────────────────────
+
+/// <summary>Request body for POST /blinky/render.</summary>
+public record BlinkyRenderSettingsRequest(bool RenderPixelParts);
+
+/// <summary>Response for GET/POST /blinky/render.</summary>
+public record BlinkyRenderSettings(bool RenderPixelParts);
+
+/// <summary>Request body for POST /blinky/engines/deactivate.</summary>
+public record BlinkyEngineDeactivateRequest(string VehicleId);
 
 // ── Camera Animation API Types ──────────────────────────────────────────────
 
