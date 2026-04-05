@@ -160,6 +160,72 @@ q_x = cos(roll/2) + sin(roll/2)*i
 q_result = q_z * q_y * q_x
 ```
 
+## HTTP RPC API
+
+The `garrys-torch.lib` exposes a public API surface on `GarrysTorchSubmod` that is consumed by the `unladen-swallow.lib` HTTP RPC server. Through the unladen-swallow server (port 7887), the following operations are available:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/torch/welds` | List all active welds |
+| POST | `/torch/welds` | Create a new weld (supply `data` or `presetName`) |
+| DELETE | `/torch/welds` | Remove a weld |
+| POST | `/torch/welds/modify` | Immediately modify an active weld (partial update) |
+| POST | `/torch/welds/animate` | Smoothly animate a weld to a new state |
+| GET | `/torch/presets` | List all saved weld presets |
+| POST | `/torch/presets` | Save a preset |
+| DELETE | `/torch/presets` | Delete a preset |
+
+### Create Weld Example
+
+```json
+POST /torch/welds
+{
+  "sourceVehicleId": "my-lander",
+  "targetVehicleId": "station-core",
+  "data": {
+    "position": { "x": 0, "y": 0, "z": 2.5 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "scale": 1.0,
+    "lockRotation": true
+  }
+}
+```
+
+### Animate Weld Example
+
+Smoothly interpolate a weld's position/rotation/scale over 2 seconds with ease-in-out:
+
+```json
+POST /torch/welds/animate
+{
+  "sourceVehicleId": "my-lander",
+  "durationSeconds": 2.0,
+  "data": {
+    "position": { "x": 0, "y": 0, "z": 5.0 },
+    "rotation": { "x": 0, "y": 45, "z": 0 },
+    "scale": 0.5,
+    "lockRotation": true
+  },
+  "easing": {
+    "easing": "easeInOut",
+    "easingPowerStart": 3.0,
+    "easingPowerEnd": 3.0
+  }
+}
+```
+
+### Animation System
+
+The animation system (`WeldAnimation`, `WeldAnimationManager`) enables smooth interpolation of all weld parameters:
+
+- **Easing types**: Linear, EaseIn, EaseOut, EaseInOut
+- **Configurable power**: `easingPowerStart` and `easingPowerEnd` control the sharpness of the ease function
+- **Queue**: Multiple animations can be queued per weld; each starts when the previous completes
+- **Frame update**: Animations run in `GarrysTorchSubmod.Update(dt)` before the weld engine teleport, ensuring smooth motion
+- **Snap to target**: Animation completes by snapping to exact target values to prevent floating-point drift
+
+See `garrys-torch.lib/openapi/garrystorch.yml` (in `unladen-swallow.lib/openapi/`) for the full OpenAPI 3.1.0 specification.
+
 ## Notes for Future Development
 
 - **Performance**: Welds update every frame—high weld counts may impact performance

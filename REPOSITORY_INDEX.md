@@ -34,10 +34,12 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Per-weld rotation offset (pitch/yaw/roll)
 - Uniform vehicle scaling with KittenEva avatar support
 - Rotation lock toggle and auto-unweld on parent mismatch
-- Multiple simultaneous welds
+- Multiple simultaneous welds with topological sort for correct ordering
 - User-defined presets persisted to TOML (`~/.iryr/garrys-torch-presets.toml`)
 - Save weld settings as named presets, load presets into create form
 - ImGui control panel with filterable combos and bordered weld sections
+- **Animation system**: Smooth interpolation of weld position/rotation/scale with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
+- **Public API**: `GarrysTorchSubmod.Instance` singleton, `CreateWeld`, `ModifyWeld`, `RemoveWeld`, `AnimateWeld`, `FindWeld`, preset pass-throughs — exposed for use by `unladen-swallow.lib` RPC endpoints
 
 ### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
 Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, updating it every game tick.
@@ -207,7 +209,15 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `POST /camera/animate` — runs a camera animation sequence (zoom, orbit, spiral, shake, pan, rotate, groups, return-to-start)
 - `GET /camera/status` — returns current playback state (Playing/Stopped/Paused, keyframe index, elapsed time)
 - `DELETE /camera/stop` — stops any running camera animation
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, and `ksa-abstractions.lib`.
+- `GET /torch/welds` — list all active welds
+- `POST /torch/welds` — create a weld (`{ "sourceVehicleId": "...", "targetVehicleId": "...", "data": {...} }` or supply `presetName`)
+- `DELETE /torch/welds` — unweld/remove a weld (`{ "sourceVehicleId": "..." }`)
+- `POST /torch/welds/modify` — immediately modify a weld's position/rotation/scale/lockRotation (partial update — only provided fields updated)
+- `POST /torch/welds/animate` — smoothly interpolate a weld to target state over a duration with easing
+- `GET /torch/presets` — list all named weld presets
+- `POST /torch/presets` — save or update a named preset (`{ "name": "...", "data": {...} }`)
+- `DELETE /torch/presets` — delete a named preset (`{ "name": "..." }`)
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
 
 ---
 
