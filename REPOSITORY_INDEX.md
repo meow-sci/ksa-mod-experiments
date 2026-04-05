@@ -202,10 +202,20 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /health` — server liveness check
 - `GET /fov` — returns current FOV state (current, override, isActive)
 - `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
-- `POST /blinky/animate` — starts a scrolling animation on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "...", "pixels": [...], "speed": 1.0 }`)
-- `POST /blinky/static` — displays a static pixel pattern on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "...", "pixels": [...], "reset": true }`)
-- `POST /blinky/off` — turns off all pixels and stops scroll on a vehicle's named grid (`{ "vehicleId": "...", "gridName": "..." }`)
-- `GET /blinky/grids` — lists all registered grids (optional `vehicleId` query filter)
+- Expanded blinky API (13 endpoints) covering grid lifecycle, animation control, render settings, and engine control:
+- `GET /blinky/grids` — list registered grids (optional `vehicleId` filter)
+- `POST /blinky/grids` — build and register a new grid on a vehicle
+- `DELETE /blinky/grids` — destroy/unregister a grid (`vehicleId` and `gridName` query params)
+- `POST /blinky/grids/scan` — scan a specific vehicle for an existing named grid
+- `POST /blinky/grids/scan-all` — discover and register grids across all vehicles
+- `POST /blinky/animate` — start scrolling animation from client-supplied pixels
+- `DELETE /blinky/animate` — stop an active scroll without clearing current pixels
+- `POST /blinky/animate/builtin` — start built-in scrolling animation payload
+- `POST /blinky/static` — display a static pixel pattern
+- `POST /blinky/pattern` — apply built-in patterns (`allOn`, `allOff`, `checkerboard`, `altRows`, `altCols`)
+- `POST /blinky/off` — turn all pixels off and stop scroll
+- `GET /blinky/render` / `POST /blinky/render` — get/set pixel part mesh rendering toggle
+- `POST /blinky/engines/deactivate` — deactivate non-LCD engines on a vehicle
 - `POST /camera/animate` — runs a camera animation sequence (zoom, orbit, spiral, shake, pan, rotate, groups, return-to-start)
 - `GET /camera/status` — returns current playback state (Playing/Stopped/Paused, keyframe index, elapsed time)
 - `DELETE /camera/stop` — stops any running camera animation
@@ -217,7 +227,7 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /torch/presets` — list all named weld presets
 - `POST /torch/presets` — save or update a named preset (`{ "name": "...", "data": {...} }`)
 - `DELETE /torch/presets` — delete a named preset (`{ "name": "..." }`)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyStaticEndpoint`, `BlinkyOffEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
 
 ---
 
