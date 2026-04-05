@@ -210,3 +210,106 @@ public record CameraPlaybackStatus(
 
 /// <summary>Result returned by DELETE /camera/stop.</summary>
 public record CameraStopResult(string PreviousState);
+
+// ── Garry's Torch — Easing ──────────────────────────────────────────────────
+
+public enum TorchEasingType
+{
+    Linear = 0,
+    EaseIn = 1,
+    EaseOut = 2,
+    EaseInOut = 3
+}
+
+// ── Garry's Torch — Core Data Models ────────────────────────────────────────
+
+/// <summary>3D vector for position (meters) or rotation (degrees).</summary>
+public record Vec3(float X, float Y, float Z);
+
+/// <summary>Full weld configuration data (used in create, modify, presets).</summary>
+public record WeldData(
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale = 1f,
+    bool LockRotation = true
+);
+
+/// <summary>Describes an active weld in API responses.</summary>
+public record WeldInfo(
+    string SourceVehicleId,
+    string TargetVehicleId,
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale,
+    bool LockRotation
+);
+
+// ── Garry's Torch — Weld CRUD ───────────────────────────────────────────────
+
+/// <summary>Request body for creating a new weld.</summary>
+public record TorchCreateWeldRequest(
+    string SourceVehicleId,
+    string TargetVehicleId,
+    WeldData? Data = null,
+    string? PresetName = null
+);
+
+/// <summary>
+/// Request body for modifying an existing weld (immediate).
+/// Only provided fields are updated; omitted fields remain unchanged.
+/// </summary>
+public record TorchModifyWeldRequest(
+    string SourceVehicleId,
+    Vec3? Position = null,
+    Vec3? Rotation = null,
+    float? Scale = null,
+    bool? LockRotation = null
+);
+
+/// <summary>Request body for deleting/unwelding.</summary>
+public record TorchDeleteWeldRequest(string SourceVehicleId);
+
+/// <summary>Easing configuration for animated weld transitions.</summary>
+public record TorchEasingConfig(
+    TorchEasingType Easing = TorchEasingType.EaseInOut,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>Request body for animating a weld transition over time.</summary>
+public record TorchAnimateWeldRequest(
+    string SourceVehicleId,
+    double DurationSeconds,
+    WeldData? Data = null,
+    string? PresetName = null,
+    TorchEasingConfig? Easing = null
+);
+
+// ── Garry's Torch — Preset CRUD ─────────────────────────────────────────────
+
+/// <summary>Preset data as returned by the API.</summary>
+public record TorchPresetInfo(
+    string Name,
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale,
+    bool LockRotation
+);
+
+/// <summary>Request body for creating or updating a preset.</summary>
+public record TorchSavePresetRequest(
+    string Name,
+    WeldData Data
+);
+
+/// <summary>Request body for deleting a preset.</summary>
+public record TorchDeletePresetRequest(string Name);
+
+// ── Garry's Torch — API Responses ───────────────────────────────────────────
+
+public record TorchWeldResult(WeldInfo Weld);
+public record TorchWeldListResult(WeldInfo[] Welds);
+public record TorchPresetResult(TorchPresetInfo Preset);
+public record TorchPresetListResult(TorchPresetInfo[] Presets);
+public record TorchDeleteResult(string Message);
+public record TorchAnimateResult(string SourceVehicleId, string Status);
