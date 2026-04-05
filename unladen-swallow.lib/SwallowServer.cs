@@ -86,6 +86,14 @@ public sealed class SwallowServer
             .Add("static", BlinkyStaticEndpoint.Create())
             .Add("off", BlinkyOffEndpoint.Create()));
 
+        // GET    /camera/status
+        // POST   /camera/animate
+        // DELETE /camera/stop
+        api.Add("camera", Layout.Create()
+            .Add("status", CameraStatusEndpoint.Create())
+            .Add("animate", CameraAnimateEndpoint.Create())
+            .Add("stop", CameraStopEndpoint.Create()));
+
         // CORS — allow all origins
         api.Add(CorsPolicy.Permissive());
 
