@@ -50,9 +50,6 @@ public sealed class DohSubmod : ISubmod
     private string? _statusMessage;
     private bool _statusIsError;
 
-    // UI state — expanded kitten detail
-    private string? _expandedKittenId;
-
     // Cached XKCD color palette (built once via reflection)
     private static (string Name, float4 Color)[]? _xkcdColors;
 
@@ -301,96 +298,97 @@ public sealed class DohSubmod : ISubmod
         {
             var entry = kittens[i];
             ImGui.PushID(i);
-
-            bool isExpanded = _expandedKittenId == entry.KittenId;
-
-            // Header row: color swatch, name, character, despawn button
-            if (entry.MaterialSet != null)
-            {
-                ImGui.ColorButton("##swatch", entry.MaterialSet.TintColor,
-                    ImGuiColorEditFlags.NoTooltip, new float2(14, 14));
-                ImGui.SameLine();
-            }
-
-            // Use selectable for the kitten name — clicking toggles expansion
-            bool clicked = ImGui.Selectable(entry.KittenId, isExpanded,
-                ImGuiSelectableFlags.SpanAllColumns);
-            if (clicked)
-                _expandedKittenId = isExpanded ? null : entry.KittenId;
-
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X - 100);
-            ImGui.TextDisabled(entry.CharacterId);
-
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X - 30);
-            ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
-            if (ImGui.SmallButton(" X ##despawn"))
-            {
-                _spawner?.Despawn(entry.KittenId);
-                if (_expandedKittenId == entry.KittenId)
-                    _expandedKittenId = null;
-                SetStatus($"Despawned '{entry.KittenId}'.", false);
-            }
-            ImGui.PopStyleColor(2);
-
-            // Expanded detail: per-material color pickers
-            if (isExpanded && entry.MaterialSet != null)
-            {
-                ImGui.Indent();
-                RenderMaterialDetails(entry);
-                ImGui.Unindent();
-            }
-
-            ImGui.Separator();
+            RenderKittenItem(entry, i);
             ImGui.PopID();
         }
 
-        // Despawn All button
         ImGui.Spacing();
         ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
         if (ImGui.Button(" Despawn All ##doh"))
         {
             _spawner?.DespawnAll();
-            _expandedKittenId = null;
             SetStatus("All kittens despawned.", false);
         }
         ImGui.PopStyleColor(2);
     }
 
+    private void RenderKittenItem(SpawnedKittenEntry entry, int index)
+    {
+        string header = entry.MaterialSet != null
+            ? $"{entry.KittenId}  ({entry.CharacterId})##kit_{index}"
+            : $"{entry.KittenId}  ({entry.CharacterId})  [no materials]##kit_{index}";
+
+        if (!ImGui.CollapsingHeader(header))
+            return;
+
+        // Bordered child container (matches garrys-torch pattern)
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild($"doh_kit_{index}", new float2(childW, 0),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+            ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar();
+
+        RenderMaterialDetails(entry);
+
+        ImGui.Spacing();
+        ImGui.EndChild();
+    }
+
     private void RenderMaterialDetails(SpawnedKittenEntry entry)
     {
-        var matSet = entry.MaterialSet!;
-        if (matSet.Materials.Count == 0)
+        var matSet = entry.MaterialSet;
+
+        // Action buttons row
+        if (matSet != null)
         {
+            var allColor = matSet.TintColor;
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Tint All:");
+            ImGui.SameLine(0, 8);
+            if (ImGui.ColorEdit4("##all_mats", ref allColor,
+                ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            {
+                matSet.UpdateTint(allColor);
+            }
+            ImGui.SameLine(0, 8);
+            if (ImGui.SmallButton(" Reset All ##reset"))
+            {
+                matSet.UpdateTint(matSet.TintColor);
+            }
+        }
+
+        ImGui.SameLine(0, 8);
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+        if (ImGui.SmallButton(" Despawn ##despawn"))
+        {
+            _spawner?.Despawn(entry.KittenId);
+            SetStatus($"Despawned '{entry.KittenId}'.", false);
+        }
+        ImGui.PopStyleColor(2);
+
+        // Per-material table
+        if (matSet == null || matSet.Materials.Count == 0)
+        {
+            ImGui.Spacing();
             ImGui.TextDisabled("No per-material data available.");
             return;
         }
 
-        // "All materials" color picker (changes all at once)
-        var allColor = matSet.TintColor;
-        ImGui.Text("All Materials:");
-        ImGui.SameLine();
-        if (ImGui.ColorEdit4("##all_mats", ref allColor,
-            ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
-        {
-            matSet.UpdateTint(allColor);
-        }
-        ImGui.SameLine(0, 8);
-        if (ImGui.SmallButton("Reset All##reset"))
-        {
-            matSet.UpdateTint(matSet.TintColor);
-        }
-
         ImGui.Spacing();
+        ImGui.SeparatorText("Individual Materials");
 
-        // Per-material table
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 2f));
-        if (ImGui.BeginTable("##mat_detail", 3,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.RowBg))
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX
+                       | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH;
+        if (ImGui.BeginTable("##mat_detail", 3, tableFlags))
         {
-            ImGui.TableSetupColumn("Material", ImGuiTableColumnFlags.WidthStretch, 2f);
-            ImGui.TableSetupColumn("Source", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("Material", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Source", ImGuiTableColumnFlags.WidthFixed, 100f);
             ImGui.TableSetupColumn("Color", ImGuiTableColumnFlags.WidthFixed, 40f);
             ImGui.TableHeadersRow();
 
@@ -422,8 +420,7 @@ public sealed class DohSubmod : ISubmod
 
             ImGui.EndTable();
         }
-        ImGui.PopStyleVar();
-        ImGui.Spacing();
+        ImGui.PopStyleVar(); // CellPadding
     }
 
     // ---- Actions ----
