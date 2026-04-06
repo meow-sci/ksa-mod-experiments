@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using Brutal.Numerics;
+using System.Reflection;
 using Brutal.ImGuiApi;
+using Brutal.Numerics;
 using KSA;
 using MeowSci.DohLib.Materials;
 using MeowSci.DohLib.Spawning;
@@ -40,9 +42,16 @@ public sealed class DohSubmod : ISubmod
     private float4 _tintColor = new float4(1f, 1f, 1f, 1f);
     private bool _uniquePerKitten;
 
+    // UI state — XKCD color picker
+    private string _selectedXkcdName = "";
+    private readonly ImInputString _xkcdFilterText = new(64);
+
     // UI state — feedback
     private string? _statusMessage;
     private bool _statusIsError;
+
+    // Cached XKCD color palette (built once via reflection)
+    private static (string Name, float4 Color)[]? _xkcdColors;
 
     public void Initialize()
     {
@@ -145,8 +154,18 @@ public sealed class DohSubmod : ISubmod
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Tint");
                 ImGui.TableNextColumn();
+                var prevColor = _tintColor;
                 ImGui.ColorEdit4("##doh_tint", ref _tintColor,
                     ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar);
+                if (_tintColor.X != prevColor.X || _tintColor.Y != prevColor.Y
+                    || _tintColor.Z != prevColor.Z || _tintColor.W != prevColor.W)
+                    _selectedXkcdName = "";
+
+                // XKCD color combo
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("XKCD Color");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                RenderXkcdCombo();
 
                 if (_spawnCount > 1)
                 {
@@ -168,6 +187,14 @@ public sealed class DohSubmod : ISubmod
         if (!canSpawn) ImGui.BeginDisabled();
         if (ImGui.Button(" Spawn Kitten(s) ##doh"))
             DoSpawn();
+        ImGui.SameLine(0, 8);
+        ImGui.PushStyleColor(ImGuiCol.Button, (float4)KSAColor.Xkcd.NeonPurple);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, (float4)KSAColor.Xkcd.BrightMagenta);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, (float4)KSAColor.Xkcd.HotPink);
+        ImGui.PushStyleColor(ImGuiCol.Text, (float4)KSAColor.Xkcd.PaleYellow);
+        if (ImGui.Button(" I'm Feeling Lucky ##doh"))
+            DoFeelingLucky();
+        ImGui.PopStyleColor(4);
         if (!canSpawn) ImGui.EndDisabled();
 
         ImGui.SameLine(0, 12);
@@ -374,6 +401,122 @@ public sealed class DohSubmod : ISubmod
             SetStatus($"Spawned {result.Count} kitten(s).", false);
         else
             SetStatus(result.Error ?? "Spawn failed.", true);
+    }
+
+    private void DoFeelingLucky()
+    {
+        if (_spawner == null) return;
+
+        var vehicles = VehicleProvider.GetAllVehicles();
+        if (_selectedVehicleIndex < 0 || _selectedVehicleIndex >= vehicles.Count)
+        {
+            SetStatus("No vehicle selected.", true);
+            return;
+        }
+
+        string? characterId = _selectedCharacterIndex >= 0 && _selectedCharacterIndex < _availableCharacters.Length
+            ? _availableCharacters[_selectedCharacterIndex]
+            : null;
+
+        var colors = GetXkcdColors();
+        var perKittenColors = PickRandomUniqueColors(colors, _spawnCount);
+
+        var request = new SpawnRequest
+        {
+            ReferenceVehicleId = vehicles[_selectedVehicleIndex].Id,
+            OffsetBodyFrame = new double3(_offset.X, _offset.Y, _offset.Z),
+            Count = _spawnCount,
+            CharacterId = characterId,
+            TintColor = perKittenColors[0],
+            PerKittenColors = perKittenColors,
+            UniqueMaterialsPerKitten = true,
+        };
+
+        var result = _spawner.Spawn(request);
+        if (result.Success)
+            SetStatus($"Feeling lucky! Spawned {result.Count} rainbow kitten(s).", false);
+        else
+            SetStatus(result.Error ?? "Spawn failed.", true);
+    }
+
+    private static float4[] PickRandomUniqueColors((string Name, float4 Color)[] palette, int count)
+    {
+        if (count >= palette.Length)
+        {
+            // More kittens than colors — shuffle the whole palette and take what we need
+            var shuffled = palette.OrderBy(_ => Random.Shared.Next()).ToArray();
+            var result = new float4[count];
+            for (int i = 0; i < count; i++)
+                result[i] = shuffled[i % shuffled.Length].Color;
+            return result;
+        }
+
+        // Fisher-Yates partial shuffle to pick `count` unique indices
+        var indices = Enumerable.Range(0, palette.Length).ToArray();
+        for (int i = 0; i < count; i++)
+        {
+            int j = Random.Shared.Next(i, indices.Length);
+            (indices[i], indices[j]) = (indices[j], indices[i]);
+        }
+
+        var colors = new float4[count];
+        for (int i = 0; i < count; i++)
+            colors[i] = palette[indices[i]].Color;
+        return colors;
+    }
+
+    // ---- XKCD Color Combo ----
+
+    private void RenderXkcdCombo()
+    {
+        string previewText = _selectedXkcdName.Length > 0 ? _selectedXkcdName : "Pick XKCD color...";
+        if (ImGui.BeginCombo("##xkcd_combo", previewText))
+        {
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputText("##xkcd_filter", _xkcdFilterText);
+
+            string filterStr = _xkcdFilterText.ToString();
+            var colors = GetXkcdColors();
+            foreach (var (name, color) in colors)
+            {
+                if (filterStr.Length > 0
+                    && !name.Contains(filterStr, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ImGui.ColorButton($"##swatch_{name}", color,
+                    ImGuiColorEditFlags.NoTooltip, new float2(14, 14));
+                ImGui.SameLine();
+
+                if (ImGui.Selectable(name, name == _selectedXkcdName))
+                {
+                    _selectedXkcdName = name;
+                    _tintColor = color;
+                    _useCustomColor = true;
+                }
+            }
+            ImGui.EndCombo();
+        }
+    }
+
+    private static (string Name, float4 Color)[] GetXkcdColors()
+    {
+        if (_xkcdColors != null) return _xkcdColors;
+
+        var props = typeof(KSAColor.Xkcd).GetProperties(BindingFlags.Public | BindingFlags.Static);
+        var list = new List<(string, float4)>();
+        foreach (var prop in props)
+        {
+            try
+            {
+                float4 val = (Color.Preset)prop.GetValue(null)!;
+                list.Add((prop.Name, val));
+            }
+            catch { }
+        }
+        list.Sort((a, b) => string.Compare(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase));
+        _xkcdColors = list.ToArray();
+        Console.WriteLine($"doh: Cached {_xkcdColors.Length} XKCD colors");
+        return _xkcdColors;
     }
 
     private void SetStatus(string message, bool isError)
