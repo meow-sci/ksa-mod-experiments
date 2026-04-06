@@ -26,9 +26,9 @@ public sealed class MaterialFactory
     /// </summary>
     public KittenMaterialSet? CreateTintedMaterialSet(string characterId, float4 tintColor)
     {
-        if (!MaterialSystemAccessor.IsInitialized)
+        if (!MaterialSystemAccessor.IsInitialized && !MaterialSystemAccessor.Initialize())
         {
-            Console.WriteLine("doh: MaterialFactory — MaterialSystemAccessor not initialized.");
+            Console.WriteLine($"doh: MaterialFactory — MaterialSystemAccessor not initialized: {MaterialSystemAccessor.LastError}");
             return null;
         }
 
@@ -374,8 +374,9 @@ public sealed class MaterialFactory
 
     private static object? InvokeGet(object instance)
     {
-        var getMethod = instance.GetType().GetMethod("Get", BindingFlags.Public | BindingFlags.Instance,
-            null, Type.EmptyTypes, null);
+        // KSA reference types have both T Get<T>() and Foo Get() — must filter for non-generic
+        var methods = instance.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        var getMethod = Array.Find(methods, m => m.Name == "Get" && !m.IsGenericMethod && m.GetParameters().Length == 0);
         return getMethod?.Invoke(instance, null);
     }
 

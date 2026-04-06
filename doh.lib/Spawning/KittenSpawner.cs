@@ -436,13 +436,23 @@ public sealed class KittenSpawner
             var sharedHeadHandle = GetSharedMaterialHandle(characterId, "CharacterHeadMaterial");
             var sharedEyeHandle = GetSharedMaterialHandle(characterId, "CharacterEyeMaterial");
 
+            Console.WriteLine($"doh: MaterialIndices[{materialIndices.Length}] = [{string.Join(", ", materialIndices)}]");
+            Console.WriteLine($"doh: Shared handles — body={sharedBodyHandle}, head={sharedHeadHandle}, eye={sharedEyeHandle}");
+
             // Replace matching handles in MaterialIndices
+            int replacements = 0;
             for (int i = 0; i < materialIndices.Length; i++)
             {
                 if (sharedBodyHandle >= 0 && materialIndices[i] == sharedBodyHandle)
+                {
                     materialIndices[i] = matSet.BodyMaterialHandle;
+                    replacements++;
+                }
                 else if (sharedHeadHandle >= 0 && materialIndices[i] == sharedHeadHandle)
+                {
                     materialIndices[i] = matSet.HeadMaterialHandle;
+                    replacements++;
+                }
                 // Eyes are left untinted
             }
 
@@ -450,7 +460,7 @@ public sealed class KittenSpawner
             if (matSet.FurMaterialHandle >= 0)
                 ApplyFurMaterial(avatar, matSet.FurMaterialHandle);
 
-            Console.WriteLine($"doh: Applied material set '{matSet.Id}' to kitten (body={sharedBodyHandle}→{matSet.BodyMaterialHandle}, head={sharedHeadHandle}→{matSet.HeadMaterialHandle})");
+            Console.WriteLine($"doh: Applied material set '{matSet.Id}' to kitten ({replacements} replacements, body={sharedBodyHandle}→{matSet.BodyMaterialHandle}, head={sharedHeadHandle}→{matSet.HeadMaterialHandle})");
         }
         catch (Exception ex)
         {
@@ -479,9 +489,9 @@ public sealed class KittenSpawner
             var matRef = matRefField.GetValue(charTextures);
             if (matRef == null) return -1;
 
-            // Call .Get() to resolve
-            var getMethod = matRef.GetType().GetMethod("Get", BindingFlags.Public | BindingFlags.Instance,
-                null, Type.EmptyTypes, null);
+            // Call .Get() to resolve — filter for non-generic overload to avoid AmbiguousMatchException
+            var methods = matRef.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance);
+            var getMethod = Array.Find(methods, m => m.Name == "Get" && !m.IsGenericMethod && m.GetParameters().Length == 0);
             var resolved = getMethod?.Invoke(matRef, null);
             if (resolved == null) return -1;
 

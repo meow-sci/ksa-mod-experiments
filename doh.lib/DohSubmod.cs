@@ -46,9 +46,6 @@ public sealed class DohSubmod : ISubmod
 
     public void Initialize()
     {
-        if (!MaterialSystemAccessor.Initialize())
-            Console.WriteLine($"doh: MaterialSystem init failed: {MaterialSystemAccessor.LastError}");
-
         _materialFactory = new MaterialFactory();
         _registry = new SpawnedKittenRegistry();
         _spawner = new KittenSpawner(_materialFactory, _registry);
@@ -94,8 +91,16 @@ public sealed class DohSubmod : ISubmod
 
         if (!MaterialSystemAccessor.IsInitialized)
         {
-            ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f),
-                $"MaterialSystem not initialized: {MaterialSystemAccessor.LastError ?? "unknown"}");
+            ImGui.TextColored(new float4(1f, 0.8f, 0.3f, 1f),
+                "MaterialSystem not yet initialized (will init on first spawn).");
+            ImGui.SameLine(0, 12);
+            if (ImGui.SmallButton("Init Now"))
+            {
+                if (MaterialSystemAccessor.Initialize())
+                    SetStatus("MaterialSystem initialized.", false);
+                else
+                    SetStatus($"Init failed: {MaterialSystemAccessor.LastError}", true);
+            }
             ImGui.Spacing();
         }
 

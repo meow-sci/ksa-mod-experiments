@@ -45,8 +45,7 @@ public static class MaterialSystemAccessor
     /// </summary>
     public static bool Initialize()
     {
-        if (_initialized) return _materialSystem != null;
-        _initialized = true;
+        if (_initialized && _materialSystem != null) return true;
         _lastError = null;
 
         try
@@ -93,6 +92,7 @@ public static class MaterialSystemAccessor
                 }
             }
 
+            _initialized = true;
             int materialCount = _assetMap.Count;
             Console.WriteLine($"doh: MaterialSystemAccessor initialized — {materialCount} materials, " +
                 $"CreateObject={_createObjectMethod != null}, GetOrLoad={_getOrLoadMethod != null}, " +
