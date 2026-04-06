@@ -1,0 +1,82 @@
+# unladen-swallow.lib
+
+Library project that hosts the embedded GenHTTP RPC server used by the unladen-swallow mod.
+
+## Purpose
+
+- Exposes game and mod functionality over HTTP JSON endpoints.
+- Uses a strict thread-safety model: handlers run on HTTP worker threads, game state access runs through `GameThread.Scheduler.Schedule(...)`.
+- Provides a shared API envelope and request/response DTOs in `ApiTypes.cs`.
+
+## Endpoint Surface
+
+All responses use:
+
+```json
+{ "status": "ok", "data": { } }
+```
+
+### Core
+
+- `GET /health`
+- `GET /fov`
+- `POST /fov`
+
+### Vehicle Actions
+
+- `POST /vehicle/actions/ignite`
+- `POST /vehicle/actions/shutdown`
+
+### Blinky Grid Management
+
+- `GET /blinky/grids`
+- `POST /blinky/grids`
+- `DELETE /blinky/grids?vehicleId=...&gridName=...`
+- `POST /blinky/grids/scan`
+- `POST /blinky/grids/scan-all`
+
+### Blinky Display Control
+
+- `POST /blinky/animate`
+- `DELETE /blinky/animate?vehicleId=...&gridName=...`
+- `POST /blinky/animate/builtin`
+- `POST /blinky/static`
+- `POST /blinky/pattern`
+- `POST /blinky/off`
+
+### Blinky Settings and Engine Control
+
+- `GET /blinky/render`
+- `POST /blinky/render`
+- `POST /blinky/engines/deactivate`
+
+### Camera Animation
+
+- `POST /camera/animate`
+- `GET /camera/status`
+- `DELETE /camera/stop`
+
+### Garry's Torch Welds
+
+- `GET /torch/welds`
+- `POST /torch/welds`
+- `DELETE /torch/welds`
+- `POST /torch/welds/modify`
+- `POST /torch/welds/animate`
+- `GET /torch/presets`
+- `POST /torch/presets`
+- `DELETE /torch/presets`
+
+## Dependencies
+
+- `ksa-abstractions.lib` for game-thread scheduling and providers.
+- `blinky.lib` for LCD grid and animation operations.
+- `glass.lib` for FOV controls.
+- `camera-controller-override.lib` for camera sequencing.
+- `garrys-torch.lib` for weld management.
+
+## Development Notes
+
+- Add or update routes in `SwallowServer.cs`.
+- Keep endpoint handlers small and focused.
+- Validate request inputs on HTTP thread before scheduling game-thread work when possible.

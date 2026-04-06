@@ -2,9 +2,11 @@ openapi: 3.1.0
 
 info:
   title: Unladen Swallow — Blinky API
-  version: 1.0.0
+  version: 2.0.0
   description: >
-    Blinky LCD pixel grid control and management endpoints for the Unladen Swallow RPC server.
+    Blinky LCD pixel grid control and management endpoints for the Unladen Swallow
+    RPC server. Covers grid lifecycle (build, scan, destroy), display control
+    (scroll, static, patterns, off), render settings, and non-LCD engine management.
     Listens on http://localhost:7887.
 
 servers:
@@ -13,137 +15,16 @@ servers:
 
 paths:
 
-  # ── Blinky Control ───────────────────────────────────────────────────────────
-
-  /blinky/animate:
-    post:
-      summary: Start scroll animation on LCD grid
-      description: >
-        Starts a scrolling pixel animation on the named Blinky LCD grid of the
-        specified vehicle. `gridName` identifies which grid to target. The pixel
-        array defines the pattern to scroll. `speed` controls the scroll rate
-        in pixels per second (must be > 0).
-      operationId: blinkyAnimate
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlinkyScrollRequest'
-      responses:
-        '200':
-          description: Scroll animation started. `data.action` will be `"scroll_started"`.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BlinkyResultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /blinky/static:
-    post:
-      summary: Display static pixel set on LCD grid
-      description: >
-        Displays a static set of lit pixels on the named Blinky LCD grid of the
-        specified vehicle. `gridName` identifies which grid to target. When
-        `reset` is `true` the grid is cleared before applying the new pixels;
-        when `false` the pixels are OR-ed onto the current grid state (additive
-        mode).
-      operationId: blinkyStatic
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlinkyStaticRequest'
-      responses:
-        '200':
-          description: >
-            Static pixel set applied. `data.action` will be `"static_reset"` when
-            `reset` was `true`, or `"static_additive"` when `false`.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BlinkyResultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /blinky/off:
-    post:
-      summary: Turn off all pixels on LCD grid
-      description: >
-        Turns off every pixel on the named Blinky LCD grid of the specified
-        vehicle. `gridName` identifies which grid to target.
-      operationId: blinkyOff
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlinkyOffRequest'
-      responses:
-        '200':
-          description: All pixels turned off. `data.action` will be `"off"`.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BlinkyResultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /blinky/pattern:
-    post:
-      summary: Apply a named pattern to LCD grid
-      description: >
-        Applies a built-in pixel pattern to the named Blinky LCD grid of the
-        specified vehicle. `gridName` identifies which grid to target. Stops any
-        running scroll animation before applying. Available patterns: `allOn`,
-        `allOff`, `checkerboard`, `altRows`, `altCols`.
-      operationId: blinkyPattern
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlinkyPatternRequest'
-      responses:
-        '200':
-          description: >
-            Pattern applied. `data.action` will be `"pattern_<name>"` (e.g.
-            `"pattern_checkerboard"`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BlinkyResultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  # ── Blinky Grid Management ──────────────────────────────────────────────────
+  # ── Grid Management ─────────────────────────────────────────────────────────
 
   /blinky/grids:
+
     get:
-      summary: List all registered LCD grids
+      summary: List registered LCD grids
       description: >
-        Returns a list of all currently registered Blinky LCD grids across all
-        vehicles, including grid dimensions, layout, and scroll state. An
-        optional `vehicleId` query parameter filters results to grids belonging
-        to the specified vehicle.
+        Returns every currently registered Blinky LCD grid across all vehicles.
+        An optional `vehicleId` query parameter narrows the result to grids on
+        that vehicle. Each entry includes dimensions, ownership, and scroll state.
       operationId: blinkyListGrids
       parameters:
         - name: vehicleId
@@ -155,7 +36,7 @@ paths:
           example: "rocket-1"
       responses:
         '200':
-          description: List of registered grids.
+          description: Array of registered grids (may be empty).
           content:
             application/json:
               schema:
@@ -163,19 +44,17 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /blinky/grid/build:
     post:
       summary: Build a new pixel grid on a vehicle
       description: >
-        Creates a new named Blinky LCD pixel grid on the specified vehicle using
-        the provided grid configuration. `gridName` identifies the grid. Each
-        pixel is composed of two opposing engine parts that produce net-zero
-        thrust. The grid is registered with the Blinky grid manager after
+        Creates a new named Blinky LCD pixel grid on the specified vehicle.
+        Each pixel consists of two opposing engine parts that produce net-zero
+        thrust. The grid is automatically registered with the grid manager after
         creation.
 
 
-        If a grid with the same name is already registered for the vehicle, the
-        request is rejected with a 409 Conflict.
+        If a grid with the same name already exists for the vehicle, the request
+        is rejected with 409 Conflict.
       operationId: blinkyBuildGrid
       requestBody:
         required: true
@@ -185,7 +64,7 @@ paths:
               $ref: '#/components/schemas/BlinkyBuildGridRequest'
       responses:
         '200':
-          description: Grid built and registered successfully.
+          description: Grid built and registered.
           content:
             application/json:
               schema:
@@ -199,25 +78,33 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /blinky/grid/destroy:
-    post:
-      summary: Destroy a pixel grid on a vehicle
+    delete:
+      summary: Destroy a pixel grid
       description: >
-        Destroys the named Blinky LCD pixel grid on the specified vehicle,
-        removing all dynamically created pixel parts and unregistering the grid.
-        `gridName` identifies which grid to target. Only grids that were built
-        via the API (owned grids) can be destroyed; scanned grids are
-        unregistered but their parts are not removed.
+        Destroys the named Blinky LCD pixel grid on the specified vehicle.
+        Owned grids (built via API) have their pixel engine parts removed from
+        the vehicle. Scanned grids are only unregistered — their parts remain.
+        The response `action` field indicates which occurred: `"grid_destroyed"`
+        or `"grid_unregistered"`.
       operationId: blinkyDestroyGrid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlinkyGridVehicleRequest'
+      parameters:
+        - name: vehicleId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        - name: gridName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the grid to destroy.
+          example: "main"
       responses:
         '200':
-          description: Grid destroyed and unregistered.
+          description: Grid destroyed or unregistered.
           content:
             application/json:
               schema:
@@ -229,24 +116,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /blinky/grid/scan:
+  /blinky/grids/scan:
     post:
-      summary: Scan for an existing pixel grid on a vehicle
+      summary: Scan a vehicle for an existing pixel grid
       description: >
         Scans the specified vehicle for an existing pixel grid and registers it
-        under the given `gridName`. Two scan modes are supported:
+        under the given name. Two scan modes are supported:
 
 
-        - **ID-based** (default): Finds parts whose IDs match the `pixel_{row}_{col}_{a|b}`
-          naming convention. This is the preferred mode for grids that were
-          previously built via the API.
+        - **ID-based** (default): Finds parts whose IDs match the
+          `pixel_{gridName}_{row}_{col}_{a|b}` naming convention. Use this for
+          grids previously built via the API.
 
-        - **Template-based**: When `enginePartId` is provided, scans for small-scale
-          engine parts matching that template ID. Useful for grids created outside
-          the API (e.g. via the ImGui UI) or loaded from save files.
+        - **Template-based**: When `enginePartId` is provided, finds small-scale
+          engine parts matching that template. Use this for grids created outside
+          the API or loaded from save files.
 
 
-        If a grid is found it is registered with the Blinky grid manager.
+        Returns the discovered grid info on success, or 404 if no matching grid
+        is found.
       operationId: blinkyScanGrid
       requestBody:
         required: true
@@ -268,15 +156,293 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /blinky/grids/scan-all:
+    post:
+      summary: Scan all vehicles for pixel grids
+      description: >
+        Discovers Blinky pixel grids across every vehicle in the current system.
+        Uses ID-based scanning (parts named `pixel_{gridName}_{row}_{col}_{a|b}`)
+        and registers all found grids automatically.
+
+
+        Returns a summary with the total number of discovered grids and their names.
+      operationId: blinkyScanAllGrids
+      responses:
+        '200':
+          description: Scan completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyScanAllResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── Display Control ──────────────────────────────────────────────────────────
+
+  /blinky/animate:
+
+    post:
+      summary: Start scroll animation
+      description: >
+        Starts a scrolling pixel animation on the named grid. The pixel array
+        defines the pattern that scrolls across the grid. `speed` controls the
+        rate in pixels per second (must be > 0). Any existing scroll is stopped
+        and all pixels are turned off before the new animation starts.
+      operationId: blinkyAnimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyScrollRequest'
+      responses:
+        '200':
+          description: Scroll started. `data.action` = `"scroll_started"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Stop scroll animation
+      description: >
+        Stops any running scroll animation on the named grid without turning off
+        pixels. Pixels remain in their last-rendered state. Use `POST /blinky/off`
+        to also clear pixels.
+      operationId: blinkyStopScroll
+      parameters:
+        - name: vehicleId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        - name: gridName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the grid.
+          example: "main"
+      responses:
+        '200':
+          description: Scroll stopped. `data.action` = `"scroll_stopped"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /blinky/animate/builtin:
+    post:
+      summary: Start built-in scroll animation
+      description: >
+        Starts the built-in default pixel pattern animation on the named grid.
+        Uses the pre-defined pixel data embedded in the blinky library. `speed`
+        controls the scroll rate in pixels per second.
+      operationId: blinkyAnimateBuiltin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyBuiltInScrollRequest'
+      responses:
+        '200':
+          description: Built-in scroll started. `data.action` = `"builtin_scroll_started"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /blinky/static:
+    post:
+      summary: Display static pixels
+      description: >
+        Displays a static set of lit pixels on the named grid. Stops any running
+        scroll animation first.
+
+
+        When `reset` is `true`, the grid performs an intelligent diff — turning
+        off pixels that are no longer needed and turning on new ones (replace
+        mode). When `false`, supplied pixels are OR-ed onto the current state
+        (additive mode).
+      operationId: blinkyStatic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyStaticRequest'
+      responses:
+        '200':
+          description: >
+            Pixels applied. `data.action` = `"static_reset"` or `"static_additive"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /blinky/pattern:
+    post:
+      summary: Apply a named pattern
+      description: >
+        Applies a built-in pixel pattern to the named grid. Stops any running
+        scroll animation before applying.
+      operationId: blinkyPattern
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyPatternRequest'
+      responses:
+        '200':
+          description: >
+            Pattern applied. `data.action` = `"pattern_<name>"` (e.g. `"pattern_checkerboard"`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /blinky/off:
+    post:
+      summary: Turn off all pixels
+      description: >
+        Turns off every pixel on the named grid and stops any running scroll
+        animation.
+      operationId: blinkyOff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyOffRequest'
+      responses:
+        '200':
+          description: All pixels off. `data.action` = `"off"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── Settings ─────────────────────────────────────────────────────────────────
+
+  /blinky/render:
+
+    get:
+      summary: Get render settings
+      description: >
+        Returns the current Blinky render settings, including whether pixel
+        engine part meshes are visible.
+      operationId: blinkyGetRender
+      responses:
+        '200':
+          description: Current render settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyRenderSettingsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Set render settings
+      description: >
+        Updates Blinky render settings. Currently controls whether pixel engine
+        part meshes are rendered (visible) or hidden via Harmony patching.
+      operationId: blinkySetRender
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyRenderSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated. Returns new state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyRenderSettingsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /blinky/engines/deactivate:
+    post:
+      summary: Deactivate non-LCD engines
+      description: >
+        Deactivates all engine controllers on the specified vehicle that are
+        NOT part of any Blinky LCD pixel grid. Useful for shutting down
+        propulsion engines that would interfere with pixel display testing.
+      operationId: blinkyDeactivateEngines
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlinkyEngineDeactivateRequest'
+      responses:
+        '200':
+          description: Non-LCD engines deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlinkyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
 
   schemas:
 
-    # ── Shared pixel type ──────────────────────────────────────────────────────
+    # ── Shared types ───────────────────────────────────────────────────────────
 
     PixelCoord:
       type: object
-      description: A single pixel coordinate on the LCD grid (x = column, y = row, zero-indexed).
+      description: >
+        A single pixel coordinate on the LCD grid. `x` is the column index,
+        `y` is the row index, both zero-based.
       properties:
         x:
           type: integer
@@ -286,323 +452,319 @@ components:
           type: integer
           description: Row index (zero-based).
           example: 7
-      required:
-        - x
-        - y
+      required: [x, y]
 
-    # ── Control request types ──────────────────────────────────────────────────
+    GridLayout:
+      type: string
+      description: >
+        Grid geometry mode. `"flat"` arranges pixels in a plane (columns along
+        X, rows along -Y). `"cylinder"` wraps columns around a cylindrical
+        surface with rows stacking along Y.
+      enum: [flat, cylinder]
+      example: "flat"
 
-    BlinkyScrollRequest:
-      type: object
-      description: Request body for starting a scrolling animation on a vehicle's LCD grid.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The name of the grid to animate on the target vehicle.
-          example: "main"
-        pixels:
-          type: array
-          description: >
-            Array of pixel coordinates that form the pattern to scroll across the grid.
-            Must contain at least one entry.
-          items:
-            $ref: '#/components/schemas/PixelCoord'
-          minItems: 1
-        speed:
-          type: number
-          format: float
-          description: Scroll speed in pixels per second. Must be greater than 0.
-          example: 2.5
-      required:
-        - vehicleId
-        - gridName
-        - pixels
-        - speed
-
-    BlinkyStaticRequest:
-      type: object
-      description: Request body for displaying a static pixel pattern on a vehicle's LCD grid.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The name of the grid to animate on the target vehicle.
-          example: "main"
-        pixels:
-          type: array
-          description: Array of pixel coordinates to light up.
-          items:
-            $ref: '#/components/schemas/PixelCoord'
-        reset:
-          type: boolean
-          description: >
-            When `true`, the grid is cleared before applying the new pixels (replace mode).
-            When `false`, the pixels are OR-ed onto the existing grid state (additive mode).
-          example: true
-      required:
-        - vehicleId
-        - gridName
-        - pixels
-        - reset
-
-    BlinkyOffRequest:
-      type: object
-      description: Request body for turning off all pixels on a vehicle's LCD grid.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The name of the grid to target on the vehicle.
-          example: "main"
-      required:
-        - vehicleId
-        - gridName
-
-    BlinkyPatternRequest:
-      type: object
-      description: Request body for applying a named pattern to a vehicle's LCD grid.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The name of the grid to animate on the target vehicle.
-          example: "main"
-        pattern:
-          type: string
-          description: >
-            The name of the pattern to apply. One of: `"allOn"`, `"allOff"`,
-            `"checkerboard"`, `"altRows"`, `"altCols"`.
-          enum:
-            - allOn
-            - allOff
-            - checkerboard
-            - altRows
-            - altCols
-          example: "checkerboard"
-      required:
-        - vehicleId
-        - gridName
-        - pattern
-
-    # ── Control result types ───────────────────────────────────────────────────
-
-    BlinkyResult:
-      type: object
-      description: Result of a Blinky LCD grid operation.
-      properties:
-        vehicleId:
-          type: string
-          description: The vehicle ID the operation was applied to.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The grid name the operation was applied to.
-          example: "main"
-        action:
-          type: string
-          description: >
-            The action performed. One of: `"scroll_started"`, `"static_reset"`,
-            `"static_additive"`, `"off"`, `"pattern_<name>"`, `"grid_built"`,
-            `"grid_destroyed"`, `"grid_unregistered"`, `"grid_scanned"`.
-          example: "scroll_started"
-      required:
-        - vehicleId
-        - gridName
-        - action
-
-    BlinkyResultResponse:
-      allOf:
-        - $ref: '#/components/schemas/ApiResponseBase'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/BlinkyResult'
+    BlinkyPattern:
+      type: string
+      description: >
+        Named pixel pattern. `"allOn"` lights every pixel, `"allOff"` clears
+        the grid, `"checkerboard"` alternates on/off in a checkerboard,
+        `"altRows"` lights even rows, `"altCols"` lights even columns.
+      enum: [allOn, allOff, checkerboard, altRows, altCols]
+      example: "checkerboard"
 
     # ── Grid management request types ─────────────────────────────────────────
-
-    BlinkyGridVehicleRequest:
-      type: object
-      description: Identifies the target vehicle and grid for a grid management operation.
-      properties:
-        vehicleId:
-          type: string
-          description: The unique identifier of the target vehicle.
-          example: "rocket-1"
-        gridName:
-          type: string
-          description: The name of the grid to target on the vehicle.
-          example: "main"
-      required:
-        - vehicleId
-        - gridName
 
     BlinkyBuildGridRequest:
       type: object
       description: >
-        Request body for building a new pixel grid on a vehicle. All grid
-        configuration fields except `vehicleId` and `gridName` are optional
-        and default to sensible values if omitted.
+        Request body for building a new pixel grid. Only `vehicleId` and
+        `gridName` are required; all configuration fields default to sensible
+        values when omitted.
       properties:
         vehicleId:
           type: string
-          description: The unique identifier of the target vehicle.
+          description: Target vehicle identifier.
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid to create.
+          description: >
+            Name for the new grid. Allowed characters: `a-z`, `A-Z`, `0-9`,
+            `-` (hyphen). Underscores are reserved.
+          pattern: '^[a-zA-Z0-9-]+$'
           example: "main"
         width:
           type: integer
-          description: Number of pixel columns. Range 1–256.
+          description: Number of pixel columns.
           minimum: 1
           maximum: 256
           default: 16
           example: 16
         height:
           type: integer
-          description: Number of pixel rows. Range 1–256.
+          description: Number of pixel rows.
           minimum: 1
           maximum: 256
           default: 8
           example: 8
         layout:
-          type: string
-          description: >
-            Grid layout mode. `"flat"` arranges pixels in a plane; `"cylinder"`
-            wraps columns around a cylindrical surface.
-          enum:
-            - flat
-            - cylinder
-          default: flat
-          example: "flat"
+          $ref: '#/components/schemas/GridLayout'
+          default: "flat"
         spacing:
           type: number
           format: float
-          description: Distance in metres between pixel centres. Range 0.0–10.0.
-          minimum: 0.0
-          maximum: 10.0
+          description: Distance in metres between pixel centres.
+          minimum: 0.1
+          maximum: 100.0
           default: 5.0
           example: 5.0
         offsetX:
           type: number
           format: float
-          description: X offset (right) from the vehicle root origin in metres.
+          description: X offset from vehicle root (metres, right).
           default: 0.0
           example: 0.0
         offsetY:
           type: number
           format: float
-          description: Y offset (up) from the vehicle root origin in metres.
+          description: Y offset from vehicle root (metres, up).
           default: 5.0
           example: 5.0
         offsetZ:
           type: number
           format: float
-          description: Z offset (forward) from the vehicle root origin in metres.
+          description: Z offset from vehicle root (metres, forward).
           default: 2.0
           example: 2.0
         enginePartId:
           type: string
           description: >
-            The engine part template ID to use for pixels. Defaults to the A1
-            engine. Common values: `"CorePropulsionA_Prefab_EngineA1"` through
-            `"CorePropulsionA_Prefab_EngineA6"`.
-          default: "CorePropulsionA_Prefab_EngineA1"
-          example: "CorePropulsionA_Prefab_EngineA1"
+            Engine part template ID. Defaults to A3 engine. Common values:
+            `CorePropulsionA_Prefab_EngineA1` through `A6`.
+          default: "CorePropulsionA_Prefab_EngineA3"
+          example: "CorePropulsionA_Prefab_EngineA3"
         partScale:
           type: number
           format: double
-          description: >
-            Scale multiplier for pixel parts. Smaller values make pixels less
-            visually intrusive. Range 0.001–1.0.
+          description: Scale multiplier for pixel parts (smaller = less visible).
           minimum: 0.001
           maximum: 1.0
           default: 0.010
           example: 0.010
-      required:
-        - vehicleId
-        - gridName
+      required: [vehicleId, gridName]
 
     BlinkyScanGridRequest:
       type: object
       description: >
-        Request body for scanning a vehicle for an existing pixel grid. When
-        `enginePartId` is omitted, an ID-based scan is performed (looking for
-        parts named `pixel_{row}_{col}_{a|b}`). When `enginePartId` is provided,
-        a template-based scan finds small-scale engines matching that template.
+        Request body for scanning a single vehicle for an existing pixel grid.
+        Omit `enginePartId` for ID-based scanning; provide it for
+        template-based scanning.
       properties:
         vehicleId:
           type: string
-          description: The unique identifier of the target vehicle.
+          description: Target vehicle identifier.
           example: "rocket-1"
         gridName:
           type: string
-          description: The name to register the scanned grid under.
+          description: Name to register the scanned grid under.
+          pattern: '^[a-zA-Z0-9-]+$'
           example: "main"
         enginePartId:
           type: string
           description: >
-            Optional engine template ID to use for template-based scanning.
-            When omitted, ID-based scanning is used instead.
-          example: "CorePropulsionA_Prefab_EngineA1"
-      required:
-        - vehicleId
-        - gridName
+            Engine template ID for template-based scanning. When omitted,
+            ID-based scanning is used instead.
+          example: "CorePropulsionA_Prefab_EngineA3"
+      required: [vehicleId, gridName]
 
-    # ── Grid info types ────────────────────────────────────────────────────────
+    # ── Display control request types ─────────────────────────────────────────
 
-    BlinkyGridInfo:
+    BlinkyScrollRequest:
       type: object
-      description: Information about a registered Blinky LCD grid.
+      description: Start a scrolling pixel animation on a grid.
       properties:
         vehicleId:
           type: string
-          description: The vehicle ID the grid belongs to.
+          description: Target vehicle identifier.
           example: "rocket-1"
         gridName:
           type: string
-          description: The name of the grid.
+          description: Target grid name.
+          example: "main"
+        pixels:
+          type: array
+          description: Pixel coordinates that form the scroll pattern.
+          items:
+            $ref: '#/components/schemas/PixelCoord'
+          minItems: 1
+        speed:
+          type: number
+          format: float
+          description: Scroll speed in pixels per second (must be > 0).
+          exclusiveMinimum: 0
+          example: 2.5
+      required: [vehicleId, gridName, pixels, speed]
+
+    BlinkyBuiltInScrollRequest:
+      type: object
+      description: Start the built-in default scroll animation on a grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        speed:
+          type: number
+          format: float
+          description: Scroll speed in pixels per second (must be > 0).
+          exclusiveMinimum: 0
+          default: 3.0
+          example: 3.0
+      required: [vehicleId, gridName, speed]
+
+    BlinkyStaticRequest:
+      type: object
+      description: Display a static set of lit pixels on a grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        pixels:
+          type: array
+          description: Pixel coordinates to light up.
+          items:
+            $ref: '#/components/schemas/PixelCoord'
+        reset:
+          type: boolean
+          description: >
+            `true` = replace mode (diff against current state).
+            `false` = additive mode (OR onto current state).
+          example: true
+      required: [vehicleId, gridName, pixels, reset]
+
+    BlinkyPatternRequest:
+      type: object
+      description: Apply a named built-in pattern to a grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        pattern:
+          $ref: '#/components/schemas/BlinkyPattern'
+      required: [vehicleId, gridName, pattern]
+
+    BlinkyOffRequest:
+      type: object
+      description: Turn off all pixels on a grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+      required: [vehicleId, gridName]
+
+    # ── Settings request types ─────────────────────────────────────────────────
+
+    BlinkyRenderSettingsRequest:
+      type: object
+      description: Update Blinky render settings.
+      properties:
+        renderPixelParts:
+          type: boolean
+          description: >
+            `true` = show pixel engine part meshes.
+            `false` = hide via Harmony patch (default).
+          example: false
+      required: [renderPixelParts]
+
+    BlinkyEngineDeactivateRequest:
+      type: object
+      description: Identifies the vehicle whose non-LCD engines will be deactivated.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+      required: [vehicleId]
+
+    # ── Response data types ────────────────────────────────────────────────────
+
+    BlinkyResult:
+      type: object
+      description: Result of a Blinky operation.
+      properties:
+        vehicleId:
+          type: string
+          example: "rocket-1"
+        gridName:
+          type: string
+          example: "main"
+        action:
+          type: string
+          description: >
+            Describes what happened. Values: `"scroll_started"`,
+            `"builtin_scroll_started"`, `"scroll_stopped"`, `"static_reset"`,
+            `"static_additive"`, `"off"`, `"pattern_<name>"`,
+            `"grid_destroyed"`, `"grid_unregistered"`,
+            `"engines_deactivated"`.
+          example: "scroll_started"
+      required: [vehicleId, gridName, action]
+
+    BlinkyGridInfo:
+      type: object
+      description: Detailed information about a registered Blinky LCD grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Registered grid name.
           example: "main"
         rows:
           type: integer
-          description: Number of pixel rows in the grid.
+          description: Number of pixel rows.
           example: 8
         cols:
           type: integer
-          description: Number of pixel columns in the grid.
+          description: Number of pixel columns.
           example: 16
         pixelCount:
           type: integer
-          description: Total number of pixel pairs (row × col).
+          description: Total pixel pairs (rows × cols).
           example: 128
         isOwned:
           type: boolean
           description: >
-            Whether the grid was dynamically built (true) or scanned from
-            existing parts (false). Only owned grids have their parts removed
-            on destroy.
+            `true` if built dynamically (parts will be removed on destroy).
+            `false` if scanned from existing parts.
           example: true
         isScrolling:
           type: boolean
-          description: Whether a scroll animation is currently running.
+          description: Whether a scroll animation is running.
           example: false
         scrollSpeed:
           type: number
           format: float
-          description: Current scroll speed in pixels per second (0 if not scrolling).
+          description: Current scroll speed (0 when not scrolling).
           example: 0.0
       required:
         - vehicleId
@@ -613,6 +775,56 @@ components:
         - isOwned
         - isScrolling
         - scrollSpeed
+
+    BlinkyScanAllResult:
+      type: object
+      description: Summary of a scan-all-vehicles operation.
+      properties:
+        discovered:
+          type: integer
+          description: Total number of newly discovered and registered grids.
+          example: 3
+        grids:
+          type: array
+          description: >
+            Human-readable labels for each discovered grid (e.g.
+            `"main on rocket-1"`).
+          items:
+            type: string
+          example: ["main on rocket-1", "display on sat-2"]
+      required: [discovered, grids]
+
+    BlinkyRenderSettings:
+      type: object
+      description: Current Blinky render settings.
+      properties:
+        renderPixelParts:
+          type: boolean
+          description: Whether pixel engine part meshes are currently rendered.
+          example: false
+      required: [renderPixelParts]
+
+    # ── Response wrappers ──────────────────────────────────────────────────────
+
+    ApiResponseBase:
+      type: object
+      description: Standard API envelope for successful responses.
+      properties:
+        status:
+          type: string
+          description: Always `"ok"`.
+          example: "ok"
+        data:
+          description: Endpoint-specific payload.
+      required: [status, data]
+
+    BlinkyResultResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BlinkyResult'
 
     BlinkyGridInfoResponse:
       allOf:
@@ -629,64 +841,57 @@ components:
           properties:
             data:
               type: array
-              description: List of all registered grids.
               items:
                 $ref: '#/components/schemas/BlinkyGridInfo'
 
-    # ── Shared envelope ────────────────────────────────────────────────────────
+    BlinkyScanAllResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BlinkyScanAllResult'
 
-    ApiResponseBase:
-      type: object
-      description: Standard API response envelope wrapping all successful responses.
-      properties:
-        status:
-          type: string
-          description: Always `"ok"` for successful responses.
-          example: ok
-        data:
-          description: The response payload. Type depends on the endpoint.
-      required:
-        - status
-        - data
+    BlinkyRenderSettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BlinkyRenderSettings'
 
     ErrorResponse:
       type: object
-      description: Error response envelope returned on 4xx/5xx.
+      description: Error envelope for 4xx/5xx responses.
       properties:
         status:
           type: string
-          example: error
+          example: "error"
         message:
           type: string
-          description: Human-readable description of the error.
+          description: Human-readable error description.
           example: "Vehicle not found: rocket-1."
-      required:
-        - status
-        - message
+      required: [status, message]
 
   responses:
-
     BadRequest:
-      description: Bad request — missing or invalid parameters.
+      description: Missing or invalid parameters.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-
     NotFound:
-      description: Resource not found (e.g. unknown vehicleId or no grid registered for vehicle).
+      description: Resource not found (vehicle, grid, etc.).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-
     Conflict:
-      description: Conflict — a grid is already registered for the specified vehicle and name.
+      description: Grid already exists for this vehicle and name.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-
     InternalError:
       description: Unexpected server-side error.
       content:

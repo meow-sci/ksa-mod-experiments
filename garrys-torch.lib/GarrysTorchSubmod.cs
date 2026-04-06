@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
@@ -12,8 +13,14 @@ public sealed class GarrysTorchSubmod : ISubmod
     public string Name => "Garry's Torch";
     public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
 
+    public static GarrysTorchSubmod? Instance { get; private set; }
+
     private readonly List<WeldEntry> _welds = new();
+    public IReadOnlyList<WeldEntry> Welds => _welds;
     private readonly PresetManager _presetManager = new();
+    private readonly WeldAnimationManager _animationManager = new();
+
+    public WeldAnimationManager AnimationManager => _animationManager;
 
     // Create weld form state
     private int _pendingSourceIndex = -1;
@@ -44,11 +51,14 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     public void Initialize()
     {
+        Instance = this;
         _presetManager.Initialize();
     }
 
     public void Update(double dt)
     {
+        _animationManager.Update(dt);
+
         var toRemove = new List<WeldEntry>();
         foreach (var weld in _welds)
             if (!WeldEngine.UpdateWeld(weld)) toRemove.Add(weld);
@@ -93,9 +103,11 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     public void Dispose()
     {
+        _animationManager.Clear();
         foreach (var weld in _welds)
             WeldEngine.ApplyVehicleScale(weld.Source, 1.0f);
         _welds.Clear();
+        Instance = null;
     }
 
     // ---- Create Section ----
@@ -418,23 +430,32 @@ public sealed class GarrysTorchSubmod : ISubmod
         ImGui.EndPopup();
     }
 
-    // ---- Weld Logic ----
+    // ---- Weld Logic (Public API) ----
 
-    private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation,
-        float scale, bool lockRotation)
+    /// <summary>Creates a weld between two vehicles by their IDs.</summary>
+    public (WeldEntry? Weld, string? Error) CreateWeld(
+        string sourceVehicleId, string targetVehicleId,
+        float3 position, float3 rotation, float scale, bool lockRotation)
     {
+        if (sourceVehicleId == targetVehicleId)
+            return (null, "Source and target must be different vehicles.");
+
+        var vehicles = VehicleProvider.GetAllVehicles();
+        var source = vehicles.FirstOrDefault(v => v.Id == sourceVehicleId);
+        if (source == null)
+            return (null, $"Source vehicle '{sourceVehicleId}' not found.");
+
+        var target = vehicles.FirstOrDefault(v => v.Id == targetVehicleId);
+        if (target == null)
+            return (null, $"Target vehicle '{targetVehicleId}' not found.");
+
         foreach (var weld in _welds)
         {
             if (weld.Source == source)
-            {
-                _weldError = $"Vehicle {source.Id} is already welded as a source.";
-                return;
-            }
+                return (null, $"Vehicle {source.Id} is already welded as a source.");
         }
 
-        _weldError = null;
-
-        _welds.Add(new WeldEntry
+        var entry = new WeldEntry
         {
             Source = source,
             Target = target,
@@ -442,22 +463,109 @@ public sealed class GarrysTorchSubmod : ISubmod
             Rotation = rotation,
             Scale = scale,
             LockRotation = lockRotation,
-        });
+        };
+        _welds.Add(entry);
 
         if (scale != 1f)
             WeldEngine.ApplyVehicleScale(source, scale);
 
+        SortWelds();
+        Console.WriteLine($"garrys-torch: Welded {source.Id} to {target.Id}");
+        return (entry, null);
+    }
+
+    /// <summary>Finds a weld by its source vehicle ID.</summary>
+    public WeldEntry? FindWeld(string sourceVehicleId)
+    {
+        for (int i = 0; i < _welds.Count; i++)
+            if (_welds[i].Source.Id == sourceVehicleId)
+                return _welds[i];
+        return null;
+    }
+
+    /// <summary>Modifies an existing weld. Only non-null fields are updated.</summary>
+    public (WeldEntry? Weld, string? Error) ModifyWeld(
+        string sourceVehicleId, float3? position, float3? rotation, float? scale, bool? lockRotation)
+    {
+        var weld = FindWeld(sourceVehicleId);
+        if (weld == null)
+            return (null, $"No weld found with source vehicle '{sourceVehicleId}'.");
+
+        if (position.HasValue) weld.Position = position.Value;
+        if (rotation.HasValue) weld.Rotation = rotation.Value;
+        if (lockRotation.HasValue) weld.LockRotation = lockRotation.Value;
+
+        if (scale.HasValue && scale.Value != weld.Scale)
+        {
+            weld.Scale = scale.Value;
+            WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
+        }
+
+        return (weld, null);
+    }
+
+    /// <summary>Removes a weld by its source vehicle ID.</summary>
+    public bool RemoveWeld(string sourceVehicleId)
+    {
+        var weld = FindWeld(sourceVehicleId);
+        if (weld == null) return false;
+        RemoveWeld(weld);
+        return true;
+    }
+
+    // ---- Preset API ----
+
+    public string[] GetPresetNames() => _presetManager.GetPresetNames();
+    public WeldPreset? GetPreset(string name) => _presetManager.GetPreset(name);
+    public bool PresetExists(string name) => _presetManager.PresetExists(name);
+    public bool SavePreset(string name, WeldPreset preset) => _presetManager.SavePreset(name, preset);
+    public bool DeletePreset(string name) => _presetManager.DeletePreset(name);
+
+    /// <summary>Starts or queues an animated transition of a weld's position, rotation, and scale.</summary>
+    public string? AnimateWeld(
+        string sourceVehicleId,
+        float3 targetPosition, float3 targetRotation, float targetScale,
+        double durationSeconds, WeldEasingType easing,
+        double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
+    {
+        var weld = FindWeld(sourceVehicleId);
+        if (weld == null)
+            return $"No active weld found with source: {sourceVehicleId}";
+
+        if (durationSeconds <= 0)
+            return "Duration must be greater than 0";
+
+        var animation = new WeldAnimation(
+            weld.Position, weld.Rotation, weld.Scale,
+            targetPosition, targetRotation, targetScale,
+            durationSeconds, easing, easingPowerStart, easingPowerEnd);
+
+        _animationManager.Enqueue(weld, animation);
+        return null;
+    }
+
+    // ---- Weld Logic (Internal) ----
+
+    private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation,
+        float scale, bool lockRotation)
+    {
+        var (_, error) = CreateWeld(source.Id, target.Id, position, rotation, scale, lockRotation);
+        if (error != null)
+        {
+            _weldError = error;
+            return;
+        }
+
+        _weldError = null;
         _pendingPosition = new float3(0f, 0f, 0f);
         _pendingRotation = new float3(0f, 0f, 0f);
         _pendingScale = 1f;
         _pendingLockRotation = true;
-
-        SortWelds();
-        Console.WriteLine($"garrys-torch: Welded {source.Id} to {target.Id}");
     }
 
     private void RemoveWeld(WeldEntry entry)
     {
+        _animationManager.CancelAll(entry);
         WeldEngine.ApplyVehicleScale(entry.Source, 1.0f);
         Console.WriteLine($"garrys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
         _welds.Remove(entry);

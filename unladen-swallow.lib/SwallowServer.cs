@@ -76,15 +76,31 @@ public sealed class SwallowServer
         api.Add("vehicle", Layout.Create()
             .Add("actions", vehicleActions));
 
-        // GET  /blinky/grids
-        // POST /blinky/animate
-        // POST /blinky/static
-        // POST /blinky/off
+        // GET/POST/DELETE /blinky/grids
+        // POST            /blinky/grids/scan
+        // POST            /blinky/grids/scan-all
+        // POST/DELETE     /blinky/animate
+        // POST            /blinky/animate/builtin
+        // POST            /blinky/static
+        // POST            /blinky/pattern
+        // POST            /blinky/off
+        // GET/POST        /blinky/render
+        // POST            /blinky/engines/deactivate
         api.Add("blinky", Layout.Create()
-            .Add("grids", BlinkyListEndpoint.Create())
-            .Add("animate", BlinkyAnimateEndpoint.Create())
+            .Add("grids", Layout.Create()
+                .Add(BlinkyListEndpoint.Create())
+                .Add(BlinkyGridsEndpoint.Create())
+                .Add("scan", BlinkyGridScanEndpoint.Create())
+                .Add("scan-all", BlinkyGridScanAllEndpoint.Create()))
+            .Add("animate", Layout.Create()
+                .Add(BlinkyAnimateEndpoint.Create())
+                .Add("builtin", BlinkyBuiltInScrollEndpoint.Create()))
             .Add("static", BlinkyStaticEndpoint.Create())
-            .Add("off", BlinkyOffEndpoint.Create()));
+            .Add("pattern", BlinkyPatternEndpoint.Create())
+            .Add("off", BlinkyOffEndpoint.Create())
+            .Add("render", BlinkyRenderEndpoint.Create())
+            .Add("engines", Layout.Create()
+                .Add("deactivate", BlinkyEngineDeactivateEndpoint.Create())));
 
         // GET    /camera/status
         // POST   /camera/animate
@@ -93,6 +109,21 @@ public sealed class SwallowServer
             .Add("status", CameraStatusEndpoint.Create())
             .Add("animate", CameraAnimateEndpoint.Create())
             .Add("stop", CameraStopEndpoint.Create()));
+
+        // GET    /torch/welds           — list active welds
+        // POST   /torch/welds           — create a new weld
+        // DELETE /torch/welds           — unweld (remove a weld)
+        // POST   /torch/welds/modify    — modify weld immediately
+        // POST   /torch/welds/animate   — animate weld to target state
+        // GET    /torch/presets         — list all presets
+        // POST   /torch/presets         — save/update a preset
+        // DELETE /torch/presets         — delete a preset
+        api.Add("torch", Layout.Create()
+            .Add("welds", Layout.Create()
+                .Add(TorchWeldsEndpoint.Create())
+                .Add("modify", TorchWeldModifyEndpoint.Create())
+                .Add("animate", TorchWeldAnimateEndpoint.Create()))
+            .Add("presets", TorchPresetsEndpoint.Create()));
 
         // CORS — allow all origins
         api.Add(CorsPolicy.Permissive());
