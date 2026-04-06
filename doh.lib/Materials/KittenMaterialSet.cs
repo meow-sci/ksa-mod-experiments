@@ -4,6 +4,22 @@ using Brutal.Numerics;
 
 namespace MeowSci.DohLib.Materials;
 
+/// <summary>Per-material tracking for individual color editing.</summary>
+public sealed class MaterialEntry
+{
+    public string Name { get; init; } = "";
+    public string Source { get; set; } = "";
+    public int Handle { get; init; }
+    public float4 Color { get; set; }
+
+    /// <summary>Write this material's individual color to the GPU.</summary>
+    public bool ApplyColor()
+    {
+        if (Handle < 0) return false;
+        return MaterialSystemAccessor.WriteAlbedoColor(Handle, Color);
+    }
+}
+
 /// <summary>
 /// Holds per-kitten GPU material handles created by MaterialFactory.
 /// Every material the kitten uses is cloned to a unique GPU slot so
@@ -41,6 +57,9 @@ public sealed class KittenMaterialSet
     /// </summary>
     public List<int> AllMaterialHandles { get; } = new();
 
+    /// <summary>Individual material entries for per-material color editing.</summary>
+    public List<MaterialEntry> Materials { get; } = new();
+
     public KittenMaterialSet(string id, float4 tintColor)
     {
         Id = id;
@@ -55,11 +74,25 @@ public sealed class KittenMaterialSet
     {
         TintColor = newColor;
         bool ok = true;
-        foreach (int handle in AllMaterialHandles)
+
+        if (Materials.Count > 0)
         {
-            if (handle >= 0)
-                ok &= MaterialSystemAccessor.WriteAlbedoColor(handle, newColor);
+            foreach (var entry in Materials)
+            {
+                entry.Color = newColor;
+                if (entry.Handle >= 0)
+                    ok &= MaterialSystemAccessor.WriteAlbedoColor(entry.Handle, newColor);
+            }
         }
+        else
+        {
+            foreach (int handle in AllMaterialHandles)
+            {
+                if (handle >= 0)
+                    ok &= MaterialSystemAccessor.WriteAlbedoColor(handle, newColor);
+            }
+        }
+
         return ok;
     }
 }

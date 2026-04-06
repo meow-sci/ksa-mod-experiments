@@ -175,6 +175,18 @@ public sealed class MaterialFactory
             matSet.HandleMap = handleMap;
             matSet.AllMaterialHandles.AddRange(allNewHandles);
 
+            // Populate per-material entries for individual color editing
+            foreach (var (oldHandle, newHandle) in handleMap)
+            {
+                string sourceName = handleToName.TryGetValue(oldHandle, out var n) ? n : $"handle_{oldHandle}";
+                matSet.Materials.Add(new MaterialEntry
+                {
+                    Name = sourceName,
+                    Handle = newHandle,
+                    Color = tintColor
+                });
+            }
+
             _createdSets.Add(matSet);
             Console.WriteLine($"doh: Cloned {handleMap.Count}/{uniqueHandles.Length} materials for '{prefix}'");
             return matSet;

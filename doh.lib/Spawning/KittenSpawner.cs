@@ -438,6 +438,13 @@ public sealed class KittenSpawner
                     {
                         matSet.HandleMap[oldHandle] = newHandle;
                         matSet.AllMaterialHandles.Add(newHandle);
+                        matSet.Materials.Add(new MaterialEntry
+                        {
+                            Name = "CatFur",
+                            Source = "Fur",
+                            Handle = newHandle,
+                            Color = tintColor
+                        });
                         Console.WriteLine($"doh:   Fur: cloned handle {oldHandle} → {newHandle}");
                     }
                     else
@@ -463,6 +470,22 @@ public sealed class KittenSpawner
                 if (replaced > 0)
                     Console.WriteLine($"doh:   {name}: {replaced}/{indices.Length} slots replaced");
                 totalReplacements += replaced;
+            }
+
+            // Tag Materials entries with their source renderable name
+            var newHandleToSource = new Dictionary<int, string>();
+            foreach (var (name, indices) in renderables)
+            {
+                foreach (int h in indices)
+                {
+                    if (!newHandleToSource.ContainsKey(h))
+                        newHandleToSource[h] = name;
+                }
+            }
+            foreach (var mat in matSet.Materials)
+            {
+                if (string.IsNullOrEmpty(mat.Source) && newHandleToSource.TryGetValue(mat.Handle, out var src))
+                    mat.Source = src;
             }
 
             Console.WriteLine($"doh: Applied cloned materials '{matSet.Id}' ({totalReplacements} replacements, {matSet.AllMaterialHandles.Count} unique cloned handles)");

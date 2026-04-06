@@ -50,6 +50,9 @@ public sealed class DohSubmod : ISubmod
     private string? _statusMessage;
     private bool _statusIsError;
 
+    // UI state — expanded kitten detail
+    private string? _expandedKittenId;
+
     // Cached XKCD color palette (built once via reflection)
     private static (string Name, float4 Color)[]? _xkcdColors;
 
@@ -294,79 +297,133 @@ public sealed class DohSubmod : ISubmod
 
         var kittens = _registry.GetAll();
 
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
-        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX
-                       | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH
-                       | ImGuiTableFlags.ScrollY;
-
-        float maxHeight = ImGui.GetTextLineHeightWithSpacing() * 10;
-        if (ImGui.BeginTable("##doh_kittens", 4, tableFlags, new float2(0, maxHeight)))
+        for (int i = 0; i < kittens.Count; i++)
         {
-            ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed, 80f);
-            ImGui.TableSetupColumn("Color", ImGuiTableColumnFlags.WidthFixed, 50f);
-            ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, 80f);
+            var entry = kittens[i];
+            ImGui.PushID(i);
+
+            bool isExpanded = _expandedKittenId == entry.KittenId;
+
+            // Header row: color swatch, name, character, despawn button
+            if (entry.MaterialSet != null)
+            {
+                ImGui.ColorButton("##swatch", entry.MaterialSet.TintColor,
+                    ImGuiColorEditFlags.NoTooltip, new float2(14, 14));
+                ImGui.SameLine();
+            }
+
+            // Use selectable for the kitten name — clicking toggles expansion
+            bool clicked = ImGui.Selectable(entry.KittenId, isExpanded,
+                ImGuiSelectableFlags.SpanAllColumns);
+            if (clicked)
+                _expandedKittenId = isExpanded ? null : entry.KittenId;
+
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X - 100);
+            ImGui.TextDisabled(entry.CharacterId);
+
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X - 30);
+            ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+            if (ImGui.SmallButton(" X ##despawn"))
+            {
+                _spawner?.Despawn(entry.KittenId);
+                if (_expandedKittenId == entry.KittenId)
+                    _expandedKittenId = null;
+                SetStatus($"Despawned '{entry.KittenId}'.", false);
+            }
+            ImGui.PopStyleColor(2);
+
+            // Expanded detail: per-material color pickers
+            if (isExpanded && entry.MaterialSet != null)
+            {
+                ImGui.Indent();
+                RenderMaterialDetails(entry);
+                ImGui.Unindent();
+            }
+
+            ImGui.Separator();
+            ImGui.PopID();
+        }
+
+        // Despawn All button
+        ImGui.Spacing();
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
+        if (ImGui.Button(" Despawn All ##doh"))
+        {
+            _spawner?.DespawnAll();
+            _expandedKittenId = null;
+            SetStatus("All kittens despawned.", false);
+        }
+        ImGui.PopStyleColor(2);
+    }
+
+    private void RenderMaterialDetails(SpawnedKittenEntry entry)
+    {
+        var matSet = entry.MaterialSet!;
+        if (matSet.Materials.Count == 0)
+        {
+            ImGui.TextDisabled("No per-material data available.");
+            return;
+        }
+
+        // "All materials" color picker (changes all at once)
+        var allColor = matSet.TintColor;
+        ImGui.Text("All Materials:");
+        ImGui.SameLine();
+        if (ImGui.ColorEdit4("##all_mats", ref allColor,
+            ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+        {
+            matSet.UpdateTint(allColor);
+        }
+        ImGui.SameLine(0, 8);
+        if (ImGui.SmallButton("Reset All##reset"))
+        {
+            matSet.UpdateTint(matSet.TintColor);
+        }
+
+        ImGui.Spacing();
+
+        // Per-material table
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 2f));
+        if (ImGui.BeginTable("##mat_detail", 3,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.RowBg))
+        {
+            ImGui.TableSetupColumn("Material", ImGuiTableColumnFlags.WidthStretch, 2f);
+            ImGui.TableSetupColumn("Source", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("Color", ImGuiTableColumnFlags.WidthFixed, 40f);
             ImGui.TableHeadersRow();
 
-            for (int i = 0; i < kittens.Count; i++)
+            for (int m = 0; m < matSet.Materials.Count; m++)
             {
-                var entry = kittens[i];
-                ImGui.PushID(i);
-
+                var mat = matSet.Materials[m];
+                ImGui.PushID(m);
                 ImGui.TableNextRow();
 
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();
-                ImGui.Text(entry.KittenId);
+                ImGui.Text(mat.Name);
 
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();
-                ImGui.TextDisabled(entry.CharacterId);
+                ImGui.TextDisabled(mat.Source);
 
                 ImGui.TableNextColumn();
-                if (entry.MaterialSet != null)
+                var matColor = mat.Color;
+                if (ImGui.ColorEdit4("##mc", ref matColor,
+                    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
                 {
-                    var color = entry.MaterialSet.TintColor;
-                    if (ImGui.ColorEdit4("##clr", ref color,
-                        ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
-                    {
-                        _spawner?.RecolorKitten(entry.KittenId, color);
-                    }
+                    mat.Color = matColor;
+                    mat.ApplyColor();
                 }
-                else
-                {
-                    ImGui.TextDisabled("—");
-                }
-
-                ImGui.TableNextColumn();
-                ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
-                ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
-                if (ImGui.Button(" X ##despawn"))
-                {
-                    _spawner?.Despawn(entry.KittenId);
-                    SetStatus($"Despawned '{entry.KittenId}'.", false);
-                }
-                ImGui.PopStyleColor();
-                ImGui.PopStyleColor();
 
                 ImGui.PopID();
             }
 
             ImGui.EndTable();
         }
-        ImGui.PopStyleVar(); // CellPadding
-
+        ImGui.PopStyleVar();
         ImGui.Spacing();
-
-        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
-        if (ImGui.Button(" Despawn All ##doh"))
-        {
-            _spawner?.DespawnAll();
-            SetStatus("All kittens despawned.", false);
-        }
-        ImGui.PopStyleColor();
-        ImGui.PopStyleColor();
     }
 
     // ---- Actions ----
