@@ -134,7 +134,6 @@ public sealed class KittenSpawner
 
         // Spawn loop
         var results = new List<SpawnedKittenInfo>();
-        KittenMaterialSet? sharedMatSet = null;
 
         for (int i = 0; i < request.Count; i++)
         {
@@ -173,7 +172,7 @@ public sealed class KittenSpawner
             pos.Parent!.Children.Add(kittenEva);
             kittenEva.UpdatePerFrameData();
 
-            // Apply custom materials
+            // Apply custom materials — clone every material this kitten uses
             KittenMaterialSet? matSet = null;
             if (request.TintColor.HasValue || request.PerKittenColors != null)
             {
@@ -183,18 +182,7 @@ public sealed class KittenSpawner
                 else if (request.TintColor.HasValue)
                     color = request.TintColor.Value;
 
-                if (request.UniqueMaterialsPerKitten || i == 0)
-                {
-                    matSet = _materialFactory.CreateTintedMaterialSet(characterId, color);
-                    if (i == 0) sharedMatSet = matSet;
-                }
-                else
-                {
-                    matSet = sharedMatSet;
-                }
-
-                if (matSet != null)
-                    ApplyMaterialSetToKitten(kittenEva, matSet, characterId);
+                matSet = ApplyClonedMaterials(kittenEva, color, characterId);
             }
 
             // Track in registry
@@ -374,193 +362,161 @@ public sealed class KittenSpawner
     }
 
     /// <summary>
-    /// Applies a KittenMaterialSet to a KittenEva by replacing the
-    /// MaterialIndices entries on its AnimatedRenderable.
+    /// Creates unique per-kitten materials by cloning every material the kitten uses
+    /// (character model, fur, helmet, visor, MMU, cosmetics), then replaces all
+    /// MaterialIndices entries with the cloned handles.
+    /// Returns the KittenMaterialSet, or null on failure.
     /// </summary>
-    private static void ApplyMaterialSetToKitten(KittenEva kittenEva, KittenMaterialSet matSet, string characterId)
+    private KittenMaterialSet? ApplyClonedMaterials(KittenEva kittenEva, float4 tintColor, string characterId)
     {
         try
         {
-            // Access: kittenEva._renderable → _characterAvatar → Core.CharacterModel → MaterialIndices
-            var renderableField = typeof(KittenEva).GetField("_renderable",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            if (renderableField == null)
+            // Navigate to CharacterAvatar
+            var avatar = GetCharacterAvatar(kittenEva);
+            if (avatar == null)
             {
-                Console.WriteLine("doh: _renderable field not found on KittenEva.");
-                return;
+                Console.WriteLine("doh: Failed to get CharacterAvatar from KittenEva.");
+                return null;
             }
 
-            var renderable = renderableField.GetValue(kittenEva);
-            if (renderable == null) return;
+            // Collect MaterialIndices arrays from all renderables
+            var renderables = new List<(string name, int[] indices)>();
 
-            var avatarField = renderable.GetType().GetField("_characterAvatar",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            if (avatarField == null)
+            // 1. CharacterModel (body/head/eyes)
+            var charModelIndices = GetMaterialIndicesFromPath(avatar, "Core", "CharacterModel");
+            if (charModelIndices != null)
+                renderables.Add(("CharacterModel", charModelIndices));
+
+            // 2. Fur — collected but cloned separately (needs special ExtraData for fur shader)
+            var furIndices = GetMaterialIndicesFromPath(avatar, "Fur", "CatFurRenderable");
+            if (furIndices != null)
+                renderables.Add(("Fur", furIndices));
+
+            // 3. Helmet
+            var helmetIndices = GetMaterialIndicesFromPath(avatar, "Attachments", "Helmet", "HelmetMesh");
+            if (helmetIndices != null)
+                renderables.Add(("Helmet", helmetIndices));
+
+            // 4. Visor
+            var visorIndices = GetMaterialIndicesFromPath(avatar, "Attachments", "Helmet", "VisorMesh");
+            if (visorIndices != null)
+                renderables.Add(("Visor", visorIndices));
+
+            // 5. MMU
+            var mmuIndices = GetMaterialIndicesFromPath(avatar, "Attachments", "Mmu", "MmuMesh");
+            if (mmuIndices != null)
+                renderables.Add(("MMU", mmuIndices));
+
+            if (renderables.Count == 0)
             {
-                Console.WriteLine("doh: _characterAvatar field not found on KittenRenderable.");
-                return;
+                Console.WriteLine("doh: No MaterialIndices found on any renderable.");
+                return null;
             }
 
-            var avatar = avatarField.GetValue(renderable);
-            if (avatar == null) return;
+            // Separate fur handles — fur shader needs ExtraData with fur texture handles
+            var furHandleSet = furIndices != null ? new HashSet<int>(furIndices) : new HashSet<int>();
+            var nonFurHandles = renderables
+                .Where(r => r.name != "Fur")
+                .SelectMany(r => r.indices)
+                .ToArray();
 
-            // Get the Core struct
-            var coreField = avatar.GetType().GetField("Core",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (coreField == null) return;
+            Console.WriteLine($"doh: Found {renderables.Count} renderables, {nonFurHandles.Distinct().Count()} non-fur + {furHandleSet.Count} fur unique handles");
 
-            var core = coreField.GetValue(avatar);
-            if (core == null) return;
+            // Clone non-fur materials via PbrMaterialReference lookup
+            var matSet = _materialFactory.CloneAllMaterials(nonFurHandles, tintColor);
+            if (matSet == null) return null;
 
-            // Get CharacterModel from Core
-            var charModelField = core.GetType().GetField("CharacterModel",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (charModelField == null) return;
-
-            var charModel = charModelField.GetValue(core);
-            if (charModel == null) return;
-
-            // Get MaterialIndices array
-            var matIndicesField = FindFieldInHierarchy(charModel.GetType(), "MaterialIndices");
-            if (matIndicesField == null)
+            // Clone fur materials with proper ExtraData (FurTexture, FurSampler, FurMask)
+            if (furIndices != null && furIndices.Length > 0)
             {
-                Console.WriteLine("doh: MaterialIndices field not found on AnimatedRenderable.");
-                return;
-            }
-
-            var materialIndices = matIndicesField.GetValue(charModel) as int[];
-            if (materialIndices == null || materialIndices.Length == 0) return;
-
-            // Get shared material handles for this character to know what to replace
-            var sharedBodyHandle = GetSharedMaterialHandle(characterId, "CharacterBodyMaterial");
-            var sharedHeadHandle = GetSharedMaterialHandle(characterId, "CharacterHeadMaterial");
-            var sharedEyeHandle = GetSharedMaterialHandle(characterId, "CharacterEyeMaterial");
-
-            Console.WriteLine($"doh: MaterialIndices[{materialIndices.Length}] = [{string.Join(", ", materialIndices)}]");
-            Console.WriteLine($"doh: Shared handles — body={sharedBodyHandle}, head={sharedHeadHandle}, eye={sharedEyeHandle}");
-
-            // Replace matching handles in MaterialIndices
-            int replacements = 0;
-            for (int i = 0; i < materialIndices.Length; i++)
-            {
-                if (sharedBodyHandle >= 0 && materialIndices[i] == sharedBodyHandle)
+                foreach (int oldHandle in furIndices.Distinct())
                 {
-                    materialIndices[i] = matSet.BodyMaterialHandle;
-                    replacements++;
+                    if (oldHandle < 0 || matSet.HandleMap.ContainsKey(oldHandle)) continue;
+                    int newHandle = _materialFactory.CreateClonedFurMaterial(
+                        matSet.Id, characterId, tintColor);
+                    if (newHandle >= 0)
+                    {
+                        matSet.HandleMap[oldHandle] = newHandle;
+                        matSet.AllMaterialHandles.Add(newHandle);
+                        Console.WriteLine($"doh:   Fur: cloned handle {oldHandle} → {newHandle}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"doh:   Fur: failed to clone handle {oldHandle}");
+                    }
                 }
-                else if (sharedHeadHandle >= 0 && materialIndices[i] == sharedHeadHandle)
-                {
-                    materialIndices[i] = matSet.HeadMaterialHandle;
-                    replacements++;
-                }
-                // Eyes are left untinted
             }
 
-            // Apply fur material if available
-            if (matSet.FurMaterialHandle >= 0)
-                ApplyFurMaterial(avatar, matSet.FurMaterialHandle);
+            // Replace entries in each renderable's MaterialIndices using HandleMap
+            int totalReplacements = 0;
+            foreach (var (name, indices) in renderables)
+            {
+                int replaced = 0;
+                for (int i = 0; i < indices.Length; i++)
+                {
+                    if (matSet.HandleMap.TryGetValue(indices[i], out int newHandle))
+                    {
+                        indices[i] = newHandle;
+                        replaced++;
+                    }
+                }
+                if (replaced > 0)
+                    Console.WriteLine($"doh:   {name}: {replaced}/{indices.Length} slots replaced");
+                totalReplacements += replaced;
+            }
 
-            Console.WriteLine($"doh: Applied material set '{matSet.Id}' to kitten ({replacements} replacements, body={sharedBodyHandle}→{matSet.BodyMaterialHandle}, head={sharedHeadHandle}→{matSet.HeadMaterialHandle})");
+            Console.WriteLine($"doh: Applied cloned materials '{matSet.Id}' ({totalReplacements} replacements, {matSet.AllMaterialHandles.Count} unique cloned handles)");
+            return matSet;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"doh: ApplyMaterialSetToKitten error: {ex.Message}");
+            Console.WriteLine($"doh: ApplyClonedMaterials error: {ex.Message}");
+            return null;
         }
+    }
+
+    /// <summary>Gets the CharacterAvatar from a KittenEva via reflection.</summary>
+    private static object? GetCharacterAvatar(KittenEva kittenEva)
+    {
+        var renderableField = typeof(KittenEva).GetField("_renderable",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (renderableField == null) return null;
+
+        var renderable = renderableField.GetValue(kittenEva);
+        if (renderable == null) return null;
+
+        var avatarField = renderable.GetType().GetField("_characterAvatar",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        return avatarField?.GetValue(renderable);
     }
 
     /// <summary>
-    /// Gets the shared material handle for a character's material name.
-    /// Resolves: CharacterReference → CharacterTextures → PbrMaterialReference.Id → MaterialSystem.GetOrLoad
+    /// Navigates a chain of fields on an object and extracts MaterialIndices from the final renderable.
+    /// E.g., GetMaterialIndicesFromPath(avatar, "Core", "CharacterModel") navigates
+    /// avatar.Core.CharacterModel.MaterialIndices.
     /// </summary>
-    private static int GetSharedMaterialHandle(string characterId, string materialFieldName)
+    private static int[]? GetMaterialIndicesFromPath(object root, params string[] fieldPath)
     {
-        try
+        object? current = root;
+        foreach (string fieldName in fieldPath)
         {
-            var charRef = ModLibrary.Get<CharacterReference>(characterId);
-            if (charRef?.CharacterTextures == null) return -1;
-
-            var charTextures = charRef.CharacterTextures.Get();
-            if (charTextures == null) return -1;
-
-            var matRefField = charTextures.GetType().GetField(materialFieldName,
-                BindingFlags.Public | BindingFlags.Instance);
-            if (matRefField == null) return -1;
-
-            var matRef = matRefField.GetValue(charTextures);
-            if (matRef == null) return -1;
-
-            // Call .Get() to resolve — filter for non-generic overload to avoid AmbiguousMatchException
-            var methods = matRef.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance);
-            var getMethod = Array.Find(methods, m => m.Name == "Get" && !m.IsGenericMethod && m.GetParameters().Length == 0);
-            var resolved = getMethod?.Invoke(matRef, null);
-            if (resolved == null) return -1;
-
-            // Get .Id
-            var idField = resolved.GetType().GetField("Id",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (idField == null)
-            {
-                var idProp = resolved.GetType().GetProperty("Id",
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                var idVal = idProp?.GetValue(resolved)?.ToString();
-                if (string.IsNullOrEmpty(idVal)) return -1;
-                return MaterialSystemAccessor.GetMaterialHandle(idVal);
-            }
-
-            var id = idField.GetValue(resolved)?.ToString();
-            if (string.IsNullOrEmpty(id)) return -1;
-            return MaterialSystemAccessor.GetMaterialHandle(id);
+            if (current == null) return null;
+            current = GetFieldValue(current, fieldName);
         }
-        catch
-        {
-            return -1;
-        }
+
+        if (current == null) return null;
+
+        // Get MaterialIndices from the final renderable
+        var matField = FindFieldInHierarchy(current.GetType(), "MaterialIndices");
+        return matField?.GetValue(current) as int[];
     }
 
-    private static void ApplyFurMaterial(object avatar, int furMaterialHandle)
+    /// <summary>Gets a field value by name, searching public and non-public fields.</summary>
+    private static object? GetFieldValue(object instance, string name)
     {
-        try
-        {
-            // Access Fur.CatFurRenderable and replace its material reference
-            var furField = avatar.GetType().GetField("Fur",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (furField == null) return;
-
-            var fur = furField.GetValue(avatar);
-            if (fur == null) return;
-
-            var catFurField = fur.GetType().GetField("CatFurRenderable",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (catFurField == null) return;
-
-            var catFurRenderable = catFurField.GetValue(fur);
-            if (catFurRenderable == null) return;
-
-            // Look for MaterialHandle or similar field on CatFurRenderable
-            var matField = FindFieldInHierarchy(catFurRenderable.GetType(), "MaterialIndex");
-            if (matField == null)
-                matField = FindFieldInHierarchy(catFurRenderable.GetType(), "_materialHandle");
-            if (matField == null)
-                matField = FindFieldInHierarchy(catFurRenderable.GetType(), "MaterialIndices");
-
-            if (matField != null && matField.FieldType == typeof(int))
-            {
-                matField.SetValue(catFurRenderable, furMaterialHandle);
-            }
-            else if (matField != null && matField.FieldType == typeof(int[]))
-            {
-                var indices = matField.GetValue(catFurRenderable) as int[];
-                if (indices != null)
-                {
-                    for (int i = 0; i < indices.Length; i++)
-                        indices[i] = furMaterialHandle;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"doh: ApplyFurMaterial error: {ex.Message}");
-        }
+        var field = instance.GetType().GetField(name,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        return field?.GetValue(instance);
     }
 
     private static FieldInfo? FindFieldInHierarchy(Type? type, string fieldName)

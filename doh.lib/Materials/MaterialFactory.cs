@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Brutal.Numerics;
 using KSA;
@@ -90,11 +92,210 @@ public sealed class MaterialFactory
         }
     }
 
+    /// <summary>
+    /// Creates a unique fur material for a kitten, preserving the fur shader's
+    /// required ExtraData (FurTexture, FurSampler, FurMask handles).
+    /// </summary>
+    public int CreateClonedFurMaterial(string namePrefix, string characterId, float4 tintColor)
+    {
+        var charTextures = ResolveCharacterTextures(characterId);
+        if (charTextures == null) return -1;
+
+        int samplerHandle = GetSamplerRepeatHandle();
+        int defaultBlackHandle = GetDefaultBlackTextureHandle();
+
+        return CreateFurMaterial(namePrefix, charTextures.Value, samplerHandle, defaultBlackHandle, tintColor);
+    }
+
     /// <summary>Disposes all material sets created by this factory.</summary>
     public void Cleanup()
     {
         _createdSets.Clear();
         _nextMaterialId = 0;
+    }
+
+    /// <summary>
+    /// Clones every unique material handle in the given array, creating per-kitten
+    /// unique GPU materials with the specified AlbedoColor tint.
+    /// Returns a KittenMaterialSet containing the old→new handle mapping,
+    /// or null on failure.
+    /// </summary>
+    public KittenMaterialSet? CloneAllMaterials(int[] materialIndices, float4 tintColor)
+    {
+        if (!MaterialSystemAccessor.IsInitialized && !MaterialSystemAccessor.Initialize())
+        {
+            Console.WriteLine($"doh: CloneAllMaterials — MaterialSystemAccessor not initialized: {MaterialSystemAccessor.LastError}");
+            return null;
+        }
+
+        try
+        {
+            string prefix = $"doh_{_nextMaterialId++:D4}";
+
+            // Build handle→name reverse lookup from AssetMap
+            var handleToName = BuildHandleToNameMap();
+
+            // Defaults for MaterialData construction
+            int samplerHandle = GetSamplerRepeatHandle();
+            int defaultWhiteHandle = GetDefaultWhiteTextureHandle();
+            int defaultBlackHandle = GetDefaultBlackTextureHandle();
+
+            // Clone each unique handle
+            var uniqueHandles = materialIndices.Distinct().ToArray();
+            var handleMap = new Dictionary<int, int>(); // old handle → new handle
+            var allNewHandles = new List<int>();
+
+            for (int idx = 0; idx < uniqueHandles.Length; idx++)
+            {
+                int oldHandle = uniqueHandles[idx];
+                if (oldHandle < 0) continue;
+
+                string cloneName = $"{prefix}_m{idx}";
+                int newHandle = CloneSingleMaterial(oldHandle, cloneName, tintColor,
+                    handleToName, samplerHandle, defaultWhiteHandle, defaultBlackHandle);
+
+                if (newHandle >= 0)
+                {
+                    handleMap[oldHandle] = newHandle;
+                    allNewHandles.Add(newHandle);
+                }
+                else
+                {
+                    Console.WriteLine($"doh: Failed to clone handle {oldHandle}, keeping shared.");
+                }
+            }
+
+            if (handleMap.Count == 0)
+            {
+                Console.WriteLine($"doh: CloneAllMaterials — no materials cloned for '{prefix}'.");
+                return null;
+            }
+
+            var matSet = new KittenMaterialSet(prefix, tintColor);
+            matSet.HandleMap = handleMap;
+            matSet.AllMaterialHandles.AddRange(allNewHandles);
+
+            _createdSets.Add(matSet);
+            Console.WriteLine($"doh: Cloned {handleMap.Count}/{uniqueHandles.Length} materials for '{prefix}'");
+            return matSet;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"doh: CloneAllMaterials error: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Clones a single GPU material by its handle.
+    /// Looks up the source PbrMaterialReference via name, reconstructs MaterialData
+    /// with the same textures but a custom AlbedoColor, and uploads it.
+    /// </summary>
+    private int CloneSingleMaterial(int sourceHandle, string newName, float4 tintColor,
+        Dictionary<int, string> handleToName,
+        int samplerHandle, int defaultWhiteHandle, int defaultBlackHandle)
+    {
+        // Find the material name for this handle
+        if (!handleToName.TryGetValue(sourceHandle, out string? materialName) || materialName == null)
+        {
+            Console.WriteLine($"doh: No name found for handle {sourceHandle}, creating blank tinted material.");
+            return CreateBlankTintedMaterial(newName, tintColor, samplerHandle, defaultWhiteHandle, defaultBlackHandle);
+        }
+
+        // Try to look up PbrMaterialReference from ModLibrary to get texture info
+        PbrMaterialReference? pbrRef = null;
+        try { pbrRef = ModLibrary.Get<PbrMaterialReference>(materialName); } catch { }
+
+        if (pbrRef != null)
+        {
+            // Resolve via .Get() to follow references
+            var resolved = InvokeGet(pbrRef) as PbrMaterialReference ?? pbrRef;
+            return CreateMaterialFromPbrRef(newName, resolved, tintColor,
+                samplerHandle, defaultWhiteHandle, defaultBlackHandle);
+        }
+
+        // Not a PbrMaterialReference — could be a GLTF inline material.
+        // Create with default white textures + tint (texture detail lost but tint works)
+        Console.WriteLine($"doh: Material '{materialName}' not in ModLibrary, creating tinted fallback.");
+        return CreateBlankTintedMaterial(newName, tintColor, samplerHandle, defaultWhiteHandle, defaultBlackHandle);
+    }
+
+    /// <summary>
+    /// Creates a MaterialData from a resolved PbrMaterialReference, with custom AlbedoColor.
+    /// Matches the game's GpuMaterialSystem.CreateAsset() pattern.
+    /// </summary>
+    private int CreateMaterialFromPbrRef(string name, PbrMaterialReference pbrRef, float4 tintColor,
+        int samplerHandle, int defaultWhiteHandle, int defaultBlackHandle)
+    {
+        int albedoTex = GetTextureBindlessHandle(pbrRef.DiffuseReference, defaultWhiteHandle);
+        int normalTex = GetTextureBindlessHandle(pbrRef.NormalReference, defaultWhiteHandle);
+        int pbrTex = GetTextureBindlessHandle(pbrRef.PBRMap, defaultWhiteHandle);
+        int emissiveTex = GetTextureBindlessHandle(pbrRef.EmissiveMap, defaultBlackHandle);
+
+        var matData = new MaterialData
+        {
+            AlbedoTexture = albedoTex,
+            NormalTexture = normalTex,
+            RoughMetallicAOTexture = pbrTex,
+            Sampler = samplerHandle,
+            AlbedoColor = tintColor,
+            RoughnessMetalScale = float4.One,
+            EmissiveTexture = emissiveTex,
+            ExtraData = float4.Zero
+        };
+
+        if (!MaterialSystemAccessor.CreateMaterial(name, matData))
+            return -1;
+        return MaterialSystemAccessor.GetMaterialHandle(name);
+    }
+
+    /// <summary>
+    /// Gets the bindless handle from a TextureReference field on PbrMaterialReference,
+    /// calling .Get() to resolve references.
+    /// </summary>
+    private int GetTextureBindlessHandle(object? textureRef, int fallback)
+    {
+        if (textureRef == null) return fallback;
+        try
+        {
+            var resolved = InvokeGet(textureRef);
+            if (resolved == null) return fallback;
+            int handle = GetIntFieldOrProp(resolved, "BindlessHandle");
+            return handle >= 0 ? handle : fallback;
+        }
+        catch { return fallback; }
+    }
+
+    private int CreateBlankTintedMaterial(string name, float4 tintColor,
+        int samplerHandle, int defaultWhiteHandle, int defaultBlackHandle)
+    {
+        var matData = new MaterialData
+        {
+            AlbedoTexture = defaultWhiteHandle,
+            NormalTexture = defaultWhiteHandle,
+            RoughMetallicAOTexture = defaultWhiteHandle,
+            Sampler = samplerHandle,
+            AlbedoColor = tintColor,
+            RoughnessMetalScale = float4.One,
+            EmissiveTexture = defaultBlackHandle,
+            ExtraData = float4.Zero
+        };
+
+        if (!MaterialSystemAccessor.CreateMaterial(name, matData))
+            return -1;
+        return MaterialSystemAccessor.GetMaterialHandle(name);
+    }
+
+    private Dictionary<int, string> BuildHandleToNameMap()
+    {
+        var map = new Dictionary<int, string>();
+        var allMats = MaterialSystemAccessor.GetAllMaterials();
+        foreach (var (matName, handle) in allMats)
+        {
+            if (handle >= 0 && !map.ContainsKey(handle))
+                map[handle] = matName;
+        }
+        return map;
     }
 
     // ---- Private implementation ----
@@ -337,6 +538,18 @@ public sealed class MaterialFactory
             var (_, textureSystem) = GetRenderSystems();
             if (textureSystem == null) return 0;
             var tex = GetFieldOrPropValue(textureSystem, "DefaultBlackTexture");
+            return tex != null ? GetIntFieldOrProp(tex, "BindlessHandle") : 0;
+        }
+        catch { return 0; }
+    }
+
+    private int GetDefaultWhiteTextureHandle()
+    {
+        try
+        {
+            var (_, textureSystem) = GetRenderSystems();
+            if (textureSystem == null) return 0;
+            var tex = GetFieldOrPropValue(textureSystem, "DefaultWhiteTexture");
             return tex != null ? GetIntFieldOrProp(tex, "BindlessHandle") : 0;
         }
         catch { return 0; }
