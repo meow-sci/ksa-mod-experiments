@@ -28,7 +28,10 @@ public static class BlinkyListEndpoint
                             state.GridName,
                             state.BlinkyGrid.Grid.Rows,
                             state.BlinkyGrid.Grid.Cols,
-                            state.Scroll.IsActive));
+                            state.BlinkyGrid.Grid.Count,
+                            state.BlinkyGrid.IsOwned,
+                            state.Scroll.IsActive,
+                            state.Scroll.IsActive ? state.Scroll.ScrollSpeed : 0f));
                     }
                     return new BlinkyGridListResult(grids.ToArray());
                 });

@@ -14,6 +14,7 @@
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
     <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />
+    <ProjectReference Include="..\garrys-torch.lib\garrys-torch.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

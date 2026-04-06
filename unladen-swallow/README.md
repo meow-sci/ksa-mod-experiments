@@ -156,6 +156,131 @@ Stops any running animation and returns the previous state.
 
 > **Requires:** `camera-controller-override` mod to be loaded. Returns 503 if it is not.
 
+## Garry's Torch Weld Endpoints
+
+Control the vehicle welding system from Garry's Torch remotely.
+
+### `GET /torch/welds`
+
+Returns all active welds.
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "welds": [
+      {
+        "sourceVehicleId": "my-lander",
+        "targetVehicleId": "station-core",
+        "position": { "x": 0, "y": 0, "z": 2.5 },
+        "rotation": { "x": 0, "y": 0, "z": 0 },
+        "scale": 1.0,
+        "lockRotation": true
+      }
+    ]
+  }
+}
+```
+
+### `POST /torch/welds`
+
+Create a new weld. Provide either `data` (inline config) or `presetName` (not both).
+
+**With inline data:**
+```json
+{
+  "sourceVehicleId": "my-lander",
+  "targetVehicleId": "station-core",
+  "data": {
+    "position": { "x": 0, "y": 0, "z": 2.5 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "scale": 1.0,
+    "lockRotation": true
+  }
+}
+```
+
+**With preset:**
+```json
+{
+  "sourceVehicleId": "my-lander",
+  "targetVehicleId": "station-core",
+  "presetName": "Docking Position"
+}
+```
+
+### `DELETE /torch/welds`
+
+Remove a weld (unweld the source vehicle).
+
+```json
+{ "sourceVehicleId": "my-lander" }
+```
+
+### `POST /torch/welds/modify`
+
+Immediately modify an existing weld. Only provided fields are updated; omit fields to leave them unchanged.
+
+```json
+{
+  "sourceVehicleId": "my-lander",
+  "position": { "x": 0, "y": 0, "z": 5.0 },
+  "scale": 0.75
+}
+```
+
+### `POST /torch/welds/animate`
+
+Smoothly interpolate a weld to a new state over a specified duration. Animations are queued if one is already running.
+
+```json
+{
+  "sourceVehicleId": "my-lander",
+  "durationSeconds": 3.0,
+  "data": {
+    "position": { "x": 0, "y": 0, "z": 5.0 },
+    "rotation": { "x": 0, "y": 180, "z": 0 },
+    "scale": 0.5,
+    "lockRotation": true
+  },
+  "easing": {
+    "easing": "easeInOut",
+    "easingPowerStart": 3.0,
+    "easingPowerEnd": 3.0
+  }
+}
+```
+
+**Easing types**: `linear`, `easeIn`, `easeOut`, `easeInOut`
+
+### `GET /torch/presets`
+
+List all saved weld presets.
+
+### `POST /torch/presets`
+
+Save or update a named preset.
+
+```json
+{
+  "name": "Docking Position",
+  "data": {
+    "position": { "x": 0, "y": 0, "z": 2.5 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "scale": 1.0,
+    "lockRotation": true
+  }
+}
+```
+
+### `DELETE /torch/presets`
+
+Delete a preset by name.
+
+```json
+{ "name": "Docking Position" }
+```
+
 ## Architecture
 
 ```

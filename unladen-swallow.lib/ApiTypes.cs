@@ -35,10 +35,71 @@ public record BlinkyResult(string VehicleId, string GridName, string Action);
 // ── Blinky Grid List Types ──────────────────────────────────────────────────
 
 /// <summary>Information about a registered blinky grid.</summary>
-public record BlinkyGridInfo(string VehicleId, string GridName, int Rows, int Cols, bool IsScrolling);
+public record BlinkyGridInfo(
+    string VehicleId,
+    string GridName,
+    int Rows,
+    int Cols,
+    int PixelCount,
+    bool IsOwned,
+    bool IsScrolling,
+    float ScrollSpeed
+);
 
 /// <summary>Result returned by GET /blinky/grids.</summary>
 public record BlinkyGridListResult(BlinkyGridInfo[] Grids);
+
+// ── Blinky Grid Management Types ────────────────────────────────────────────
+
+/// <summary>Request body for POST /blinky/grids — builds a new pixel grid.</summary>
+public record BlinkyBuildGridRequest(
+    string VehicleId,
+    string GridName,
+    int? Width,
+    int? Height,
+    string? Layout,
+    float? Spacing,
+    float? OffsetX,
+    float? OffsetY,
+    float? OffsetZ,
+    string? EnginePartId,
+    double? PartScale
+);
+
+/// <summary>Request body for POST /blinky/grids/scan — scans a vehicle for a grid.</summary>
+public record BlinkyScanGridRequest(
+    string VehicleId,
+    string GridName,
+    string? EnginePartId
+);
+
+/// <summary>Result for POST /blinky/grids/scan-all.</summary>
+public record BlinkyScanAllResult(int Discovered, string[] Grids);
+
+/// <summary>Request body for POST /blinky/pattern.</summary>
+public record BlinkyPatternRequest(
+    string VehicleId,
+    string GridName,
+    string Pattern
+);
+
+/// <summary>Request body for POST /blinky/animate/builtin.</summary>
+public record BlinkyBuiltInScrollRequest(
+    string VehicleId,
+    string GridName,
+    float Speed
+);
+
+// ── Blinky Settings Types ───────────────────────────────────────────────────
+
+/// <summary>Request body for POST /blinky/render.</summary>
+public record BlinkyRenderSettingsRequest(bool RenderPixelParts);
+
+/// <summary>Response for GET/POST /blinky/render.</summary>
+public record BlinkyRenderSettings(bool RenderPixelParts);
+
+/// <summary>Request body for POST /blinky/engines/deactivate.</summary>
+public record BlinkyEngineDeactivateRequest(string VehicleId);
 
 // ── Camera Animation API Types ──────────────────────────────────────────────
 
@@ -210,3 +271,106 @@ public record CameraPlaybackStatus(
 
 /// <summary>Result returned by DELETE /camera/stop.</summary>
 public record CameraStopResult(string PreviousState);
+
+// ── Garry's Torch — Easing ──────────────────────────────────────────────────
+
+public enum TorchEasingType
+{
+    Linear = 0,
+    EaseIn = 1,
+    EaseOut = 2,
+    EaseInOut = 3
+}
+
+// ── Garry's Torch — Core Data Models ────────────────────────────────────────
+
+/// <summary>3D vector for position (meters) or rotation (degrees).</summary>
+public record Vec3(float X, float Y, float Z);
+
+/// <summary>Full weld configuration data (used in create, modify, presets).</summary>
+public record WeldData(
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale = 1f,
+    bool LockRotation = true
+);
+
+/// <summary>Describes an active weld in API responses.</summary>
+public record WeldInfo(
+    string SourceVehicleId,
+    string TargetVehicleId,
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale,
+    bool LockRotation
+);
+
+// ── Garry's Torch — Weld CRUD ───────────────────────────────────────────────
+
+/// <summary>Request body for creating a new weld.</summary>
+public record TorchCreateWeldRequest(
+    string SourceVehicleId,
+    string TargetVehicleId,
+    WeldData? Data = null,
+    string? PresetName = null
+);
+
+/// <summary>
+/// Request body for modifying an existing weld (immediate).
+/// Only provided fields are updated; omitted fields remain unchanged.
+/// </summary>
+public record TorchModifyWeldRequest(
+    string SourceVehicleId,
+    Vec3? Position = null,
+    Vec3? Rotation = null,
+    float? Scale = null,
+    bool? LockRotation = null
+);
+
+/// <summary>Request body for deleting/unwelding.</summary>
+public record TorchDeleteWeldRequest(string SourceVehicleId);
+
+/// <summary>Easing configuration for animated weld transitions.</summary>
+public record TorchEasingConfig(
+    TorchEasingType Easing = TorchEasingType.EaseInOut,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0
+);
+
+/// <summary>Request body for animating a weld transition over time.</summary>
+public record TorchAnimateWeldRequest(
+    string SourceVehicleId,
+    double DurationSeconds,
+    WeldData? Data = null,
+    string? PresetName = null,
+    TorchEasingConfig? Easing = null
+);
+
+// ── Garry's Torch — Preset CRUD ─────────────────────────────────────────────
+
+/// <summary>Preset data as returned by the API.</summary>
+public record TorchPresetInfo(
+    string Name,
+    Vec3 Position,
+    Vec3 Rotation,
+    float Scale,
+    bool LockRotation
+);
+
+/// <summary>Request body for creating or updating a preset.</summary>
+public record TorchSavePresetRequest(
+    string Name,
+    WeldData Data
+);
+
+/// <summary>Request body for deleting a preset.</summary>
+public record TorchDeletePresetRequest(string Name);
+
+// ── Garry's Torch — API Responses ───────────────────────────────────────────
+
+public record TorchWeldResult(WeldInfo Weld);
+public record TorchWeldListResult(WeldInfo[] Welds);
+public record TorchPresetResult(TorchPresetInfo Preset);
+public record TorchPresetListResult(TorchPresetInfo[] Presets);
+public record TorchDeleteResult(string Message);
+public record TorchAnimateResult(string SourceVehicleId, string Status);

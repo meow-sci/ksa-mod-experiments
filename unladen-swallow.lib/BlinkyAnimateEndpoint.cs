@@ -51,6 +51,33 @@ public static class BlinkyAnimateEndpoint
                         "Unexpected error starting scroll.", ex);
                 }
             })
+            .Delete(async (string vehicleId, string gridName) =>
+            {
+                if (string.IsNullOrWhiteSpace(vehicleId))
+                    throw new ProviderException(ResponseStatus.BadRequest, "Missing vehicleId query parameter.");
+                if (string.IsNullOrWhiteSpace(gridName))
+                    throw new ProviderException(ResponseStatus.BadRequest, "Missing gridName query parameter.");
+
+                try
+                {
+                    var result = await GameThread.Scheduler.Schedule(() =>
+                    {
+                        if (!BlinkyGridManager.StopScroll(vehicleId, gridName))
+                            throw new ProviderException(ResponseStatus.NotFound,
+                                $"No blinky grid '{gridName}' registered for vehicle: {vehicleId}.");
+
+                        return new BlinkyResult(vehicleId, gridName, "scroll_stopped");
+                    });
+
+                    return (object)new ApiResponse<BlinkyResult>("ok", result);
+                }
+                catch (ProviderException) { throw; }
+                catch (Exception ex)
+                {
+                    throw new ProviderException(ResponseStatus.InternalServerError,
+                        "Unexpected error stopping scroll.", ex);
+                }
+            })
             .Build();
     }
 }
