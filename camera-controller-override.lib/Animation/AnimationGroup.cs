@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KsaAbstractions;
 using MeowSci.CameraControllerOverrideLib.Animation.Animations;
 
 namespace MeowSci.CameraControllerOverrideLib.Animation;

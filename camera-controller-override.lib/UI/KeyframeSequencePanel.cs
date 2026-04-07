@@ -1,6 +1,7 @@
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
+using MeowSci.KsaAbstractions;
 using MeowSci.CameraControllerOverrideLib.Animation;
 
 namespace MeowSci.CameraControllerOverrideLib.UI;

@@ -1,19 +1,10 @@
 using System;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KsaAbstractions;
+using EasingType = MeowSci.KsaAbstractions.EasingType;
 
 namespace MeowSci.CameraControllerOverrideLib.Animation;
-
-/// <summary>
-/// Easing function types for animation interpolation.
-/// </summary>
-public enum EasingType
-{
-    Linear,
-    EaseIn,
-    EaseOut,
-    EaseInOut
-}
 
 /// <summary>
 /// Shared helper methods for camera animations.
@@ -30,18 +21,7 @@ public static class AnimationHelpers
     /// <param name="powerEnd">Power parameter for deceleration (used by EaseOut and second half of EaseInOut, default 3.0).</param>
     /// <returns>Eased time value.</returns>
     public static double ApplyEasing(double t, EasingType easingType, double powerStart = 3.0, double powerEnd = 3.0)
-    {
-        t = Math.Clamp(t, 0.0, 1.0);
-        return easingType switch
-        {
-            EasingType.EaseIn => Math.Pow(t, powerStart),
-            EasingType.EaseOut => 1.0 - Math.Pow(1.0 - t, powerEnd),
-            EasingType.EaseInOut => t < 0.5 
-                ? Math.Pow(2 * t, powerStart) / 2.0
-                : 1.0 - Math.Pow(2 * (1 - t), powerEnd) / 2.0,
-            _ => t
-        };
-    }
+        => EasingHelper.ApplyEasing(t, easingType, powerStart, powerEnd);
     
     /// <summary>
     /// Get the target position from the controller's Following object.

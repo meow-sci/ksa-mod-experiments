@@ -1,10 +1,9 @@
 using System;
 using Brutal.Numerics;
+using MeowSci.KsaAbstractions;
+using WeldEasingType = MeowSci.KsaAbstractions.EasingType;
 
 namespace MeowSci.GarrysTorchLib;
-
-/// <summary>Easing functions available for weld animations.</summary>
-public enum WeldEasingType { Linear, EaseIn, EaseOut, EaseInOut }
 
 /// <summary>
 /// Represents an active animation that interpolates a weld's position, rotation, and scale
@@ -82,18 +81,7 @@ public class WeldAnimation
 
     internal static double ApplyEasing(double t, WeldEasingType easingType,
         double powerStart = 3.0, double powerEnd = 3.0)
-    {
-        t = Math.Clamp(t, 0.0, 1.0);
-        return easingType switch
-        {
-            WeldEasingType.EaseIn => Math.Pow(t, powerStart),
-            WeldEasingType.EaseOut => 1.0 - Math.Pow(1.0 - t, powerEnd),
-            WeldEasingType.EaseInOut => t < 0.5
-                ? Math.Pow(2 * t, powerStart) / 2.0
-                : 1.0 - Math.Pow(2 * (1 - t), powerEnd) / 2.0,
-            _ => t
-        };
-    }
+        => EasingHelper.ApplyEasing(t, easingType, powerStart, powerEnd);
 
     private static float3 Lerp(float3 a, float3 b, float t)
     {
