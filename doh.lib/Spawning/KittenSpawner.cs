@@ -63,7 +63,9 @@ public sealed class KittenSpawner
 
             if (astro is Vehicle vehicle)
             {
-                vehicle.Parent?.Children.Remove(vehicle);
+                // Match game's two-phase removal (EVADoor ingress / docking pattern)
+                Universe.CurrentSystem?.Deregister(vehicle);
+                vehicle.Destroy(stopAudio: true, disposeParts: true);
             }
 
             _registry.Unregister(kittenId);
