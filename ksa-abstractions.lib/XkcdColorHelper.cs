@@ -4,7 +4,7 @@ using System.Reflection;
 using Brutal.Numerics;
 using KSA;
 
-namespace MeowSci.ZippoLib;
+namespace MeowSci.KsaAbstractions;
 
 /// <summary>
 /// Cached, reflection-based lookup for all KSAColor.Xkcd named colors.
@@ -32,7 +32,7 @@ public static class XkcdColorHelper
         }
         list.Sort((a, b) => string.Compare(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase));
         _colors = list.ToArray();
-        Console.WriteLine($"zippo: Cached {_colors.Length} XKCD colors");
+        Console.WriteLine($"ksa-abstractions: Cached {_colors.Length} XKCD colors");
         return _colors;
     }
 

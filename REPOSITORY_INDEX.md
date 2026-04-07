@@ -15,6 +15,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
 - `ISubmod` — generic submod interface used by grant supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
+- `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
 
 ---
 
@@ -63,7 +64,6 @@ Light control and animation system. Selects vehicles and light parts, then contr
 - Real-time light property updates
 - **Public API** (`ZippoSubmod.Instance`): `GetLightPartInfos()`, `SetLightState()`, `QueueAnimation()`, `ClearAnimationQueue()` — used by unladen-swallow RPC
 - **RPC endpoints** (via unladen-swallow): `GET /zippo/lights`, `POST /zippo/lights/state`, `POST /zippo/animate`, `DELETE /zippo/animate`
-- **Shared utility**: `XkcdColorHelper` — cached reflection-based XKCD color lookup, also available to other mods referencing zippo.lib
 
 ### [i-feel-seen](i-feel-seen) / [i-feel-seen.lib](i-feel-seen.lib)
 Vehicle render distance override. Allows tracking and toggling render visibility for specific vehicles independent of camera distance.
