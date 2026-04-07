@@ -12,3 +12,10 @@ EntryAssembly = "MeowSci.UnladenSwallow"
 # ImportedAssemblies = [
 #     "MeowSci.BlinkyLib"
 # ]
+
+[[StarMap.ModDependencies]]
+ModId = "zippo"
+Optional = true
+ImportedAssemblies = [
+    "MeowSci.ZippoLib"
+]

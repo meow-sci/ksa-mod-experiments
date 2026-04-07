@@ -116,6 +116,10 @@ public sealed class UnladenSwallowSubmod : ISubmod
             ImGui.TextDisabled("GET    /torch/presets                 — list presets");
             ImGui.TextDisabled("POST   /torch/presets                 — save/update a preset");
             ImGui.TextDisabled("DELETE /torch/presets                 — delete a preset");
+            ImGui.TextDisabled("GET    /zippo/lights                  — list light parts on a vehicle");
+            ImGui.TextDisabled("POST   /zippo/lights/state            — set color/intensity/enabled");
+            ImGui.TextDisabled("POST   /zippo/animate                 — queue light animation");
+            ImGui.TextDisabled("DELETE /zippo/animate                 — clear animation queue");
         }
 
         SubmodUI.EndContentArea();
