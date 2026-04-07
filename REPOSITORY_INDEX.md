@@ -14,6 +14,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `PartHelpers` — recursive part tree helpers
 - `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
 - `ISubmod` — generic submod interface used by grant supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
+- `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 
 ---
 
@@ -52,13 +53,17 @@ Celestial body welding mod. Repositions planets and moons by welding them to fol
 - **kiwis-marbles.lib**: `CelestialWeldEntry` (Source/Target/Offset) and `CelestialWeldEngine` (per-frame repositioning + Kahn's topological sort)
 
 ### [zippo](zippo) / [zippo.lib](zippo.lib)
-Light control system. Selects vehicles and light parts, then controls their intensity and color using XKCD color palette.
+Light control and animation system. Selects vehicles and light parts, then controls their intensity and color using the full XKCD color palette. Supports queued single-step animations that interpolate both color and intensity with configurable easing.
 - Vehicle and light part selection
 - Light intensity control (0-1 slider)
-- Light color preset selection (Marine, HotPink, RadioactiveGreen, BabyPurple)
+- Light color: 950+ XKCD named colors via filterable combobox + custom color picker
 - On/off toggle for lights
+- **Animation system**: Queue-based single-step animations (max 25/part) interpolating color+intensity with Linear/EaseIn/EaseOut/EaseInOut easing + power control; manual controls locked during animation
 - Recursive part tree search for light components
 - Real-time light property updates
+- **Public API** (`ZippoSubmod.Instance`): `GetLightPartInfos()`, `SetLightState()`, `QueueAnimation()`, `ClearAnimationQueue()` — used by unladen-swallow RPC
+- **RPC endpoints** (via unladen-swallow): `GET /zippo/lights`, `POST /zippo/lights/state`, `POST /zippo/animate`, `DELETE /zippo/animate`
+- **Shared utility**: `XkcdColorHelper` — cached reflection-based XKCD color lookup, also available to other mods referencing zippo.lib
 
 ### [i-feel-seen](i-feel-seen) / [i-feel-seen.lib](i-feel-seen.lib)
 Vehicle render distance override. Allows tracking and toggling render visibility for specific vehicles independent of camera distance.
