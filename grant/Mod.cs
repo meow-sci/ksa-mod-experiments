@@ -21,6 +21,7 @@ using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
 using MeowSci.InanimateCarbonRodLib;
 using MeowSci.HumbleArteestLib;
+using MeowSci.DohLib;
 
 namespace MeowSci.Grant;
 
@@ -59,6 +60,7 @@ public class Mod
             _submods.Add(new BlinkySubmod());
             _submods.Add(cameraOverride);
             _submods.Add(new ConManSubmod());
+            _submods.Add(new DohSubmod());
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new GarrysTorchSubmod());
             _submods.Add(new GlassSubmod());
