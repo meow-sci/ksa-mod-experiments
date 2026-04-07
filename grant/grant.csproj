@@ -14,7 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\average-twr.lib\average-twr.lib.csproj" />
-    <ProjectReference Include="..\blinken.lib\blinken.lib.csproj" />
     <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
     <ProjectReference Include="..\byo-music.lib\byo-music.lib.csproj" />
     <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />

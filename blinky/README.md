@@ -83,7 +83,7 @@ blinky/                       ← Mod entry point (ImGui UI + lifecycle)
 ├── blinky.csproj
 └── mod.toml
 
-blinky.lib/                   ← Core reusable logic (headless, no blinken.lib dependency)
+blinky.lib/                   ← Core reusable logic (headless)
 ├── BlinkyGridManager.cs      ← Static singleton: compound (vehicleId, gridName) key APIs
 ├── ScrollAnimation.cs        ← Scrolling animation engine
 ├── PixelGrid.cs              ← Vehicle pixel grid scanner + engine controller cache
@@ -101,7 +101,7 @@ blinky.lib/                   ← Core reusable logic (headless, no blinken.lib 
 
 ## Architecture
 
-- **blinky.lib** is fully self-contained — it does NOT depend on blinken.lib
+- **blinky.lib** is fully self-contained
 - **BlinkyGridManager** is a static singleton shared between the mod UI and RPC endpoints
 - Grids are registered by compound key `(vehicleId, gridName)` and discoverable from any consumer
 - Multiple grids per vehicle are fully independent (own config, scroll state, active pixels)

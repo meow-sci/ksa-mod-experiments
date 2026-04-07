@@ -123,17 +123,8 @@ Mission monitoring, event detection, and achievement tracking mod. Passively sam
 
 ## Animation & Visual Effects Mods
 
-### [blinken](blinken) / [blinken.lib](blinken.lib)
-LCD display animation system for pre-built pixel engine grids. Scans vehicles for parts named `pixel_{row}_{col}_{a|b}` and animates them as an LCD scrolling display.
-- Pixel grid (LCD) rendering via engine on/off control
-- Scrolling text/image animation with configurable speed
-- Engine controller caching for per-frame O(1) access
-- Pattern presets: All On, Checkerboard, Alt Rows/Cols
-- `PixelGrid.ScanFromVehicle()` — scans vehicle for pixel engine pairs
-- `LcdAnimation` — manages scroll state and updates engine active states
-
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
-Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dynamically creating and attaching engine parts to existing vehicles. Supports **multiple named grids per vehicle** via compound `(vehicleId, gridName)` key. Self-contained — does NOT depend on blinken.lib.
+Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dynamically creating and attaching engine parts to existing vehicles. Supports **multiple named grids per vehicle** via compound `(vehicleId, gridName)` key.
 - Runtime part creation via manual `TreeParent`/`TreeChildren` wiring — no pre-built vehicle needed
 - **Multiple grids per vehicle** — each grid has a unique name, independently configured and controlled
 - Grid names: alphanumeric + hyphens only (`[a-zA-Z0-9-]`); part ID format: `pixel_{gridName}_{row}_{col}_{a|b}`
