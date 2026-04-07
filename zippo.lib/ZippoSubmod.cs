@@ -9,6 +9,8 @@ namespace MeowSci.ZippoLib;
 
 public sealed class ZippoSubmod : ISubmod
 {
+    public static ZippoSubmod? Instance { get; private set; }
+
     public string Name => "Zippo - Lights!";
     public string Tooltip => "Controls light part intensity and colors.";
 
@@ -28,12 +30,13 @@ public sealed class ZippoSubmod : ISubmod
     private bool _colorIsCustom;
     private float4 _currentColor = new(1.0f, 1.0f, 1.0f, 1.0f);
     private readonly Dictionary<string, float3> _originalColors = new();
+    private readonly LightAnimationManager _animationManager = new();
 
     private ImGuiTextFilter _vehicleFilter = new();
     private ImGuiTextFilter _lightPartFilter = new();
 
-    public void Initialize() { }
-    public void Update(double dt) { }
+    public void Initialize() { Instance = this; }
+    public void Update(double dt) { _animationManager.Update(dt, ResolvePartById); }
 
     public void RenderContent()
     {
@@ -234,7 +237,93 @@ public sealed class ZippoSubmod : ISubmod
         return items;
     }
 
-    public void Dispose() { }
+    // ── Public API for RPC use ────────────────────────────────────────────────
+
+    /// <summary>Returns light part info for all light parts on a vehicle, or null if vehicle not found.</summary>
+    public List<LightPartInfo>? GetLightPartInfos(string vehicleId)
+    {
+        var vehicle = VehicleProvider.GetAllVehicles().Find(v => v.Id == vehicleId);
+        if (vehicle == null) return null;
+
+        var parts = LightController.GetLightParts(vehicle);
+        var result = new List<LightPartInfo>(parts.Count);
+        foreach (var part in parts)
+        {
+            var ls = part.LightSwitch ?? part.FullPart?.LightSwitch;
+            bool isEnabled = ls == null || ls.LightIsActive;
+            result.Add(new LightPartInfo(
+                part.Id,
+                part.DisplayName ?? part.Id,
+                LightController.ReadIntensity(part.Template),
+                LightController.ReadColor(part.Template),
+                isEnabled,
+                _animationManager.IsAnimating(part.Id),
+                _animationManager.GetQueueCount(part.Id)));
+        }
+        return result;
+    }
+
+    /// <summary>Sets color and/or intensity on a specific light part. Returns error message or null on success.</summary>
+    public string? SetLightState(string vehicleId, string partId, float3? color, float? intensity, bool? enabled)
+    {
+        var part = ResolvePartInVehicle(vehicleId, partId);
+        if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
+
+        if (color.HasValue) LightController.ApplyColor(part, color.Value);
+        if (intensity.HasValue) LightController.ApplyIntensity(part, intensity.Value);
+        if (enabled.HasValue)
+        {
+            var ls = part.LightSwitch ?? part.FullPart?.LightSwitch;
+            if (ls != null)
+                ls.LightIsActive = enabled.Value;
+            else if (!enabled.Value)
+                LightController.ApplyIntensity(part, 0f);
+        }
+        return null;
+    }
+
+    /// <summary>Queues a light animation on a specific part. Returns error message or null on success.</summary>
+    public string? QueueAnimation(string vehicleId, string partId, LightAnimation animation)
+    {
+        var part = ResolvePartInVehicle(vehicleId, partId);
+        if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
+
+        if (!_animationManager.Enqueue(partId, animation))
+            return $"Animation queue is full for part '{partId}' (max {LightAnimationManager.MaxQueueDepth}).";
+        return null;
+    }
+
+    /// <summary>Clears the animation queue for a specific part. Returns error message or null on success.</summary>
+    public string? ClearAnimationQueue(string vehicleId, string partId)
+    {
+        // No error if part doesn't exist — clear is idempotent
+        _animationManager.CancelAll(partId);
+        return null;
+    }
+
+    /// <summary>Returns true if a part has an active animation.</summary>
+    public bool IsAnimating(string partId) => _animationManager.IsAnimating(partId);
+
+    private Part? ResolvePartById(string partId)
+    {
+        var vehicles = VehicleProvider.GetAllVehicles();
+        foreach (var v in vehicles)
+        {
+            var parts = LightController.GetLightParts(v);
+            foreach (var p in parts)
+                if (p.Id == partId) return p;
+        }
+        return null;
+    }
+
+    private Part? ResolvePartInVehicle(string vehicleId, string partId)
+    {
+        var vehicle = VehicleProvider.GetAllVehicles().Find(v => v.Id == vehicleId);
+        if (vehicle == null) return null;
+        return LightController.GetLightParts(vehicle).Find(p => p.Id == partId);
+    }
+
+    public void Dispose() { Instance = null; }
 
     private Vehicle? SelectedVehicle =>
         _vehicleComboIdx > 0 && (_vehicleComboIdx - 1) < _vehicles.Count
