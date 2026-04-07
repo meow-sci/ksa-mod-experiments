@@ -1,23 +1,30 @@
-# Zippo - Vehicle Light Control System
+# Zippo - Vehicle Light Control & Animation System
 
-A lighting system that allows you to select vehicles and their light components, then control light intensity and color in real-time using an XKCD color palette.
+A lighting system that allows you to select vehicles and their light components, then control light intensity and color in real-time using the full XKCD color palette. Supports single-step queued animations that smoothly interpolate both color and intensity with configurable easing.
 
 ## Overview
 
 Zippo lets you:
 - **Select vehicles and individual light parts** - Browse vehicle hierarchy and identify light components
 - **Control light intensity** - Slider from 0.0 (off) to 1.0 (full brightness)
-- **Apply color presets** - Marine, HotPink, RadioactiveGreen, BabyPurple
-- **Toggle lights on/off** - Quickly disable/enable all selected lights
+- **Set light color** - 950+ named XKCD colors via filterable combobox, or custom color picker
+- **Toggle lights on/off** - Quickly disable/enable selected lights
+- **Animate lights** - Queue single-step animations that interpolate color and intensity with easing
+- **HTTP RPC control** - All features available via `unladen-swallow` REST endpoints
 - **Real-time updates** - Changes apply immediately in-game
 
 ## Features
 
 - **Reflection-based light access** - Finds and manipulates internal KSA light components
 - **Vehicle/part selection dropdowns** - Easy navigation of vehicle hierarchy
-- **Color preset system** - Pre-configured colors for quick application
-- **Custom color support** - Extensible for adding new color presets
+- **XKCD color palette** - 950+ named colors via filterable combobox (lazy-loaded via reflection)
+- **Custom color picker** - ImGui color picker for precise RGB control
+- **On/off toggle** - Per-part light enable/disable
 - **Recursive part search** - Automatically finds light components nested in part trees
+- **Queue-based animation** - Per-part animation queue (max 25) with color+intensity interpolation
+- **Easing functions** - Linear, EaseIn, EaseOut, EaseInOut with configurable power parameters
+- **Animation status UI** - Progress bar, elapsed/total time display
+- **RPC API** - Full HTTP REST control via unladen-swallow (list lights, set state, animate, clear queue)
 
 ## Architecture
 

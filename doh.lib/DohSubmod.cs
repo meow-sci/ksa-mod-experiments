@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -49,9 +48,6 @@ public sealed class DohSubmod : ISubmod
     // UI state — feedback
     private string? _statusMessage;
     private bool _statusIsError;
-
-    // Cached XKCD color palette (built once via reflection)
-    private static (string Name, float4 Color)[]? _xkcdColors;
 
     public void Initialize()
     {
@@ -472,7 +468,7 @@ public sealed class DohSubmod : ISubmod
             ? _availableCharacters[_selectedCharacterIndex]
             : null;
 
-        var colors = GetXkcdColors();
+        var colors = XkcdColorHelper.GetAll();
         var perKittenColors = PickRandomUniqueColors(colors, _spawnCount);
 
         var request = new SpawnRequest
@@ -530,7 +526,7 @@ public sealed class DohSubmod : ISubmod
             ImGui.InputText("##xkcd_filter", _xkcdFilterText);
 
             string filterStr = _xkcdFilterText.ToString();
-            var colors = GetXkcdColors();
+            var colors = XkcdColorHelper.GetAll();
             foreach (var (name, color) in colors)
             {
                 if (filterStr.Length > 0
@@ -550,27 +546,6 @@ public sealed class DohSubmod : ISubmod
             }
             ImGui.EndCombo();
         }
-    }
-
-    private static (string Name, float4 Color)[] GetXkcdColors()
-    {
-        if (_xkcdColors != null) return _xkcdColors;
-
-        var props = typeof(KSAColor.Xkcd).GetProperties(BindingFlags.Public | BindingFlags.Static);
-        var list = new List<(string, float4)>();
-        foreach (var prop in props)
-        {
-            try
-            {
-                float4 val = (Color.Preset)prop.GetValue(null)!;
-                list.Add((prop.Name, val));
-            }
-            catch { }
-        }
-        list.Sort((a, b) => string.Compare(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase));
-        _xkcdColors = list.ToArray();
-        Console.WriteLine($"doh: Cached {_xkcdColors.Length} XKCD colors");
-        return _xkcdColors;
     }
 
     private void SetStatus(string message, bool isError)

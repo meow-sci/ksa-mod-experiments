@@ -6,6 +6,7 @@ using GenHTTP.Modules.Functional;
 using Brutal.Numerics;
 using MeowSci.GarrysTorchLib;
 using MeowSci.KsaAbstractions;
+using WeldEasingType = MeowSci.KsaAbstractions.EasingType;
 
 namespace MeowSci.UnladenSwallowLib;
 

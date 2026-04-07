@@ -5,6 +5,7 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
 using MeowSci.KsaAbstractions;
+using WeldEasingType = MeowSci.KsaAbstractions.EasingType;
 
 namespace MeowSci.GarrysTorchLib;
 

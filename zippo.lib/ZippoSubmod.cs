@@ -9,6 +9,8 @@ namespace MeowSci.ZippoLib;
 
 public sealed class ZippoSubmod : ISubmod
 {
+    public static ZippoSubmod? Instance { get; private set; }
+
     public string Name => "Zippo - Lights!";
     public string Tooltip => "Controls light part intensity and colors.";
 
@@ -28,12 +30,28 @@ public sealed class ZippoSubmod : ISubmod
     private bool _colorIsCustom;
     private float4 _currentColor = new(1.0f, 1.0f, 1.0f, 1.0f);
     private readonly Dictionary<string, float3> _originalColors = new();
+    private readonly LightAnimationManager _animationManager = new();
+
+    // ── Animation UI state ────────────────────────────────────────────────────
+    private float4 _animStartColor4 = new(1f, 1f, 1f, 1f);
+    private float4 _animEndColor4 = new(1f, 1f, 1f, 1f);
+    private float _animStartIntensity = 1.0f;
+    private float _animEndIntensity = 1.0f;
+    private float _animDuration = 2.0f;
+    private int _animEasingIdx = 3; // EaseInOut
+    private float _animPowerStart = 3.0f;
+    private float _animPowerEnd = 3.0f;
+    private string _animStartXkcdName = "";
+    private string _animEndXkcdName = "";
+    private ImGuiTextFilter _animStartColorFilter = new();
+    private ImGuiTextFilter _animEndColorFilter = new();
+    private string? _animQueueError;
 
     private ImGuiTextFilter _vehicleFilter = new();
     private ImGuiTextFilter _lightPartFilter = new();
 
-    public void Initialize() { }
-    public void Update(double dt) { }
+    public void Initialize() { Instance = this; }
+    public void Update(double dt) { _animationManager.Update(dt, ResolvePartById); }
 
     public void RenderContent()
     {
@@ -117,6 +135,8 @@ public sealed class ZippoSubmod : ISubmod
         var selectedPart = SelectedLightPart;
         if (selectedPart != null)
         {
+            bool isAnim = _animationManager.IsAnimating(selectedPart.Id);
+            if (isAnim) ImGui.BeginDisabled();
             ImGui.SeparatorText("Light Controls");
 
             var ctrlFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
@@ -199,6 +219,174 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar(); // CellPadding
+            if (isAnim) ImGui.EndDisabled();
+
+            // ── Light Animation section ────────────────────────────────────────────────
+            ImGui.Spacing();
+            ImGui.SeparatorText("Light Animation");
+
+            var animFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable("##zp_anim", 2, animFlags))
+            {
+                ImGui.TableSetupColumn("##zp_albl", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##zp_awidget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+                // Start Color row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Start Color");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(32f);
+                if (ImGui.ColorEdit4("##zp_animstart_cpick", ref _animStartColor4, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+                    _animStartXkcdName = "";
+                ImGui.SameLine();
+                string xkcdStartPreview = _animStartXkcdName.Length > 0 ? _animStartXkcdName : "(custom)";
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.BeginCombo("##zp_animstart_xkcd", xkcdStartPreview))
+                {
+                    if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _animStartColorFilter.Clear(); }
+                    _animStartColorFilter.Draw("##zp_animstart_xflt", -1f);
+                    var allStartColors = XkcdColorHelper.GetAll();
+                    foreach (var (name, color) in allStartColors)
+                    {
+                        if (!_animStartColorFilter.PassFilter(name)) continue;
+                        bool sel = name == _animStartXkcdName;
+                        if (ImGui.Selectable(name, sel))
+                        {
+                            _animStartXkcdName = name;
+                            _animStartColor4 = color;
+                        }
+                        if (sel) ImGui.SetItemDefaultFocus();
+                    }
+                    ImGui.EndCombo();
+                }
+
+                // End Color row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("End Color");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(32f);
+                if (ImGui.ColorEdit4("##zp_animend_cpick", ref _animEndColor4, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+                    _animEndXkcdName = "";
+                ImGui.SameLine();
+                string xkcdEndPreview = _animEndXkcdName.Length > 0 ? _animEndXkcdName : "(custom)";
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.BeginCombo("##zp_animend_xkcd", xkcdEndPreview))
+                {
+                    if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _animEndColorFilter.Clear(); }
+                    _animEndColorFilter.Draw("##zp_animend_xflt", -1f);
+                    var allEndColors = XkcdColorHelper.GetAll();
+                    foreach (var (name, color) in allEndColors)
+                    {
+                        if (!_animEndColorFilter.PassFilter(name)) continue;
+                        bool sel = name == _animEndXkcdName;
+                        if (ImGui.Selectable(name, sel))
+                        {
+                            _animEndXkcdName = name;
+                            _animEndColor4 = color;
+                        }
+                        if (sel) ImGui.SetItemDefaultFocus();
+                    }
+                    ImGui.EndCombo();
+                }
+
+                // Start Intensity row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Start Intensity");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat("##zp_animstartint", ref _animStartIntensity, 0.005f, 0f, 1f);
+
+                // End Intensity row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("End Intensity");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat("##zp_animendint", ref _animEndIntensity, 0.005f, 0f, 1f);
+
+                // Duration row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Duration (s)");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat("##zp_animdur", ref _animDuration, 0.1f, 0.1f, 60f);
+
+                // Easing row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Easing");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(-1);
+                string[] easingItems = { "Linear", "Ease In", "Ease Out", "Ease In-Out" };
+                ImGui.Combo("##zp_animease", ref _animEasingIdx, easingItems, easingItems.Length);
+
+                // Start Power row (only for EaseIn or EaseInOut)
+                if (_animEasingIdx == 1 || _animEasingIdx == 3)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("Start Power");
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.DragFloat("##zp_animspow", ref _animPowerStart, 0.1f, 1f, 6f);
+                }
+
+                // End Power row (only for EaseOut or EaseInOut)
+                if (_animEasingIdx == 2 || _animEasingIdx == 3)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("End Power");
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.DragFloat("##zp_animepow", ref _animPowerEnd, 0.1f, 1f, 6f);
+                }
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar(); // CellPadding
+
+            // Queue / Clear buttons
+            if (ImGui.Button(" Queue Animation ##zp_qanim"))
+            {
+                _animQueueError = null;
+                var startColor = new float3(_animStartColor4.X, _animStartColor4.Y, _animStartColor4.Z);
+                var endColor = new float3(_animEndColor4.X, _animEndColor4.Y, _animEndColor4.Z);
+                double duration = Math.Max(0.1, _animDuration);
+                var easing = (EasingType)_animEasingIdx;
+                var anim = new LightAnimation(
+                    startColor, endColor,
+                    _animStartIntensity, _animEndIntensity,
+                    duration, easing,
+                    _animPowerStart, _animPowerEnd);
+                if (!_animationManager.Enqueue(selectedPart.Id, anim))
+                    _animQueueError = $"Queue full (max {LightAnimationManager.MaxQueueDepth})";
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(" Clear Queue ##zp_clranim"))
+                _animationManager.CancelAll(selectedPart.Id);
+
+            if (_animQueueError != null)
+                ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), _animQueueError);
+
+            var activeAnim = _animationManager.GetActiveAnimation(selectedPart.Id);
+            int queueCount = _animationManager.GetQueueCount(selectedPart.Id);
+            if (activeAnim != null)
+            {
+                float progress = (float)(activeAnim.ElapsedSeconds / activeAnim.DurationSeconds);
+                progress = Math.Clamp(progress, 0f, 1f);
+                ImGui.Text($"Playing (queued: {queueCount}) \u2014 {activeAnim.ElapsedSeconds:F1}s / {activeAnim.DurationSeconds:F1}s");
+                ImGui.ProgressBar(progress, new float2(-1, 0));
+            }
+            else if (queueCount > 0)
+            {
+                ImGui.Text($"Queued: {queueCount} animation(s)");
+            }
         }
 
         // Debug section (collapsed by default, placed after controls)
@@ -234,7 +422,93 @@ public sealed class ZippoSubmod : ISubmod
         return items;
     }
 
-    public void Dispose() { }
+    // ── Public API for RPC use ────────────────────────────────────────────────
+
+    /// <summary>Returns light part info for all light parts on a vehicle, or null if vehicle not found.</summary>
+    public List<LightPartInfo>? GetLightPartInfos(string vehicleId)
+    {
+        var vehicle = VehicleProvider.GetAllVehicles().Find(v => v.Id == vehicleId);
+        if (vehicle == null) return null;
+
+        var parts = LightController.GetLightParts(vehicle);
+        var result = new List<LightPartInfo>(parts.Count);
+        foreach (var part in parts)
+        {
+            var ls = part.LightSwitch ?? part.FullPart?.LightSwitch;
+            bool isEnabled = ls == null || ls.LightIsActive;
+            result.Add(new LightPartInfo(
+                part.Id,
+                part.DisplayName ?? part.Id,
+                LightController.ReadIntensity(part.Template),
+                LightController.ReadColor(part.Template),
+                isEnabled,
+                _animationManager.IsAnimating(part.Id),
+                _animationManager.GetQueueCount(part.Id)));
+        }
+        return result;
+    }
+
+    /// <summary>Sets color and/or intensity on a specific light part. Returns error message or null on success.</summary>
+    public string? SetLightState(string vehicleId, string partId, float3? color, float? intensity, bool? enabled)
+    {
+        var part = ResolvePartInVehicle(vehicleId, partId);
+        if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
+
+        if (color.HasValue) LightController.ApplyColor(part, color.Value);
+        if (intensity.HasValue) LightController.ApplyIntensity(part, intensity.Value);
+        if (enabled.HasValue)
+        {
+            var ls = part.LightSwitch ?? part.FullPart?.LightSwitch;
+            if (ls != null)
+                ls.LightIsActive = enabled.Value;
+            else if (!enabled.Value)
+                LightController.ApplyIntensity(part, 0f);
+        }
+        return null;
+    }
+
+    /// <summary>Queues a light animation on a specific part. Returns error message or null on success.</summary>
+    public string? QueueAnimation(string vehicleId, string partId, LightAnimation animation)
+    {
+        var part = ResolvePartInVehicle(vehicleId, partId);
+        if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
+
+        if (!_animationManager.Enqueue(partId, animation))
+            return $"Animation queue is full for part '{partId}' (max {LightAnimationManager.MaxQueueDepth}).";
+        return null;
+    }
+
+    /// <summary>Clears the animation queue for a specific part. Returns error message or null on success.</summary>
+    public string? ClearAnimationQueue(string vehicleId, string partId)
+    {
+        // No error if part doesn't exist — clear is idempotent
+        _animationManager.CancelAll(partId);
+        return null;
+    }
+
+    /// <summary>Returns true if a part has an active animation.</summary>
+    public bool IsAnimating(string partId) => _animationManager.IsAnimating(partId);
+
+    private Part? ResolvePartById(string partId)
+    {
+        var vehicles = VehicleProvider.GetAllVehicles();
+        foreach (var v in vehicles)
+        {
+            var parts = LightController.GetLightParts(v);
+            foreach (var p in parts)
+                if (p.Id == partId) return p;
+        }
+        return null;
+    }
+
+    private Part? ResolvePartInVehicle(string vehicleId, string partId)
+    {
+        var vehicle = VehicleProvider.GetAllVehicles().Find(v => v.Id == vehicleId);
+        if (vehicle == null) return null;
+        return LightController.GetLightParts(vehicle).Find(p => p.Id == partId);
+    }
+
+    public void Dispose() { Instance = null; }
 
     private Vehicle? SelectedVehicle =>
         _vehicleComboIdx > 0 && (_vehicleComboIdx - 1) < _vehicles.Count
@@ -298,5 +572,11 @@ public sealed class ZippoSubmod : ISubmod
         _colorComboIdx = 0;
         var orig = _originalColors[part.Id];
         _currentColor = new float4(orig.X, orig.Y, orig.Z, 1.0f);
+
+        // Seed animation start values from current part state
+        _animStartColor4 = _currentColor;
+        _animStartIntensity = _intensity;
+        _animStartXkcdName = "";
+        _animQueueError = null;
     }
 }

@@ -98,6 +98,101 @@ public record BlinkyRenderSettingsRequest(bool RenderPixelParts);
 /// <summary>Response for GET/POST /blinky/render.</summary>
 public record BlinkyRenderSettings(bool RenderPixelParts);
 
+// ── Zippo — Light Control ───────────────────────────────────────────────────
+
+/// <summary>Easing types for light animations (mirrors MeowSci.KsaAbstractions.EasingType).</summary>
+public enum ZippoEasingType
+{
+    Linear = 0,
+    EaseIn = 1,
+    EaseOut = 2,
+    EaseInOut = 3
+}
+
+/// <summary>RGB color (0-1 per channel).</summary>
+public record ZippoColor(float R, float G, float B);
+
+/// <summary>Describes a light part on a vehicle.</summary>
+public record ZippoLightPartInfo(
+    string PartId,
+    string DisplayName,
+    float Intensity,
+    ZippoColor Color,
+    bool IsEnabled,
+    bool IsAnimating,
+    int QueuedAnimations);
+
+/// <summary>Response for GET /zippo/lights (list all light parts on a vehicle).</summary>
+public record ZippoLightsListResult(
+    string VehicleId,
+    ZippoLightPartInfo[] Lights);
+
+/// <summary>
+/// Request body for POST /zippo/lights/state.
+/// Sets color and/or intensity on a specific light part. Only provided fields are updated.
+/// Provide Color OR ColorName (not both) to change the color.
+/// </summary>
+public record ZippoSetStateRequest(
+    string VehicleId,
+    string PartId,
+    ZippoColor? Color = null,
+    string? ColorName = null,
+    float? Intensity = null,
+    bool? Enabled = null);
+
+/// <summary>Result after setting light state.</summary>
+public record ZippoSetStateResult(
+    string PartId,
+    ZippoColor Color,
+    float Intensity,
+    bool IsEnabled);
+
+/// <summary>Easing configuration for light animations.</summary>
+public record ZippoEasingConfig(
+    ZippoEasingType Easing = ZippoEasingType.EaseInOut,
+    double EasingPowerStart = 3.0,
+    double EasingPowerEnd = 3.0);
+
+/// <summary>
+/// Color specification for animation endpoints.
+/// Provide EITHER Rgb OR ColorName (not both).
+/// If neither is provided in a start-value context, the light's current color is used.
+/// </summary>
+public record ZippoAnimColor(
+    ZippoColor? Rgb = null,
+    string? ColorName = null);
+
+/// <summary>
+/// Request body for POST /zippo/animate.
+/// Queues a light animation that interpolates color and intensity from start to end values.
+/// If StartColor/StartIntensity are omitted, current part values are used.
+/// </summary>
+public record ZippoAnimateRequest(
+    string VehicleId,
+    string PartId,
+    double DurationSeconds,
+    ZippoAnimColor? StartColor = null,
+    ZippoAnimColor? EndColor = null,
+    float? StartIntensity = null,
+    float? EndIntensity = null,
+    ZippoEasingConfig? Easing = null);
+
+/// <summary>Result after queuing an animation.</summary>
+public record ZippoAnimateResult(
+    string PartId,
+    string Status,
+    int QueuePosition);
+
+/// <summary>Request body for DELETE /zippo/animate (clear animation queue for a part).</summary>
+public record ZippoClearAnimationRequest(
+    string VehicleId,
+    string PartId);
+
+/// <summary>Result after clearing the animation queue.</summary>
+public record ZippoClearAnimationResult(
+    string PartId,
+    string Status);
+
 /// <summary>Request body for POST /blinky/engines/deactivate.</summary>
 public record BlinkyEngineDeactivateRequest(string VehicleId);
 

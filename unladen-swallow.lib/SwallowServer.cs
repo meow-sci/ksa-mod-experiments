@@ -125,6 +125,16 @@ public sealed class SwallowServer
                 .Add("animate", TorchWeldAnimateEndpoint.Create()))
             .Add("presets", TorchPresetsEndpoint.Create()));
 
+        // GET    /zippo/lights          — list light parts on a vehicle
+        // POST   /zippo/lights/state    — set color/intensity/enabled
+        // POST   /zippo/animate         — queue light animation
+        // DELETE /zippo/animate         — clear animation queue
+        api.Add("zippo", Layout.Create()
+            .Add("lights", Layout.Create()
+                .Add(ZippoLightsEndpoint.Create())
+                .Add("state", ZippoLightStateEndpoint.Create()))
+            .Add("animate", ZippoAnimateEndpoint.Create()));
+
         // CORS — allow all origins
         api.Add(CorsPolicy.Permissive());
 
