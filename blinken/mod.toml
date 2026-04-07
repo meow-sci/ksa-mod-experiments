@@ -1,7 +1,0 @@
-name = "blinken"
-description = "blinken"
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.Blinken"

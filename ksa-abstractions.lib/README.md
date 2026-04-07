@@ -90,7 +90,7 @@ foreach (var part in parts)
 ```
 
 This is used by mods like:
-- **blinken**: Scanning for pixel grid parts
+- **blinky**: Scanning for pixel grid parts
 - **zippo**: Finding light components
 - **garrys-torch**: Vehicle inspection
 

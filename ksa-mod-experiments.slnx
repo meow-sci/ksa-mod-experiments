@@ -11,8 +11,6 @@
     <Project Path="byo-music/byo-music.csproj" />
     <Project Path="byo-music.lib/byo-music.lib.csproj" />
     <Project Path="stampy/stampy.csproj" />
-    <Project Path="blinken/blinken.csproj" />
-    <Project Path="blinken.lib/blinken.lib.csproj" />
     <Project Path="average-twr/average-twr.csproj" />
     <Project Path="average-twr.lib/average-twr.lib.csproj" />
     <Project Path="geeforce/geeforce.csproj" />
