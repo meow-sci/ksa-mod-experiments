@@ -19,10 +19,14 @@ public static class ZippoLightsEndpoint
     {
         return Inline.Create()
             .Serializers(Serialization.Default())
-            .Get(async (string vehicleId) =>
+            .Get(async (IRequest request) =>
             {
                 try
                 {
+                    // Read vehicleId directly from the query dictionary to avoid GenHTTP's
+                    // parameter-injection quirk where named params aren't injected when the
+                    // request path lacks a trailing slash (e.g. /zippo/lights vs /zippo/lights/).
+                    request.Query.TryGetValue("vehicleId", out var vehicleId);
                     if (string.IsNullOrWhiteSpace(vehicleId))
                         throw new ProviderException(ResponseStatus.BadRequest, "vehicleId query parameter is required.");
 
