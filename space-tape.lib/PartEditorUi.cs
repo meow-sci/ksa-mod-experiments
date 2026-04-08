@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
@@ -27,11 +28,21 @@ public sealed class PartEditorUi
     private string? _saveStatusMessage;
     private float4 _saveStatusColor;
 
+    // Hot-reload spike state
+    private string? _hotReloadMessage;
+    private bool _hotReloadSuccess;
+
     private static readonly string[] KnownEditorTags =
         { "Command", "Structural", "Cargo", "Propulsion", "Aero",
           "Electrical", "Thermal", "Science", "Coupling", "Ground", "Payload" };
 
     private int _selectedNewTagIndex;
+
+    // Load section state
+    private List<(string partId, string fileName)> _savedParts = new();
+    private int _selectedSavedPartIndex = -1;
+    private string? _loadStatusMessage;
+    private float4 _loadStatusColor;
 
     // Reflection: invalidate Part's cached transform matrix after manual edits
     private static readonly FieldInfo? MatrixAsmbField =
@@ -53,6 +64,8 @@ public sealed class PartEditorUi
         if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
         {
             RenderToolbar(controller, gizmos);
+            ImGui.Spacing();
+            RenderLoadSection(controller, scene, writer);
             ImGui.Spacing();
             RenderPartIdSection(controller);
             ImGui.Spacing();
@@ -104,6 +117,85 @@ public sealed class PartEditorUi
             _saveStatusMessage = null;
             _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Load existing part
+    // -------------------------------------------------------------------------
+
+    private void RenderLoadSection(PartEditorController controller, PartEditorScene scene, PartModWriter writer)
+    {
+        if (!ImGui.CollapsingHeader("Load Existing Part##st_load")) return;
+
+        if (ImGui.Button(" Refresh ##st_load_refresh"))
+        {
+            writer.RefreshFileList();
+            _savedParts = writer.ListSavedParts();
+            _selectedSavedPartIndex = -1;
+        }
+
+        ImGui.SameLine();
+        ImGui.TextDisabled($"({_savedParts.Count} part(s) found)");
+
+        if (_savedParts.Count == 0)
+        {
+            ImGui.TextDisabled("No saved parts. Save a part first.");
+        }
+        else
+        {
+            ImGui.SetNextItemWidth(-1);
+            string preview = _selectedSavedPartIndex >= 0 && _selectedSavedPartIndex < _savedParts.Count
+                ? $"{_savedParts[_selectedSavedPartIndex].partId}  [{_savedParts[_selectedSavedPartIndex].fileName}]"
+                : "(select a part)";
+
+            if (ImGui.BeginCombo("##st_load_combo", preview))
+            {
+                for (int i = 0; i < _savedParts.Count; i++)
+                {
+                    bool sel = i == _selectedSavedPartIndex;
+                    var (partId, fileName) = _savedParts[i];
+                    if (ImGui.Selectable($"{partId}  [{fileName}]##st_lp{i}", sel))
+                        _selectedSavedPartIndex = i;
+                }
+                ImGui.EndCombo();
+            }
+
+            ImGui.Spacing();
+
+            bool canLoad = _selectedSavedPartIndex >= 0;
+            if (!canLoad) ImGui.BeginDisabled();
+            if (ImGui.Button(" Load Part ##st_load_btn") && canLoad)
+            {
+                var (partId, fileName) = _savedParts[_selectedSavedPartIndex];
+                var loaded = writer.LoadPart(partId, fileName);
+                if (loaded != null)
+                {
+                    controller.LoadPart(loaded);
+                    if (scene.IsActive)
+                        scene.SyncParts(controller.CurrentPart);
+                    writer.CurrentFileName = fileName;
+                    _loadStatusMessage = $"Loaded '{partId}' from {fileName}.xml";
+                    _loadStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
+                    _lastKnownPartId = "";      // force Part ID buffer sync
+                    _lastKnownPlacementIndex = -2;
+                    _saveStatusMessage = null;
+                    Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}'");
+                }
+                else
+                {
+                    _loadStatusMessage = $"Failed to load '{partId}' from {fileName}.xml";
+                    _loadStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
+                    Console.WriteLine($"space-tape: LoadPart failed for '{partId}' in '{fileName}'");
+                }
+            }
+            if (!canLoad) ImGui.EndDisabled();
+
+            if (_loadStatusMessage != null)
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(_loadStatusColor, _loadStatusMessage);
+            }
         }
     }
 
@@ -493,6 +585,32 @@ public sealed class PartEditorUi
         {
             ImGui.SameLine();
             ImGui.TextColored(_saveStatusColor, _saveStatusMessage);
+        }
+
+        // Hot-reload spike (experimental)
+        ImGui.Spacing();
+        ImGui.SeparatorText("Experimental");
+        ImGui.TextDisabled("Hot-reload: attempts to register the part into the running game without restart.");
+        if (ImGui.Button(" Test Hot-Reload ##st_hotreload"))
+        {
+            var (success, message) = HotReloadSpike.TryRegisterPart(controller.CurrentPart);
+            _hotReloadSuccess = success;
+            if (success)
+            {
+                bool verified = HotReloadSpike.VerifyRegistration(controller.CurrentPart.PartId);
+                _hotReloadMessage = message + (verified ? "  (Verified in ModLibrary)" : "  (NOT found in ModLibrary after registration!)");
+            }
+            else
+            {
+                _hotReloadMessage = message;
+            }
+        }
+        if (_hotReloadMessage != null)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(
+                _hotReloadSuccess ? new float4(0.3f, 1f, 0.3f, 1f) : new float4(1f, 0.5f, 0.3f, 1f)));
+            ImGui.TextWrapped(_hotReloadMessage);
+            ImGui.PopStyleColor();
         }
     }
 }
