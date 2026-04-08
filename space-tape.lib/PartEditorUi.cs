@@ -38,6 +38,12 @@ public sealed class PartEditorUi
 
     private int _selectedNewTagIndex;
 
+    // Transform options
+    private bool _gridModeEnabled;
+    private float _gridStep = 0.05f;
+    private bool _rotSnapEnabled;
+    private float _rotSnapDeg = 15f;
+
     // Load section state
     private List<(string partId, string fileName)> _savedParts = new();
     private int _selectedSavedPartIndex = -1;
@@ -118,6 +124,22 @@ public sealed class PartEditorUi
             _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
         }
+
+        ImGui.SeparatorText("Transform Options");
+
+        ImGui.Checkbox("Grid##st_grid", ref _gridModeEnabled);
+        ImGui.SameLine(0, 8);
+        if (!_gridModeEnabled) ImGui.BeginDisabled();
+        ImGui.SetNextItemWidth(120f);
+        ImGui.DragFloat("##st_gridstep", ref _gridStep, 0.001f, 0.001f, 10f, "%.4f");
+        if (!_gridModeEnabled) ImGui.EndDisabled();
+
+        ImGui.Checkbox("Snap##st_rotsnap", ref _rotSnapEnabled);
+        ImGui.SameLine(0, 8);
+        if (!_rotSnapEnabled) ImGui.BeginDisabled();
+        ImGui.SetNextItemWidth(120f);
+        ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
+        if (!_rotSnapEnabled) ImGui.EndDisabled();
     }
 
     // -------------------------------------------------------------------------
@@ -317,6 +339,7 @@ public sealed class PartEditorUi
             float pz = (float)placement.Position.Z;
 
             bool posX = false, posY = false, posZ = false;
+            float posSpeed = _gridModeEnabled ? _gridStep : 0.001f;
             ImGui.TextDisabled("Position (x, y, z)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_pos_tbl", 3,
@@ -324,11 +347,11 @@ public sealed class PartEditorUi
             {
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posX = ImGui.DragFloat("##px", ref px, 0.001f, 0f, 0f, "%.4f");
+                posX = ImGui.DragFloat("##px", ref px, posSpeed, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posY = ImGui.DragFloat("##py", ref py, 0.001f, 0f, 0f, "%.4f");
+                posY = ImGui.DragFloat("##py", ref py, posSpeed, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posZ = ImGui.DragFloat("##pz", ref pz, 0.001f, 0f, 0f, "%.4f");
+                posZ = ImGui.DragFloat("##pz", ref pz, posSpeed, 0f, 0f, "%.4f");
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar();
@@ -350,6 +373,7 @@ public sealed class PartEditorUi
             float rz = (float)(eulerRad.Z * (180.0 / Math.PI));
 
             bool rotX = false, rotY = false, rotZ = false;
+            float rotSpeed = _rotSnapEnabled ? _rotSnapDeg : 0.1f;
             ImGui.TextDisabled("Rotation (x, y, z)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_rot_tbl", 3,
@@ -357,11 +381,14 @@ public sealed class PartEditorUi
             {
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotX = ImGui.DragFloat("##rx", ref rx, 0.1f, -360f, 360f, "%.2f");
+                rotX = ImGui.DragFloat("##rx", ref rx, rotSpeed, -360f, 360f, "%.2f");
+                if (rotX && _rotSnapEnabled) rx = MathF.Round(rx / _rotSnapDeg) * _rotSnapDeg;
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotY = ImGui.DragFloat("##ry", ref ry, 0.1f, -360f, 360f, "%.2f");
+                rotY = ImGui.DragFloat("##ry", ref ry, rotSpeed, -360f, 360f, "%.2f");
+                if (rotY && _rotSnapEnabled) ry = MathF.Round(ry / _rotSnapDeg) * _rotSnapDeg;
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotZ = ImGui.DragFloat("##rz", ref rz, 0.1f, -360f, 360f, "%.2f");
+                rotZ = ImGui.DragFloat("##rz", ref rz, rotSpeed, -360f, 360f, "%.2f");
+                if (rotZ && _rotSnapEnabled) rz = MathF.Round(rz / _rotSnapDeg) * _rotSnapDeg;
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar();
