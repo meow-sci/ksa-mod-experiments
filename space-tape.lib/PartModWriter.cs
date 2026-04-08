@@ -8,6 +8,8 @@ using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
+using Tomlyn;
+using Tomlyn.Model;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -16,15 +18,7 @@ namespace MeowSci.SpaceTapeLib;
 /// </summary>
 public sealed class PartModWriter
 {
-    private const string ModTomlContent = """
-        name = "Space Tape Custom Parts"
-        description = "Parts created with the Space Tape Part Editor"
-        version = "1.0.0"
-        author = "Space Tape Editor"
 
-        [StarMap]
-        EntryAssembly = ""
-        """;
 
     /// <summary>The absolute path to the space-tape-parts mod directory.</summary>
     public string ModDir { get; }
@@ -77,7 +71,7 @@ public sealed class PartModWriter
         LastError = null;
         try
         {
-            EnsureModDir();
+            Directory.CreateDirectory(ModDir);
 
             string assetsPath = Path.Combine(ModDir, CurrentFileName + ".xml");
             string gameDataPath = Path.Combine(ModDir, CurrentFileName + ".gamedata.xml");
@@ -107,6 +101,9 @@ public sealed class PartModWriter
                 gameDataDoc = GameDataXmlSerializer.CreateGameDataDocument(GameDataXmlSerializer.SerializeGameData(part.PartId, part.GameData));
             }
             gameDataDoc.Save(gameDataPath);
+
+            // Keep mod.toml assets list up to date
+            UpdateModToml(CurrentFileName);
 
             RefreshFileList();
             Console.WriteLine($"space-tape: Saved part '{part.PartId}' to {assetsPath}");
@@ -300,12 +297,51 @@ public sealed class PartModWriter
         }
     }
 
-    private void EnsureModDir()    {
-        Directory.CreateDirectory(ModDir);
-
+    /// <summary>
+    /// Reads mod.toml (creating it if absent), ensures the given file base name's .xml and
+    /// .gamedata.xml entries appear in the <c>assets</c> array, then writes it back.
+    /// </summary>
+    private void UpdateModToml(string fileBaseName)
+    {
         string tomlPath = Path.Combine(ModDir, "mod.toml");
-        if (!File.Exists(tomlPath))
-            File.WriteAllText(tomlPath, ModTomlContent);
+
+        TomlTable root;
+        if (File.Exists(tomlPath))
+        {
+            root = Toml.ToModel(File.ReadAllText(tomlPath));
+        }
+        else
+        {
+            root = new TomlTable
+            {
+                ["name"]        = "Space Tape Custom Parts",
+                ["description"] = "Parts created with the Space Tape Part Editor",
+                ["version"]     = "1.0.0",
+                ["author"]      = "Space Tape Editor",
+                ["StarMap"]     = new TomlTable { ["EntryAssembly"] = "" },
+            };
+        }
+
+        // Gather existing assets into a list, then add missing entries
+        var assetsList = new List<string>();
+        if (root.TryGetValue("assets", out var existing) && existing is TomlArray existingArr)
+            foreach (var item in existingArr)
+                if (item is string s) assetsList.Add(s);
+
+        string xmlEntry      = fileBaseName + ".xml";
+        string gameDataEntry = fileBaseName + ".gamedata.xml";
+
+        if (!assetsList.Contains(xmlEntry,      StringComparer.OrdinalIgnoreCase))
+            assetsList.Add(xmlEntry);
+        if (!assetsList.Contains(gameDataEntry, StringComparer.OrdinalIgnoreCase))
+            assetsList.Add(gameDataEntry);
+
+        var assetsArray = new TomlArray();
+        foreach (var entry in assetsList)
+            assetsArray.Add(entry);
+        root["assets"] = assetsArray;
+
+        File.WriteAllText(tomlPath, Toml.FromModel(root));
     }
 
     private static double3 ParseVector3(XElement? el, double3 defaultValue)
