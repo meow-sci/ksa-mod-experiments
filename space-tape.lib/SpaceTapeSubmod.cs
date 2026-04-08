@@ -16,6 +16,8 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly PartEditorScene _scene = new PartEditorScene();
     private readonly PartEditorGizmos _gizmos = new PartEditorGizmos();
     private readonly PartEditorInteraction _interaction;
+    private readonly PartEditorUi _ui = new PartEditorUi();
+    private readonly PartModWriter _writer = new PartModWriter();
 
     public SpaceTapeSubmod()
     {
@@ -63,6 +65,11 @@ public sealed class SpaceTapeSubmod : ISubmod
         SubmodUI.EndContentArea();
     }
 
+    public void RenderFloatingWindows()
+    {
+        _ui.RenderEditorWindow(_controller, _scene, _gizmos, _catalog, _writer);
+    }
+
     private void RenderContentInner()
     {
         // Editor scene controls
@@ -73,15 +80,19 @@ public sealed class SpaceTapeSubmod : ISubmod
         {
             ImGui.TextColored(new float4(0.2f, 1f, 0.2f, 1f), "Editor: ACTIVE");
             ImGui.SameLine();
-            if (ImGui.Button("Close Editor##st_exit"))
-                _scene.Exit();
+            if (ImGui.Button(" Close Editor ##st_exit")) _scene.Exit();
+            ImGui.SameLine();
+            if (ImGui.Button(" Editor Window ##st_win")) _ui.WindowOpen = !_ui.WindowOpen;
         }
         else
         {
             ImGui.TextDisabled("Editor: Inactive");
             ImGui.SameLine();
-            if (ImGui.Button("Open Editor##st_enter"))
+            if (ImGui.Button(" Open Editor ##st_enter"))
+            {
                 _scene.Enter();
+                _ui.WindowOpen = true;
+            }
         }
 
         ImGui.Spacing();

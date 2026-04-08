@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
@@ -40,6 +41,11 @@ public sealed class PartModWriter
     public string? LastError { get; private set; }
 
     public bool HasError => LastError != null;
+
+    // --- File picker UI state ---
+    private readonly ImInputString _fileNameInput = new ImInputString(128);
+    private string _lastSyncedFileName = "";
+    private int _selectedExistingFileIndex = -1;
 
     public PartModWriter()
     {
@@ -226,8 +232,75 @@ public sealed class PartModWriter
             part.GameData.GeneratorOutput = watts;
     }
 
-    private void EnsureModDir()
+    /// <summary>
+    /// Renders an ImGui combo + text-input widget for picking or naming the output file.
+    /// Must be called inside an active ImGui window.
+    /// </summary>
+    public void RenderFilePicker()
     {
+        if (ImGui.Button(" Refresh ##st_fp_refresh"))
+        {
+            RefreshFileList();
+            _selectedExistingFileIndex = -1;
+        }
+
+        if (_existingFiles.Count > 0)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled($"({_existingFiles.Count} file(s))");
+        }
+
+        ImGui.Spacing();
+
+        // Combo to pick an existing file or start a new one
+        if (_existingFiles.Count > 0)
+        {
+            string preview = _selectedExistingFileIndex >= 0 && _selectedExistingFileIndex < _existingFiles.Count
+                ? _existingFiles[_selectedExistingFileIndex]
+                : "(new file)";
+
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.BeginCombo("##st_filepick", preview))
+            {
+                if (ImGui.Selectable("(new file)##st_fp_new", _selectedExistingFileIndex < 0))
+                    _selectedExistingFileIndex = -1;
+
+                for (int i = 0; i < _existingFiles.Count; i++)
+                {
+                    bool sel = i == _selectedExistingFileIndex;
+                    if (ImGui.Selectable($"{_existingFiles[i]}##st_fp{i}", sel))
+                    {
+                        _selectedExistingFileIndex = i;
+                        CurrentFileName = _existingFiles[i];
+                        _lastSyncedFileName = CurrentFileName;
+                        _fileNameInput.SetValue(CurrentFileName.AsSpan());
+                    }
+                }
+                ImGui.EndCombo();
+            }
+
+            ImGui.Spacing();
+        }
+
+        // Text input for the file name
+        if (CurrentFileName != _lastSyncedFileName)
+        {
+            _fileNameInput.SetValue(CurrentFileName.AsSpan());
+            _lastSyncedFileName = CurrentFileName;
+        }
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("File:");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.InputText("##st_filename", _fileNameInput))
+        {
+            CurrentFileName = _fileNameInput.ToString();
+            _lastSyncedFileName = CurrentFileName;
+        }
+    }
+
+    private void EnsureModDir()    {
         Directory.CreateDirectory(ModDir);
 
         string tomlPath = Path.Combine(ModDir, "mod.toml");
