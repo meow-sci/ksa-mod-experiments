@@ -6,6 +6,7 @@ using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using KSA.Rendering.Thumbnails;
+using MeowSci.InanimateCarbonRodLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
@@ -16,6 +17,10 @@ public sealed class SubPartCatalog
     private readonly ImInputString _filter = new ImInputString(256);
     private readonly List<PartTemplate> _filtered = new();
     private float _thumbDisplaySize = 64f;
+
+    // Thumbnail animation
+    private double _animTimer;
+    private int _animTickMs = 75;
 
     public string? SelectedSubPartId { get; private set; }
 
@@ -50,7 +55,10 @@ public sealed class SubPartCatalog
         Console.WriteLine($"space-tape: SubPartCatalog loaded {_subparts.Count} sub-parts");
     }
 
-    public void Update(double dt) { }
+    public void Update(double dt)
+    {
+        _animTimer += dt;
+    }
 
     public void Render()
     {
@@ -122,11 +130,24 @@ public sealed class SubPartCatalog
                 if (isSelected)
                     ImGui.PushStyleColor(ImGuiCol.Button, selectedColor);
 
-                var thumb = template.Thumbnail;
-                if (thumb != null)
+                // Try animated thumbnail from ICR cache first, fall back to static/text
+                ThumbnailReference? animView = null;
+                var cacheEntry = SubpartThumbnailCache.Get(template.Id);
+                if (cacheEntry != null && cacheEntry.Views.Length > 1)
                 {
-                    thumb.CreateImGuiThumbnail(Program.LinearClampedSampler);
-                    clicked = ImGui.ImageButton($"##st_cat_{template.Id}", thumb.ImGuiImageRef, new float2(thumbSize));
+                    int animIdx = (int)(_animTimer / (_animTickMs / 1000.0)) % cacheEntry.Views.Length;
+                    animView = cacheEntry.Views[animIdx];
+                }
+
+                if (animView != null)
+                {
+                    animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
+                }
+                else if (template.Thumbnail != null)
+                {
+                    template.Thumbnail.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    clicked = ImGui.ImageButton($"##st_cat_{template.Id}", template.Thumbnail.ImGuiImageRef, new float2(thumbSize));
                 }
                 else
                 {
