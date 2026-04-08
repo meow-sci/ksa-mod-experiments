@@ -20,7 +20,7 @@ public sealed class SubPartCatalog
 
     // Thumbnail animation
     private double _animTimer;
-    private int _animTickMs = 75;
+    private int _animTickMs = 100;
 
     // Descriptor lifetime tracking — track individual ThumbnailReference views
     // so we only keep one descriptor per visible entry (the current anim frame).
