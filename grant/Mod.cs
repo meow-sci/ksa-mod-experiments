@@ -95,6 +95,7 @@ public class Mod
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
+            Patcher.MenuBarToggle = () => _windowVisible = !_windowVisible;
 
             Patcher.Patch();
 

@@ -16,6 +16,7 @@ internal static class Patcher
 
     public static VehicleTracker? IFeelSeenTracker { private get; set; }
     public static KeyframeSequencePlayer? CameraSequencePlayer { private get; set; }
+    public static Action? MenuBarToggle { get; set; }
 
     public static void Patch()
     {
@@ -23,6 +24,8 @@ internal static class Patcher
         {
             _harmony = new Harmony("MeowSci.Grant");
             HotkeyGuard.Patch(_harmony);
+            MenuBarPatch.ToggleWindow = MenuBarToggle;
+            MenuBarPatch.Apply(_harmony);
             BlinkyPatches.Apply(_harmony);
             CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
             CameraControllerOverridePatches.Apply(_harmony);
@@ -45,6 +48,7 @@ internal static class Patcher
             if (_harmony != null)
             {
                 HotkeyGuard.Unpatch(_harmony);
+                MenuBarPatch.Remove(_harmony);
                 BlinkyPatches.Remove(_harmony);
                 CameraControllerOverridePatches.Remove(_harmony);
                 GlassPatches.Remove(_harmony);

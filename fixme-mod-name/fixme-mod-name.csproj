@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\fixme-mod-name.lib\fixme-mod-name.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
   </ItemGroup>
 
