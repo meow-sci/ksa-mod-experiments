@@ -14,6 +14,13 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly PartEditorController _controller = new PartEditorController();
     private readonly PartEditorScene _scene = new PartEditorScene();
+    private readonly PartEditorGizmos _gizmos = new PartEditorGizmos();
+    private readonly PartEditorInteraction _interaction;
+
+    public SpaceTapeSubmod()
+    {
+        _interaction = new PartEditorInteraction(_gizmos);
+    }
 
     public void Initialize()
     {
@@ -29,6 +36,16 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void UpdateScene(Viewport viewport)
     {
         _scene.UpdateGizmo(viewport);
+        if (_scene.IsActive)
+        {
+            double4x4 matrix = _scene.GetMatrixAsmb2Ego(viewport);
+            doubleQuat asmb2Ecl = _scene.EditingSpace?.Asmb2Ecl ?? doubleQuat.Identity;
+            Part? selectedPart = _controller.SelectedPlacementIndex >= 0 && _controller.SelectedPlacementIndex < _scene.EditorParts.Count
+                ? _scene.EditorParts[_controller.SelectedPlacementIndex]
+                : null;
+            _gizmos.Update(selectedPart, in matrix, asmb2Ecl, viewport);
+            _interaction.Update(_scene, _controller, viewport);
+        }
     }
 
     public void RenderContent()
@@ -84,6 +101,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void Dispose()
     {
         PartRenderHelper.Unpatch();
+        _gizmos.Dispose();
         _scene.Dispose();
     }
 }
