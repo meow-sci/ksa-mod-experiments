@@ -22,8 +22,9 @@ public sealed class SubPartCatalog
     private double _animTimer;
     private int _animTickMs = 75;
 
-    // Descriptor lifetime tracking to avoid DescriptorPoolOutOfMemoryException
-    private readonly HashSet<SubpartThumbnailEntry> _registeredEntries = new();
+    // Descriptor lifetime tracking — track individual ThumbnailReference views
+    // so we only keep one descriptor per visible entry (the current anim frame).
+    private readonly HashSet<ThumbnailReference> _registeredViews = new();
 
     public string? SelectedSubPartId { get; private set; }
 
@@ -132,19 +133,25 @@ public sealed class SubPartCatalog
         int firstVisItem = firstVisRow * ncols;
         int lastVisItem = Math.Min(totalItems - 1, (lastVisRow + 1) * ncols - 1);
 
-        // Free descriptors for entries that scrolled out of view
-        var visibleEntries = new HashSet<SubpartThumbnailEntry>();
+        // Collect the specific ThumbnailReference views we need this frame
+        var neededViews = new HashSet<ThumbnailReference>();
         for (int i = firstVisItem; i <= lastVisItem; i++)
         {
             var e = SubpartThumbnailCache.Get(_filtered[i].Id);
-            if (e != null) visibleEntries.Add(e);
+            if (e != null && e.Views.Length > 1)
+            {
+                int animIdx = (int)(_animTimer / (_animTickMs / 1000.0)) % e.Views.Length;
+                var view = e.Views[animIdx];
+                if (view != null)
+                    neededViews.Add(view);
+            }
         }
 
-        _registeredEntries.RemoveWhere(entry =>
+        // Free descriptors for views no longer needed (scrolled away or different anim frame)
+        _registeredViews.RemoveWhere(view =>
         {
-            if (visibleEntries.Contains(entry)) return false;
-            foreach (var view in entry.Views)
-                view?.DestroyImGuiThumbnail();
+            if (neededViews.Contains(view)) return false;
+            view.DestroyImGuiThumbnail();
             return true;
         });
 
@@ -180,7 +187,7 @@ public sealed class SubPartCatalog
                 if (animView != null)
                 {
                     animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
-                    _registeredEntries.Add(cacheEntry!);
+                    _registeredViews.Add(animView);
                     clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
                 }
                 else if (template.Thumbnail != null)
