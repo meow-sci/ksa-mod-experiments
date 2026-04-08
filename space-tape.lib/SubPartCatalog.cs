@@ -112,36 +112,53 @@ public sealed class SubPartCatalog
             return;
         }
 
-        // Scrollable grid
+        // Scrollable grid with virtual rendering — only register descriptors for visible items
         ImGui.BeginChild("##st_cat_scroll", new float2(0, 300),
             ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY,
             ImGuiWindowFlags.None);
 
         float thumbSize = _thumbDisplaySize;
+        float cellHeight = thumbSize + ImGui.GetStyle().ItemSpacing.Y;
         int ncols = Math.Max(1, (int)(ImGui.GetContentRegionAvail().X / (thumbSize + 8f)));
+        int totalItems = _filtered.Count;
+        int totalRows = (totalItems + ncols - 1) / ncols;
         var selectedColor = new float4(0.2f, 0.6f, 1f, 0.8f);
 
-        // Build set of entries visible this frame so we can free stale descriptors
-        var currentEntries = new HashSet<SubpartThumbnailEntry>();
-        foreach (var t in _filtered)
+        // Determine visible row range from scroll position
+        float scrollY = ImGui.GetScrollY();
+        float visibleHeight = ImGui.GetWindowHeight();
+        int firstVisRow = Math.Max(0, (int)(scrollY / cellHeight) - 1);
+        int lastVisRow = Math.Min(totalRows - 1, (int)((scrollY + visibleHeight) / cellHeight) + 1);
+        int firstVisItem = firstVisRow * ncols;
+        int lastVisItem = Math.Min(totalItems - 1, (lastVisRow + 1) * ncols - 1);
+
+        // Free descriptors for entries that scrolled out of view
+        var visibleEntries = new HashSet<SubpartThumbnailEntry>();
+        for (int i = firstVisItem; i <= lastVisItem; i++)
         {
-            var e = SubpartThumbnailCache.Get(t.Id);
-            if (e != null) currentEntries.Add(e);
+            var e = SubpartThumbnailCache.Get(_filtered[i].Id);
+            if (e != null) visibleEntries.Add(e);
         }
 
         _registeredEntries.RemoveWhere(entry =>
         {
-            if (currentEntries.Contains(entry)) return false;
+            if (visibleEntries.Contains(entry)) return false;
             foreach (var view in entry.Views)
                 view?.DestroyImGuiThumbnail();
             return true;
         });
 
-        if (ImGui.BeginTable("##st_cat_grid", ncols, ImGuiTableFlags.None))
+        // Spacer for rows above visible range
+        if (firstVisRow > 0)
+            ImGui.Dummy(new float2(0, firstVisRow * cellHeight));
+
+        // Render only visible rows
+        if (lastVisItem >= firstVisItem && ImGui.BeginTable("##st_cat_grid", ncols, ImGuiTableFlags.None))
         {
-            foreach (var template in _filtered)
+            for (int i = firstVisItem; i <= lastVisItem; i++)
             {
                 ImGui.TableNextColumn();
+                var template = _filtered[i];
 
                 bool isSelected = SelectedSubPartId == template.Id;
                 bool clicked;
@@ -168,7 +185,6 @@ public sealed class SubPartCatalog
                     }
                     catch
                     {
-                        // Descriptor pool exhausted — fall back to text button
                         string fallbackId = template.Id.Contains('.')
                             ? template.Id[(template.Id.LastIndexOf('.') + 1)..]
                             : template.Id;
@@ -200,6 +216,11 @@ public sealed class SubPartCatalog
 
             ImGui.EndTable();
         }
+
+        // Spacer for rows below visible range
+        int rowsBelow = totalRows - lastVisRow - 1;
+        if (rowsBelow > 0)
+            ImGui.Dummy(new float2(0, rowsBelow * cellHeight));
 
         ImGui.EndChild();
 
