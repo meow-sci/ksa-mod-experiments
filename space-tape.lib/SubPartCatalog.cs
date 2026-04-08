@@ -22,6 +22,9 @@ public sealed class SubPartCatalog
     private double _animTimer;
     private int _animTickMs = 75;
 
+    // Descriptor lifetime tracking to avoid DescriptorPoolOutOfMemoryException
+    private readonly HashSet<SubpartThumbnailEntry> _registeredEntries = new();
+
     public string? SelectedSubPartId { get; private set; }
 
     /// <summary>Returns the currently selected SubPart ID and clears the selection, or null if nothing is selected.</summary>
@@ -118,6 +121,22 @@ public sealed class SubPartCatalog
         int ncols = Math.Max(1, (int)(ImGui.GetContentRegionAvail().X / (thumbSize + 8f)));
         var selectedColor = new float4(0.2f, 0.6f, 1f, 0.8f);
 
+        // Build set of entries visible this frame so we can free stale descriptors
+        var currentEntries = new HashSet<SubpartThumbnailEntry>();
+        foreach (var t in _filtered)
+        {
+            var e = SubpartThumbnailCache.Get(t.Id);
+            if (e != null) currentEntries.Add(e);
+        }
+
+        _registeredEntries.RemoveWhere(entry =>
+        {
+            if (currentEntries.Contains(entry)) return false;
+            foreach (var view in entry.Views)
+                view?.DestroyImGuiThumbnail();
+            return true;
+        });
+
         if (ImGui.BeginTable("##st_cat_grid", ncols, ImGuiTableFlags.None))
         {
             foreach (var template in _filtered)
@@ -141,8 +160,20 @@ public sealed class SubPartCatalog
 
                 if (animView != null)
                 {
-                    animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
-                    clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
+                    try
+                    {
+                        animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                        _registeredEntries.Add(cacheEntry!);
+                        clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
+                    }
+                    catch
+                    {
+                        // Descriptor pool exhausted — fall back to text button
+                        string fallbackId = template.Id.Contains('.')
+                            ? template.Id[(template.Id.LastIndexOf('.') + 1)..]
+                            : template.Id;
+                        clicked = ImGui.Button($"{fallbackId}##st_cat_{template.Id}", new float2(thumbSize, thumbSize));
+                    }
                 }
                 else if (template.Thumbnail != null)
                 {
