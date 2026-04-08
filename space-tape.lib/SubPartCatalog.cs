@@ -19,6 +19,14 @@ public sealed class SubPartCatalog
 
     public string? SelectedSubPartId { get; private set; }
 
+    /// <summary>Returns the currently selected SubPart ID and clears the selection, or null if nothing is selected.</summary>
+    public string? TakeSelectedSubPartId()
+    {
+        var id = SelectedSubPartId;
+        SelectedSubPartId = null;
+        return id;
+    }
+
     public void LoadSubParts()
     {
         FieldInfo? field = typeof(ModLibrary).GetField("AllParts",

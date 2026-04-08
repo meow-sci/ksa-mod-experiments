@@ -15,7 +15,10 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly PartEditorController _controller = new PartEditorController();
     private readonly PartEditorScene _scene = new PartEditorScene();
 
-    public void Initialize() { }
+    public void Initialize()
+    {
+        PartRenderHelper.Patch();
+    }
 
     public void Update(double dt)
     {
@@ -69,10 +72,18 @@ public sealed class SpaceTapeSubmod : ISubmod
         // SubPart catalog (only useful when editor is active)
         ImGui.SeparatorText("SubPart Catalog");
         _catalog.Render();
+
+        string? selected = _catalog.TakeSelectedSubPartId();
+        if (selected != null && _scene.IsActive)
+        {
+            _controller.AddSubPart(selected);
+            _scene.SyncParts(_controller.CurrentPart);
+        }
     }
 
     public void Dispose()
     {
+        PartRenderHelper.Unpatch();
         _scene.Dispose();
     }
 }

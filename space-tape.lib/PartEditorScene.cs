@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 
@@ -14,10 +15,16 @@ public sealed class PartEditorScene : IDisposable
     private VehicleEditingSpace? _editingSpace;
     private GenericGizmo? _originGizmo;
     private IFollowable? _savedFollowing;
+    private readonly List<Part> _editorParts = new();
+
+    /// <summary>The currently active PartEditorScene instance, or null when no editor is open. Read by the render patch.</summary>
+    public static PartEditorScene? Current { get; private set; }
 
     public bool IsActive => _editingSpace != null;
 
     public VehicleEditingSpace? EditingSpace => _editingSpace;
+
+    public IReadOnlyList<Part> EditorParts => _editorParts;
 
     /// <summary>
     /// Opens the editing scene: creates the VehicleEditingSpace, saves camera state,
@@ -59,6 +66,7 @@ public sealed class PartEditorScene : IDisposable
             Program.MainViewport.BaseCamera.SetFollow(_editingSpace, tidalLocking: false, changeControl: true, alert: false);
             Program.GetHoveredCamera().SetFollow(_editingSpace, tidalLocking: false, changeControl: true, alert: false);
 
+            Current = this;
             Console.WriteLine("space-tape: Part editor scene entered.");
         }
         catch (Exception ex)
@@ -95,6 +103,8 @@ public sealed class PartEditorScene : IDisposable
         }
         finally
         {
+            _editorParts.Clear();
+            Current = null;
             _originGizmo?.Dispose();
             _originGizmo = null;
             _editingSpace = null;
@@ -161,6 +171,35 @@ public sealed class PartEditorScene : IDisposable
         GenericGizmo.PerSegmentData[] seg = _originGizmo.GetSegmentDataByViewport(viewport);
         for (int i = 0; i < 3; i++)
             seg[i].Active = false;
+    }
+
+    /// <summary>Returns the assembly-space to eye-space matrix for the current editing space and camera.</summary>
+    public double4x4 GetMatrixAsmb2Ego(Viewport viewport)
+        => _editingSpace?.GetMatrixAsmb2Ego(viewport.GetCamera()) ?? double4x4.Identity;
+
+    /// <summary>
+    /// Synchronises the internal list of runtime <see cref="Part"/> instances to match the
+    /// placements in <paramref name="editingPart"/>. Call whenever the placement list changes.
+    /// </summary>
+    public void SyncParts(EditingPart editingPart)
+    {
+        _editorParts.Clear();
+        foreach (var placement in editingPart.Placements)
+        {
+            _editorParts.Add(CreatePartFromPlacement(placement));
+        }
+    }
+
+    private static Part CreatePartFromPlacement(SubPartPlacement placement)
+    {
+        PartTemplate template = ModLibrary.Get<PartTemplate>(placement.SubPartTemplateId);
+        var part = new Part(placement.InstanceId, template);
+        part.PositionParentAsmb = placement.Position;
+        part.Asmb2ParentAsmb = placement.Rotation;
+        part.Scale = placement.Scale;
+        // Populate PartTree.Modules so UpdateRenderData can find PartModelModule
+        PartTree.CreateFromNewPartTree(part);
+        return part;
     }
 
     public void Dispose()
