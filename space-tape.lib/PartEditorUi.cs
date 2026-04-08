@@ -312,31 +312,28 @@ public sealed class PartEditorUi
         // Position
         if (ImGui.TreeNodeEx("Position (m)##st_pos", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            bool posChanged = false;
-            double px = placement.Position.X, py = placement.Position.Y, pz = placement.Position.Z;
+            float px = (float)placement.Position.X;
+            float py = (float)placement.Position.Y;
+            float pz = (float)placement.Position.Z;
 
+            bool posX = false, posY = false, posZ = false;
+            ImGui.TextDisabled("Position (x, y, z)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
-            if (ImGui.BeginTable("##st_pos_tbl", 4,
+            if (ImGui.BeginTable("##st_pos_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("X:");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posChanged |= ImGui.InputDouble("##px", ref px);
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Y:");
+                posX = ImGui.DragFloat("##px", ref px, 0.001f, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posChanged |= ImGui.InputDouble("##py", ref py);
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Z:");
+                posY = ImGui.DragFloat("##py", ref py, 0.001f, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                posChanged |= ImGui.InputDouble("##pz", ref pz);
-
+                posZ = ImGui.DragFloat("##pz", ref pz, 0.001f, 0f, 0f, "%.4f");
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar();
 
-            if (posChanged)
+            if (posX || posY || posZ)
             {
                 placement.Position = new double3(px, py, pz);
                 SyncPlacementToRuntimePart(controller, scene);
@@ -348,33 +345,28 @@ public sealed class PartEditorUi
         if (ImGui.TreeNodeEx("Rotation (deg)##st_rot", ImGuiTreeNodeFlags.DefaultOpen))
         {
             double3 eulerRad = placement.Rotation.NormalizedOrIdentity().ToXyzRadians();
-            double rx = eulerRad.X * (180.0 / Math.PI);
-            double ry = eulerRad.Y * (180.0 / Math.PI);
-            double rz = eulerRad.Z * (180.0 / Math.PI);
-            bool rotChanged = false;
+            float rx = (float)(eulerRad.X * (180.0 / Math.PI));
+            float ry = (float)(eulerRad.Y * (180.0 / Math.PI));
+            float rz = (float)(eulerRad.Z * (180.0 / Math.PI));
 
+            bool rotX = false, rotY = false, rotZ = false;
+            ImGui.TextDisabled("Rotation (x, y, z)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
-            if (ImGui.BeginTable("##st_rot_tbl", 4,
+            if (ImGui.BeginTable("##st_rot_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("X:");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotChanged |= ImGui.InputDouble("##rx", ref rx);
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Y:");
+                rotX = ImGui.DragFloat("##rx", ref rx, 0.1f, -360f, 360f, "%.2f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotChanged |= ImGui.InputDouble("##ry", ref ry);
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Z:");
+                rotY = ImGui.DragFloat("##ry", ref ry, 0.1f, -360f, 360f, "%.2f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                rotChanged |= ImGui.InputDouble("##rz", ref rz);
-
+                rotZ = ImGui.DragFloat("##rz", ref rz, 0.1f, -360f, 360f, "%.2f");
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar();
 
-            if (rotChanged)
+            if (rotX || rotY || rotZ)
             {
                 placement.Rotation = QuaternionEx.CreateFromXyzRadians(
                     new double3(rx * (Math.PI / 180.0), ry * (Math.PI / 180.0), rz * (Math.PI / 180.0)));
@@ -386,31 +378,28 @@ public sealed class PartEditorUi
         // Scale
         if (ImGui.TreeNodeEx("Scale##st_scale", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            bool scaleChanged = false;
-            double sx = placement.Scale.X, sy = placement.Scale.Y, sz = placement.Scale.Z;
+            float sx = (float)placement.Scale.X;
+            float sy = (float)placement.Scale.Y;
+            float sz = (float)placement.Scale.Z;
 
+            bool scaleX = false, scaleY = false, scaleZ = false;
+            ImGui.TextDisabled("Scale (x, y, z)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
-            if (ImGui.BeginTable("##st_scale_tbl", 4,
+            if (ImGui.BeginTable("##st_scale_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("X:");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                scaleChanged |= ImGui.InputDouble("##sx", ref sx);
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Y:");
+                scaleX = ImGui.DragFloat("##sx", ref sx, 0.001f, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                scaleChanged |= ImGui.InputDouble("##sy", ref sy);
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Z:");
+                scaleY = ImGui.DragFloat("##sy", ref sy, 0.001f, 0f, 0f, "%.4f");
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-                scaleChanged |= ImGui.InputDouble("##sz", ref sz);
-
+                scaleZ = ImGui.DragFloat("##sz", ref sz, 0.001f, 0f, 0f, "%.4f");
                 ImGui.EndTable();
             }
             ImGui.PopStyleVar();
 
-            if (scaleChanged)
+            if (scaleX || scaleY || scaleZ)
             {
                 placement.Scale = new double3(
                     Math.Max(sx, 0.001), Math.Max(sy, 0.001), Math.Max(sz, 0.001));
