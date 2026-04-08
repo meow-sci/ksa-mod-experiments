@@ -172,24 +172,16 @@ public sealed class SubPartCatalog
                 if (cacheEntry != null && cacheEntry.Views.Length > 1)
                 {
                     int animIdx = (int)(_animTimer / (_animTickMs / 1000.0)) % cacheEntry.Views.Length;
-                    animView = cacheEntry.Views[animIdx];
+                    var candidate = cacheEntry.Views[animIdx];
+                    if (candidate != null)
+                        animView = candidate;
                 }
 
                 if (animView != null)
                 {
-                    try
-                    {
-                        animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
-                        _registeredEntries.Add(cacheEntry!);
-                        clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
-                    }
-                    catch
-                    {
-                        string fallbackId = template.Id.Contains('.')
-                            ? template.Id[(template.Id.LastIndexOf('.') + 1)..]
-                            : template.Id;
-                        clicked = ImGui.Button($"{fallbackId}##st_cat_{template.Id}", new float2(thumbSize, thumbSize));
-                    }
+                    animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    _registeredEntries.Add(cacheEntry!);
+                    clicked = ImGui.ImageButton($"##st_cat_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
                 }
                 else if (template.Thumbnail != null)
                 {
