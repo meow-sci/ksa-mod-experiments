@@ -24,6 +24,12 @@ public sealed class PartEditorScene : IDisposable
 
     public VehicleEditingSpace? EditingSpace => _editingSpace;
 
+    /// <summary>Whether the origin axis marker is visible.</summary>
+    public bool OriginVisible { get; set; } = true;
+
+    /// <summary>Alpha transparency of the origin axis marker (0 = transparent, 1 = opaque).</summary>
+    public float OriginAlpha { get; set; } = 0.8f;
+
     public IReadOnlyList<Part> EditorParts => _editorParts;
 
     /// <summary>
@@ -130,11 +136,18 @@ public sealed class PartEditorScene : IDisposable
             return;
         }
 
+        if (!OriginVisible)
+        {
+            DeactivateGizmoSegments(viewport);
+            return;
+        }
+
         try
         {
             Camera camera = viewport.GetCamera();
             double4x4 matrix = _editingSpace.GetMatrixAsmb2Ego(camera);
             double3 originEgo = double3.Zero.Transform(matrix);
+            double a = OriginAlpha;
 
             GenericGizmo.PerSegmentData[] seg = _originGizmo.GetSegmentDataByViewport(viewport);
 
@@ -143,21 +156,21 @@ public sealed class PartEditorScene : IDisposable
             seg[0].PositionEgo = originEgo;
             seg[0].Body2Cce = doubleQuat.Identity;
             seg[0].Scale = new double3(0.5, 0.02, 0.02);
-            seg[0].Color = new double4(1.0, 0.0, 0.0, 0.8);
+            seg[0].Color = new double4(1.0, 0.0, 0.0, a);
 
             // Y axis — green, elongated in Y
             seg[1].Active = true;
             seg[1].PositionEgo = originEgo;
             seg[1].Body2Cce = doubleQuat.Identity;
             seg[1].Scale = new double3(0.02, 0.5, 0.02);
-            seg[1].Color = new double4(0.0, 1.0, 0.0, 0.8);
+            seg[1].Color = new double4(0.0, 1.0, 0.0, a);
 
             // Z axis — blue, elongated in Z
             seg[2].Active = true;
             seg[2].PositionEgo = originEgo;
             seg[2].Body2Cce = doubleQuat.Identity;
             seg[2].Scale = new double3(0.02, 0.02, 0.5);
-            seg[2].Color = new double4(0.0, 0.0, 1.0, 0.8);
+            seg[2].Color = new double4(0.0, 0.0, 1.0, a);
         }
         catch (Exception ex)
         {

@@ -69,7 +69,7 @@ public sealed class PartEditorUi
         bool open = WindowOpen;
         if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
         {
-            RenderToolbar(controller, gizmos);
+            RenderToolbar(controller, gizmos, scene);
             ImGui.Spacing();
             RenderLoadSection(controller, scene, writer);
             ImGui.Spacing();
@@ -91,10 +91,13 @@ public sealed class PartEditorUi
     // Toolbar
     // -------------------------------------------------------------------------
 
-    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos)
+    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorScene scene)
     {
-        ImGui.SeparatorText("Transform Mode");
+        ImGui.SeparatorText("Active Gizmo");
 
+        if (ImGui.RadioButton(" None ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.None))
+            gizmos.ActiveMode = PartEditorGizmos.GizmoMode.None;
+        ImGui.SameLine();
         if (ImGui.RadioButton(" Translate ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
             gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate;
         ImGui.SameLine();
@@ -140,7 +143,19 @@ public sealed class PartEditorUi
         ImGui.SetNextItemWidth(120f);
         ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
         if (!_rotSnapEnabled) ImGui.EndDisabled();
-    }
+        ImGui.SeparatorText("Origin Marker");
+
+        bool originVisible = scene.OriginVisible;
+        ImGui.Checkbox("Visible##st_origin", ref originVisible);
+        scene.OriginVisible = originVisible;
+        if (originVisible)
+        {
+            ImGui.SameLine(0, 8);
+            float originAlpha = scene.OriginAlpha;
+            ImGui.SetNextItemWidth(120f);
+            ImGui.DragFloat("Alpha##st_origin_alpha", ref originAlpha, 0.01f, 0f, 1f, "%.2f");
+            scene.OriginAlpha = originAlpha;
+        }    }
 
     // -------------------------------------------------------------------------
     // Load existing part
@@ -604,7 +619,6 @@ public sealed class PartEditorUi
         // Hot-reload spike (experimental)
         ImGui.Spacing();
         ImGui.SeparatorText("Experimental");
-        ImGui.TextDisabled("Hot-reload: attempts to register the part into the running game without restart.");
         if (ImGui.Button(" Test Hot-Reload ##st_hotreload"))
         {
             var (success, message) = HotReloadSpike.TryRegisterPart(controller.CurrentPart);

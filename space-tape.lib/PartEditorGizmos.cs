@@ -10,7 +10,7 @@ namespace MeowSci.SpaceTapeLib;
 /// </summary>
 public sealed class PartEditorGizmos : IDisposable
 {
-    public enum GizmoMode { Translate, Rotate, Scale }
+    public enum GizmoMode { None, Translate, Rotate, Scale }
 
     private static readonly double4 GIZMO_HIGHLIGHT = new(1.0, 1.0, 1.0, 0.75);
 
@@ -44,6 +44,9 @@ public sealed class PartEditorGizmos : IDisposable
 
         switch (ActiveMode)
         {
+            case GizmoMode.None:
+                DeactivateAll(viewport);
+                break;
             case GizmoMode.Translate:
                 DeactivateGizmo(RotationGizmo, viewport);
                 DeactivateGizmo(ScaleGizmo, viewport);
