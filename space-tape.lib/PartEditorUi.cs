@@ -332,7 +332,6 @@ public sealed class PartEditorUi
         ImGui.Spacing();
 
         // Position
-        if (ImGui.TreeNodeEx("Position (m)##st_pos", ImGuiTreeNodeFlags.DefaultOpen))
         {
             float px = (float)placement.Position.X;
             float py = (float)placement.Position.Y;
@@ -340,7 +339,7 @@ public sealed class PartEditorUi
 
             bool posX = false, posY = false, posZ = false;
             float posSpeed = _gridModeEnabled ? _gridStep : 0.001f;
-            ImGui.TextDisabled("Position (x, y, z)");
+            ImGui.TextDisabled("Position (m)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_pos_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
@@ -361,11 +360,11 @@ public sealed class PartEditorUi
                 placement.Position = new double3(px, py, pz);
                 SyncPlacementToRuntimePart(controller, scene);
             }
-            ImGui.TreePop();
         }
 
+        ImGui.Spacing();
+
         // Rotation (Euler XYZ degrees)
-        if (ImGui.TreeNodeEx("Rotation (deg)##st_rot", ImGuiTreeNodeFlags.DefaultOpen))
         {
             double3 eulerRad = placement.Rotation.NormalizedOrIdentity().ToXyzRadians();
             float rx = (float)(eulerRad.X * (180.0 / Math.PI));
@@ -374,7 +373,7 @@ public sealed class PartEditorUi
 
             bool rotX = false, rotY = false, rotZ = false;
             float rotSpeed = _rotSnapEnabled ? _rotSnapDeg : 0.1f;
-            ImGui.TextDisabled("Rotation (x, y, z)");
+            ImGui.TextDisabled("Rotation (\u00b0)");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_rot_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
@@ -399,18 +398,18 @@ public sealed class PartEditorUi
                     new double3(rx * (Math.PI / 180.0), ry * (Math.PI / 180.0), rz * (Math.PI / 180.0)));
                 SyncPlacementToRuntimePart(controller, scene);
             }
-            ImGui.TreePop();
         }
 
+        ImGui.Spacing();
+
         // Scale
-        if (ImGui.TreeNodeEx("Scale##st_scale", ImGuiTreeNodeFlags.DefaultOpen))
         {
             float sx = (float)placement.Scale.X;
             float sy = (float)placement.Scale.Y;
             float sz = (float)placement.Scale.Z;
 
             bool scaleX = false, scaleY = false, scaleZ = false;
-            ImGui.TextDisabled("Scale (x, y, z)");
+            ImGui.TextDisabled("Scale");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_scale_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
@@ -432,7 +431,6 @@ public sealed class PartEditorUi
                     Math.Max(sx, 0.001), Math.Max(sy, 0.001), Math.Max(sz, 0.001));
                 SyncPlacementToRuntimePart(controller, scene);
             }
-            ImGui.TreePop();
         }
 
         // Delete / Duplicate

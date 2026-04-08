@@ -94,8 +94,9 @@ public sealed class SubPartCatalog
         ImGui.SetNextItemWidth(-1);
         ImGui.InputText("##st_cat_filter", _filter);
 
-        // Thumbnail size slider
+        // Thumbnail size + animation speed
         ImGui.SliderFloat("Thumb Size##st_cat", ref _thumbDisplaySize, 32f, 128f);
+        ImGui.SliderInt("Anim Delay##st_cat", ref _animTickMs, 16, 500, "%d ms");
 
         // Rebuild filtered list
         string filterText = _filter.ToString();
@@ -137,13 +138,18 @@ public sealed class SubPartCatalog
         var neededViews = new HashSet<ThumbnailReference>();
         for (int i = firstVisItem; i <= lastVisItem; i++)
         {
-            var e = SubpartThumbnailCache.Get(_filtered[i].Id);
+            var template = _filtered[i];
+            var e = SubpartThumbnailCache.Get(template.Id);
             if (e != null && e.Views.Length > 1)
             {
                 int animIdx = (int)(_animTimer / (_animTickMs / 1000.0)) % e.Views.Length;
                 var view = e.Views[animIdx];
                 if (view != null)
                     neededViews.Add(view);
+            }
+            else if (template.Thumbnail != null)
+            {
+                neededViews.Add(template.Thumbnail);
             }
         }
 
@@ -193,6 +199,7 @@ public sealed class SubPartCatalog
                 else if (template.Thumbnail != null)
                 {
                     template.Thumbnail.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    _registeredViews.Add(template.Thumbnail);
                     clicked = ImGui.ImageButton($"##st_cat_{template.Id}", template.Thumbnail.ImGuiImageRef, new float2(thumbSize));
                 }
                 else
