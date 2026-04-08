@@ -1,33 +1,33 @@
-# Fixme-Mod-Name - Template Mod Structure
+# Space Tape
 
-A placeholder/template mod demonstrating the basic structure and lifecycle of a KSA mod. Use this as a starting point for developing new mods—rename and implement documentation as needed.
+In-game Part editor for KSA. Compose new Parts by placing existing SubParts into a 3D scene with transform controls, then save the result as a KSA mod XML Part definition.
 
 ## Overview
 
-This is a **template/skeleton mod** showing:
-- Standard mod lifecycle (OnImmediateLoad, OnFullyLoaded, OnBeforeGui, OnAfterUi, Unload)
-- Basic ImGui window with F11 toggle
-- Harmony patcher setup/teardown
-- Library project separation
-- Standard project structure
+Space Tape lets you build custom vehicle parts interactively inside the game without a separate editor. You browse the SubPart catalog, drag pieces into a 3D editing scene, adjust transforms with gizmos (translate / rotate / scale), edit GameData fields in an ImGui property panel, and export a ready-to-use Part XML that can be hot-reloaded into the game.
 
-## What This Mod Contains
+## Planned Features
 
-### Files
+- **SubPart catalog browser** — filterable list with thumbnail previews (via inanimate-carbon-rod thumbnail pipeline)
+- **3D editing scene** — place SubParts in world space with interactive gizmos
+- **Transform controls** — per-SubPart position, rotation, and scale inputs
+- **GameData property panel** — edit attach-node positions, mass, drag, and other fields
+- **Part XML export** — writes a KSA-compatible Part definition to the `space-tape-parts` mod directory
+- **Hot-reload spike** — registers newly saved parts at runtime so you can test without a restart
+
+## Integration
+
+Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It appears as a collapsible panel in the Grant Toolbox window alongside other submods.
+
+## Project Structure
 
 | File | Purpose |
 |------|---------|
-| `Mod.cs` | Main mod class inheriting StarMapMod |
-| `Patcher.cs` | Harmony-based runtime patching setup |
-| `space-tape.csproj` | Main mod project |
-| `space-tape.lib/SpaceTapeLib.cs` | Library class (headless logic) |
+| `Mod.cs` | Standalone mod entry — F11 window toggle |
+| `Patcher.cs` | Harmony setup with HotkeyGuard |
+| `mod.toml` | StarMap mod descriptor |
+| `space-tape.lib/SpaceTapeSubmod.cs` | ISubmod entry point for grant integration |
 
-### Mod Lifecycle
-
-```
-OnImmediateLoad()        → Called first, before any other mods
-  ↓
-OnFullyLoaded()          → All mods loaded, safe to access others
   ↓
 OnBeforeGui() / OnAfterUi()  → Render ImGui every frame
   ↓
