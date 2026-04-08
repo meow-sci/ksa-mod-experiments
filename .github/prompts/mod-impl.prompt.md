@@ -9,6 +9,10 @@ use the ksa, mod-impl, rpc, harmony, genhttp skills as needed
 
 after each task is complete use the git-commit skill to create a commit before moving onto the next task
 
+find ksa decompiled sources under `decomp/ksa` as needed
+
+find the ksa game data Core mod files under `decomp/ksa/Content/Core` as needed
+
 ask me for any clarifications needed
 
 do a good job
