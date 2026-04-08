@@ -26,6 +26,16 @@ internal static class PartModelRendererPatch
         {
             Console.WriteLine($"space-tape: render patch error: {ex.Message}");
         }
+
+        // Update transform gizmo segment data so the engine's GizmoPass picks them up
+        try
+        {
+            SpaceTapeSubmod.Current?.UpdateScene(viewport);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"space-tape: gizmo update error: {ex.Message}");
+        }
     }
 }
 

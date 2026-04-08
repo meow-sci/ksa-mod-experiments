@@ -11,6 +11,9 @@ public sealed class SpaceTapeSubmod : ISubmod
     public string Name => "Space Tape";
     public string Tooltip => "In-game Part editor. Compose new Parts from existing SubParts.";
 
+    /// <summary>Active instance, read by the render patch to call UpdateScene per-frame.</summary>
+    public static SpaceTapeSubmod? Current { get; private set; }
+
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly PartEditorController _controller = new PartEditorController();
     private readonly PartEditorScene _scene = new PartEditorScene();
@@ -26,6 +29,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void Initialize()
     {
+        Current = this;
         PartRenderHelper.Patch();
     }
 
@@ -111,6 +115,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void Dispose()
     {
+        Current = null;
         PartRenderHelper.Unpatch();
         _gizmos.Dispose();
         _scene.Dispose();
