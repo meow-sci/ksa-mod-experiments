@@ -305,12 +305,18 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 
 ### [space-tape](space-tape) / [space-tape.lib](space-tape.lib)
 In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
-- SubPart catalog browser with thumbnail generation
-- 3D editing scene with gizmos for translate/rotate/scale
-- ImGui property panel with transform and GameData editing
-- Saves Part XML to space-tape-parts mod directory
+- SubPart catalog browser with animated thumbnail previews
+- 3D editing scene with gizmos for translate/rotate/scale and origin axis marker
+- Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
+- Fuel tank definition (Cylindrical/Spherical) with full material/density/mass config
+- Connector system — define attachment points with position, rotation, and flag types (Internal/ToSurface/FromSurface)
+- Coupling support — Decoupler, Docking Port, and EVA Door with connector references
+- Multiple Batteries, Generators, and Power Consumers per part
+- 3D connector gizmo visualization (color-coded by flag type, highlights selected)
+- ImGui property panel with transform editing, GameData sections (Tank, Power, Connectors, Coupling)
+- Saves Part XML + GameData XML to space-tape-parts mod directory with Tomlyn mod.toml management
 - Hot-reload spike for registering parts at runtime without restart
-- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point)
+- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
 
 ---
 

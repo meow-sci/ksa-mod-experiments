@@ -38,6 +38,14 @@ public sealed class PartEditorUi
 
     private int _selectedNewTagIndex;
 
+    // Import From Game state
+    private readonly PartCatalog _gameParts = new();
+    private int _selectedGamePartIndex = -1;
+    private readonly ImInputString _gamePartFilter = new ImInputString(128);
+    private List<int> _filteredGamePartIndices = new();
+    private string? _importStatusMessage;
+    private float4 _importStatusColor;
+
     // Transform options
     private bool _gridModeEnabled;
     private float _gridStep = 0.05f;
@@ -72,6 +80,8 @@ public sealed class PartEditorUi
             RenderToolbar(controller, gizmos, scene);
             ImGui.Spacing();
             RenderLoadSection(controller, scene, writer);
+            ImGui.Spacing();
+            RenderImportSection(controller, scene);
             ImGui.Spacing();
             RenderPartIdSection(controller);
             ImGui.Spacing();
@@ -505,6 +515,7 @@ public sealed class PartEditorUi
             _lastKnownDisplayName = gd.DisplayName;
         }
 
+        // --- Basic Info ---
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         if (ImGui.BeginTable("##st_gd_tbl", 2,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
@@ -526,18 +537,6 @@ public sealed class PartEditorUi
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
             double mass = gd.CustomMass ?? 0.0;
             if (ImGui.InputDouble("##st_mass", ref mass, 0.5)) gd.CustomMass = mass > 0 ? mass : (double?)null;
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Battery (kWh):");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            double battery = gd.BatteryCapacity ?? 0.0;
-            if (ImGui.InputDouble("##st_bat", ref battery, 0.1)) gd.BatteryCapacity = battery > 0 ? battery : (double?)null;
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Generator (W):");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            double gen = gd.GeneratorOutput ?? 0.0;
-            if (ImGui.InputDouble("##st_gen", ref gen, 1.0)) gd.GeneratorOutput = gen > 0 ? gen : (double?)null;
 
             ImGui.EndTable();
         }
@@ -569,6 +568,126 @@ public sealed class PartEditorUi
             string tag = KnownEditorTags[_selectedNewTagIndex];
             if (!gd.EditorTags.Contains(tag))
                 gd.EditorTags.Add(tag);
+        }
+
+        // --- Tank ---
+        ImGui.Spacing();
+        ImGui.SeparatorText("Tank");
+        GameDataEditorUi.RenderTankSection(gd);
+
+        // --- Power ---
+        ImGui.Spacing();
+        ImGui.SeparatorText("Power");
+        GameDataEditorUi.RenderPowerSection(gd);
+
+        // --- Connectors ---
+        ImGui.Spacing();
+        ImGui.SeparatorText("Connectors");
+        GameDataEditorUi.RenderConnectorsSection(gd);
+
+        // --- Coupling ---
+        ImGui.Spacing();
+        ImGui.SeparatorText("Coupling");
+        GameDataEditorUi.RenderCouplingSection(gd);
+    }
+
+    // -------------------------------------------------------------------------
+    // Import From Game Part
+    // -------------------------------------------------------------------------
+
+    private void RenderImportSection(PartEditorController controller, PartEditorScene scene)
+    {
+        if (!ImGui.CollapsingHeader("Import From Game Part##st_import")) return;
+
+        if (ImGui.Button(" Load Part List ##st_import_load"))
+            _gameParts.Load();
+
+        if (_gameParts.IsLoaded)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled($"({_gameParts.Parts.Count} parts)");
+        }
+
+        if (!_gameParts.IsLoaded || _gameParts.Parts.Count == 0)
+        {
+            ImGui.TextDisabled("Click 'Load Part List' to discover game parts.");
+            return;
+        }
+
+        // Filter
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Filter:");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputText("##st_import_filter", _gamePartFilter);
+
+        // Compute filtered indices
+        string filterText = _gamePartFilter.ToString().Trim();
+        _filteredGamePartIndices.Clear();
+        for (int i = 0; i < _gameParts.Parts.Count; i++)
+        {
+            var (id, displayName) = _gameParts.Parts[i];
+            if (string.IsNullOrEmpty(filterText)
+                || id.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                || displayName.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+            {
+                _filteredGamePartIndices.Add(i);
+            }
+        }
+
+        ImGui.TextDisabled($"{_filteredGamePartIndices.Count} matching");
+
+        // Combo
+        string preview = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count
+            ? $"{_gameParts.Parts[_selectedGamePartIndex].displayName}  ({_gameParts.Parts[_selectedGamePartIndex].id})"
+            : "(select a part)";
+
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##st_import_combo", preview))
+        {
+            for (int fi = 0; fi < _filteredGamePartIndices.Count; fi++)
+            {
+                int idx = _filteredGamePartIndices[fi];
+                var (id, displayName) = _gameParts.Parts[idx];
+                bool sel = idx == _selectedGamePartIndex;
+                if (ImGui.Selectable($"{displayName}  ({id})##st_ip{idx}", sel))
+                    _selectedGamePartIndex = idx;
+            }
+            ImGui.EndCombo();
+        }
+
+        ImGui.Spacing();
+
+        bool canImport = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count;
+        if (!canImport) ImGui.BeginDisabled();
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(new float4(0.1f, 0.5f, 0.7f, 1f)));
+        if (ImGui.Button(" Import ##st_import_btn") && canImport)
+        {
+            var partId = _gameParts.Parts[_selectedGamePartIndex].id;
+            var imported = PartImporter.ImportFromTemplate(partId);
+            if (imported != null)
+            {
+                controller.LoadPart(imported);
+                if (scene.IsActive)
+                    scene.SyncParts(controller.CurrentPart);
+                _importStatusMessage = $"Imported '{partId}' ({imported.Placements.Count} SubParts, {imported.GameData.Connectors.Count} Connectors)";
+                _importStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
+                _lastKnownPartId = "";
+                _lastKnownPlacementIndex = -2;
+                _saveStatusMessage = null;
+            }
+            else
+            {
+                _importStatusMessage = $"Failed to import '{partId}'";
+                _importStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
+            }
+        }
+        ImGui.PopStyleColor();
+        if (!canImport) ImGui.EndDisabled();
+
+        if (_importStatusMessage != null)
+        {
+            ImGui.TextColored(_importStatusColor, _importStatusMessage);
         }
     }
 

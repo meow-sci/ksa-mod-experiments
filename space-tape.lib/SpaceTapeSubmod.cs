@@ -41,7 +41,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     /// <summary>Updates the origin gizmo for the current viewport. Call once per frame from the game's render loop.</summary>
     public void UpdateScene(Viewport viewport)
     {
-        _scene.UpdateGizmo(viewport);
+        _scene.UpdateGizmo(viewport, _controller.CurrentPart);
         if (_scene.IsActive)
         {
             double4x4 matrix = _scene.GetMatrixAsmb2Ego(viewport);

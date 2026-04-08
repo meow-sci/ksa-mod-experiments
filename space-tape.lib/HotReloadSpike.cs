@@ -84,12 +84,14 @@ public static class HotReloadSpike
 
     private static PartTemplate BuildTemplate(EditingPart editingPart)
     {
+        var gd = editingPart.GameData;
+
         var template = new PartTemplate
         {
             Id = editingPart.PartId,
-            DisplayName = string.IsNullOrWhiteSpace(editingPart.GameData.DisplayName)
+            DisplayName = string.IsNullOrWhiteSpace(gd.DisplayName)
                 ? editingPart.PartId
-                : editingPart.GameData.DisplayName
+                : gd.DisplayName
         };
 
         // Add SubPart instances
@@ -110,17 +112,119 @@ public static class HotReloadSpike
         }
 
         // Add editor tags as StringReferences
-        foreach (var tag in editingPart.GameData.EditorTags)
+        foreach (var tag in gd.EditorTags)
             template.EditorTagsStrings.Add(new StringReference { Value = tag });
 
         // Custom mass (kg)
-        if (editingPart.GameData.CustomMass.HasValue && editingPart.GameData.CustomMass.Value > 0)
+        if (gd.CustomMass.HasValue && gd.CustomMass.Value > 0)
         {
             template.InertMasses.Add(new CustomMassTemplate
             {
-                Mass = new MassReference(editingPart.GameData.CustomMass.Value)
+                Mass = new MassReference(gd.CustomMass.Value)
             });
         }
+
+        // Tank
+        if (gd.Tank != null)
+        {
+            if (gd.Tank.Shape == TankShape.Cylindrical)
+            {
+                template.Tank = new CylindricalTankTemplate
+                {
+                    LocationAsmb = new Vector3Reference(gd.Tank.LocationAsmb),
+                    Paf2Asmb = new Vector3Reference(gd.Tank.Paf2Asmb),
+                    Density = new DensityReference(gd.Tank.WallDensityKgPerM3),
+                    Length = new DistanceReference(gd.Tank.LengthM),
+                    OuterRadius = new DistanceReference(gd.Tank.OuterRadiusM),
+                    WallThickness = new DistanceReference(gd.Tank.WallThicknessMm / 1000.0),
+                    DomeHeightFraction = gd.Tank.DomeHeightFraction,
+                };
+            }
+            else
+            {
+                template.Tank = new SphericalTankTemplate
+                {
+                    LocationAsmb = new Vector3Reference(gd.Tank.LocationAsmb),
+                    Paf2Asmb = new Vector3Reference(gd.Tank.Paf2Asmb),
+                    Density = new DensityReference(gd.Tank.WallDensityKgPerM3),
+                    OuterRadius = new DistanceReference(gd.Tank.OuterRadiusM),
+                    WallThickness = new DistanceReference(gd.Tank.WallThicknessMm / 1000.0),
+                };
+            }
+            if (gd.Tank.WallMassKg.HasValue)
+                template.Tank.Mass = new MassReference(gd.Tank.WallMassKg.Value);
+            if (!string.IsNullOrWhiteSpace(gd.Tank.WallMaterialId))
+                template.Tank.Material = new SerializedReference(gd.Tank.WallMaterialId);
+        }
+
+        // Connectors
+        foreach (var c in gd.Connectors)
+        {
+            var flags = (Part.Connector.Flag)0;
+            if (c.FlagInternal) flags |= Part.Connector.Flag.Internal;
+            if (c.FlagToSurface) flags |= Part.Connector.Flag.ToSurface;
+            if (c.FlagFromSurface) flags |= Part.Connector.Flag.FromSurface;
+
+            template.Connectors.Add(new Part.Connector.TemplateBase
+            {
+                Id = c.Id,
+                Transform = new TransformReference
+                {
+                    PositionValue = c.Position,
+                    RotationValue = c.Rotation,
+                    ScaleValue = c.Scale,
+                },
+                Flags = flags,
+            });
+        }
+
+        // Batteries
+        foreach (var b in gd.Batteries)
+        {
+            var jr = new JoulesReference { KWh = (float)b.CapacityKWh };
+            jr.OnDataLoad(Mod.Empty);
+            template.Batteries.Add(new BatteryTemplate { MaximumCapacity = jr });
+        }
+
+        // Generators
+        foreach (var g in gd.Generators)
+        {
+            var jr = new JoulesReference { W = (float)g.OutputWatts };
+            jr.OnDataLoad(Mod.Empty);
+            template.Generators.Add(new GeneratorTemplate { Produced = jr });
+        }
+
+        // PowerConsumers
+        foreach (var pc in gd.PowerConsumers)
+        {
+            var jr = new JoulesReference { W = (float)pc.ConsumedWatts };
+            jr.OnDataLoad(Mod.Empty);
+            template.PowerConsumers.Add(new PowerConsumerTemplate { Consumed = jr });
+        }
+
+        // Decoupler
+        if (gd.Decoupler != null)
+        {
+            template.Decoupler = new DecouplerTemplate
+            {
+                ConnectorId = gd.Decoupler.ConnectorId,
+                Force = (float)gd.Decoupler.Force,
+            };
+        }
+
+        // DockingPort
+        if (gd.DockingPort != null)
+        {
+            template.DockingPort = new DockingPortTemplate
+            {
+                ConnectorId = gd.DockingPort.ConnectorId,
+                Force = (float)gd.DockingPort.Force,
+            };
+        }
+
+        // EVADoor (marker only — no settable properties)
+        if (gd.EVADoor != null)
+            template.EVADoor = new EVADoorTemplate();
 
         return template;
     }

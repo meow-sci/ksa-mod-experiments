@@ -14,6 +14,7 @@ public sealed class PartEditorScene : IDisposable
 {
     private VehicleEditingSpace? _editingSpace;
     private GenericGizmo? _originGizmo;
+    private ConnectorGizmo? _connectorGizmo;
     private IFollowable? _savedFollowing;
     private readonly List<Part> _editorParts = new();
 
@@ -111,6 +112,8 @@ public sealed class PartEditorScene : IDisposable
         {
             _editorParts.Clear();
             Current = null;
+            _connectorGizmo?.Dispose();
+            _connectorGizmo = null;
             _originGizmo?.Dispose();
             _originGizmo = null;
             _editingSpace = null;
@@ -124,7 +127,7 @@ public sealed class PartEditorScene : IDisposable
     /// Updates the origin axis gizmo for the current viewport.
     /// Must be called once per frame when the editor is active.
     /// </summary>
-    public void UpdateGizmo(Viewport viewport)
+    public void UpdateGizmo(Viewport viewport, EditingPart? editingPart)
     {
         if (!IsActive || _originGizmo == null || _editingSpace == null)
         {
@@ -133,44 +136,61 @@ public sealed class PartEditorScene : IDisposable
                 // Gizmo exists but editor not active — hide all segments
                 DeactivateGizmoSegments(viewport);
             }
+            _connectorGizmo?.Deactivate(viewport);
             return;
         }
 
         if (!OriginVisible)
         {
             DeactivateGizmoSegments(viewport);
-            return;
         }
 
         try
         {
             Camera camera = viewport.GetCamera();
             double4x4 matrix = _editingSpace.GetMatrixAsmb2Ego(camera);
-            double3 originEgo = double3.Zero.Transform(matrix);
-            double a = OriginAlpha;
 
-            GenericGizmo.PerSegmentData[] seg = _originGizmo.GetSegmentDataByViewport(viewport);
+            if (OriginVisible)
+            {
+                double3 originEgo = double3.Zero.Transform(matrix);
+                double a = OriginAlpha;
 
-            // X axis — red, elongated in X
-            seg[0].Active = true;
-            seg[0].PositionEgo = originEgo;
-            seg[0].Body2Cce = doubleQuat.Identity;
-            seg[0].Scale = new double3(0.5, 0.02, 0.02);
-            seg[0].Color = new double4(1.0, 0.0, 0.0, a);
+                GenericGizmo.PerSegmentData[] seg = _originGizmo.GetSegmentDataByViewport(viewport);
 
-            // Y axis — green, elongated in Y
-            seg[1].Active = true;
-            seg[1].PositionEgo = originEgo;
-            seg[1].Body2Cce = doubleQuat.Identity;
-            seg[1].Scale = new double3(0.02, 0.5, 0.02);
-            seg[1].Color = new double4(0.0, 1.0, 0.0, a);
+                // X axis — red, elongated in X
+                seg[0].Active = true;
+                seg[0].PositionEgo = originEgo;
+                seg[0].Body2Cce = doubleQuat.Identity;
+                seg[0].Scale = new double3(0.5, 0.02, 0.02);
+                seg[0].Color = new double4(1.0, 0.0, 0.0, a);
 
-            // Z axis — blue, elongated in Z
-            seg[2].Active = true;
-            seg[2].PositionEgo = originEgo;
-            seg[2].Body2Cce = doubleQuat.Identity;
-            seg[2].Scale = new double3(0.02, 0.02, 0.5);
-            seg[2].Color = new double4(0.0, 0.0, 1.0, a);
+                // Y axis — green, elongated in Y
+                seg[1].Active = true;
+                seg[1].PositionEgo = originEgo;
+                seg[1].Body2Cce = doubleQuat.Identity;
+                seg[1].Scale = new double3(0.02, 0.5, 0.02);
+                seg[1].Color = new double4(0.0, 1.0, 0.0, a);
+
+                // Z axis — blue, elongated in Z
+                seg[2].Active = true;
+                seg[2].PositionEgo = originEgo;
+                seg[2].Body2Cce = doubleQuat.Identity;
+                seg[2].Scale = new double3(0.02, 0.02, 0.5);
+                seg[2].Color = new double4(0.0, 0.0, 1.0, a);
+            }
+
+            // Connector gizmos
+            if (editingPart != null && editingPart.GameData.Connectors.Count > 0)
+            {
+                _connectorGizmo ??= new ConnectorGizmo();
+                _connectorGizmo.EnsureCapacity(editingPart.GameData.Connectors.Count);
+                _connectorGizmo.Update(viewport, editingPart.GameData.Connectors,
+                    GameDataEditorUi.SelectedConnectorIndex, matrix);
+            }
+            else
+            {
+                _connectorGizmo?.Deactivate(viewport);
+            }
         }
         catch (Exception ex)
         {
@@ -218,6 +238,8 @@ public sealed class PartEditorScene : IDisposable
     public void Dispose()
     {
         if (IsActive) Exit();
+        _connectorGizmo?.Dispose();
+        _connectorGizmo = null;
         _originGizmo?.Dispose();
         _originGizmo = null;
     }

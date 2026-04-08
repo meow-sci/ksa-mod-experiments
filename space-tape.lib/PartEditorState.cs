@@ -38,11 +38,14 @@ public sealed class PartGameDataState
     /// <summary>Mass in kg (null = no custom mass defined).</summary>
     public double? CustomMass { get; set; }
 
-    /// <summary>Battery capacity in watt-hours (null = no battery).</summary>
-    public double? BatteryCapacity { get; set; }
-
-    /// <summary>Generator output in watts (null = no generator).</summary>
-    public double? GeneratorOutput { get; set; }
+    public List<BatteryState> Batteries { get; set; } = new();
+    public List<GeneratorState> Generators { get; set; } = new();
+    public List<PowerConsumerState> PowerConsumers { get; set; } = new();
+    public TankState? Tank { get; set; }
+    public List<ConnectorState> Connectors { get; set; } = new();
+    public DecouplerState? Decoupler { get; set; }
+    public DockingPortState? DockingPort { get; set; }
+    public EVADoorState? EVADoor { get; set; }
 }
 
 /// <summary>
@@ -66,8 +69,14 @@ public sealed class EditingPart
         clone.GameData.DisplayName = GameData.DisplayName;
         clone.GameData.EditorTags.AddRange(GameData.EditorTags);
         clone.GameData.CustomMass = GameData.CustomMass;
-        clone.GameData.BatteryCapacity = GameData.BatteryCapacity;
-        clone.GameData.GeneratorOutput = GameData.GeneratorOutput;
+        foreach (var b in GameData.Batteries) clone.GameData.Batteries.Add(b.Clone());
+        foreach (var g in GameData.Generators) clone.GameData.Generators.Add(g.Clone());
+        foreach (var pc in GameData.PowerConsumers) clone.GameData.PowerConsumers.Add(pc.Clone());
+        clone.GameData.Tank = GameData.Tank?.Clone();
+        foreach (var c in GameData.Connectors) clone.GameData.Connectors.Add(c.Clone());
+        clone.GameData.Decoupler = GameData.Decoupler?.Clone();
+        clone.GameData.DockingPort = GameData.DockingPort?.Clone();
+        clone.GameData.EVADoor = GameData.EVADoor?.Clone();
         foreach (var p in Placements)
             clone.Placements.Add(new SubPartPlacement
             {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Brutal.Numerics;
@@ -24,6 +25,24 @@ public static class PartXmlSerializer
                 subPartEl.Add(transformEl);
             partEl.Add(subPartEl);
         }
+
+        foreach (var c in part.GameData.Connectors)
+        {
+            var connEl = new XElement("Connector", new XAttribute("Id", c.Id));
+            var transformEl = SerializeTransform(c.Position, c.Rotation, c.Scale);
+            if (transformEl != null)
+                connEl.Add(transformEl);
+
+            var flags = new List<string>();
+            if (c.FlagInternal) flags.Add("Internal");
+            if (c.FlagToSurface) flags.Add("ToSurface");
+            if (c.FlagFromSurface) flags.Add("FromSurface");
+            if (flags.Count > 0)
+                connEl.Add(new XElement("Flags", string.Join(", ", flags)));
+
+            partEl.Add(connEl);
+        }
+
         return partEl;
     }
 

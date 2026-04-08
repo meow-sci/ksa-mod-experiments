@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -21,16 +22,96 @@ public static class GameDataXmlSerializer
             el.Add(new XElement("CustomMass",
                 new XElement("Mass", new XAttribute("Kg", gameData.CustomMass.Value.ToString("G6")))));
 
-        if (gameData.BatteryCapacity.HasValue && gameData.BatteryCapacity.Value > 0)
-            el.Add(new XElement("Battery",
-                new XElement("MaximumCapacity", new XAttribute("KWh", gameData.BatteryCapacity.Value.ToString("G6")))));
+        if (gameData.Tank != null)
+            el.Add(SerializeTank(gameData.Tank));
 
-        if (gameData.GeneratorOutput.HasValue && gameData.GeneratorOutput.Value > 0)
+        foreach (var battery in gameData.Batteries)
+            el.Add(new XElement("Battery",
+                new XElement("MaximumCapacity", new XAttribute("KWh", battery.CapacityKWh.ToString("G6")))));
+
+        foreach (var gen in gameData.Generators)
             el.Add(new XElement("Generator",
-                new XElement("Produced", new XAttribute("W", gameData.GeneratorOutput.Value.ToString("G6")))));
+                new XElement("Produced", new XAttribute("W", gen.OutputWatts.ToString("G6")))));
+
+        foreach (var pc in gameData.PowerConsumers)
+            el.Add(new XElement("PowerConsumer",
+                new XElement("Consumed", new XAttribute("W", pc.ConsumedWatts.ToString("G6")))));
+
+        foreach (var c in gameData.Connectors)
+            el.Add(SerializeConnector(c));
+
+        if (gameData.Decoupler != null)
+            el.Add(SerializeDecoupler(gameData.Decoupler));
+
+        if (gameData.DockingPort != null)
+            el.Add(SerializeDockingPort(gameData.DockingPort));
+
+        if (gameData.EVADoor != null)
+            el.Add(SerializeEVADoor(gameData.EVADoor));
 
         return el;
     }
+
+    private static XElement SerializeTank(TankState tank)
+    {
+        string elName = tank.Shape == TankShape.Cylindrical ? "CylindricalTank" : "SphericalTank";
+        var el = new XElement(elName);
+
+        el.Add(SerializeVector3Element("LocationAsmb", tank.LocationAsmb));
+        el.Add(SerializeVector3Element("Paf2Asmb", tank.Paf2Asmb));
+
+        if (tank.WallMassKg.HasValue)
+            el.Add(new XElement("Mass", new XAttribute("Kg", tank.WallMassKg.Value.ToString("G6"))));
+        el.Add(new XElement("Density", new XAttribute("KgPerM3", tank.WallDensityKgPerM3.ToString("G6"))));
+        if (!string.IsNullOrWhiteSpace(tank.WallMaterialId))
+            el.Add(new XElement("Material", new XAttribute("Value", tank.WallMaterialId)));
+
+        el.Add(new XElement("OuterRadius", new XAttribute("M", tank.OuterRadiusM.ToString("G6"))));
+        el.Add(new XElement("WallThickness", new XAttribute("Mm", tank.WallThicknessMm.ToString("G6"))));
+
+        if (tank.Shape == TankShape.Cylindrical)
+        {
+            el.Add(new XElement("Length", new XAttribute("M", tank.LengthM.ToString("G6"))));
+            el.Add(new XElement("DomeHeightFraction", new XAttribute("Value", tank.DomeHeightFraction.ToString("G6"))));
+        }
+
+        return el;
+    }
+
+    private static XElement SerializeVector3Element(string name, Brutal.Numerics.double3 v)
+    {
+        var el = new XElement(name);
+        el.Add(new XAttribute("X", v.X.ToString("G6")));
+        el.Add(new XAttribute("Y", v.Y.ToString("G6")));
+        el.Add(new XAttribute("Z", v.Z.ToString("G6")));
+        return el;
+    }
+
+    private static XElement SerializeConnector(ConnectorState c)
+    {
+        var el = new XElement("Connector", new XAttribute("Id", c.Id));
+        var flags = new List<string>();
+        if (c.FlagInternal) flags.Add("Internal");
+        if (c.FlagToSurface) flags.Add("ToSurface");
+        if (c.FlagFromSurface) flags.Add("FromSurface");
+        if (flags.Count > 0)
+            el.Add(new XElement("Flags", string.Join(", ", flags)));
+        return el;
+    }
+
+    private static XElement SerializeDecoupler(DecouplerState d)
+        => new XElement("Decoupler",
+            new XAttribute("ConnectorId", d.ConnectorId),
+            new XAttribute("Force", d.Force.ToString("G6")));
+
+    private static XElement SerializeDockingPort(DockingPortState dp)
+        => new XElement("DockingPort",
+            new XAttribute("ConnectorId", dp.ConnectorId),
+            new XAttribute("Force", dp.Force.ToString("G6")));
+
+    private static XElement SerializeEVADoor(EVADoorState e)
+        => new XElement("EVADoor",
+            new XAttribute("ConnectorId", e.ConnectorId));
 
     /// <summary>Creates a complete Assets XDocument containing the given &lt;PartGameData&gt; element.</summary>
     public static XDocument CreateGameDataDocument(XElement gameDataElement)

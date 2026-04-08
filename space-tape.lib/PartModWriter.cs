@@ -184,6 +184,28 @@ public sealed class PartModWriter
                 editingPart.Placements.Add(placement);
             }
 
+            // Parse Connectors from Assets XML (geometry: position/rotation/scale + flags)
+            foreach (var connEl in partEl.Elements("Connector"))
+            {
+                var connId = connEl.Attribute("Id")?.Value ?? "";
+                if (string.IsNullOrEmpty(connId)) continue;
+
+                var conn = new ConnectorState { Id = connId };
+                var transformEl = connEl.Element("Transform");
+                if (transformEl != null)
+                {
+                    conn.Position = ParseVector3(transformEl.Element("Position"), double3.Zero);
+                    conn.Rotation = ParseRotation(transformEl.Element("Rotation"));
+                    conn.Scale = ParseVector3(transformEl.Element("Scale"), double3.One);
+                }
+                var flagsStr = connEl.Element("Flags")?.Value ?? "";
+                conn.FlagInternal = flagsStr.Contains("Internal");
+                conn.FlagToSurface = flagsStr.Contains("ToSurface");
+                conn.FlagFromSurface = flagsStr.Contains("FromSurface");
+
+                editingPart.GameData.Connectors.Add(conn);
+            }
+
             string gameDataPath = Path.Combine(ModDir, fileName + ".gamedata.xml");
             if (File.Exists(gameDataPath))
                 LoadGameData(editingPart, gameDataPath, partId);
@@ -213,20 +235,124 @@ public sealed class PartModWriter
                 part.GameData.EditorTags.Add(val);
         }
 
+        // CustomMass
         var massEl = gdEl.Element("CustomMass")?.Element("Mass");
-        if (massEl != null && double.TryParse(massEl.Attribute("Kg")?.Value,
-                NumberStyles.Any, CultureInfo.InvariantCulture, out double mass))
+        if (massEl != null && TryParseDouble(massEl, "Kg", out double mass))
             part.GameData.CustomMass = mass;
 
-        var battEl = gdEl.Element("Battery")?.Element("MaximumCapacity");
-        if (battEl != null && double.TryParse(battEl.Attribute("KWh")?.Value,
-                NumberStyles.Any, CultureInfo.InvariantCulture, out double kwh))
-            part.GameData.BatteryCapacity = kwh;
+        // Tank (CylindricalTank or SphericalTank)
+        var cylEl = gdEl.Element("CylindricalTank");
+        var sphEl = gdEl.Element("SphericalTank");
+        var tankEl = cylEl ?? sphEl;
+        if (tankEl != null)
+        {
+            var tank = new TankState
+            {
+                Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
+            };
+            tank.LocationAsmb = ParseVector3(tankEl.Element("LocationAsmb"), double3.Zero);
+            tank.Paf2Asmb = ParseVector3(tankEl.Element("Paf2Asmb"), double3.Zero);
+            if (TryParseDouble(tankEl.Element("Mass"), "Kg", out double wallMass))
+                tank.WallMassKg = wallMass;
+            if (TryParseDouble(tankEl.Element("Density"), "KgPerM3", out double density))
+                tank.WallDensityKgPerM3 = density;
+            tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Value")?.Value ?? "";
+            if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
+                tank.OuterRadiusM = outerR;
+            if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
+                tank.WallThicknessMm = wallMm;
+            if (cylEl != null)
+            {
+                if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
+                    tank.LengthM = length;
+                if (TryParseDouble(tankEl.Element("DomeHeightFraction"), "Value", out double dome))
+                    tank.DomeHeightFraction = dome;
+            }
+            part.GameData.Tank = tank;
+        }
 
-        var genEl = gdEl.Element("Generator")?.Element("Produced");
-        if (genEl != null && double.TryParse(genEl.Attribute("W")?.Value,
-                NumberStyles.Any, CultureInfo.InvariantCulture, out double watts))
-            part.GameData.GeneratorOutput = watts;
+        // Batteries (multiple)
+        foreach (var battEl in gdEl.Elements("Battery"))
+        {
+            var capEl = battEl.Element("MaximumCapacity");
+            if (capEl != null && TryParseDouble(capEl, "KWh", out double kwh))
+                part.GameData.Batteries.Add(new BatteryState { CapacityKWh = kwh });
+        }
+
+        // Generators (multiple)
+        foreach (var genEl in gdEl.Elements("Generator"))
+        {
+            var prodEl = genEl.Element("Produced");
+            if (prodEl != null && TryParseDouble(prodEl, "W", out double watts))
+                part.GameData.Generators.Add(new GeneratorState { OutputWatts = watts });
+        }
+
+        // PowerConsumers (multiple)
+        foreach (var pcEl in gdEl.Elements("PowerConsumer"))
+        {
+            var consEl = pcEl.Element("Consumed");
+            if (consEl != null && TryParseDouble(consEl, "W", out double pcWatts))
+                part.GameData.PowerConsumers.Add(new PowerConsumerState { ConsumedWatts = pcWatts });
+        }
+
+        // Connectors (GameData flags — merge with any already loaded from Assets XML)
+        foreach (var connEl in gdEl.Elements("Connector"))
+        {
+            var connId = connEl.Attribute("Id")?.Value ?? "";
+            var flagsStr = connEl.Element("Flags")?.Value ?? "";
+
+            var existing = part.GameData.Connectors.FirstOrDefault(c => c.Id == connId);
+            if (existing != null)
+            {
+                if (flagsStr.Contains("Internal")) existing.FlagInternal = true;
+                if (flagsStr.Contains("ToSurface")) existing.FlagToSurface = true;
+                if (flagsStr.Contains("FromSurface")) existing.FlagFromSurface = true;
+            }
+            else
+            {
+                part.GameData.Connectors.Add(new ConnectorState
+                {
+                    Id = connId,
+                    FlagInternal = flagsStr.Contains("Internal"),
+                    FlagToSurface = flagsStr.Contains("ToSurface"),
+                    FlagFromSurface = flagsStr.Contains("FromSurface"),
+                });
+            }
+        }
+
+        // Decoupler
+        var decEl = gdEl.Element("Decoupler");
+        if (decEl != null)
+        {
+            part.GameData.Decoupler = new DecouplerState
+            {
+                ConnectorId = decEl.Attribute("ConnectorId")?.Value ?? "",
+                Force = double.TryParse(decEl.Attribute("Force")?.Value,
+                    NumberStyles.Any, CultureInfo.InvariantCulture, out double f) ? f : 500.0
+            };
+        }
+
+        // DockingPort
+        var dpEl = gdEl.Element("DockingPort");
+        if (dpEl != null)
+        {
+            part.GameData.DockingPort = new DockingPortState
+            {
+                ConnectorId = dpEl.Attribute("ConnectorId")?.Value ?? "",
+                Force = double.TryParse(dpEl.Attribute("Force")?.Value,
+                    NumberStyles.Any, CultureInfo.InvariantCulture, out double f) ? f : 500.0
+            };
+        }
+
+        // EVADoor
+        var evaEl = gdEl.Element("EVADoor");
+        if (evaEl != null)
+        {
+            part.GameData.EVADoor = new EVADoorState
+            {
+                ConnectorId = evaEl.Attribute("ConnectorId")?.Value ?? "",
+            };
+        }
     }
 
     /// <summary>
@@ -359,5 +485,13 @@ public sealed class PartModWriter
         if (el == null) return doubleQuat.Identity;
         var euler = ParseVector3(el, double3.Zero);
         return QuaternionEx.CreateFromXyzRadians(euler);
+    }
+
+    private static bool TryParseDouble(XElement? el, string attrName, out double value)
+    {
+        value = 0;
+        return el != null && double.TryParse(
+            el.Attribute(attrName)?.Value,
+            NumberStyles.Any, CultureInfo.InvariantCulture, out value);
     }
 }
