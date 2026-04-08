@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "ilspycmd": {
-      "version": "9.1.0.7988",
+      "version": "10.0.0.8330",
       "commands": [
         "ilspycmd"
       ],
