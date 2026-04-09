@@ -16,7 +16,7 @@ public sealed class SubPartCatalog
     private List<PartTemplate>? _subparts;
     private readonly ImInputString _filter = new ImInputString(256);
     private readonly List<PartTemplate> _filtered = new();
-    private float _thumbDisplaySize = 64f;
+    private float _thumbDisplaySize = 128f;
 
     // Thumbnail animation
     private double _animTimer;
@@ -64,20 +64,79 @@ public sealed class SubPartCatalog
         _animTimer += dt;
     }
 
-    public void Render()
+    public void Render(PartEditorScene? scene, ref bool editorWindowOpen)
     {
-        if (ImGui.Button("Load SubParts##st_cat"))
-            LoadSubParts();
-
-        if (_subparts != null)
+        // --- Control Panel (2-col, 5-row table) - ALWAYS VISIBLE ---
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        var tableFlags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
+        if (ImGui.BeginTable("##st_cat_ctrl", 2, tableFlags))
         {
-            ImGui.SameLine();
-            ImGui.TextDisabled($"({_subparts.Count} sub-parts)");
-        }
+            // Row 1: [Open/Close Editor toggle] | [Editor Window]
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (scene == null) ImGui.BeginDisabled();
+            if (scene != null && scene.IsActive)
+            {
+                if (ImGui.Button(" Close Editor ##st_cat_editor_close", new float2(-1, 0)))
+                    scene.Exit();
+            }
+            else
+            {
+                if (ImGui.Button(" Open Editor ##st_cat_editor_open", new float2(-1, 0)))
+                {
+                    scene?.Enter();
+                    editorWindowOpen = true;
+                }
+            }
+            if (scene == null) ImGui.EndDisabled();
 
+            ImGui.TableNextColumn();
+            if (ImGui.Button(" Editor Window ##st_cat_editor_win", new float2(-1, 0)))
+                editorWindowOpen = !editorWindowOpen;
+
+            // Row 2: [Load SubParts] | (subpart count)
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (ImGui.Button(" Load SubParts##st_cat", new float2(-1, 0)))
+                LoadSubParts();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text(_subparts != null ? $"({_subparts.Count} sub-parts)" : "(0 sub-parts)");
+
+            // Row 3: Thumb Size | [drag slider]
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Thumb Size");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat("##st_cat_thumbsize", ref _thumbDisplaySize, 1f, 32f, 256f, "%.0f");
+
+            // Row 4: Animation Delay | [drag slider]
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Anim Delay");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.DragInt("##st_cat_animdelay", ref _animTickMs, 5, 16, 500, "%d ms");
+
+            // Row 5: Filter | [text input]
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Filter");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputText("##st_cat_filter", _filter);
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+
+        ImGui.Spacing();
+
+        // --- Grid of SubPart Thumbnails ---
         if (_subparts == null)
         {
-            ImGui.TextDisabled("Click 'Load SubParts' to discover available sub-parts.");
+            ImGui.TextDisabled("Click the 'Load SubParts' button above to discover available sub-parts.");
             return;
         }
 
@@ -86,17 +145,6 @@ public sealed class SubPartCatalog
             ImGui.TextDisabled("No sub-parts found.");
             return;
         }
-
-        // Filter input
-        ImGui.AlignTextToFramePadding();
-        ImGui.Text("Filter");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##st_cat_filter", _filter);
-
-        // Thumbnail size + animation speed
-        ImGui.SliderFloat("Thumb Size##st_cat", ref _thumbDisplaySize, 32f, 128f);
-        ImGui.SliderInt("Anim Delay##st_cat", ref _animTickMs, 16, 500, "%d ms");
 
         // Rebuild filtered list
         string filterText = _filter.ToString();
@@ -229,7 +277,5 @@ public sealed class SubPartCatalog
             ImGui.Dummy(new float2(0, rowsBelow * cellHeight));
 
         ImGui.EndChild();
-
-        ImGui.Text($"Selected: {SelectedSubPartId ?? "(none)"}");
     }
 }

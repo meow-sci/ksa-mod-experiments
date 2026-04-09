@@ -76,34 +76,10 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     private void RenderContentInner()
     {
-        // Editor scene controls
-        ImGui.SeparatorText("Part Editor");
-
-        bool isActive = _scene.IsActive;
-        if (isActive)
-        {
-            ImGui.TextColored(new float4(0.2f, 1f, 0.2f, 1f), "Editor: ACTIVE");
-            ImGui.SameLine();
-            if (ImGui.Button(" Close Editor ##st_exit")) _scene.Exit();
-            ImGui.SameLine();
-            if (ImGui.Button(" Editor Window ##st_win")) _ui.WindowOpen = !_ui.WindowOpen;
-        }
-        else
-        {
-            ImGui.TextDisabled("Editor: Inactive");
-            ImGui.SameLine();
-            if (ImGui.Button(" Open Editor ##st_enter"))
-            {
-                _scene.Enter();
-                _ui.WindowOpen = true;
-            }
-        }
-
-        ImGui.Spacing();
-
-        // SubPart catalog (only useful when editor is active)
-        ImGui.SeparatorText("SubPart Catalog");
-        _catalog.Render();
+        // SubPart catalog
+        bool editorWindowOpen = _ui.WindowOpen;
+        _catalog.Render(_scene, ref editorWindowOpen);
+        _ui.WindowOpen = editorWindowOpen;
 
         string? selected = _catalog.TakeSelectedSubPartId();
         if (selected != null && _scene.IsActive)

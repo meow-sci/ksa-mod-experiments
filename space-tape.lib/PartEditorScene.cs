@@ -31,6 +31,9 @@ public sealed class PartEditorScene : IDisposable
     /// <summary>Alpha transparency of the origin axis marker (0 = transparent, 1 = opaque).</summary>
     public float OriginAlpha { get; set; } = 0.8f;
 
+    /// <summary>Size scale multiplier applied to the origin axis marker arms.</summary>
+    public float OriginSize { get; set; } = 1.0f;
+
     public IReadOnlyList<Part> EditorParts => _editorParts;
 
     /// <summary>
@@ -157,25 +160,27 @@ public sealed class PartEditorScene : IDisposable
 
                 GenericGizmo.PerSegmentData[] seg = _originGizmo.GetSegmentDataByViewport(viewport);
 
+                double s = OriginSize;
+
                 // X axis — red, elongated in X
                 seg[0].Active = true;
                 seg[0].PositionEgo = originEgo;
                 seg[0].Body2Cce = doubleQuat.Identity;
-                seg[0].Scale = new double3(0.5, 0.02, 0.02);
+                seg[0].Scale = new double3(0.5 * s, 0.02 * s, 0.02 * s);
                 seg[0].Color = new double4(1.0, 0.0, 0.0, a);
 
                 // Y axis — green, elongated in Y
                 seg[1].Active = true;
                 seg[1].PositionEgo = originEgo;
                 seg[1].Body2Cce = doubleQuat.Identity;
-                seg[1].Scale = new double3(0.02, 0.5, 0.02);
+                seg[1].Scale = new double3(0.02 * s, 0.5 * s, 0.02 * s);
                 seg[1].Color = new double4(0.0, 1.0, 0.0, a);
 
                 // Z axis — blue, elongated in Z
                 seg[2].Active = true;
                 seg[2].PositionEgo = originEgo;
                 seg[2].Body2Cce = doubleQuat.Identity;
-                seg[2].Scale = new double3(0.02, 0.02, 0.5);
+                seg[2].Scale = new double3(0.02 * s, 0.02 * s, 0.5 * s);
                 seg[2].Color = new double4(0.0, 0.0, 1.0, a);
             }
 

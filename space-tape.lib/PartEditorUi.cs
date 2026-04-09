@@ -51,10 +51,13 @@ public sealed class PartEditorUi
     private float _gridStep = 0.05f;
     private bool _rotSnapEnabled;
     private float _rotSnapDeg = 15f;
+    private PartEditorGizmos.GizmoMode _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate;
 
     // Load section state
     private List<(string partId, string fileName)> _savedParts = new();
     private int _selectedSavedPartIndex = -1;
+    private readonly ImInputString _loadFilter = new ImInputString(128);
+    private List<int> _filteredSavedPartIndices = new();
     private string? _loadStatusMessage;
     private float4 _loadStatusColor;
 
@@ -103,22 +106,6 @@ public sealed class PartEditorUi
 
     private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorScene scene)
     {
-        ImGui.SeparatorText("Active Gizmo");
-
-        if (ImGui.RadioButton(" None ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.None))
-            gizmos.ActiveMode = PartEditorGizmos.GizmoMode.None;
-        ImGui.SameLine();
-        if (ImGui.RadioButton(" Translate ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
-            gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate;
-        ImGui.SameLine();
-        if (ImGui.RadioButton(" Rotate ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
-            gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate;
-        ImGui.SameLine();
-        if (ImGui.RadioButton(" Scale ", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
-            gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale;
-
-        ImGui.Spacing();
-
         if (!controller.CanUndo) ImGui.BeginDisabled();
         if (ImGui.Button(" Undo ")) controller.Undo();
         if (!controller.CanUndo) ImGui.EndDisabled();
@@ -133,39 +120,103 @@ public sealed class PartEditorUi
         if (ImGui.Button(" New Part "))
         {
             controller.NewPart();
+            scene.SyncParts(controller.CurrentPart);
             _saveStatusMessage = null;
+            _loadStatusMessage = null;
             _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
         }
 
-        ImGui.SeparatorText("Transform Options");
+        ImGui.Spacing();
 
-        ImGui.Checkbox("Grid##st_grid", ref _gridModeEnabled);
-        ImGui.SameLine(0, 8);
-        if (!_gridModeEnabled) ImGui.BeginDisabled();
-        ImGui.SetNextItemWidth(120f);
-        ImGui.DragFloat("##st_gridstep", ref _gridStep, 0.001f, 0.001f, 10f, "%.4f");
-        if (!_gridModeEnabled) ImGui.EndDisabled();
-
-        ImGui.Checkbox("Snap##st_rotsnap", ref _rotSnapEnabled);
-        ImGui.SameLine(0, 8);
-        if (!_rotSnapEnabled) ImGui.BeginDisabled();
-        ImGui.SetNextItemWidth(120f);
-        ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
-        if (!_rotSnapEnabled) ImGui.EndDisabled();
-        ImGui.SeparatorText("Origin Marker");
-
-        bool originVisible = scene.OriginVisible;
-        ImGui.Checkbox("Visible##st_origin", ref originVisible);
-        scene.OriginVisible = originVisible;
-        if (originVisible)
+        // --- Settings table: [checkbox] | [label] | [widget] ---
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        float checkW = ImGui.GetFrameHeight();
+        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
+        if (ImGui.BeginTable("##st_toolbar_tbl", 3, tableFlags))
         {
-            ImGui.SameLine(0, 8);
+            ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 110f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
+
+            // Row 1: Gizmo — checkbox enables/disables, radios pick mode
+            bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (ImGui.Checkbox("##st_gizmo_en", ref gizmoEnabled))
+                gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
+            ImGui.TableNextColumn();
+            if (!gizmoEnabled) ImGui.BeginDisabled();
+            if (ImGui.RadioButton("T##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate; }
+            ImGui.SameLine();
+            if (ImGui.RadioButton("R##st_gizmo_r", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Rotate; }
+            ImGui.SameLine();
+            if (ImGui.RadioButton("S##st_gizmo_s", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Scale; }
+            if (!gizmoEnabled) ImGui.EndDisabled();
+
+            // Row 2: Origin Alpha
+            bool originVisible = scene.OriginVisible;
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (ImGui.Checkbox("##st_origin_cb1", ref originVisible)) scene.OriginVisible = originVisible;
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Alpha");
+            ImGui.TableNextColumn();
+            if (!scene.OriginVisible) ImGui.BeginDisabled();
             float originAlpha = scene.OriginAlpha;
-            ImGui.SetNextItemWidth(120f);
-            ImGui.DragFloat("Alpha##st_origin_alpha", ref originAlpha, 0.01f, 0f, 1f, "%.2f");
-            scene.OriginAlpha = originAlpha;
-        }    }
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.DragFloat("##st_origin_alpha", ref originAlpha, 0.01f, 0f, 1f, "%.2f"))
+                scene.OriginAlpha = originAlpha;
+            if (!scene.OriginVisible) ImGui.EndDisabled();
+
+            // Row 3: Origin Size (checkbox linked to same OriginVisible)
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            bool originVisible2 = scene.OriginVisible;
+            if (ImGui.Checkbox("##st_origin_cb2", ref originVisible2)) scene.OriginVisible = originVisible2;
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Size");
+            ImGui.TableNextColumn();
+            if (!scene.OriginVisible) ImGui.BeginDisabled();
+            float originSize = scene.OriginSize;
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.DragFloat("##st_origin_size", ref originSize, 0.05f, 0.1f, 10f, "%.2fx"))
+                scene.OriginSize = originSize;
+            if (!scene.OriginVisible) ImGui.EndDisabled();
+
+            // Row 4: Grid Snap
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.Checkbox("##st_grid_en", ref _gridModeEnabled);
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Snap");
+            ImGui.TableNextColumn();
+            if (!_gridModeEnabled) ImGui.BeginDisabled();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat("##st_gridstep", ref _gridStep, 0.001f, 0.001f, 10f, "%.4f");
+            if (!_gridModeEnabled) ImGui.EndDisabled();
+
+            // Row 5: Rotation Snap
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.Checkbox("##st_rot_en", ref _rotSnapEnabled);
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Rotation Snap");
+            ImGui.TableNextColumn();
+            if (!_rotSnapEnabled) ImGui.BeginDisabled();
+            ImGui.SetNextItemWidth(-1);
+            ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
+            if (!_rotSnapEnabled) ImGui.EndDisabled();
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar(); // CellPadding
+    }
 
     // -------------------------------------------------------------------------
     // Load existing part
@@ -185,9 +236,29 @@ public sealed class PartEditorUi
         ImGui.SameLine();
         ImGui.TextDisabled($"({_savedParts.Count} part(s) found)");
 
+        // Filter
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputText("##st_load_filter", _loadFilter);
+
+        // Build filtered index list
+        string loadFilterText = _loadFilter.ToString().Trim();
+        _filteredSavedPartIndices.Clear();
+        for (int i = 0; i < _savedParts.Count; i++)
+        {
+            var (pId, fName) = _savedParts[i];
+            if (string.IsNullOrEmpty(loadFilterText)
+                || pId.Contains(loadFilterText, StringComparison.OrdinalIgnoreCase)
+                || fName.Contains(loadFilterText, StringComparison.OrdinalIgnoreCase))
+                _filteredSavedPartIndices.Add(i);
+        }
+
         if (_savedParts.Count == 0)
         {
             ImGui.TextDisabled("No saved parts. Save a part first.");
+        }
+        else if (_filteredSavedPartIndices.Count == 0)
+        {
+            ImGui.TextDisabled("No matches.");
         }
         else
         {
@@ -198,12 +269,13 @@ public sealed class PartEditorUi
 
             if (ImGui.BeginCombo("##st_load_combo", preview))
             {
-                for (int i = 0; i < _savedParts.Count; i++)
+                for (int fi = 0; fi < _filteredSavedPartIndices.Count; fi++)
                 {
-                    bool sel = i == _selectedSavedPartIndex;
-                    var (partId, fileName) = _savedParts[i];
-                    if (ImGui.Selectable($"{partId}  [{fileName}]##st_lp{i}", sel))
-                        _selectedSavedPartIndex = i;
+                    int idx = _filteredSavedPartIndices[fi];
+                    var (partId, fileName) = _savedParts[idx];
+                    bool sel = idx == _selectedSavedPartIndex;
+                    if (ImGui.Selectable($"{partId}  [{fileName}]##st_lp{idx}", sel))
+                        _selectedSavedPartIndex = idx;
                 }
                 ImGui.EndCombo();
             }
