@@ -21,6 +21,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly PartEditorInteraction _interaction;
     private readonly PartEditorUi _ui = new PartEditorUi();
     private readonly PartModWriter _writer = new PartModWriter();
+    private readonly CameraSnapController _cameraSnap = new CameraSnapController();
 
     public SpaceTapeSubmod()
     {
@@ -51,6 +52,8 @@ public sealed class SpaceTapeSubmod : ISubmod
                 : null;
             _gizmos.Update(selectedPart, in matrix, asmb2Ecl, viewport);
             _interaction.Update(_scene, _controller, viewport);
+
+            _cameraSnap.DrawGrid(viewport, _scene);
         }
     }
 
@@ -71,7 +74,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void RenderFloatingWindows()
     {
-        _ui.RenderEditorWindow(_controller, _scene, _gizmos, _catalog, _writer);
+        _ui.RenderEditorWindow(_controller, _scene, _gizmos, _catalog, _writer, _cameraSnap);
     }
 
     private void RenderContentInner()
@@ -91,6 +94,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void Dispose()
     {
+        _cameraSnap.SnapTo(CameraSnapMode.None, _scene);
         Current = null;
         PartRenderHelper.Unpatch();
         _gizmos.Dispose();

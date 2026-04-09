@@ -72,7 +72,8 @@ public sealed class PartEditorUi
         PartEditorScene scene,
         PartEditorGizmos gizmos,
         SubPartCatalog catalog,
-        PartModWriter writer)
+        PartModWriter writer,
+        CameraSnapController cameraSnap)
     {
         if (!WindowOpen) return;
 
@@ -80,7 +81,7 @@ public sealed class PartEditorUi
         bool open = WindowOpen;
         if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
         {
-            RenderToolbar(controller, gizmos, scene);
+            RenderToolbar(controller, gizmos, scene, cameraSnap);
             ImGui.Spacing();
             RenderLoadImportSection(controller, scene, writer);
             ImGui.Spacing();
@@ -100,7 +101,7 @@ public sealed class PartEditorUi
     // Toolbar
     // -------------------------------------------------------------------------
 
-    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorScene scene)
+    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorScene scene, CameraSnapController cameraSnap)
     {
         if (!controller.CanUndo) ImGui.BeginDisabled();
         if (ImGui.Button(" Undo ")) controller.Undo();
@@ -209,9 +210,101 @@ public sealed class PartEditorUi
             ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
             if (!_rotSnapEnabled) ImGui.EndDisabled();
 
+            // Row 6: Camera Snap — 6 directional snap buttons + clear
+            bool snapEnabled = cameraSnap.ActiveMode != CameraSnapMode.None;
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            bool snapGrid = cameraSnap.GridVisible;
+            if (ImGui.Checkbox("##st_camsnap_en", ref snapGrid))
+            {
+                cameraSnap.GridVisible = snapGrid;
+                if (!snapGrid) cameraSnap.SnapTo(CameraSnapMode.None, scene);
+            }
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Camera Snap");
+            ImGui.TableNextColumn();
+            RenderSnapButton(" F ", CameraSnapMode.Front, cameraSnap, scene);
+            RenderSnapButton("Bk", CameraSnapMode.Back, cameraSnap, scene);
+            RenderSnapButton(" L ", CameraSnapMode.Left, cameraSnap, scene);
+            RenderSnapButton(" R ", CameraSnapMode.Right, cameraSnap, scene);
+            RenderSnapButton(" T ", CameraSnapMode.Top, cameraSnap, scene);
+            RenderSnapButton("Bt", CameraSnapMode.Bottom, cameraSnap, scene);
+            if (snapEnabled)
+            {
+                if (ImGui.Button("\u2715##st_camsnap_clear"))
+                    cameraSnap.SnapTo(CameraSnapMode.None, scene);
+            }
+
+            // Row 7: Grid Size (visible when grid is active)
+            if (cameraSnap.GridVisible)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); // empty checkbox column
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
+                ImGui.TableNextColumn();
+                float gridW = cameraSnap.GridWidth;
+                float gridH = cameraSnap.GridHeight;
+                float halfWidth = (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" x ").X) / 2f;
+                ImGui.SetNextItemWidth(halfWidth);
+                if (ImGui.DragFloat("##st_gridw", ref gridW, 0.1f, 0.5f, 50f, "%.1f"))
+                    cameraSnap.GridWidth = gridW;
+                ImGui.SameLine(0, 2);
+                ImGui.AlignTextToFramePadding(); ImGui.Text(" x ");
+                ImGui.SameLine(0, 2);
+                ImGui.SetNextItemWidth(halfWidth);
+                if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
+                    cameraSnap.GridHeight = gridH;
+
+                // Row 8: Grid Spacing
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); // empty checkbox column
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
+                ImGui.TableNextColumn();
+                float spacing = cameraSnap.GridSpacing;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
+                    cameraSnap.GridSpacing = spacing;
+            }
+
+            // Debug readout for runtime calibration
+            if (cameraSnap.DebugReadout)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                OrbitView? ov = Program.GetCamera()?.Following?.OrbitView;
+                if (ov != null)
+                    ImGui.Text($"Az: {ov.Azimuth:F3}  El: {ov.Elevation:F3}");
+                else
+                    ImGui.TextDisabled("OrbitView: null");
+            }
+
             ImGui.EndTable();
         }
         ImGui.PopStyleVar(); // CellPadding
+    }
+
+    private static void RenderSnapButton(string label, CameraSnapMode mode, CameraSnapController snap, PartEditorScene scene)
+    {
+        bool isActive = snap.ActiveMode == mode;
+        if (isActive)
+            ImGui.PushStyleColor(ImGuiCol.Button, (float4)KSAColor.Xkcd.BrightLightBlue);
+
+        if (ImGui.Button($"{label}##st_snap_{mode}"))
+        {
+            if (isActive)
+                snap.SnapTo(CameraSnapMode.None, scene);
+            else
+                snap.SnapTo(mode, scene);
+        }
+
+        if (isActive)
+            ImGui.PopStyleColor();
+
+        ImGui.SameLine(0, 4);
     }
 
     // -------------------------------------------------------------------------
