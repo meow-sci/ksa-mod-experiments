@@ -210,15 +210,18 @@ public sealed class PartEditorUi
             ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
             if (!_rotSnapEnabled) ImGui.EndDisabled();
 
-            // Row 6: Camera Snap — 6 directional snap buttons + clear
+            // Row 6: Camera Snap — 6 directional snap buttons + optional grid checkbox
             bool snapEnabled = cameraSnap.ActiveMode != CameraSnapMode.None;
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
-            bool snapGrid = cameraSnap.GridVisible;
-            if (ImGui.Checkbox("##st_camsnap_en", ref snapGrid))
+            if (snapEnabled)
             {
-                cameraSnap.GridVisible = snapGrid;
-                if (!snapGrid) cameraSnap.SnapTo(CameraSnapMode.None, scene);
+                bool snapGrid = cameraSnap.GridVisible;
+                if (ImGui.Checkbox("##st_camsnap_en", ref snapGrid))
+                {
+                    cameraSnap.GridVisible = snapGrid;
+                    if (!snapGrid) cameraSnap.SnapTo(CameraSnapMode.None, scene);
+                }
             }
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding(); ImGui.Text("Camera Snap");
@@ -235,11 +238,6 @@ public sealed class PartEditorUi
             RenderSnapButton("Back", CameraSnapMode.Back, cameraSnap, scene, snapBtnW);
             ImGui.SameLine(0, 4);
             RenderSnapButton("Bottom", CameraSnapMode.Bottom, cameraSnap, scene, snapBtnW);
-            if (snapEnabled)
-            {
-                if (ImGui.Button("\u2715##st_camsnap_clear"))
-                    cameraSnap.SnapTo(CameraSnapMode.None, scene);
-            }
 
             // Row 7: Grid Size (visible when grid is active)
             if (cameraSnap.GridVisible)
@@ -273,16 +271,16 @@ public sealed class PartEditorUi
                 if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
                     cameraSnap.GridSpacing = spacing;
 
-                // Row 9: Grid Opacity
+                // Row 9: Grid Color
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); // empty checkbox column
                 ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Opacity");
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
                 ImGui.TableNextColumn();
-                float opacity = cameraSnap.GridOpacity;
+                float4 gridCol = cameraSnap.GridColor;
                 ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_gridopacity", ref opacity, 0.01f, 0f, 1f, "%.2f"))
-                    cameraSnap.GridOpacity = opacity;
+                if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
+                    cameraSnap.GridColor = gridCol;
             }
 
             // Debug readout for runtime calibration

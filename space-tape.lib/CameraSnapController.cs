@@ -39,9 +39,6 @@ public sealed class CameraSnapController
     /// <summary>Spacing between grid lines in meters.</summary>
     public float GridSpacing { get; set; } = 0.25f;
 
-    /// <summary>Overall opacity multiplier for all grid lines (0 = invisible, 1 = full).</summary>
-    public float GridOpacity { get; set; } = 0.5f;
-
     /// <summary>Color of regular grid lines (translucent gray).</summary>
     public float4 GridColor { get; set; } = new float4(0.5f, 0.5f, 0.5f, 0.4f);
 
@@ -111,8 +108,8 @@ public sealed class CameraSnapController
             CameraSnapMode.Back   => (0.0, 0.0),                          // look +X
             CameraSnapMode.Left   => (Math.PI / 2.0, 0.0),               // look -Y
             CameraSnapMode.Right  => (-Math.PI / 2.0, 0.0),              // look +Y
-            CameraSnapMode.Top    => (-Math.PI / 2.0, -Math.PI / 2.0),   // look +Z
-            CameraSnapMode.Bottom => (Math.PI / 2.0, Math.PI / 2.0),     // look -Z
+            CameraSnapMode.Top    => (-Math.PI, -Math.PI / 2.0),         // look +Z
+            CameraSnapMode.Bottom => (0.0, Math.PI / 2.0),               // look -Z
             _ => (0.0, 0.0)
         };
     }
@@ -161,8 +158,8 @@ public sealed class CameraSnapController
         float spacing = Math.Max(GridSpacing, 0.01f);
         int maxLines = 200;
 
-        float4 gridColor = new float4(GridColor.X, GridColor.Y, GridColor.Z, GridColor.W * GridOpacity);
-        float4 gridAxisColor = new float4(GridAxisColor.X, GridAxisColor.Y, GridAxisColor.Z, GridAxisColor.W * GridOpacity);
+        float4 gridColor = GridColor;
+        float4 gridAxisColor = GridAxisColor;
 
         // Lines along U axis (varying V position)
         int linesV = Math.Min((int)(GridHeight / spacing) + 1, maxLines);
