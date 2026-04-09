@@ -124,22 +124,15 @@ public static class PartImporter
     {
         var state = new TankState
         {
-            LocationAsmb = tank.LocationAsmb.ToDouble3(),
-            Paf2Asmb = tank.Paf2Asmb.ToDouble3(),
-            WallDensityKgPerM3 = (double)tank.Density,
-            WallMaterialId = tank.Material?.Id ?? "",
+            WallMaterialId = tank.Material?.Id ?? "Aluminum.2014(s)",
         };
-
-        if (tank.Mass.IsValid())
-            state.WallMassKg = (double)tank.Mass;
 
         if (tank is CylindricalTankTemplate cyl)
         {
             state.Shape = TankShape.Cylindrical;
             state.LengthM = (double)cyl.Length;
             state.OuterRadiusM = (double)cyl.OuterRadius;
-            state.WallThicknessMm = (double)cyl.WallThickness * 1000.0; // meters → mm
-            state.DomeHeightFraction = cyl.DomeHeightFraction;
+            state.WallThicknessMm = (double)cyl.WallThickness * 1000.0;
         }
         else if (tank is SphericalTankTemplate sph)
         {

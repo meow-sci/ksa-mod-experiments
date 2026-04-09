@@ -131,28 +131,19 @@ public static class HotReloadSpike
             {
                 template.Tank = new CylindricalTankTemplate
                 {
-                    LocationAsmb = new Vector3Reference(gd.Tank.LocationAsmb),
-                    Paf2Asmb = new Vector3Reference(gd.Tank.Paf2Asmb),
-                    Density = new DensityReference(gd.Tank.WallDensityKgPerM3),
                     Length = new DistanceReference(gd.Tank.LengthM),
                     OuterRadius = new DistanceReference(gd.Tank.OuterRadiusM),
                     WallThickness = new DistanceReference(gd.Tank.WallThicknessMm / 1000.0),
-                    DomeHeightFraction = gd.Tank.DomeHeightFraction,
                 };
             }
             else
             {
                 template.Tank = new SphericalTankTemplate
                 {
-                    LocationAsmb = new Vector3Reference(gd.Tank.LocationAsmb),
-                    Paf2Asmb = new Vector3Reference(gd.Tank.Paf2Asmb),
-                    Density = new DensityReference(gd.Tank.WallDensityKgPerM3),
                     OuterRadius = new DistanceReference(gd.Tank.OuterRadiusM),
                     WallThickness = new DistanceReference(gd.Tank.WallThicknessMm / 1000.0),
                 };
             }
-            if (gd.Tank.WallMassKg.HasValue)
-                template.Tank.Mass = new MassReference(gd.Tank.WallMassKg.Value);
             if (!string.IsNullOrWhiteSpace(gd.Tank.WallMaterialId))
                 template.Tank.Material = new SerializedReference(gd.Tank.WallMaterialId);
         }

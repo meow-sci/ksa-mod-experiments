@@ -23,7 +23,7 @@ public static class GameDataXmlSerializer
                 new XElement("Mass", new XAttribute("Kg", gameData.CustomMass.Value.ToString("G6")))));
 
         if (gameData.Tank != null)
-            el.Add(SerializeTank(gameData.Tank));
+            el.Add(new XElement("Tank", SerializeTank(gameData.Tank)));
 
         foreach (var battery in gameData.Batteries)
             el.Add(new XElement("Battery",
@@ -57,33 +57,15 @@ public static class GameDataXmlSerializer
         string elName = tank.Shape == TankShape.Cylindrical ? "CylindricalTank" : "SphericalTank";
         var el = new XElement(elName);
 
-        el.Add(SerializeVector3Element("LocationAsmb", tank.LocationAsmb));
-        el.Add(SerializeVector3Element("Paf2Asmb", tank.Paf2Asmb));
-
-        if (tank.WallMassKg.HasValue)
-            el.Add(new XElement("Mass", new XAttribute("Kg", tank.WallMassKg.Value.ToString("G6"))));
-        el.Add(new XElement("Density", new XAttribute("KgPerM3", tank.WallDensityKgPerM3.ToString("G6"))));
         if (!string.IsNullOrWhiteSpace(tank.WallMaterialId))
-            el.Add(new XElement("Material", new XAttribute("Value", tank.WallMaterialId)));
+            el.Add(new XElement("Material", new XAttribute("Id", tank.WallMaterialId)));
+
+        if (tank.Shape == TankShape.Cylindrical)
+            el.Add(new XElement("Length", new XAttribute("M", tank.LengthM.ToString("G6"))));
 
         el.Add(new XElement("OuterRadius", new XAttribute("M", tank.OuterRadiusM.ToString("G6"))));
         el.Add(new XElement("WallThickness", new XAttribute("Mm", tank.WallThicknessMm.ToString("G6"))));
 
-        if (tank.Shape == TankShape.Cylindrical)
-        {
-            el.Add(new XElement("Length", new XAttribute("M", tank.LengthM.ToString("G6"))));
-            el.Add(new XElement("DomeHeightFraction", new XAttribute("Value", tank.DomeHeightFraction.ToString("G6"))));
-        }
-
-        return el;
-    }
-
-    private static XElement SerializeVector3Element(string name, Brutal.Numerics.double3 v)
-    {
-        var el = new XElement(name);
-        el.Add(new XAttribute("X", v.X.ToString("G6")));
-        el.Add(new XAttribute("Y", v.Y.ToString("G6")));
-        el.Add(new XAttribute("Z", v.Z.ToString("G6")));
         return el;
     }
 

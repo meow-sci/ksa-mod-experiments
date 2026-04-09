@@ -241,8 +241,10 @@ public sealed class PartModWriter
             part.GameData.CustomMass = mass;
 
         // Tank (CylindricalTank or SphericalTank)
-        var cylEl = gdEl.Element("CylindricalTank");
-        var sphEl = gdEl.Element("SphericalTank");
+        // Look inside <Tank> wrapper first (correct KSA format), then fall back to direct children
+        var tankWrapper = gdEl.Element("Tank");
+        var cylEl = tankWrapper?.Element("CylindricalTank") ?? gdEl.Element("CylindricalTank");
+        var sphEl = tankWrapper?.Element("SphericalTank") ?? gdEl.Element("SphericalTank");
         var tankEl = cylEl ?? sphEl;
         if (tankEl != null)
         {
@@ -250,13 +252,9 @@ public sealed class PartModWriter
             {
                 Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
             };
-            tank.LocationAsmb = ParseVector3(tankEl.Element("LocationAsmb"), double3.Zero);
-            tank.Paf2Asmb = ParseVector3(tankEl.Element("Paf2Asmb"), double3.Zero);
-            if (TryParseDouble(tankEl.Element("Mass"), "Kg", out double wallMass))
-                tank.WallMassKg = wallMass;
-            if (TryParseDouble(tankEl.Element("Density"), "KgPerM3", out double density))
-                tank.WallDensityKgPerM3 = density;
-            tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Value")?.Value ?? "";
+            tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
+                                ?? tankEl.Element("Material")?.Attribute("Value")?.Value
+                                ?? "Aluminum.2014(s)";
             if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
                 tank.OuterRadiusM = outerR;
             if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
@@ -265,8 +263,6 @@ public sealed class PartModWriter
             {
                 if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
                     tank.LengthM = length;
-                if (TryParseDouble(tankEl.Element("DomeHeightFraction"), "Value", out double dome))
-                    tank.DomeHeightFraction = dome;
             }
             part.GameData.Tank = tank;
         }

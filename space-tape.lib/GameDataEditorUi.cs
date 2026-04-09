@@ -16,6 +16,8 @@ public static class GameDataEditorUi
     private static int _selectedConnectorIndex = -1;
     private static readonly ImInputString _connectorIdInput = new ImInputString(64);
     private static string _lastConnectorId = "";
+    private static readonly ImInputString _tankMaterialInput = new ImInputString(128);
+    private static string _lastTankMaterial = "";
 
     public static int SelectedConnectorIndex => _selectedConnectorIndex;
 
@@ -48,15 +50,28 @@ public static class GameDataEditorUi
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
+            // Material ID row -- sync input buffer when tank changes
+            if (tank.WallMaterialId != _lastTankMaterial)
+            {
+                _tankMaterialInput.SetValue(tank.WallMaterialId.AsSpan());
+                _lastTankMaterial = tank.WallMaterialId;
+            }
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.Text("Material");
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.InputText("##st_tank_mat", _tankMaterialInput))
+            {
+                tank.WallMaterialId = _tankMaterialInput.ToString();
+                _lastTankMaterial = tank.WallMaterialId;
+            }
+
             if (tank.Shape == TankShape.Cylindrical)
             {
                 double length = tank.LengthM;
                 TableInputDouble("Length (m)", "##st_tank_len", ref length, 0.1);
                 tank.LengthM = length;
-
-                double dome = tank.DomeHeightFraction;
-                TableInputDouble("Dome Frac", "##st_tank_dome", ref dome, 0.01);
-                tank.DomeHeightFraction = Math.Clamp(dome, 0.0, 1.0);
             }
 
             double outerR = tank.OuterRadiusM;
@@ -67,34 +82,9 @@ public static class GameDataEditorUi
             TableInputDouble("Wall Thick (mm)", "##st_tank_wt", ref wallT, 0.1);
             tank.WallThicknessMm = wallT;
 
-            double density = tank.WallDensityKgPerM3;
-            TableInputDouble("Density (kg/m³)", "##st_tank_den", ref density, 10.0);
-            tank.WallDensityKgPerM3 = density;
-
-            double wallMass = tank.WallMassKg ?? 0.0;
-            TableInputDouble("Wall Mass (kg)", "##st_tank_wm", ref wallMass, 0.1);
-            tank.WallMassKg = wallMass > 0 ? wallMass : null;
-
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
-
-        // Location/Rotation as 3-wide DragFloat rows
-        ImGui.Spacing();
-        ImGui.TextDisabled("Tank Position (m)");
-        {
-            float x = (float)tank.LocationAsmb.X, y = (float)tank.LocationAsmb.Y, z = (float)tank.LocationAsmb.Z;
-            bool cx, cy, cz;
-            Drag3("st_tank_pos", ref x, out cx, ref y, out cy, ref z, out cz, 0.001f);
-            if (cx || cy || cz) tank.LocationAsmb = new double3(x, y, z);
-        }
-        ImGui.TextDisabled("Tank Rotation (rad)");
-        {
-            float x = (float)tank.Paf2Asmb.X, y = (float)tank.Paf2Asmb.Y, z = (float)tank.Paf2Asmb.Z;
-            bool cx, cy, cz;
-            Drag3("st_tank_rot", ref x, out cx, ref y, out cy, ref z, out cz, 0.001f);
-            if (cx || cy || cz) tank.Paf2Asmb = new double3(x, y, z);
-        }
 
         ImGui.Unindent(8f);
     }

@@ -9,28 +9,18 @@ public enum TankShape { Cylindrical, Spherical }
 public sealed class TankState
 {
     public TankShape Shape { get; set; } = TankShape.Cylindrical;
-    public double3 LocationAsmb { get; set; } = double3.Zero;
-    public double3 Paf2Asmb { get; set; } = double3.Zero;
-    public double? WallMassKg { get; set; }
-    public double WallDensityKgPerM3 { get; set; } = 1400.0;
-    public string WallMaterialId { get; set; } = "";
+    public string WallMaterialId { get; set; } = "Aluminum.2014(s)";
     public double LengthM { get; set; } = 2.0;
     public double OuterRadiusM { get; set; } = 0.5;
     public double WallThicknessMm { get; set; } = 2.0;
-    public double DomeHeightFraction { get; set; } = 0.5;
 
     public TankState Clone() => new()
     {
         Shape = Shape,
-        LocationAsmb = LocationAsmb,
-        Paf2Asmb = Paf2Asmb,
-        WallMassKg = WallMassKg,
-        WallDensityKgPerM3 = WallDensityKgPerM3,
         WallMaterialId = WallMaterialId,
         LengthM = LengthM,
         OuterRadiusM = OuterRadiusM,
         WallThicknessMm = WallThicknessMm,
-        DomeHeightFraction = DomeHeightFraction
     };
 }
 
