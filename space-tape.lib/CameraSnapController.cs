@@ -39,6 +39,9 @@ public sealed class CameraSnapController
     /// <summary>Spacing between grid lines in meters.</summary>
     public float GridSpacing { get; set; } = 0.25f;
 
+    /// <summary>Overall opacity multiplier for all grid lines (0 = invisible, 1 = full).</summary>
+    public float GridOpacity { get; set; } = 0.5f;
+
     /// <summary>Color of regular grid lines (translucent gray).</summary>
     public float4 GridColor { get; set; } = new float4(0.5f, 0.5f, 0.5f, 0.4f);
 
@@ -95,21 +98,21 @@ public sealed class CameraSnapController
         //   Azimuth rotates the offset direction around -Z
         //   Elevation tilts toward/away from the -Z axis
         //
-        // Front/Back views use combined azimuth + elevation (looking along Z axis).
-        // Side/Top/Bottom views use azimuth only (looking in XY plane of the frame).
-        //
-        // NOTE: Front and Back produce correct screen orientation (+Y up).
-        // Left/Right have -Z as screen up (90° roll from standard).
-        // Top has -Z up (correct per plan). Bottom has -Z up (differs from plan's +Z).
-        // These values may need runtime tuning — enable DebugReadout to verify.
+        // Labels are mapped to match user expectations in the part editor:
+        //   Front  = look along -X (toward the vehicle nose)
+        //   Back   = look along +X
+        //   Left   = look along -Y
+        //   Right  = look along +Y
+        //   Top    = look along +Z
+        //   Bottom = look along -Z
         return mode switch
         {
-            CameraSnapMode.Front  => (Math.PI / 2.0, Math.PI / 2.0),     // look -Z, up +Y
-            CameraSnapMode.Back   => (-Math.PI / 2.0, -Math.PI / 2.0),   // look +Z, up +Y
-            CameraSnapMode.Left   => (0.0, 0.0),                          // look +X, up -Z
-            CameraSnapMode.Right  => (Math.PI, 0.0),                      // look -X, up -Z
-            CameraSnapMode.Top    => (Math.PI / 2.0, 0.0),               // look -Y, up -Z
-            CameraSnapMode.Bottom => (-Math.PI / 2.0, 0.0),              // look +Y, up -Z
+            CameraSnapMode.Front  => (Math.PI, 0.0),                      // look -X
+            CameraSnapMode.Back   => (0.0, 0.0),                          // look +X
+            CameraSnapMode.Left   => (Math.PI / 2.0, 0.0),               // look -Y
+            CameraSnapMode.Right  => (-Math.PI / 2.0, 0.0),              // look +Y
+            CameraSnapMode.Top    => (-Math.PI / 2.0, -Math.PI / 2.0),   // look +Z
+            CameraSnapMode.Bottom => (Math.PI / 2.0, Math.PI / 2.0),     // look -Z
             _ => (0.0, 0.0)
         };
     }
@@ -130,24 +133,24 @@ public sealed class CameraSnapController
     private void DrawGridForMode(CameraSnapMode mode, double4x4 matrixAsmb2Ego)
     {
         // Determine the two axes of the grid plane based on snap mode.
-        // Front/Back → XY plane, Left/Right → YZ plane, Top/Bottom → XZ plane.
+        // Front/Back (look along X) → YZ plane, Left/Right (look along Y) → XZ plane, Top/Bottom (look along Z) → XY plane.
         double3 axisU, axisV;
         switch (mode)
         {
             case CameraSnapMode.Front:
             case CameraSnapMode.Back:
-                axisU = double3.UnitX;
+                axisU = double3.UnitZ;
                 axisV = double3.UnitY;
                 break;
             case CameraSnapMode.Left:
             case CameraSnapMode.Right:
-                axisU = double3.UnitZ;
-                axisV = double3.UnitY;
+                axisU = double3.UnitX;
+                axisV = double3.UnitZ;
                 break;
             case CameraSnapMode.Top:
             case CameraSnapMode.Bottom:
                 axisU = double3.UnitX;
-                axisV = double3.UnitZ;
+                axisV = double3.UnitY;
                 break;
             default:
                 return;
@@ -158,6 +161,9 @@ public sealed class CameraSnapController
         float spacing = Math.Max(GridSpacing, 0.01f);
         int maxLines = 200;
 
+        float4 gridColor = new float4(GridColor.X, GridColor.Y, GridColor.Z, GridColor.W * GridOpacity);
+        float4 gridAxisColor = new float4(GridAxisColor.X, GridAxisColor.Y, GridAxisColor.Z, GridAxisColor.W * GridOpacity);
+
         // Lines along U axis (varying V position)
         int linesV = Math.Min((int)(GridHeight / spacing) + 1, maxLines);
         for (int i = 0; i <= linesV; i++)
@@ -167,7 +173,7 @@ public sealed class CameraSnapController
             double3 endAsmb = axisU * halfU + axisV * v;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
-            float4 color = Math.Abs(v) < spacing * 0.5 ? GridAxisColor : GridColor;
+            float4 color = Math.Abs(v) < spacing * 0.5 ? gridAxisColor : gridColor;
             Program.GizmosRenderer.DrawLine(startEgo, endEgo, color);
         }
 
@@ -180,7 +186,7 @@ public sealed class CameraSnapController
             double3 endAsmb = axisU * u + axisV * halfV;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
-            float4 color = Math.Abs(u) < spacing * 0.5 ? GridAxisColor : GridColor;
+            float4 color = Math.Abs(u) < spacing * 0.5 ? gridAxisColor : gridColor;
             Program.GizmosRenderer.DrawLine(startEgo, endEgo, color);
         }
     }
