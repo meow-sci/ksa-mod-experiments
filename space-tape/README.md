@@ -7,6 +7,8 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **SubPart catalog browser** — filterable list with animated thumbnail previews (grid/list modes)
 - **Import from existing parts** — load any game part into the editor with full SubPart, Connector, Tank, Battery, Generator, and Coupling data
 - **3D editing scene** — place SubParts in world space with interactive gizmos (translate/rotate/scale) and origin axis marker
+- **Camera snap views** — six orthographic-style snap buttons (Front, Back, Left, Right, Top, Bottom) instantly orient the camera to standard vantage points
+- **Grid plane overlay** — translucent reference grid drawn in 3D on the plane facing the snapped camera direction, with configurable size and spacing
 - **Connector visualization** — 3D gizmo cubes color-coded by flag type (yellow=Internal, cyan=ToSurface, magenta=FromSurface, green=selected)
 - **Transform controls** — per-SubPart position, rotation, and scale with grid snap and rotation snap
 - **Fuel tanks** — Cylindrical or Spherical tank definitions with material, density, wall thickness, and dome height
@@ -36,6 +38,7 @@ Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It ap
 | File | Purpose |
 |------|---------|
 | `SpaceTapeSubmod.cs` | ISubmod entry point for grant integration |
+| `CameraSnapController.cs` | Camera snap-to-view state machine and grid plane drawing via GizmosRenderer |
 | `PartEditorState.cs` | Core state models — EditingPart, SubPartPlacement, PartGameDataState |
 | `GameDataModels.cs` | State classes for Tank, Connector, Coupling, Battery, Generator, PowerConsumer |
 | `PartEditorUi.cs` | Main ImGui editor window with import, SubPart catalog, and GameData editing |
@@ -69,6 +72,7 @@ PartEditorUi (ImGui window)
 PartEditorScene (3D viewport)
 ├── GenericGizmo             → translate/rotate/scale for SubParts
 ├── ConnectorGizmo           → color-coded connector cubes
+├── CameraSnapController     → snap views + grid plane overlay
 └── Origin marker            → axis lines at part origin
 
 HotReloadSpike               → registers saved parts into game at runtime
