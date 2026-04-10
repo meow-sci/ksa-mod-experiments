@@ -64,16 +64,29 @@ public sealed class PartEditorInteraction
             double closest = double.MaxValue;
             foreach (Part part in scene.EditorParts)
             {
-                if (part.RayCastEgo(in matrixAsmb2Ego, ray,
+                // Try RayCastEgoSubPart first — editor Parts are leaf-level (no children)
+                // so RayCastEgo (which iterates SubParts children) returns false.
+                // RayCastEgoSubPart tests THIS Part's own mesh via MeshViewModule.
+                if (part.RayCastEgoSubPart(in matrixAsmb2Ego, ray,
                     out double nearT, out double _,
                     out double3 _, out double3 _,
-                    out double3 _, out double3 _,
-                    out Part? closestSub, out Part? _)
+                    out double3 _, out double3 _)
                     && nearT < closest)
                 {
                     closest = nearT;
-                    // closestSub is a sub-part; its PartParent is the top-level editor part
-                    highlighted = closestSub?.PartParent ?? closestSub;
+                    highlighted = part;
+                }
+
+                // Also try RayCastEgo for imported Parts that may have SubParts children
+                if (part.RayCastEgo(in matrixAsmb2Ego, ray,
+                    out double nearT2, out double _2,
+                    out double3 _3, out double3 _4,
+                    out double3 _5, out double3 _6,
+                    out Part? closestSub, out Part? _7)
+                    && nearT2 < closest)
+                {
+                    closest = nearT2;
+                    highlighted = closestSub?.PartParent ?? closestSub ?? part;
                 }
             }
         }
