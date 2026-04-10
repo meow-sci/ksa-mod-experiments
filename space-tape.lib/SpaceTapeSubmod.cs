@@ -97,6 +97,7 @@ public sealed class SpaceTapeSubmod : ISubmod
         _cameraSnap.SnapTo(CameraSnapMode.None, _scene);
         Current = null;
         PartRenderHelper.Unpatch();
+        _interaction.ClearVisualState();
         _gizmos.Dispose();
         _scene.Dispose();
     }

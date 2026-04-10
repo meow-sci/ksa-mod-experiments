@@ -14,6 +14,8 @@ public sealed class PartEditorInteraction
 {
     private readonly PartEditorGizmos _gizmos;
     private double2 _prevCursorPos;
+    private Part? _highlightedPart;
+    private Part? _selectedPart;
 
     // Reflection access to Part's private matrix cache field.
     // Note: Part property setters already invalidate _matrixAsmb, so this is a safety measure.
@@ -46,6 +48,14 @@ public sealed class PartEditorInteraction
         Part? selectedPart = null;
         if (controller.SelectedPlacementIndex >= 0 && controller.SelectedPlacementIndex < scene.EditorParts.Count)
             selectedPart = scene.EditorParts[controller.SelectedPlacementIndex];
+
+        // Sync selection visual if external code changed SelectedPlacementIndex (e.g. UI hierarchy click)
+        if (selectedPart != _selectedPart)
+        {
+            if (_selectedPart != null) _selectedPart.Selected = false;
+            _selectedPart = selectedPart;
+            if (_selectedPart != null) _selectedPart.Selected = true;
+        }
 
         // Build ray from camera through cursor
         Ray ray = camera.ScreenToEgoRay(cursorPos);
@@ -91,6 +101,14 @@ public sealed class PartEditorInteraction
             }
         }
 
+        // Update hover highlight — set Part.Highlighted for GPU shader feedback
+        if (highlighted != _highlightedPart)
+        {
+            if (_highlightedPart != null) _highlightedPart.Highlighted = false;
+            if (highlighted != null) highlighted.Highlighted = true;
+            _highlightedPart = highlighted;
+        }
+
         // Click to select / grab gizmo
         bool leftClicked = ImGui.IsMouseClicked(ImGuiMouseButton.Left);
         if (leftClicked)
@@ -102,12 +120,15 @@ public sealed class PartEditorInteraction
             else if (highlighted != null)
             {
                 int idx = IndexOf(scene, highlighted);
-                if (idx >= 0) controller.SelectedPlacementIndex = idx;
+                if (idx >= 0)
+                {
+                    UpdateSelection(scene, controller, idx);
+                }
                 _gizmos.GizmoGrabbed = false;
             }
             else
             {
-                controller.SelectedPlacementIndex = -1;
+                UpdateSelection(scene, controller, -1);
                 _gizmos.GizmoGrabbed = false;
             }
         }
@@ -250,5 +271,26 @@ public sealed class PartEditorInteraction
             if (scene.EditorParts[i] == part) return i;
         }
         return -1;
+    }
+
+    private void UpdateSelection(PartEditorScene scene, PartEditorController controller, int newIndex)
+    {
+        if (_selectedPart != null) _selectedPart.Selected = false;
+
+        controller.SelectedPlacementIndex = newIndex;
+
+        if (newIndex >= 0 && newIndex < scene.EditorParts.Count)
+            _selectedPart = scene.EditorParts[newIndex];
+        else
+            _selectedPart = null;
+
+        if (_selectedPart != null) _selectedPart.Selected = true;
+    }
+
+    /// <summary>Clears hover/selection visual state on all tracked parts. Call when editor scene exits.</summary>
+    public void ClearVisualState()
+    {
+        if (_highlightedPart != null) { _highlightedPart.Highlighted = false; _highlightedPart = null; }
+        if (_selectedPart != null) { _selectedPart.Selected = false; _selectedPart = null; }
     }
 }
