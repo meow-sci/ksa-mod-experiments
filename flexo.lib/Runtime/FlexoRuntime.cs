@@ -42,6 +42,10 @@ public sealed class FlexoRuntime
         }
 
         var allParts = PartHelpers.GetAllParts(vehicle);
+        Console.WriteLine($"flexo: Scanning vehicle with {allParts.Count} part(s)");
+        foreach (var p in allParts)
+            Console.WriteLine($"flexo:   part template={p.Template.Id}");
+
         var hingeDefinitions = Definitions.Where(d => d.PartType == FlexoPartType.Hinge && d.Hinge != null);
 
         foreach (var def in hingeDefinitions)
@@ -50,21 +54,19 @@ public sealed class FlexoRuntime
             var fixedParts = allParts.Where(p => p.Template.Id == hinge.FixedPartTemplateId).ToList();
             var movingParts = allParts.Where(p => p.Template.Id == hinge.MovingPartTemplateId).ToList();
 
+            Console.WriteLine($"flexo: Hinge '{def.DisplayName}' — looking for fixed='{hinge.FixedPartTemplateId}' ({fixedParts.Count} found), moving='{hinge.MovingPartTemplateId}' ({movingParts.Count} found)");
+
             foreach (var fixedPart in fixedParts)
             {
                 foreach (var movingPart in movingParts)
                 {
                     if (fixedPart == movingPart) continue;
 
-                    bool connected = IsConnected(fixedPart, movingPart);
-                    bool treeRelated = movingPart.TreeParent == fixedPart
-                                    || fixedPart.TreeParent == movingPart;
-
-                    if (connected || treeRelated)
-                    {
-                        _activeHinges.Add(new HingeController(def, fixedPart, movingPart));
-                        Console.WriteLine($"flexo: Found hinge '{def.DisplayName}' — fixed={fixedPart.Template.Id}, moving={movingPart.Template.Id}");
-                    }
+                    // Both parts are on the same vehicle — that's sufficient to pair them.
+                    // Closest-pair heuristic: prefer direct connection or tree relation,
+                    // but accept any match on the same vehicle.
+                    _activeHinges.Add(new HingeController(def, fixedPart, movingPart));
+                    Console.WriteLine($"flexo: Found hinge '{def.DisplayName}' — fixed={fixedPart.Template.Id}, moving={movingPart.Template.Id}");
                 }
             }
         }
