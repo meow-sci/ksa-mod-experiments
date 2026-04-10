@@ -27,6 +27,21 @@ public sealed class PartEditorInteraction
     private double3 _planeDragClickHitEgo;  // where the initial click ray hit the plane
     private double3 _planeDragNormal;
 
+    /// <summary>When true, translate gizmo drag and pan mode movement snap to GridSnapStep increments.</summary>
+    public bool GridSnapEnabled { get; set; }
+    /// <summary>Grid snap step size in meters.</summary>
+    public float GridSnapStep { get; set; } = 0.05f;
+
+    /// <summary>When true, rotation gizmo drag snaps to RotSnapDeg increments.</summary>
+    public bool RotSnapEnabled { get; set; }
+    /// <summary>Rotation snap increment in degrees.</summary>
+    public float RotSnapDeg { get; set; } = 15f;
+
+    // Rotation gizmo drag tracking — captures start state so snapping is applied from the original orientation
+    private doubleQuat _rotDragStartQuat;
+    private double3 _rotDragAxisLocal;  // fixed rotation axis in parent-assembly space at drag start
+    private double _rotAccumRad;        // accumulated raw signed angle since drag start
+
     // Reflection access to Part's private matrix cache field.
     // Note: Part property setters already invalidate _matrixAsmb, so this is a safety measure.
     private static readonly FieldInfo? _matrixAsmbField =
@@ -126,6 +141,18 @@ public sealed class PartEditorInteraction
             if (_gizmos.HighlightedGizmo != null)
             {
                 _gizmos.GizmoGrabbed = true;
+
+                // Capture rotation drag start state so snap can be applied relative to the original orientation
+                if (selectedPart != null
+                    && _gizmos.HighlightedGizmo == _gizmos.RotationGizmo
+                    && _gizmos.HighlightedSegmentIndex >= 0)
+                {
+                    GenericGizmo.PerSegmentData[] rseg = _gizmos.RotationGizmo.GetSegmentDataByViewport(viewport);
+                    double3 startAxisEgo = Double3Ex.Right.Transform(rseg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
+                    _rotDragAxisLocal = startAxisEgo.Transform(doubleQuat.Inverse(selectedPart.ParentAsmb2Ego(vehicleAsmb2Ego)));
+                    _rotDragStartQuat = selectedPart.Asmb2ParentAsmb;
+                    _rotAccumRad = 0.0;
+                }
             }
             // Pan mode hijacks click+drag when a part is already selected —
             // starts plane drag regardless of where the click lands (no raycast needed)
@@ -228,6 +255,17 @@ public sealed class PartEditorInteraction
 
                     double4x4.Invert(selectedPart.MatrixParentAsmb2Ego(in matrixAsmb2Ego), out double4x4 invParent);
                     double3 newPosInParent = (partPosEgo + worldDelta).Transform(invParent);
+
+                    // Apply grid snap
+                    if (GridSnapEnabled && GridSnapStep > 0f)
+                    {
+                        double step = GridSnapStep;
+                        newPosInParent = new double3(
+                            Math.Round(newPosInParent.X / step) * step,
+                            Math.Round(newPosInParent.Y / step) * step,
+                            Math.Round(newPosInParent.Z / step) * step);
+                    }
+
                     selectedPart.PositionParentAsmb = newPosInParent;
 
                     InvalidatePartMatrixCache(selectedPart);
@@ -257,9 +295,34 @@ public sealed class PartEditorInteraction
                     int signDelta = Math.Sign(double3.Dot(delta, crossVec));
                     int signAxis = Math.Sign(double3.Dot(axisEgo, prev));
 
-                    double3 localAxis = axisEgo.Transform(doubleQuat.Inverse(selectedPart.ParentAsmb2Ego(vehicleAsmb2Ego)));
-                    doubleQuat rot = doubleQuat.CreateFromAxisAngle(localAxis, angle * signDelta * signAxis);
-                    selectedPart.Asmb2ParentAsmb = doubleQuat.Multiply(rot, selectedPart.Asmb2ParentAsmb);
+                    // Accumulate the raw signed angle from drag start
+                    _rotAccumRad += angle * signDelta * signAxis;
+
+                    // Determine the angle to apply (snapped or raw) relative to the start orientation
+                    double applyAngle;
+                    if (RotSnapEnabled && RotSnapDeg > 0f)
+                    {
+                        double snapRad = RotSnapDeg * (Math.PI / 180.0);
+                        applyAngle = Math.Round(_rotAccumRad / snapRad) * snapRad;
+                    }
+                    else
+                    {
+                        applyAngle = _rotAccumRad;
+                    }
+
+                    // Apply total rotation from the captured start orientation using the fixed drag-start axis.
+                    // Fall back to incremental if start axis wasn't captured (shouldn't normally happen).
+                    if (_rotDragAxisLocal.Length() > 0.5)
+                    {
+                        selectedPart.Asmb2ParentAsmb = doubleQuat.CreateFromAxisAngle(_rotDragAxisLocal, applyAngle) * _rotDragStartQuat;
+                    }
+                    else
+                    {
+                        double3 localAxis = axisEgo.Transform(doubleQuat.Inverse(selectedPart.ParentAsmb2Ego(vehicleAsmb2Ego)));
+                        selectedPart.Asmb2ParentAsmb = doubleQuat.Multiply(
+                            doubleQuat.CreateFromAxisAngle(localAxis, angle * signDelta * signAxis),
+                            selectedPart.Asmb2ParentAsmb);
+                    }
 
                     InvalidatePartMatrixCache(selectedPart);
                     if (controller.SelectedPlacement != null)
@@ -320,6 +383,17 @@ public sealed class PartEditorInteraction
 
                     double4x4.Invert(selectedPart.MatrixParentAsmb2Ego(in matrixAsmb2Ego), out double4x4 invParent);
                     double3 newPosInParent = newPosEgo.Transform(invParent);
+
+                    // Snap to grid if enabled
+                    if (GridSnapEnabled && GridSnapStep > 0f)
+                    {
+                        double step = GridSnapStep;
+                        newPosInParent = new double3(
+                            Math.Round(newPosInParent.X / step) * step,
+                            Math.Round(newPosInParent.Y / step) * step,
+                            Math.Round(newPosInParent.Z / step) * step);
+                    }
+
                     selectedPart.PositionParentAsmb = newPosInParent;
 
                     InvalidatePartMatrixCache(selectedPart);

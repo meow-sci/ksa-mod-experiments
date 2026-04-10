@@ -23,6 +23,9 @@ public sealed class PartEditorGizmos : IDisposable
     public int HighlightedSegmentIndex { get; private set; } = -1;
     public bool GizmoGrabbed { get; set; }
 
+    /// <summary>Uniform scale multiplier applied to all gizmo segments (default 1.0).</summary>
+    public float GizmoScale { get; set; } = 1.0f;
+
     public PartEditorGizmos()
     {
         TranslateGizmo = new GenericGizmo(ModLibrary.Get<MeshReference>("ArrowMesh"), GenericGizmo.Static.GenericGizmoRenderData, 3);
@@ -109,24 +112,26 @@ public sealed class PartEditorGizmos : IDisposable
     {
         doubleQuat orientation = selectedPart.Asmb2Ego(vehicleAsmb2Ego);
         double3 positionEgo = selectedPart.PositionEgo(in matrixAsmb2Ego);
+        double s = GizmoScale * 2.0;
+        double3 gScale = new double3(s, s, s);
 
         GenericGizmo.PerSegmentData[] seg = TranslateGizmo.GetSegmentDataByViewport(viewport);
 
         seg[0].PositionEgo = positionEgo;
         seg[0].Body2Cce = orientation;
-        seg[0].Scale = new double3(2.0, 2.0, 2.0);
+        seg[0].Scale = gScale;
         seg[0].Color = new double4(1.0, 0.0, 0.0, 0.75);
         seg[0].Active = true;
 
         seg[1].PositionEgo = positionEgo;
         seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[1].Scale = new double3(2.0, 2.0, 2.0);
+        seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
         seg[1].Active = true;
 
         seg[2].PositionEgo = positionEgo;
         seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[2].Scale = new double3(2.0, 2.0, 2.0);
+        seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
         seg[2].Active = true;
 
@@ -138,13 +143,15 @@ public sealed class PartEditorGizmos : IDisposable
     {
         doubleQuat orientation = selectedPart.Asmb2Ego(vehicleAsmb2Ego);
         double3 positionEgo = selectedPart.PositionEgo(in matrixAsmb2Ego);
+        double s = GizmoScale * 2.0;
+        double3 gScale = new double3(s, s, s);
 
         GenericGizmo.PerSegmentData[] seg = RotationGizmo.GetSegmentDataByViewport(viewport);
 
         // segment 0: X-axis (red)
         seg[0].PositionEgo = positionEgo;
         seg[0].Body2Cce = orientation;
-        seg[0].Scale = new double3(2.0, 2.0, 2.0);
+        seg[0].Scale = gScale;
         seg[0].Color = new double4(1.0, 0.0, 0.0, 0.75);
         double3 upDir0 = Double3Ex.Up.Transform(seg[0].Body2Cce).NormalizeOrZero();
         seg[0].Active = Math.Abs(double3.Dot(upDir0, positionEgo)) >= 0.15;
@@ -152,7 +159,7 @@ public sealed class PartEditorGizmos : IDisposable
         // segment 1: Y-axis (green)
         seg[1].PositionEgo = positionEgo;
         seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Forward.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[1].Scale = new double3(2.0, 2.0, 2.0);
+        seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
         double3 upDir1 = Double3Ex.Up.Transform(seg[1].Body2Cce).NormalizeOrZero();
         seg[1].Active = Math.Abs(double3.Dot(upDir1, positionEgo)) >= 0.15;
@@ -160,7 +167,7 @@ public sealed class PartEditorGizmos : IDisposable
         // segment 2: Z-axis (blue)
         seg[2].PositionEgo = positionEgo;
         seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[2].Scale = new double3(2.0, 2.0, 2.0);
+        seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
         double3 upDir2 = Double3Ex.Up.Transform(seg[2].Body2Cce).NormalizeOrZero();
         seg[2].Active = Math.Abs(double3.Dot(upDir2, positionEgo)) >= 0.15;
@@ -176,24 +183,26 @@ public sealed class PartEditorGizmos : IDisposable
     {
         doubleQuat orientation = selectedPart.Asmb2Ego(vehicleAsmb2Ego);
         double3 positionEgo = selectedPart.PositionEgo(in matrixAsmb2Ego);
+        double s = GizmoScale * 2.0;
+        double3 gScale = new double3(s, s, s);
 
         GenericGizmo.PerSegmentData[] seg = ScaleGizmo.GetSegmentDataByViewport(viewport);
 
         seg[0].PositionEgo = positionEgo;
         seg[0].Body2Cce = orientation;
-        seg[0].Scale = new double3(2.0, 2.0, 2.0);
+        seg[0].Scale = gScale;
         seg[0].Color = new double4(1.0, 0.0, 0.0, 0.75);
         seg[0].Active = true;
 
         seg[1].PositionEgo = positionEgo;
         seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[1].Scale = new double3(2.0, 2.0, 2.0);
+        seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
         seg[1].Active = true;
 
         seg[2].PositionEgo = positionEgo;
         seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
-        seg[2].Scale = new double3(2.0, 2.0, 2.0);
+        seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
         seg[2].Active = true;
 

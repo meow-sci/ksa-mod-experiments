@@ -11,11 +11,13 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **Click-to-select** — click any SubPart in the 3D viewport to select it for editing
 - **Selection visual feedback** — selected SubPart shows the game's native selection shader
 - **Quick-flip rotation** — D key rotates +45° around Y-axis, F key rotates +45° around X-axis (cumulative)
-- **Plane-locked drag** — P key cycles through pan modes (Normal / YZ / XZ / XY plane), click-and-drag to move SubParts constrained to a plane
+- **Plane-locked drag** — P key cycles through pan modes (Normal / YZ / XZ / XY plane), click-and-drag to move SubParts constrained to a plane; respects grid snap when enabled
 - **Camera snap views** — six orthographic-style snap buttons (Front, Back, Left, Right, Top, Bottom) instantly orient the camera to standard vantage points
 - **Grid plane overlay** — translucent reference grid drawn in 3D on the plane facing the snapped camera direction, with configurable size and spacing
 - **Connector visualization** — 3D gizmo cubes color-coded by flag type (yellow=Internal, cyan=ToSurface, magenta=FromSurface, green=selected)
 - **Transform controls** — per-SubPart position, rotation, and scale with grid snap and rotation snap
+- **Gizmo sizing** — single slider to uniformly scale all transform gizmos (translate/rotate/scale)
+- **Editor lighting** — add helper point lights around the workspace in Box Corners (8 lights) or Sphere (configurable rings and lights per ring) arrangements with adjustable radius, intensity, range, and color
 - **Fuel tanks** — Cylindrical or Spherical tank definitions with material, density, wall thickness, and dome height
 - **Connectors** — define attachment points with position, rotation, scale, and flag types
 - **Coupling** — Decoupler, Docking Port, and EVA Door with connector references
@@ -52,6 +54,7 @@ Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It ap
 | File | Purpose |
 |------|---------|
 | `SpaceTapeSubmod.cs` | ISubmod entry point for grant integration |
+| `EditorLighting.cs` | Manages helper point lights around the editor workspace (Box Corners / Sphere modes) |
 | `CameraSnapController.cs` | Camera snap-to-view state machine and grid plane drawing via GizmosRenderer |
 | `PartEditorState.cs` | Core state models — EditingPart, SubPartPlacement, PartGameDataState |
 | `GameDataModels.cs` | State classes for Tank, Connector, Coupling, Battery, Generator, PowerConsumer |
