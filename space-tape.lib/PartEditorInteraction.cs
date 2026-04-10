@@ -51,12 +51,15 @@ public sealed class PartEditorInteraction
         Ray ray = camera.ScreenToEgoRay(cursorPos);
         ray.Direction = ray.Direction.NormalizeOrZero();
 
-        // Raycast gizmos first
-        _gizmos.UpdateRaycast(ray, viewport);
+        // Only raycast gizmos when NOT dragging — preserves locked axis during drag
+        if (!_gizmos.GizmoGrabbed)
+        {
+            _gizmos.UpdateRaycast(ray, viewport);
+        }
 
-        // Raycast parts when no gizmo is hit
+        // Raycast parts when no gizmo is hit and not dragging a gizmo
         Part? highlighted = null;
-        if (_gizmos.HighlightedGizmo == null)
+        if (_gizmos.HighlightedGizmo == null && !_gizmos.GizmoGrabbed)
         {
             double closest = double.MaxValue;
             foreach (Part part in scene.EditorParts)
