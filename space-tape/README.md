@@ -7,6 +7,11 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **SubPart catalog browser** — filterable list with animated thumbnail previews (grid/list modes)
 - **Import from existing parts** — load any game part into the editor with full SubPart, Connector, Tank, Battery, Generator, and Coupling data
 - **3D editing scene** — place SubParts in world space with interactive gizmos (translate/rotate/scale) and origin axis marker
+- **Hover highlight** — SubParts highlight when hovered using the game's native highlight shader
+- **Click-to-select** — click any SubPart in the 3D viewport to select it for editing
+- **Selection visual feedback** — selected SubPart shows the game's native selection shader
+- **Quick-flip rotation** — D key rotates +45° around Y-axis, F key rotates +45° around X-axis (cumulative)
+- **Plane-locked drag** — P key cycles through pan modes (Normal / YZ / XZ / XY plane), click-and-drag to move SubParts constrained to a plane
 - **Camera snap views** — six orthographic-style snap buttons (Front, Back, Left, Right, Top, Bottom) instantly orient the camera to standard vantage points
 - **Grid plane overlay** — translucent reference grid drawn in 3D on the plane facing the snapped camera direction, with configurable size and spacing
 - **Connector visualization** — 3D gizmo cubes color-coded by flag type (yellow=Internal, cyan=ToSurface, magenta=FromSurface, green=selected)
@@ -18,6 +23,15 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **GameData property panel** — ImGui editor with sections for Basic Info, Tank, Power, Connectors, and Coupling
 - **Part XML export** — writes Assets XML + GameData XML to `space-tape-parts` mod directory with auto-managed mod.toml
 - **Hot-reload spike** — registers newly saved parts at runtime so you can test without a restart
+
+## Hotkeys
+
+| Key | Action | Context |
+|-----|--------|----------|
+| F11 | Toggle editor window | Global |
+| D | Rotate +45° around Y-axis | SubPart selected |
+| F | Rotate +45° around X-axis | SubPart selected |
+| P | Cycle pan mode (Normal → YZ → XZ → XY → Normal) | Editor active |
 
 ## Integration
 
@@ -73,6 +87,7 @@ PartEditorScene (3D viewport)
 ├── GenericGizmo             → translate/rotate/scale for SubParts
 ├── ConnectorGizmo           → color-coded connector cubes
 ├── CameraSnapController     → snap views + grid plane overlay
+├── PartEditorInteraction    → hover highlight, click-select, gizmo drag, quick-flip, plane drag
 └── Origin marker            → axis lines at part origin
 
 HotReloadSpike               → registers saved parts into game at runtime
