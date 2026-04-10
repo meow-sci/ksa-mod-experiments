@@ -237,7 +237,34 @@ public sealed class PartEditorScene : IDisposable
         part.Scale = placement.Scale;
         // Populate PartTree.Modules so UpdateRenderData can find PartModelModule
         PartTree.CreateFromNewPartTree(part);
+
+        // Ensure MeshViewModule exists for raycast click detection.
+        // Some SubPart templates (e.g. IVA props) only have a PartModel component
+        // but no MeshView component — rendering works but raycasting silently fails.
+        EnsureMeshViewModule(part, placement.SubPartTemplateId);
+
         return part;
+    }
+
+    /// <summary>
+    /// If the Part has no MeshViewModule (required for raycast hit detection),
+    /// attempts to create one from the PartModelModule's rendering mesh.
+    /// </summary>
+    private static void EnsureMeshViewModule(Part part, string subPartTemplateId)
+    {
+        if (!part.Modules.Get<MeshViewModule>().IsEmpty)
+            return; // already has one
+
+        Span<PartModelModule> partModels = part.Modules.Get<PartModelModule>();
+        if (partModels.IsEmpty)
+            return;
+
+        MeshReference? renderMesh = partModels[0].PartModel?.Template?.Mesh;
+        if (renderMesh == null || renderMesh.PositionCompare is not { Length: > 0 } || renderMesh.BoundingSphereRadius <= 0)
+            return;
+
+        var module = new MeshViewModule(subPartTemplateId, renderMesh) { Parent = part };
+        part.Modules.Add(module);
     }
 
     public void Dispose()

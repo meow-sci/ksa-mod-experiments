@@ -127,6 +127,12 @@ vehicle.Parent.GetCci2Cce() // doubleQuat — CCI-to-CCE frame rotation
 
 # Parts
 
+Parts are the building blocks of vehicles. Each `Part` is created from a `PartTemplate` and contains typed modules (`PartModelModule` for rendering, `MeshViewModule` for raycasting, `EngineController`, `Tank`, etc.) in its `Modules` collection.
+
+**Key architecture:** A Part has a `SubParts[]` array of child Parts. SubPart templates are leaf-level — they define individual meshes like fuel tank skins, IVA chairs, etc. Not all SubPart templates include a `MeshViewModule` component, which means raycasting (mouse hover/click detection) silently fails for those parts unless manually patched.
+
+For detailed information on Part rendering, raycasting, mouse detection, the missing-MeshViewModule workaround, and coordinate spaces, see [parts.md](parts.md).
+
 ## Regular Vehicles
 
 Top-level parts are accessed via `vehicle.Parts.Parts`. Each `Part` has a `SubParts` collection forming a tree. Recurse to reach all parts:
@@ -172,7 +178,7 @@ After modifying module state (e.g. activating/deactivating engines), call:
 vehicle.Parts.RecomputeAllDerivedData();
 ```
 
-For engine control details see [vehicle-api.md](vehicle-api.md).
+For engine control details see [vehicle-api.md](vehicle-api.md). For rendering and raycasting modules (`PartModelModule`, `MeshViewModule`) see [parts.md](parts.md).
 
 ## Dynamically Adding Parts at Runtime
 
