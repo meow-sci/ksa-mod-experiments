@@ -1,0 +1,1 @@
+- lighting.  right now the sun is directly above, which is neat and I think the same as the vehicle editor, but it can make lighting a challenge.
