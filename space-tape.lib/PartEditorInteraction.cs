@@ -6,6 +6,9 @@ using KSA;
 
 namespace MeowSci.SpaceTapeLib;
 
+/// <summary>Pan constraint mode for click-and-drag SubPart movement.</summary>
+public enum PanMode { Normal, PlaneX, PlaneY, PlaneZ }
+
 /// <summary>
 /// Handles mouse interaction for the Part editor: hover detection, click-to-select,
 /// and gizmo drag for translate/rotate/scale operations.
@@ -16,6 +19,12 @@ public sealed class PartEditorInteraction
     private double2 _prevCursorPos;
     private Part? _highlightedPart;
     private Part? _selectedPart;
+
+    /// <summary>Current plane-lock mode, toggled by P key.</summary>
+    public PanMode CurrentPanMode { get; private set; } = PanMode.Normal;
+    private bool _planeDragging;
+    private double3 _planeDragOrigin;
+    private double3 _planeDragNormal;
 
     // Reflection access to Part's private matrix cache field.
     // Note: Part property setters already invalidate _matrixAsmb, so this is a safety measure.
@@ -123,6 +132,21 @@ public sealed class PartEditorInteraction
                 if (idx >= 0)
                 {
                     UpdateSelection(scene, controller, idx);
+
+                    // Start plane drag if a plane mode is active
+                    if (CurrentPanMode != PanMode.Normal)
+                    {
+                        controller.PushUndo();
+                        _planeDragging = true;
+                        _planeDragOrigin = highlighted.PositionEgo(in matrixAsmb2Ego);
+                        _planeDragNormal = CurrentPanMode switch
+                        {
+                            PanMode.PlaneX => new double3(1, 0, 0),
+                            PanMode.PlaneY => new double3(0, 1, 0),
+                            PanMode.PlaneZ => new double3(0, 0, 1),
+                            _ => new double3(0, 1, 0)
+                        };
+                    }
                 }
                 _gizmos.GizmoGrabbed = false;
             }
@@ -135,7 +159,10 @@ public sealed class PartEditorInteraction
 
         bool leftReleased = ImGui.IsMouseReleased(ImGuiMouseButton.Left);
         if (leftReleased)
+        {
             _gizmos.GizmoGrabbed = false;
+            _planeDragging = false;
+        }
 
         // Quick-flip hotkeys: D = +45° around Y-axis, F = +45° around X-axis
         if (selectedPart != null && !ImGui.GetIO().WantCaptureKeyboard)
@@ -152,6 +179,20 @@ public sealed class PartEditorInteraction
                 if (controller.SelectedPlacement != null)
                     controller.SelectedPlacement.Rotation = selectedPart.Asmb2ParentAsmb;
             }
+        }
+
+        // P key cycles pan mode: Normal → PlaneX → PlaneY → PlaneZ → Normal
+        if (!ImGui.GetIO().WantCaptureKeyboard && ImGui.IsKeyPressed(ImGuiKey.P))
+        {
+            CurrentPanMode = CurrentPanMode switch
+            {
+                PanMode.Normal => PanMode.PlaneX,
+                PanMode.PlaneX => PanMode.PlaneY,
+                PanMode.PlaneY => PanMode.PlaneZ,
+                PanMode.PlaneZ => PanMode.Normal,
+                _ => PanMode.Normal
+            };
+            Console.WriteLine($"space-tape: Pan mode → {CurrentPanMode}");
         }
 
         // Drag: translate
@@ -248,6 +289,28 @@ public sealed class PartEditorInteraction
                     InvalidatePartMatrixCache(selectedPart);
                     if (controller.SelectedPlacement != null)
                         controller.SelectedPlacement.Scale = scale;
+                }
+            }
+        }
+
+        // Plane-constrained drag: move SubPart on locked plane
+        if (_planeDragging && selectedPart != null)
+        {
+            double denom = double3.Dot(ray.Direction, _planeDragNormal);
+            if (Math.Abs(denom) > 1e-10)
+            {
+                double t = double3.Dot(_planeDragOrigin - ray.Origin, _planeDragNormal) / denom;
+                if (t > 0)
+                {
+                    double3 hitPointEgo = ray.Origin + ray.Direction * t;
+
+                    double4x4.Invert(selectedPart.MatrixParentAsmb2Ego(in matrixAsmb2Ego), out double4x4 invParent);
+                    double3 newPosInParent = hitPointEgo.Transform(invParent);
+                    selectedPart.PositionParentAsmb = newPosInParent;
+
+                    InvalidatePartMatrixCache(selectedPart);
+                    if (controller.SelectedPlacement != null)
+                        controller.SelectedPlacement.Position = newPosInParent;
                 }
             }
         }

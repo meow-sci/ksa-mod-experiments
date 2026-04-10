@@ -71,6 +71,7 @@ public sealed class PartEditorUi
         PartEditorController controller,
         PartEditorScene scene,
         PartEditorGizmos gizmos,
+        PartEditorInteraction interaction,
         SubPartCatalog catalog,
         PartModWriter writer,
         CameraSnapController cameraSnap)
@@ -81,7 +82,7 @@ public sealed class PartEditorUi
         bool open = WindowOpen;
         if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
         {
-            RenderToolbar(controller, gizmos, scene, cameraSnap);
+            RenderToolbar(controller, gizmos, interaction, scene, cameraSnap);
             ImGui.Spacing();
             RenderLoadImportSection(controller, scene, writer);
             ImGui.Spacing();
@@ -101,7 +102,7 @@ public sealed class PartEditorUi
     // Toolbar
     // -------------------------------------------------------------------------
 
-    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorScene scene, CameraSnapController cameraSnap)
+    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorInteraction interaction, PartEditorScene scene, CameraSnapController cameraSnap)
     {
         if (!controller.CanUndo) ImGui.BeginDisabled();
         if (ImGui.Button(" Undo ")) controller.Undo();
@@ -299,6 +300,28 @@ public sealed class PartEditorUi
 
             ImGui.EndTable();
         }
+
+        // Pan mode indicator
+        ImGui.Spacing();
+        PanMode panMode = interaction.CurrentPanMode;
+        float4 panColor = panMode switch
+        {
+            PanMode.PlaneX => new float4(1f, 0.3f, 0.3f, 1f),
+            PanMode.PlaneY => new float4(0.3f, 1f, 0.3f, 1f),
+            PanMode.PlaneZ => new float4(0.3f, 0.3f, 1f, 1f),
+            _ => new float4(0.5f, 0.5f, 0.5f, 1f)
+        };
+        string panLabel = panMode switch
+        {
+            PanMode.PlaneX => "Pan: YZ Plane (lock X)",
+            PanMode.PlaneY => "Pan: XZ Plane (lock Y)",
+            PanMode.PlaneZ => "Pan: XY Plane (lock Z)",
+            _ => "Pan: Normal"
+        };
+        ImGui.TextColored(panColor, panLabel);
+        ImGui.SameLine();
+        ImGui.TextDisabled("(P to cycle)");
+
         ImGui.PopStyleVar(); // CellPadding
     }
 

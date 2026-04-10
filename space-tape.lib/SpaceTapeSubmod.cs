@@ -74,7 +74,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void RenderFloatingWindows()
     {
-        _ui.RenderEditorWindow(_controller, _scene, _gizmos, _catalog, _writer, _cameraSnap);
+        _ui.RenderEditorWindow(_controller, _scene, _gizmos, _interaction, _catalog, _writer, _cameraSnap);
     }
 
     private void RenderContentInner()
