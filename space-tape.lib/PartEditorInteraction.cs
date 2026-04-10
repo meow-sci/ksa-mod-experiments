@@ -116,6 +116,23 @@ public sealed class PartEditorInteraction
         if (leftReleased)
             _gizmos.GizmoGrabbed = false;
 
+        // Quick-flip hotkeys: D = +45° around Y-axis, F = +45° around X-axis
+        if (selectedPart != null && !ImGui.GetIO().WantCaptureKeyboard)
+        {
+            bool flipD = ImGui.IsKeyPressed(ImGuiKey.D);
+            bool flipF = ImGui.IsKeyPressed(ImGuiKey.F);
+            if (flipD || flipF)
+            {
+                controller.PushUndo();
+                double3 axis = flipD ? new double3(0, 1, 0) : new double3(1, 0, 0);
+                doubleQuat rot = doubleQuat.CreateFromAxisAngle(axis, Math.PI / 4.0);
+                selectedPart.Asmb2ParentAsmb = doubleQuat.Multiply(rot, selectedPart.Asmb2ParentAsmb);
+                InvalidatePartMatrixCache(selectedPart);
+                if (controller.SelectedPlacement != null)
+                    controller.SelectedPlacement.Rotation = selectedPart.Asmb2ParentAsmb;
+            }
+        }
+
         // Drag: translate
         if (_gizmos.GizmoGrabbed && _gizmos.HighlightedGizmo == _gizmos.TranslateGizmo && selectedPart != null)
         {
