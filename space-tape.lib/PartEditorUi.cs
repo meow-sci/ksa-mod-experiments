@@ -313,9 +313,9 @@ public sealed class PartEditorUi
         };
         string panLabel = panMode switch
         {
-            PanMode.PlaneX => "Pan: YZ Plane (lock X)",
-            PanMode.PlaneY => "Pan: XZ Plane (lock Y)",
-            PanMode.PlaneZ => "Pan: XY Plane (lock Z)",
+            PanMode.PlaneX => "Pan: YZ Plane (lock X / front)",
+            PanMode.PlaneY => "Pan: XZ Plane (lock Y) / side",
+            PanMode.PlaneZ => "Pan: XY Plane (lock Z) / top",
             _ => "Pan: Normal"
         };
         ImGui.TextColored(panColor, panLabel);

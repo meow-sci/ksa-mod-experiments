@@ -23,7 +23,8 @@ public sealed class PartEditorInteraction
     /// <summary>Current plane-lock mode, toggled by P key.</summary>
     public PanMode CurrentPanMode { get; private set; } = PanMode.Normal;
     private bool _planeDragging;
-    private double3 _planeDragOrigin;
+    private double3 _planeDragPartPosEgo;   // part's ego-space position at drag start
+    private double3 _planeDragClickHitEgo;  // where the initial click ray hit the plane
     private double3 _planeDragNormal;
 
     // Reflection access to Part's private matrix cache field.
@@ -126,27 +127,37 @@ public sealed class PartEditorInteraction
             {
                 _gizmos.GizmoGrabbed = true;
             }
+            // Pan mode hijacks click+drag when a part is already selected —
+            // starts plane drag regardless of where the click lands (no raycast needed)
+            else if (CurrentPanMode != PanMode.Normal && selectedPart != null)
+            {
+                _planeDragNormal = CurrentPanMode switch
+                {
+                    PanMode.PlaneX => new double3(1, 0, 0),
+                    PanMode.PlaneY => new double3(0, 1, 0),
+                    PanMode.PlaneZ => new double3(0, 0, 1),
+                    _ => new double3(0, 1, 0)
+                };
+                // Compute where the click ray hits the constraint plane through the part
+                _planeDragPartPosEgo = selectedPart.PositionEgo(in matrixAsmb2Ego);
+                double denom = double3.Dot(ray.Direction, _planeDragNormal);
+                if (Math.Abs(denom) > 1e-10)
+                {
+                    double t = double3.Dot(_planeDragPartPosEgo - ray.Origin, _planeDragNormal) / denom;
+                    if (t > 0)
+                    {
+                        _planeDragClickHitEgo = ray.Origin + ray.Direction * t;
+                        _planeDragging = true;
+                        controller.PushUndo();
+                    }
+                }
+            }
             else if (highlighted != null)
             {
                 int idx = IndexOf(scene, highlighted);
                 if (idx >= 0)
                 {
                     UpdateSelection(scene, controller, idx);
-
-                    // Start plane drag if a plane mode is active
-                    if (CurrentPanMode != PanMode.Normal)
-                    {
-                        controller.PushUndo();
-                        _planeDragging = true;
-                        _planeDragOrigin = highlighted.PositionEgo(in matrixAsmb2Ego);
-                        _planeDragNormal = CurrentPanMode switch
-                        {
-                            PanMode.PlaneX => new double3(1, 0, 0),
-                            PanMode.PlaneY => new double3(0, 1, 0),
-                            PanMode.PlaneZ => new double3(0, 0, 1),
-                            _ => new double3(0, 1, 0)
-                        };
-                    }
                 }
                 _gizmos.GizmoGrabbed = false;
             }
@@ -293,19 +304,22 @@ public sealed class PartEditorInteraction
             }
         }
 
-        // Plane-constrained drag: move SubPart on locked plane
+        // Plane-constrained drag: move SubPart on locked plane using delta from click origin
         if (_planeDragging && selectedPart != null)
         {
             double denom = double3.Dot(ray.Direction, _planeDragNormal);
             if (Math.Abs(denom) > 1e-10)
             {
-                double t = double3.Dot(_planeDragOrigin - ray.Origin, _planeDragNormal) / denom;
+                double t = double3.Dot(_planeDragPartPosEgo - ray.Origin, _planeDragNormal) / denom;
                 if (t > 0)
                 {
                     double3 hitPointEgo = ray.Origin + ray.Direction * t;
+                    // Delta from where the user first clicked, not absolute position
+                    double3 deltaEgo = hitPointEgo - _planeDragClickHitEgo;
+                    double3 newPosEgo = _planeDragPartPosEgo + deltaEgo;
 
                     double4x4.Invert(selectedPart.MatrixParentAsmb2Ego(in matrixAsmb2Ego), out double4x4 invParent);
-                    double3 newPosInParent = hitPointEgo.Transform(invParent);
+                    double3 newPosInParent = newPosEgo.Transform(invParent);
                     selectedPart.PositionParentAsmb = newPosInParent;
 
                     InvalidatePartMatrixCache(selectedPart);

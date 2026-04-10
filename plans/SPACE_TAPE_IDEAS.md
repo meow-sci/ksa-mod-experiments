@@ -1,1 +1,6 @@
 - lighting.  right now the sun is directly above, which is neat and I think the same as the vehicle editor, but it can make lighting a challenge.
+    - i don't think there's any global illumination capabilities in the game or other sources of light since it's a true space simulation
+    - there is a built-in light SubPart right now called `LightSubPart` which when added to our part editor emits light.  maybe we can use this to our advantage.  I DO NOT want to add the light sub parts to the actual part we are building, but if we can instantiate instances and place them around to provide more light on the editor workspace that would be useful.  if we do this, we'd need quick buttons and helpers to help with this, like a modes of how this works such as maybe render 4 arranged as corners of a box facing the part origin, or spaced out in sparse sphere facing the part origin.  if we do this, we'd want a setting of like how many to do per radius and what the radius of the sphere should be
+- make pan mode movement snap to grid snap if enabled
+- make the gizmos resizable (provide a single drag float slider for a single scale value that is applied in all dimensions)
+- 
