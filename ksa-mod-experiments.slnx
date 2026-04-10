@@ -49,5 +49,6 @@
     <Project Path="doh.lib/doh.lib.csproj" />
     <Project Path="space-tape/space-tape.csproj" />
     <Project Path="space-tape.lib/space-tape.lib.csproj" />
-
+    <Project Path="flexo/flexo.csproj" />
+    <Project Path="flexo.lib/flexo.lib.csproj" />
 </Solution>

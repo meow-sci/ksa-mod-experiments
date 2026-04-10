@@ -23,6 +23,7 @@ using MeowSci.InanimateCarbonRodLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
 using MeowSci.SpaceTapeLib;
+using MeowSci.FlexoLib;
 
 namespace MeowSci.Grant;
 
@@ -75,6 +76,7 @@ public class Mod
             _submods.Add(new HumbleArteestSubmod());
             _submods.Add(new ZippoSubmod());
             _submods.Add(new SpaceTapeSubmod());
+            _submods.Add(new FlexoSubmod());
 
             // Initialize all submods so Tracker is populated before patching
             foreach (var submod in _submods)

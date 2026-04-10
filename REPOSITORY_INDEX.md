@@ -323,6 +323,17 @@ In-game Part editor. Compose new Parts from existing SubParts by placing them in
 - Hot-reload spike for registering parts at runtime without restart
 - **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `CameraSnapController`, `PartEditorInteraction` (hover/select/drag/quick-flip/plane-drag), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
 
+### [flexo](flexo) / [flexo.lib](flexo.lib)
+Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime.
+- Hinge creator: select fixed and moving Parts from a vehicle, define rotation axis, degree range, resting position, and motor speed
+- TOML-based persistence — flexo definitions saved to `~/.flexo/flexo_part_*.toml`
+- Vehicle scanning — detect flexo parts on the active vehicle by matching Part template IDs and connectivity
+- Runtime hinge control — open/close/reset buttons, manual angle slider, animated rotation via `Part.Asmb2ParentAsmb`
+- 3D editor scene with camera snaps, lighting, hover/select interaction (reuses space-tape patterns)
+- Live preview — rotate Parts in the editor to verify hinge axis and range before saving
+- Grant integration as ISubmod with runtime panel and floating editor window
+- **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`
+
 ---
 
 ## Orbit & Navigation Mods
