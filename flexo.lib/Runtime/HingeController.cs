@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.FlexoLib.Data;
@@ -12,6 +13,8 @@ public sealed class HingeController
     public Part MovingPart { get; }
 
     private readonly doubleQuat _originalRotation;
+    private readonly double3 _pivotPosition;
+    private readonly List<Part> _treeDescendants = new();
     private double _currentDegrees;
     private double _targetDegrees;
     private bool _isAnimating;
@@ -26,8 +29,19 @@ public sealed class HingeController
         FixedPart = fixedPart;
         MovingPart = movingPart;
         _originalRotation = movingPart.Asmb2ParentAsmb;
+        _pivotPosition = movingPart.PositionParentAsmb;
         _currentDegrees = definition.Hinge?.RestingDegrees ?? 0;
         _targetDegrees = _currentDegrees;
+
+        // Collect all tree descendants (NOT SubParts — those follow
+        // automatically via the assembly-hierarchy recursion in
+        // MatrixParentAsmb2Ego → PartParent.MatrixAsmb2Ego).
+        CollectTreeDescendants(movingPart);
+
+        // Register with the static orbit-transform registry so the
+        // Harmony patch on MatrixParentAsmb2Ego can inject the hinge
+        // rotation into the render chain.
+        HingeRegistry.Register(_treeDescendants, double4x4.Identity);
     }
 
     public void SetTarget(double degrees)
@@ -74,6 +88,15 @@ public sealed class HingeController
         ApplyRotation();
     }
 
+    /// <summary>
+    /// Unregisters all tree descendants from the Harmony-patch registry.
+    /// Call when vehicle is unloaded or the hinge controller is discarded.
+    /// </summary>
+    public void Dispose()
+    {
+        HingeRegistry.Unregister(_treeDescendants);
+    }
+
     private void ApplyRotation()
     {
         var hinge = Definition.Hinge!;
@@ -81,7 +104,26 @@ public sealed class HingeController
         var axis = new double3(hinge.AxisX, hinge.AxisY, hinge.AxisZ);
         var hingeRotation = doubleQuat.CreateFromAxisAngle(axis, angleRad);
 
-        // Concatenate hinge rotation with the part's original rotation
+        // 1) Rotate the moving part directly — its SubParts follow
+        //    through the assembly-hierarchy recursion.
         MovingPart.Asmb2ParentAsmb = doubleQuat.Concatenate(hingeRotation, _originalRotation);
+
+        // 2) Compute orbit-around-pivot matrix for tree descendants.
+        //    The Harmony postfix on MatrixParentAsmb2Ego injects this
+        //    into the render chain so descendants orbit with the hinge.
+        var orbit = double4x4.CreateTranslation(-_pivotPosition)
+                  * double4x4.CreateFromQuaternion(hingeRotation)
+                  * double4x4.CreateTranslation(_pivotPosition);
+
+        HingeRegistry.Update(_treeDescendants, orbit);
+    }
+
+    private void CollectTreeDescendants(Part parent)
+    {
+        foreach (var child in parent.TreeChildren)
+        {
+            _treeDescendants.Add(child);
+            CollectTreeDescendants(child);
+        }
     }
 }

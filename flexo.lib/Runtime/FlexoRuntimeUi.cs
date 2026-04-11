@@ -70,9 +70,9 @@ public static class FlexoRuntimeUi
 
         ImGui.Indent();
 
-        // Part info
-        ImGui.TextDisabled($"Fixed: {controller.FixedPart.Template.Id}");
-        ImGui.TextDisabled($"Moving: {controller.MovingPart.Template.Id}");
+        // Part info (include index for disambiguation when duplicates exist)
+        ImGui.TextDisabled($"Fixed: {controller.FixedPart.Template.Id} (#{index}a)");
+        ImGui.TextDisabled($"Moving: {controller.MovingPart.Template.Id} (#{index}b)");
 
         // Angle slider
         float angle = (float)controller.CurrentDegrees;

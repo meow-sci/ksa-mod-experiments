@@ -30,7 +30,7 @@ public sealed class FlexoRuntime
 
     public void ScanVehicle()
     {
-        _activeHinges.Clear();
+        DisposeHinges();
         HasScanned = true;
 
         var vehicle = VehicleProvider.GetControlledVehicle();
@@ -79,9 +79,16 @@ public sealed class FlexoRuntime
 
     public void ClearScan()
     {
-        _activeHinges.Clear();
+        DisposeHinges();
         HasScanned = false;
         ScanStatusMessage = null;
+    }
+
+    private void DisposeHinges()
+    {
+        foreach (var hinge in _activeHinges)
+            hinge.Dispose();
+        _activeHinges.Clear();
     }
 
     public void Update(double dt)

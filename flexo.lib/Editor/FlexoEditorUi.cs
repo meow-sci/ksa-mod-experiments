@@ -218,13 +218,14 @@ public sealed class FlexoEditorUi
 
         ImGui.BeginChild("##flexo_part_list", new float2(0, 200), ImGuiChildFlags.Borders, ImGuiWindowFlags.None);
 
-        foreach (var part in _scene.EditorParts)
+        for (int i = 0; i < _scene.EditorParts.Count; i++)
         {
+            var part = _scene.EditorParts[i];
             bool isFixed = part == _state.FixedPart;
             bool isMoving = part == _state.MovingPart;
             bool isSelected = part == _interaction.SelectedPart;
 
-            string label = part.Template.Id;
+            string label = $"{part.Template.Id} (#{i})";
             if (isFixed) label = "[FIXED] " + label;
             else if (isMoving) label = "[MOVING] " + label;
 
@@ -233,7 +234,7 @@ public sealed class FlexoEditorUi
             else if (isMoving)
                 ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(new float4(1f, 0.8f, 0.3f, 1f)));
 
-            if (ImGui.Selectable($"{label}##{part.Id}", isSelected))
+            if (ImGui.Selectable($"{label}##flexo_part_{i}", isSelected))
             {
                 _interaction.SelectPart(part);
                 _state.OnPartSelected(part);
@@ -473,10 +474,10 @@ public sealed class FlexoEditorUi
         double radians = _state.PreviewAngle * Math.PI / 180.0;
         doubleQuat rotation = doubleQuat.CreateFromAxisAngle(axis, radians);
 
-        // Find the matching editor part for the moving part template
+        // Apply rotation to the exact moving part instance selected in the editor
         foreach (var part in _scene.EditorParts)
         {
-            if (part.Template.Id == _state.MovingPart.Template.Id)
+            if (part == _state.MovingPart)
             {
                 part.Asmb2ParentAsmb = rotation;
                 break;
