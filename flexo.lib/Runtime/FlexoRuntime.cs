@@ -65,7 +65,8 @@ public sealed class FlexoRuntime
                     // Both parts are on the same vehicle — that's sufficient to pair them.
                     // Closest-pair heuristic: prefer direct connection or tree relation,
                     // but accept any match on the same vehicle.
-                    _activeHinges.Add(new HingeController(def, fixedPart, movingPart));
+                    var hc = new HingeController(def, fixedPart, movingPart) { Vehicle = vehicle };
+                    _activeHinges.Add(hc);
                     Console.WriteLine($"flexo: Found hinge '{def.DisplayName}' — fixed={fixedPart.Template.Id}, moving={movingPart.Template.Id}");
                 }
             }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Brutal.Numerics;
+using HarmonyLib;
 using KSA;
 using MeowSci.FlexoLib.Data;
 
@@ -11,6 +12,7 @@ public sealed class HingeController
     public FlexoPartDefinition Definition { get; }
     public Part FixedPart { get; }
     public Part MovingPart { get; }
+    public Vehicle? Vehicle { get; set; }
 
     private readonly doubleQuat _originalRotation;
     private readonly double3 _pivotPosition;
@@ -111,8 +113,8 @@ public sealed class HingeController
         //    part's local assembly space, so hinge rotation is applied
         //    first (in local space), then the original orientation
         //    converts to vehicle-assembly space.
-        //    SubParts follow automatically via assembly-hierarchy recursion.
         MovingPart.Asmb2ParentAsmb = doubleQuat.Concatenate(hingeRotation, _originalRotation);
+        InvalidateSubPartCaches(MovingPart);
         MovingPart.BoundingBoxVehicleAsmb = MovingPart.ComputeBoundingBoxVehicleAsmb();
 
         // 2) Update stored transforms on tree descendants.
@@ -135,8 +137,56 @@ public sealed class HingeController
             snap.Part.Asmb2ParentAsmb = doubleQuat.Concatenate(
                 snap.OriginalRotation, hingeRotation);
 
+            // SubParts of this descendant have their own cached vehicle-space
+            // transforms that are NOT invalidated when the parent's stored
+            // values change.  Touch them to force recompute on next access.
+            InvalidateSubPartCaches(snap.Part);
+
             // Recompute cached bounding box from new transforms
             snap.Part.BoundingBoxVehicleAsmb = snap.Part.ComputeBoundingBoxVehicleAsmb();
+        }
+
+        // 3) Update vehicle-level physics: bounding box, CoM, aero, etc.
+        UpdateVehiclePhysics();
+    }
+
+    /// <summary>
+    /// SubParts cache _positionVehicleAsmb and _asmb2VehicleAsmb based on
+    /// their PartParent's rotation.  These caches are only invalidated by
+    /// the SubPart's OWN property setter — not by changing the parent.
+    /// We touch them to force cache invalidation so thrust vectors,
+    /// connector positions, etc. pick up the parent's new rotation.
+    /// </summary>
+    private static void InvalidateSubPartCaches(Part part)
+    {
+        foreach (var sub in part.SubParts)
+        {
+            sub.PositionParentAsmb = sub.PositionParentAsmb;
+            sub.Asmb2ParentAsmb = sub.Asmb2ParentAsmb;
+            sub.BoundingBoxVehicleAsmb = sub.ComputeBoundingBoxVehicleAsmb();
+            InvalidateSubPartCaches(sub);
+        }
+    }
+
+    private void UpdateVehiclePhysics()
+    {
+        if (Vehicle == null) return;
+
+        try
+        {
+            // Force PartTree to recompute static (inert) mass properties
+            // from the updated part positions.  RecomputeStaticMass is
+            // private, so we use Traverse to invoke it.
+            Traverse.Create(Vehicle.Parts).Method("RecomputeStaticMass").GetValue();
+
+            // UpdateAfterPartTreeModification recomputes bounding box,
+            // mass properties (including propellant), aero, and flight
+            // computer config from the newly updated part transforms.
+            Vehicle.UpdateAfterPartTreeModification();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"flexo: Vehicle physics update error: {ex.Message}");
         }
     }
 
