@@ -14,7 +14,7 @@ public sealed class HingeController
 
     private readonly doubleQuat _originalRotation;
     private readonly double3 _pivotPosition;
-    private readonly List<Part> _treeDescendants = new();
+    private readonly List<DescendantSnapshot> _descendants = new();
     private double _currentDegrees;
     private double _targetDegrees;
     private bool _isAnimating;
@@ -33,15 +33,13 @@ public sealed class HingeController
         _currentDegrees = definition.Hinge?.RestingDegrees ?? 0;
         _targetDegrees = _currentDegrees;
 
-        // Collect all tree descendants (NOT SubParts — those follow
-        // automatically via the assembly-hierarchy recursion in
-        // MatrixParentAsmb2Ego → PartParent.MatrixAsmb2Ego).
+        // Snapshot original transforms of all tree descendants.
+        // TreeChildren in KSA have independent positions in vehicle-assembly
+        // space — we must update their stored transforms so that BOTH
+        // rendering and physics (CoM, thrust vectors, bounding boxes) see
+        // the correct hinged positions.  SubParts are NOT collected — they
+        // follow their parent automatically via the assembly hierarchy.
         CollectTreeDescendants(movingPart);
-
-        // Register with the static orbit-transform registry so the
-        // Harmony patch on MatrixParentAsmb2Ego can inject the hinge
-        // rotation into the render chain.
-        HingeRegistry.Register(_treeDescendants, double4x4.Identity);
     }
 
     public void SetTarget(double degrees)
@@ -89,12 +87,17 @@ public sealed class HingeController
     }
 
     /// <summary>
-    /// Unregisters all tree descendants from the Harmony-patch registry.
+    /// Restores original transforms on all descendants.
     /// Call when vehicle is unloaded or the hinge controller is discarded.
     /// </summary>
     public void Dispose()
     {
-        HingeRegistry.Unregister(_treeDescendants);
+        MovingPart.Asmb2ParentAsmb = _originalRotation;
+        foreach (var snap in _descendants)
+        {
+            snap.Part.PositionParentAsmb = snap.OriginalPosition;
+            snap.Part.Asmb2ParentAsmb = snap.OriginalRotation;
+        }
     }
 
     private void ApplyRotation()
@@ -104,26 +107,60 @@ public sealed class HingeController
         var axis = new double3(hinge.AxisX, hinge.AxisY, hinge.AxisZ);
         var hingeRotation = doubleQuat.CreateFromAxisAngle(axis, angleRad);
 
-        // 1) Rotate the moving part directly — its SubParts follow
-        //    through the assembly-hierarchy recursion.
+        // 1) Rotate the moving part — the hinge axis is defined in the
+        //    part's local assembly space, so hinge rotation is applied
+        //    first (in local space), then the original orientation
+        //    converts to vehicle-assembly space.
+        //    SubParts follow automatically via assembly-hierarchy recursion.
         MovingPart.Asmb2ParentAsmb = doubleQuat.Concatenate(hingeRotation, _originalRotation);
+        MovingPart.BoundingBoxVehicleAsmb = MovingPart.ComputeBoundingBoxVehicleAsmb();
 
-        // 2) Compute orbit-around-pivot matrix for tree descendants.
-        //    The Harmony postfix on MatrixParentAsmb2Ego injects this
-        //    into the render chain so descendants orbit with the hinge.
-        var orbit = double4x4.CreateTranslation(-_pivotPosition)
-                  * double4x4.CreateFromQuaternion(hingeRotation)
-                  * double4x4.CreateTranslation(_pivotPosition);
+        // 2) Update stored transforms on tree descendants.
+        //    Tree descendants have positions/rotations in vehicle-assembly
+        //    space.  The orbit rotation must be applied in vehicle space
+        //    (AFTER the part's original local orientation), so we use
+        //    Concatenate(origRot, hingeRot) — original first, then hinge.
+        //    This keeps all descendants rotating around the same vehicle-
+        //    space axis, producing coherent rigid-body motion.
+        var rotMatrix = double4x4.CreateFromQuaternion(hingeRotation);
+        foreach (var snap in _descendants)
+        {
+            // Orbit position around the hinge pivot in vehicle-assembly space
+            double3 relative = snap.OriginalPosition - _pivotPosition;
+            double3 rotated = double3.Transform(relative, rotMatrix);
+            snap.Part.PositionParentAsmb = _pivotPosition + rotated;
 
-        HingeRegistry.Update(_treeDescendants, orbit);
+            // Apply original orientation first, then hinge rotation
+            // (both operating in vehicle-assembly space for descendants)
+            snap.Part.Asmb2ParentAsmb = doubleQuat.Concatenate(
+                snap.OriginalRotation, hingeRotation);
+
+            // Recompute cached bounding box from new transforms
+            snap.Part.BoundingBoxVehicleAsmb = snap.Part.ComputeBoundingBoxVehicleAsmb();
+        }
     }
 
     private void CollectTreeDescendants(Part parent)
     {
         foreach (var child in parent.TreeChildren)
         {
-            _treeDescendants.Add(child);
+            _descendants.Add(new DescendantSnapshot(
+                child, child.PositionParentAsmb, child.Asmb2ParentAsmb));
             CollectTreeDescendants(child);
+        }
+    }
+
+    private sealed class DescendantSnapshot
+    {
+        public readonly Part Part;
+        public readonly double3 OriginalPosition;
+        public readonly doubleQuat OriginalRotation;
+
+        public DescendantSnapshot(Part part, double3 position, doubleQuat rotation)
+        {
+            Part = part;
+            OriginalPosition = position;
+            OriginalRotation = rotation;
         }
     }
 }
