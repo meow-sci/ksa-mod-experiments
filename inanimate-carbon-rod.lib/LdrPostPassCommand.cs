@@ -42,7 +42,7 @@ public readonly struct LdrPostPassCommand : IRenderCommandRecord
             src,
             ImageBarrierInfo.Presets.SampledReadFragment,
             ImageBarrierInfo.Presets.TransferSrc,
-            ImageTransition.Subresource(VkImageAspectFlags.ColorBit, 0, ThumbnailRenderer.MipLevels));
+            ImageTransition.Subresource(VkImageAspectFlags.ColorBit, 0, 1));
         preps[1] = new ImageTransition(
             dst,
             ImageBarrierInfo.Presets.Undefined,
@@ -94,7 +94,7 @@ public readonly struct LdrPostPassCommand : IRenderCommandRecord
             src,
             ImageBarrierInfo.Presets.TransferSrc,
             ImageBarrierInfo.Presets.SampledReadFragment,
-            ImageTransition.Subresource(VkImageAspectFlags.ColorBit, 0, ThumbnailRenderer.MipLevels));
+            ImageTransition.Subresource(VkImageAspectFlags.ColorBit, 0, 1));
         inCommandBuffer.TransitionImages2(finals);
 
         _atmosphereRenderer.TransitionLuts(

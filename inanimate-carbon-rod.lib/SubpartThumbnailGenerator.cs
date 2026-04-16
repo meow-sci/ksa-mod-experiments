@@ -291,7 +291,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         var thumb = new ThumbnailReference();
         thumb.CreateImageView(
             imageName,
-            renderer.Device,
+            renderer,
             new ImageEx.CreateInfo
             {
                 Name = imageName,
