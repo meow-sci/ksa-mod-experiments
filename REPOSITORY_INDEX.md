@@ -113,6 +113,11 @@ G-force recorder and display. Monitors acceleration forces (g-forces) acting on 
 - Configurable history window and kill-gee/jerk thresholds
 - **geeforce.lib**: `GeeForceSubmod` (ISubmod — owns sampling loop + delegates to GForceUI.RenderContent), `GForceRecorder` (ring-buffer + stats), `GForceUI` (static graph/UI — `RenderContent()` for embedded use, `Render()` for standalone window)
 
+### [kitchen-sink](kitchen-sink) / [kitchen-sink.lib](kitchen-sink.lib)
+Random collection of one-off hacks and fixes for KSA. F11 window toggle.
+- **Fix Invisible Subparts**: button that calls `ReinitializeDerivedValues` on `Program.Editor.EditingSpace.Parts` to restore visibility of invisible subparts in the vehicle editor (workaround for a KSA bug)
+- **kitchen-sink.lib**: `KitchenSinkSubmod` (ISubmod — renders fix panels)
+
 ### [steely-eyed-missile-kitten](steely-eyed-missile-kitten) / [steely-eyed-missile-kitten.lib](steely-eyed-missile-kitten.lib)
 Mission monitoring, event detection, and achievement tracking mod. Passively samples telemetry for all vehicles at a configurable rate, detects interesting flight events, evaluates YAML-defined mission conditions, and persists everything to a local SQLite database.
 - Passive telemetry monitoring for all vehicles (configurable rate, default 2 Hz)

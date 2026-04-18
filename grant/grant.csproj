@@ -34,6 +34,7 @@
     <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
     <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
     <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
+    <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

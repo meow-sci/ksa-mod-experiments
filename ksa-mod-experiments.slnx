@@ -51,4 +51,6 @@
     <Project Path="space-tape.lib/space-tape.lib.csproj" />
     <Project Path="flexo/flexo.csproj" />
     <Project Path="flexo.lib/flexo.lib.csproj" />
+    <Project Path="kitchen-sink/kitchen-sink.csproj" />
+    <Project Path="kitchen-sink.lib/kitchen-sink.lib.csproj" />
 </Solution>
