@@ -9,12 +9,12 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 ## Features
 
 - **On-demand generation** — triggered by a button click, not at startup
-- **Mirrors game rendering** — uses the same `ThumbnailRenderer`, `ThumbnailPart`, camera positioning, and fence synchronization as `ThumbnailCreator`
+- **Mirrors game rendering** — uses the same `ThumbnailRenderer`, `ThumbnailPart`, `ThumbnailRenderResources`, and camera positioning as `ThumbnailCreator`
 - **Scrollable thumbnail grid** — 64x64 thumbnails with subpart ID tooltips
 - **Progress display** — progress bar and status during generation
 - **Static cache** — `SubpartThumbnailCache` allows other mods to access generated thumbnails
 - **No Harmony patches** — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
-- **VRAM optimized** — thumbnails stored as R8G8B8A8UNorm (4 bytes/pixel) with no mip chain, ~62.5% VRAM savings vs game default HDR format with full mips
+- **Direct LDR rendering** — thumbnails rendered directly as R8G8B8A8UNorm using the game's updated thumbnail pipeline
 - **Grant supermod integration** — appears as a collapsible section in the grant window
 
 ## Usage
@@ -44,7 +44,6 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 | `SubpartThumbnailGenerator.cs` | On-demand Vulkan rendering loop mirroring `ThumbnailCreator` |
 | `SingleSubpartGenerator.cs` | Hi-res single-subpart multi-view generator |
 | `SubpartViewerWindow.cs` | Single-subpart detail viewer with animation |
-| `LdrPostPassCommand.cs` | Post-pass blit command: HDR→LDR format conversion (R16G16B16A16SFloat → R8G8B8A8UNorm) |
 | `InanimateCarbonRodSubmod.cs` | `ISubmod` implementation with full ImGui UI |
 
 ## Technical Details
@@ -54,15 +53,11 @@ The KSA vehicle editor uses 128x128 thumbnails for every part, rendered at start
 1. Collects all `PartTemplate` where `IsSubPart && !IsHidden && Thumbnail == null`
 2. Saves camera/viewport state
 3. Configures camera for thumbnail-size rendering
-4. Creates `ThumbnailRenderer` (own Vulkan framebuffer)
-5. For each subpart:
-   - Allocates GPU image (`ThumbnailReference.CreateImageView`) in R8G8B8A8UNorm format, single mip level
-   - Creates synthetic `PartInstance` pointing to the subpart template
-   - Builds `ThumbnailPart` child from the synthetic instance
-   - Positions camera using bounding sphere calculation
-   - Drives render: `UpdateShaderData` → `UpdateRenderData` → `RenderThumbnail`
-   - `LdrPostPassCommand` blits HDR render result into LDR destination via `VkCmdBlitImage`
-   - Waits for GPU fence, resets frame state
+4. Creates `ThumbnailRenderer` and `VkCommandPool`
+5. For each subpart (one per frame):
+   - For each rotation view: allocates R8G8B8A8UNorm GPU image, creates `ThumbnailRenderResources`, collects draw commands
+   - Records all views into a single `CommandBuffer` via `RecordPartRender`
+   - Submits command buffer, waits on fence, cleans up resources
 6. Restores camera/viewport state
 
 ### API Notes

@@ -8,7 +8,6 @@ using Brutal.VulkanApi.Abstractions;
 using Core;
 using KSA;
 using KSA.Rendering;
-using KSA.Rendering.Lighting;
 using KSA.Rendering.Thumbnails;
 
 namespace MeowSci.InanimateCarbonRodLib;
@@ -31,7 +30,8 @@ public sealed class SingleSubpartGenerator : IDisposable
     private PartTemplate? _subpart;
     private ThumbnailPart? _root;
     private ThumbnailRenderer? _thumbRenderer;
-    private int _frameIndex;
+    private VkCommandPool _commandPool;
+    private bool _commandPoolCreated;
     private ushort _savedThumbnailSize;
 
     public void Generate(string subpartId)
@@ -128,10 +128,17 @@ public sealed class SingleSubpartGenerator : IDisposable
         Renderer renderer = Program.GetRenderer();
         _thumbRenderer = new ThumbnailRenderer(renderer);
 
+        var poolInfo = new VkCommandPoolCreateInfo
+        {
+            QueueFamilyIndex = renderer.Graphics.Family,
+            Flags = VkCommandPoolCreateFlags.TransientBit | VkCommandPoolCreateFlags.ResetCommandBufferBit
+        };
+        _commandPool = renderer.Device.CreateCommandPool(in poolInfo, null);
+        _commandPoolCreated = true;
+
         Viewport viewport = Program.RenderedViewport;
         Camera camera = viewport.GetCamera();
         _root = new ThumbnailPart(camera);
-        _frameIndex = 0;
 
         State = GenerationState.Generating;
         LastError = null;
@@ -157,17 +164,18 @@ public sealed class SingleSubpartGenerator : IDisposable
         camera.LocalRotation = doubleQuat.Identity;
         camera.LocalScale = double3.One;
         camera.OnFrame(1.0 / 60.0);
-
-        PartModelRenderer.ColorData.BeginThumbnailPass(_thumbRenderer.RenderPass, _thumbRenderer.SampleCount);
+        Program.Instance.UpdateShaderData(1.0 / 60.0, viewport);
+        Program.Instance.UpdateRenderingResources(0);
+        Program.DeviceHostSharedMemoryDebug.PostMemoryWrite = false;
+        Program.DeviceHostSharedMemoryDebug.PostDescriptorSet = false;
 
         try
         {
             Result = RenderSubpartViews(_subpart, _root, _thumbRenderer,
-                renderer, viewport, camera, ref _frameIndex, ViewCount);
+                renderer, viewport, _commandPool, ViewCount);
         }
         finally
         {
-            PartModelRenderer.ColorData.EndThumbnailPass();
             camera.Resize(savedFramebufferSize);
             viewport.Size = savedViewportSize;
             if (savedFollowing != null)
@@ -184,6 +192,13 @@ public sealed class SingleSubpartGenerator : IDisposable
     {
         _root?.Dispose();
         _thumbRenderer?.Dispose();
+        if (_commandPoolCreated)
+        {
+            Renderer renderer = Program.GetRenderer();
+            renderer.Device.DestroyCommandPool(_commandPool, null);
+            _commandPool = default;
+            _commandPoolCreated = false;
+        }
         _root = null;
         _thumbRenderer = null;
         GameSettings.Current.Graphics.PartThumbnailSize = _savedThumbnailSize;
@@ -195,8 +210,7 @@ public sealed class SingleSubpartGenerator : IDisposable
         ThumbnailRenderer thumbRenderer,
         Renderer renderer,
         Viewport viewport,
-        Camera camera,
-        ref int frameIndex,
+        VkCommandPool commandPool,
         int viewCount)
     {
         var syntheticInstance = new PartInstance { InstanceOf = subpart.Id };
@@ -208,18 +222,81 @@ public sealed class SingleSubpartGenerator : IDisposable
         root.AddChild(child);
 
         float radius = root.ComputeBoundingSphereRadius();
-        float dist = radius / (float)Math.Sin(camera.GetFieldOfView() * 0.5f);
-        root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
+        float dist = radius / (float)Math.Sin(viewport.GetCamera().GetFieldOfView() * 0.5f);
+        root.LocalPosition = Double3Ex.Forward * (viewport.GetCamera().NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
-        var views = new ThumbnailReference[viewCount];
+        int size = ThumbnailRenderer.SIZE;
+        var renderBatch = new List<(ThumbnailReference thumb, ThumbnailRenderResources resources)>(viewCount);
+
         for (int v = 0; v < viewCount; v++)
         {
             double roll = v * 2.0 * Math.PI / viewCount;
             root.LocalRotation = doubleQuat.CreateFromYawPitchRoll(Math.PI, Math.PI / 4.0, roll);
-            views[v] = RenderViewToImage($"HiRes_V{v}_{subpart.Id}", subpart,
-                root, thumbRenderer, renderer, viewport, camera, ref frameIndex);
+
+            var thumb = SubpartThumbnailGenerator.CreateThumbnailImage($"HiRes_V{v}_{subpart.Id}", renderer, size);
+            var resources = new ThumbnailRenderResources(
+                renderer,
+                thumbRenderer.PerInstanceDataDescriptorSetLayout,
+                thumbRenderer.PerDrawDataDescriptorSetLayout,
+                thumbRenderer.Sampler,
+                size);
+            SubpartThumbnailGenerator.CollectDraws(root, resources);
+
+            if ((int)resources.DrawCommandVector.ElementCount > 0)
+            {
+                renderBatch.Add((thumb, resources));
+            }
+            else
+            {
+                resources.Dispose();
+                thumb.Dispose();
+            }
         }
+
+        // Record and submit all views in a single command buffer
+        if (renderBatch.Count > 0)
+        {
+            CommandBuffer commandBuffer = renderer.Device.AllocateCommandBuffer(new VkCommandBufferAllocateInfo
+            {
+                CommandPool = commandPool,
+                Level = VkCommandBufferLevel.Primary
+            });
+            commandBuffer.Begin(new VkCommandBufferBeginInfo
+            {
+                Flags = VkCommandBufferUsageFlags.OneTimeSubmitBit
+            });
+
+            foreach (var (thumb, resources) in renderBatch)
+            {
+                resources.UpdateDescriptorSets();
+                thumbRenderer.RecordPartRender(commandBuffer, thumb, resources, viewport, subpart.Id);
+            }
+
+            commandBuffer.End();
+
+            VkFence fence = renderer.Device.CreateFence(new VkFenceCreateInfo(), null);
+            Queue graphics = renderer.Graphics;
+            CommandBuffer cbRef = commandBuffer;
+            graphics.Submit(
+                default(Span<VkSemaphore>),
+                default(Span<VkPipelineStageFlags>),
+                new Span<CommandBuffer>(ref cbRef),
+                default(Span<VkSemaphore>),
+                fence);
+
+            renderer.Device.WaitForFence(fence, -1);
+            renderer.Device.DestroyFence(fence, null);
+            ReadOnlySpan<CommandBuffer> cbSpan = new ReadOnlySpan<CommandBuffer>(in cbRef);
+            renderer.Device.FreeCommandBuffers(commandPool, cbSpan);
+
+            foreach (var (_, resources) in renderBatch)
+                resources.Dispose();
+        }
+
+        var views = new ThumbnailReference[renderBatch.Count];
+        for (int i = 0; i < renderBatch.Count; i++)
+            views[i] = renderBatch[i].thumb;
 
         root.ClearAndDisposeChildren();
         root.LocalPosition = double3.Zero;
@@ -228,90 +305,6 @@ public sealed class SingleSubpartGenerator : IDisposable
         Program.LightSystem.ClearLights();
 
         return new SubpartThumbnailEntry(views);
-    }
-
-    private static ThumbnailReference RenderViewToImage(
-        string imageName,
-        PartTemplate subpart,
-        ThumbnailPart root,
-        ThumbnailRenderer thumbRenderer,
-        Renderer renderer,
-        Viewport viewport,
-        Camera camera,
-        ref int frameIndex)
-    {
-        int size = ThumbnailRenderer.SIZE;
-        int mipLevels = 1;
-
-        // Allocate GPU image (R8G8B8A8UNorm, single mip — ~62.5% VRAM savings vs HDR + full mip chain)
-        var thumb = new ThumbnailReference();
-        thumb.CreateImageView(
-            imageName,
-            renderer,
-            new ImageEx.CreateInfo
-            {
-                Name = imageName,
-                AllocPreference = MemoryPreference.PreferGpu,
-                ImageArrayLayers = 1,
-                ImageInitialLayout = VkImageLayout.Undefined,
-                ImageType = VkImageType._2D,
-                ImageExtent = new VkExtent3D
-                {
-                    Width = size,
-                    Height = size,
-                    Depth = 1
-                },
-                ImageUsage = VkImageUsageFlags.TransferDstBit
-                           | VkImageUsageFlags.SampledBit,
-                ImageFormat = VkFormat.R8G8B8A8UNorm,
-                ImageMipLevels = mipLevels,
-                ImageSamples = VkSampleCountFlags._1Bit,
-                ImageSharingMode = VkSharingMode.Exclusive,
-                ImageTiling = VkImageTiling.Optimal
-            },
-            VkImageViewType._2D,
-            new VkImageSubresourceRange
-            {
-                AspectMask = VkImageAspectFlags.ColorBit,
-                BaseMipLevel = 0,
-                LevelCount = mipLevels,
-                BaseArrayLayer = 0,
-                LayerCount = 1
-            });
-
-        var savedThumb = subpart.Thumbnail;
-        subpart.Thumbnail = thumb;
-
-        camera.OnFrame(1.0 / 60.0);
-        Program.Instance.UpdateShaderData(1.0 / 60.0, viewport);
-        root.UpdateRenderData(viewport, frameIndex);
-        Program.Instance.UpdateRenderingResources(frameIndex);
-
-        thumbRenderer.RenderThumbnail(
-            new PrePassThumbnailCommand(
-                viewport, frameIndex,
-                Program.GetCSMSystem(),
-                Program.LightSystem,
-                Program.PlanetAtmosphereRenderer),
-            new PassThumbnailCommand(viewport, frameIndex),
-            new LdrPostPassCommand(thumbRenderer, subpart, Program.PlanetAtmosphereRenderer),
-            subpart.Id,
-            out VkFence fence);
-
-        renderer.Device.WaitForFence(fence, IntPtr.MaxValue);
-        DeviceEx device = renderer.Device;
-        VkFence fenceRef = fence;
-        device.ResetFences(new ReadOnlySpan<VkFence>(in fenceRef));
-        renderer.Device.DestroyFence(fence, null);
-
-        PartModelRenderer.ClearFrameData(frameIndex);
-        Program.DeviceHostSharedMemoryDebug.PostMemoryWrite = false;
-        Program.DeviceHostSharedMemoryDebug.PostDescriptorSet = false;
-
-        frameIndex = (frameIndex + 1) % 2;
-
-        subpart.Thumbnail = savedThumb;
-        return thumb;
     }
 
     private static PartTemplate? FindSubpart(string id)

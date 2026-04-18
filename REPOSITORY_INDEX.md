@@ -271,7 +271,7 @@ On-demand subpart thumbnail generator. The game skips thumbnail generation for s
 - Scrollable thumbnail grid (64x64 images) with subpart ID tooltips
 - Progress bar and status display during generation
 - Static cache (`SubpartThumbnailCache`) for cross-mod access to generated thumbnails
-- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (on-demand Vulkan rendering), `SubpartThumbnailCache` (static thumbnail storage), `LdrPostPassCommand` (HDR→LDR blit for VRAM optimization), `InanimateCarbonRodSubmod` (ISubmod — full UI)
+- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (on-demand Vulkan rendering), `SubpartThumbnailCache` (static thumbnail storage), `InanimateCarbonRodSubmod` (ISubmod — full UI)
 - No Harmony patches required — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
 
 ---
