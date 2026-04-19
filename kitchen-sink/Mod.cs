@@ -68,6 +68,7 @@ public class Mod
   {
     try
     {
+      IvaForceRender.Enabled = false;
       _submod?.Dispose();
       Patcher.Unload();
       _isDisposed = true;

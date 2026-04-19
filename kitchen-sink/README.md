@@ -19,6 +19,19 @@ Workaround for a KSA bug where vehicle subparts become invisible in the editor.
 
 This forces the game to recompute all derived values for the part tree, which restores visibility of subparts that have gone invisible due to the bug.
 
+### Force IVA Rendering
+
+Forces interior (IVA) parts to render even when not in IVA camera mode. After a KSA update, interior parts only render when the camera is in IVA mode — this feature restores the old behavior.
+
+**How it works:**
+- When toggled ON, directly mutates `Template.Internal = false` on all loaded `PartModel` instances so the game's rendering check no longer skips them.
+- A Harmony postfix on the `PartModel` constructor catches parts created after the toggle is enabled.
+- When toggled OFF (or on mod unload), all mutated templates are restored to `Internal = true`.
+
+**How to use:**
+1. Open the Kitchen Sink window (F11).
+2. Check **Always Render IVA Interiors** to enable.
+
 ## Architecture
 
 - `kitchen-sink.lib/KitchenSinkLib.cs` — `KitchenSinkSubmod` implementing `ISubmod` with all feature logic.

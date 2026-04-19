@@ -21,6 +21,7 @@ public sealed class KitchenSinkSubmod : ISubmod
     public void RenderContent()
     {
         SubmodUI.BeginContentArea("##ks_content");
+        RenderIvaForceRender();
         RenderFixInvisibleSubparts();
         SubmodUI.EndContentArea();
     }
@@ -45,6 +46,17 @@ public sealed class KitchenSinkSubmod : ISubmod
                 Console.WriteLine("kitchen-sink: Editor or parts not available — open the vehicle editor first.");
             }
         }
+    }
+
+    private void RenderIvaForceRender()
+    {
+        ImGui.SeparatorText("Force IVA Rendering");
+        ImGui.TextWrapped("Force interior (IVA) parts to render even when not in IVA camera mode.");
+        ImGui.Spacing();
+
+        var enabled = IvaForceRender.Enabled;
+        if (ImGui.Checkbox("Always Render IVA Interiors", ref enabled))
+            IvaForceRender.Enabled = enabled;
     }
 
     public void Dispose() { }
