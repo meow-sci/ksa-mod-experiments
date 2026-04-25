@@ -65,7 +65,7 @@ public sealed class KittenSpawner
             {
                 // Match game's two-phase removal (EVADoor ingress / docking pattern)
                 Universe.CurrentSystem?.Deregister(vehicle);
-                vehicle.Destroy(stopAudio: true, disposeParts: true);
+                vehicle.Dispose();
             }
 
             _registry.Unregister(kittenId);
