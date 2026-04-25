@@ -324,6 +324,8 @@ public sealed class PartEditorUi
                     ImGui.SetItemTooltip("Uses invisible Light parts to illuminate the workspace on all sides");
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Lighting");
+                if (ImGui.IsItemHovered())
+                    ImGui.SetItemTooltip("Uses invisible Light parts to illuminate the workspace on all sides");
                 ImGui.TableNextColumn();
                 if (!lightingEnabled) ImGui.BeginDisabled();
                 if (ImGui.RadioButton("Box##st_light_box", lighting.Arrangement == LightArrangement.BoxCorners))
