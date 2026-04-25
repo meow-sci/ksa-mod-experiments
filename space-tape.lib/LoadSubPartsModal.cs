@@ -17,7 +17,7 @@ public sealed class LoadSubPartsModal
             ImGui.CloseCurrentPopup();
 
         bool open = true;
-        ImGui.SetNextWindowSize(new float2(640f, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new float2(960f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
