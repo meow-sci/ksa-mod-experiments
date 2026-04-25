@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+    <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

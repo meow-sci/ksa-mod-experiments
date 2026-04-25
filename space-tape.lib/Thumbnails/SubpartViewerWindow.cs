@@ -6,7 +6,7 @@ using Brutal.VulkanApi.Abstractions;
 using KSA;
 using KSA.Rendering.Thumbnails;
 
-namespace MeowSci.InanimateCarbonRodLib;
+namespace MeowSci.SpaceTapeLib;
 
 /// <summary>
 /// Separate ImGui window for inspecting a single subpart's thumbnails.

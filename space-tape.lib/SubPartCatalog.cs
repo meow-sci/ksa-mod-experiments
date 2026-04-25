@@ -6,7 +6,6 @@ using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using KSA.Rendering.Thumbnails;
-using MeowSci.InanimateCarbonRodLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;

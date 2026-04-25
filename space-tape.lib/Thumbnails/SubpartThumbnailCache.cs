@@ -8,7 +8,7 @@ using KSA;
 using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
 
-namespace MeowSci.InanimateCarbonRodLib;
+namespace MeowSci.SpaceTapeLib;
 
 /// <summary>
 /// Z-axis rotation views for a single subpart (count varies by generation settings).

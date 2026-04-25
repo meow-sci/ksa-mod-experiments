@@ -5,6 +5,7 @@ using Brutal.Numerics;
 using KSA;
 using KSA.Rendering.Thumbnails;
 using MeowSci.KsaAbstractions;
+using MeowSci.SpaceTapeLib;
 
 namespace MeowSci.InanimateCarbonRodLib;
 

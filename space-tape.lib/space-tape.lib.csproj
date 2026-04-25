@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
-    <ProjectReference Include="..\inanimate-carbon-rod.lib\inanimate-carbon-rod.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
