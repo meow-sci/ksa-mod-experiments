@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -8,6 +9,8 @@ namespace MeowSci.SpaceTapeLib;
 
 public sealed class SpaceTapeSubmod : ISubmod
 {
+    private const string LoadSubPartsPopupId = "Load SubParts##st_load_popup";
+
     public string Name => "Space Tape";
     public string Tooltip => "In-game Part editor. Compose new Parts from existing SubParts.";
 
@@ -25,6 +28,9 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly CameraSnapController _cameraSnap = new CameraSnapController();
     private readonly EditorLighting _lighting = new EditorLighting();
 
+    // TODO(Task 6): Replace this placeholder with SubPartsWindow.IsOpen once SubPartsWindow exists.
+    private bool _subPartsWindowOpen;
+
     public SpaceTapeSubmod()
     {
         _interaction = new PartEditorInteraction(_gizmos);
@@ -40,6 +46,24 @@ public sealed class SpaceTapeSubmod : ISubmod
     {
         _generation.Update();
         _catalog.Update(dt);
+
+        string? selected = _catalog.TakeSelectedSubPartId();
+        if (selected != null && _scene.IsActive)
+        {
+            if (_subPartsWindowOpen)
+            {
+                bool viewSubpartsMode = false;
+                if (viewSubpartsMode)
+                {
+                    // TODO(Task 7): route selection to SubpartViewerWindow when view mode is active.
+                }
+                else
+                {
+                    _controller.AddSubPart(selected);
+                    _scene.SyncParts(_controller.CurrentPart);
+                }
+            }
+        }
     }
 
     /// <summary>Updates the origin gizmo for the current viewport. Call once per frame from the game's render loop.</summary>
@@ -83,17 +107,54 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     private void RenderContentInner()
     {
-        // SubPart catalog
-        bool editorWindowOpen = _ui.WindowOpen;
-        _catalog.Render(_scene, ref editorWindowOpen);
-        _ui.WindowOpen = editorWindowOpen;
-
-        string? selected = _catalog.TakeSelectedSubPartId();
-        if (selected != null && _scene.IsActive)
+        if (ImGui.Button(" Load SubParts ##st_load_modal", new float2(-1, 0)))
         {
-            _controller.AddSubPart(selected);
-            _scene.SyncParts(_controller.CurrentPart);
+            ImGui.OpenPopup(LoadSubPartsPopupId);
         }
+
+        // Task 5 will render modal body; popup open call is wired now.
+
+        ImGui.Spacing();
+
+        if (_scene.IsActive)
+        {
+            if (ImGui.Button(" Close Part Editor ##st_editor_close", new float2(-1, 0)))
+            {
+                CloseEditor();
+            }
+        }
+        else
+        {
+            if (ImGui.Button(" Open Part Editor ##st_editor_open", new float2(-1, 0)))
+            {
+                OpenEditor();
+            }
+        }
+    }
+
+    private void OpenEditor()
+    {
+        _scene.Enter();
+        if (_scene.IsActive)
+        {
+            _catalog.LoadSubParts();
+            _ui.WindowOpen = true;
+            _subPartsWindowOpen = true;
+            TryAutoLoadSavedAndStockParts();
+        }
+    }
+
+    private void CloseEditor()
+    {
+        _scene.Exit();
+        _ui.WindowOpen = false;
+        _subPartsWindowOpen = false;
+    }
+
+    private void TryAutoLoadSavedAndStockParts()
+    {
+        MethodInfo? method = typeof(PartEditorUi).GetMethod("AutoLoadSavedAndStockParts", new[] { typeof(PartModWriter) });
+        method?.Invoke(_ui, new object[] { _writer });
     }
 
     public void Dispose()
