@@ -45,6 +45,9 @@ public sealed class PartEditorUi
     private float _rotSnapDeg = 15f;
     private PartEditorGizmos.GizmoMode _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate;
 
+    // SubParts hierarchy filter
+    private readonly ImInputString _hierarchyFilter = new(128);
+
     // Reflection: invalidate Part's cached transform matrix after manual edits
     private static readonly FieldInfo? MatrixAsmbField =
         typeof(Part).GetField("_matrixAsmb", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -479,12 +482,27 @@ public sealed class PartEditorUi
             ImGuiTreeNodeFlags.DefaultOpen);
         if (!open) return;
 
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputText("##st_hier_filter", _hierarchyFilter);
+        if (ImGui.IsItemHovered()) ImGui.SetItemTooltip("Filter SubParts by instance ID or template ID");
+
+        string filterText = _hierarchyFilter.ToString();
+
         ImGui.BeginChild("##st_hier_list", new float2(0, 120),
             ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY);
 
+        bool anyVisible = false;
         for (int i = 0; i < controller.CurrentPart.Placements.Count; i++)
         {
             var p = controller.CurrentPart.Placements[i];
+            if (filterText.Length > 0
+                && !p.InstanceId.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                && !p.SubPartTemplateId.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            anyVisible = true;
             bool isSelected = controller.SelectedPlacementIndex == i;
             if (ImGui.Selectable($"{p.InstanceId}  ({p.SubPartTemplateId})##st_h{i}", isSelected))
                 controller.SelectedPlacementIndex = i;
@@ -492,6 +510,8 @@ public sealed class PartEditorUi
 
         if (controller.CurrentPart.Placements.Count == 0)
             ImGui.TextDisabled("No SubParts placed yet. Pick one from the catalog.");
+        else if (!anyVisible)
+            ImGui.TextDisabled("No matches.");
 
         ImGui.EndChild();
     }
