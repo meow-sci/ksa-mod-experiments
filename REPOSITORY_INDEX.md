@@ -295,7 +295,13 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 
 ### [space-tape](space-tape) / [space-tape.lib](space-tape.lib)
 In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
-- Owns SubPart thumbnail generation and cache (migrated from inanimate-carbon-rod)
+- Owns SubPart thumbnail generation and cache
+- Grant panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
+- Load SubParts modal with generation controls (Images per SubPart, image size, Generate/Re-generate, generation progress)
+- Dedicated SubParts floating window tied to Part Editor lifecycle
+- SubParts window view controls: grid/list mode toggle, thumbnail size, animation delay, filter, and large viewer toggle
+- Load/import workflow uses compact 2x2 filterable combo table (category/part + import source)
+- Save flow moved to toolbar `Save` button with a modal popup
 - SubPart catalog browser with animated thumbnail previews
 - 3D editing scene with gizmos for translate/rotate/scale and origin axis marker
 - Hover highlight and click-to-select SubParts in the 3D viewport with native highlight/selection shaders

@@ -4,8 +4,12 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 
 ## Features
 
-- **SubPart catalog browser** — filterable list with animated thumbnail previews (grid/list modes)
-- **Import from existing parts** — load any game part into the editor with full SubPart, Connector, Tank, Battery, Generator, and Coupling data
+- **Grant submod minimal panel** — two-button flow for `Load SubParts` and `Open/Close Part Editor`
+- **Load SubParts modal** — configure `Images per SubPart` + thumbnail image size, run Generate/Re-generate, and monitor progress/error state
+- **SubParts floating window** — dedicated browser with thumbnail size, animation delay, filter, and view-subparts toggle
+- **Large SubPart viewer** — open a higher-detail floating preview from the SubParts window
+- **Load/import 2x2 combo table** — compact filterable selectors for load/import workflows
+- **Save modal in toolbar** — save now opens from the top editor toolbar instead of an inline save section
 - **3D editing scene** — place SubParts in world space with interactive gizmos (translate/rotate/scale) and origin axis marker
 - **Hover highlight** — SubParts highlight when hovered using the game's native highlight shader
 - **Click-to-select** — click any SubPart in the 3D viewport to select it for editing
@@ -38,6 +42,52 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 ## Integration
 
 Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It appears as a collapsible panel in the Grant Toolbox window alongside other submods. It can also run standalone via `Mod.cs` (F11 toggle).
+
+## Grant Submod Panel
+
+When running inside grant, the Space Tape panel is intentionally minimal:
+
+- `Load SubParts` opens the generation modal
+- `Open Part Editor` / `Close Part Editor` toggles the editor lifecycle
+
+All catalog browsing and SubPart placement controls are moved out of the grant panel and into floating editor windows.
+
+## Load SubParts Modal
+
+The Load SubParts modal is the entry point for thumbnail generation:
+
+- Set `Images per SubPart` (camera angle count per thumbnail set)
+- Set thumbnail `Image Size` (resolution selector)
+- Click `Generate` for first-time generation or `Re-generate` to rebuild from scratch
+- Watch live generation progress while work is running
+- If generation fails, the modal surfaces the latest error text
+
+Generated thumbnails are then used by the SubParts window for animated previews.
+
+## SubParts Window
+
+SubPart browsing now lives in a dedicated floating window tied to the Part Editor:
+
+- Auto-opens with the editor and closes when the editor closes
+- Supports adjustable thumbnail size and animation delay
+- Supports text filtering to narrow large SubPart catalogs
+- Includes a `View SubParts` toggle and large viewer launch path for detailed inspection
+
+## Part Editor Notes
+
+- Save is now performed from a toolbar button that opens a save modal
+- Load/import flows use a compact 2x2 filterable combo table for selecting source category/part
+- Import still pulls full supported data (SubParts, Connectors, Tank, Power, Coupling) into the current editing state
+
+## Saving Parts (Modal Flow)
+
+Saving follows a modal flow from the editor toolbar:
+
+1. Click `Save` in the toolbar.
+2. Pick or filter the target output mod/file using combo selectors.
+3. Confirm save in the modal.
+4. Space Tape writes Assets XML + GameData XML and updates mod metadata as needed.
+5. Newly saved content is available for hot-reload testing.
 
 ## Thumbnail Generation
 
@@ -79,16 +129,20 @@ Space Tape owns SubPart thumbnail generation and caching. Thumbnails are generat
 
 ```
 PartEditorUi (ImGui window)
-├── RenderImportSection      → PartCatalog + PartImporter
+├── RenderImportSection      → compact 2x2 filterable combo table
 ├── RenderPartIdSection      → basic part identity fields
-├── SubPartCatalogUi         → SubPart browser + placement
+├── Toolbar Save             → modal save flow
 ├── RenderSubPartList        → placed SubParts with transforms
 ├── GameDataEditorUi
 │   ├── RenderTankSection
 │   ├── RenderPowerSection
 │   ├── RenderConnectorsSection
 │   └── RenderCouplingSection
-└── RenderSaveSection        → PartXmlSerializer + GameDataXmlSerializer + PartModWriter
+
+SubPartsWindow (floating)
+├── SubPartCatalogUi         → filterable browser + animated thumbnails
+├── View mode controls       → grid/list + thumb size + animation delay
+└── Large viewer launcher    → SubpartViewerWindow
 
 PartEditorScene (3D viewport)
 ├── GenericGizmo             → translate/rotate/scale for SubParts
