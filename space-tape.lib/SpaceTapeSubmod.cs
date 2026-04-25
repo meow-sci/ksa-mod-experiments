@@ -14,6 +14,14 @@ public sealed class SpaceTapeSubmod : ISubmod
     /// <summary>Active instance, read by the render patch to call UpdateScene per-frame.</summary>
     public static SpaceTapeSubmod? Current { get; private set; }
 
+    /// <summary>
+    /// Optional callback set by the host (e.g. grant) to hide its own window when the part editor opens.
+    /// </summary>
+    public static Action? HideHostWindow { get; set; }
+
+    /// <summary>True while the part editor scene is active.</summary>
+    public bool IsEditorActive => _scene.IsActive;
+
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly SubpartGenerationController _generation = new();
     private readonly LoadSubPartsModal _loadSubPartsModal = new();
@@ -37,6 +45,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     {
         Current = this;
         PartRenderHelper.Patch();
+        PartEditorMenuBarPatch.Patch();
     }
 
     public void Update(double dt)
@@ -144,6 +153,7 @@ public sealed class SpaceTapeSubmod : ISubmod
         _scene.Enter();
         if (_scene.IsActive)
         {
+            HideHostWindow?.Invoke();
             _catalog.LoadSubParts();
             _ui.WindowOpen = true;
             _subPartsWindow.IsOpen = true;
@@ -158,13 +168,18 @@ public sealed class SpaceTapeSubmod : ISubmod
         _subPartsWindow.IsOpen = false;
     }
 
+    /// <summary>Called by the menu bar patch's "Exit Part Editor" menu item.</summary>
+    public void ExitEditorFromMenu() => CloseEditor();
+
     public void Dispose()
     {
         _cameraSnap.SnapTo(CameraSnapMode.None, _scene);
         _subpartViewer.Dispose();
         _generation.Dispose();
+        HideHostWindow = null;
         Current = null;
         PartRenderHelper.Unpatch();
+        PartEditorMenuBarPatch.Unpatch();
         _interaction.ClearVisualState();
         _gizmos.Dispose();
         _scene.Dispose();
