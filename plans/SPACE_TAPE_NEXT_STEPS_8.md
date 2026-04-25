@@ -1,0 +1,6 @@
+- save modal needs a file label infront of the file combo
+- import part modal window needs to be wider and wider labels
+- remove the Experimental collapsible header and Test Hot-Reload button, and remove the code that backs the hot reload.  it does not work (and cannot work due to how the game loads subparts at startup, we will always need to restart the game to load our custom subparts)
+- refactor connectors to be their own top-level collapsible header "Connectors" in the Part Editor window
+- move the Gizmo line with the "Gizmo" label and Translate/Rotate/Scale radios up to the top area of the Part Editor window BEFORE the "Editor Stuff" collapsible header. Leave the rest of the gizo settings under the Editor Stuff collapsible header.
+- Connectors need to render an arrow if possible, or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.  use a #runSubagent to do some research in the decomp/ksa to see what kind of options we have to render an arrow, or just use one of the arrows from the translate gizmo

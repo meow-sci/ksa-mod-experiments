@@ -62,7 +62,8 @@ public sealed class PartEditorUi
     {
         if (!WindowOpen) return;
 
-        ImGui.SetNextWindowSize(new float2(440, 700), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowPos(new float2(570, 50), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(850, 1000), ImGuiCond.FirstUseEver);
         bool open = WindowOpen;
         if (ImGui.Begin("Part Editor##st_editor", ref open))
         {
@@ -175,7 +176,7 @@ public sealed class PartEditorUi
 
         ImGui.Spacing();
         bool gridVis = cameraSnap.GridVisible;
-        if (ImGui.Checkbox(" Show Visual Grid ##st_show_grid", ref gridVis))
+        if (ImGui.Checkbox("Visual Grid ##st_show_grid", ref gridVis))
             cameraSnap.GridVisible = gridVis;
 
         // --- Editor Stuff (collapsible) ---
@@ -469,7 +470,7 @@ public sealed class PartEditorUi
 
         string filterText = _hierarchyFilter.ToString();
 
-        ImGui.BeginChild("##st_hier_list", new float2(0, 120),
+        ImGui.BeginChild("##st_hier_list", new float2(0, 200),
             ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY);
 
         bool anyVisible = false;

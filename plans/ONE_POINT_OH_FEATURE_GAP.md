@@ -1,0 +1,9 @@
+- make visual grids completely independent of camera snaps
+    - add visual grid controls for different planes
+    - plane offsets?
+    - multiple planes?
+- fix visual grid color and opacity controls (see HOW_SPACE_TAPE_GRID_LINES_WORK.md)
+- fix load subparts visual issues with the log messages etc
+- can connectors render an arrow or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.
+
+
