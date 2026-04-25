@@ -55,6 +55,20 @@ public sealed class SpaceTapeSubmod : ISubmod
         _subPartsWindow.Update(dt);
         _subpartViewer.Update(dt);
 
+        // Alt+click on a thumb always forces the viewer open
+        string? altSelected = _subPartsWindow.TakeAltClickedSubPartId();
+        if (altSelected != null)
+        {
+            SubpartThumbnailEntry? entry = SubpartThumbnailCache.Get(altSelected);
+            if (entry != null)
+            {
+                _subpartViewer.Open(
+                    altSelected,
+                    entry,
+                    SubpartGenerationController.ImageSizes[_generation.ImageSizeIndex]);
+            }
+        }
+
         string? selected = _catalog.TakeSelectedSubPartId();
         if (selected != null)
         {

@@ -18,10 +18,22 @@ public sealed class SubPartsWindow
     private readonly ImInputString _filter = new(256);
     private readonly List<PartTemplate> _filtered = new();
     private readonly HashSet<ThumbnailReference> _registeredViews = new();
+    private string? _altClickedSubPartId;
 
     public void Update(double dt)
     {
         _animTimer += dt;
+    }
+
+    /// <summary>
+    /// Returns and clears the ID of a subpart that was alt-clicked (force-open viewer mode).
+    /// Returns null if no alt-click occurred since the last call.
+    /// </summary>
+    public string? TakeAltClickedSubPartId()
+    {
+        var val = _altClickedSubPartId;
+        _altClickedSubPartId = null;
+        return val;
     }
 
     public void Render(SubPartCatalog catalog)
@@ -86,7 +98,7 @@ public sealed class SubPartsWindow
         ImGui.PopStyleVar();
 
         bool viewMode = ViewSubPartsMode;
-        if (ImGui.Checkbox(" View SubParts ##st_sp_view", ref viewMode))
+        if (ImGui.Checkbox(" Open SubPart Viewer ##st_sp_view", ref viewMode))
             ViewSubPartsMode = viewMode;
         if (ImGui.IsItemHovered())
             ImGui.SetItemTooltip("When checked, clicking a thumbnail opens the full viewer instead of adding the part to the editor.");
@@ -220,7 +232,12 @@ public sealed class SubPartsWindow
                     ImGui.PopStyleColor();
 
                 if (clicked)
-                    catalog.SetSelectedSubPartId(template.Id);
+                {
+                    if (ImGui.GetIO().KeyAlt)
+                        _altClickedSubPartId = template.Id;
+                    else
+                        catalog.SetSelectedSubPartId(template.Id);
+                }
 
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip(template.Id);

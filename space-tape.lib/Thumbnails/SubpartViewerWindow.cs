@@ -25,7 +25,7 @@ public sealed class SubpartViewerWindow
     // Hi-res generation
     private readonly SingleSubpartGenerator _hiResGen = new();
     private SubpartThumbnailEntry? _pendingDispose;
-    private int _hiResViewCount = 32;
+    private int _hiResViewCount = 60;
     private int _hiResSizeIndex = 1; // default 512
     private static readonly int[] HiResSizes = { 256, 512, 1024, 1600, 2048 };
     private static readonly string[] HiResSizeLabels = { "256", "512", "1024", "1600", "2048" };
@@ -34,11 +34,11 @@ public sealed class SubpartViewerWindow
     private bool _playing = true;
     private int _frameIndex;
     private double _animTimer;
-    private int _animTickMs = 75;
-    private int _displaySize = 256;
+    private int _animTickMs = 120;
+    private int _displaySize = 1024;
 
     // Images tab state
-    private int _imagesDisplaySize = 256;
+    private int _imagesDisplaySize = 1024;
 
     public bool IsOpen => _open;
 
@@ -291,7 +291,7 @@ public sealed class SubpartViewerWindow
             ImGui.AlignTextToFramePadding();
             float atW = ImGui.CalcTextSize("Anim tick").X;
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - atW);
-            ImGui.Text("Anim tick");
+            ImGui.Text("Anim tick (ms)");
             ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
             ImGui.DragInt("##vt_anim", ref _animTickMs, 1, 25, 1000);
@@ -315,10 +315,12 @@ public sealed class SubpartViewerWindow
             if (_playing) _animTimer = 0;
         }
         ImGui.SameLine();
-        if (_playing) ImGui.BeginDisabled();
         ImGui.SetNextItemWidth(-1);
-        ImGui.SliderInt("##vt_frame", ref _frameIndex, 0, viewCount - 1, "");
-        if (_playing) ImGui.EndDisabled();
+        if (ImGui.SliderInt("##vt_frame", ref _frameIndex, 0, viewCount - 1, "") && _playing)
+        {
+            // User dragged the slider while playing — stop animation so they can scrub manually
+            _playing = false;
+        }
 
         ImGui.Spacing();
 
