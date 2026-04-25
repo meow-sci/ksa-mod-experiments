@@ -22,6 +22,20 @@ public sealed class SpaceTapeSubmod : ISubmod
     /// <summary>True while the part editor scene is active.</summary>
     public bool IsEditorActive => _scene.IsActive;
 
+    /// <summary>Gets or sets whether the Part Editor floating window is open.</summary>
+    public bool IsPartEditorWindowOpen
+    {
+        get => _ui.WindowOpen;
+        set => _ui.WindowOpen = value;
+    }
+
+    /// <summary>Gets or sets whether the SubParts floating window is open.</summary>
+    public bool IsSubPartsWindowOpen
+    {
+        get => _subPartsWindow.IsOpen;
+        set => _subPartsWindow.IsOpen = value;
+    }
+
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly SubpartGenerationController _generation = new();
     private readonly LoadSubPartsModal _loadSubPartsModal = new();

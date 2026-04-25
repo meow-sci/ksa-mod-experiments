@@ -38,6 +38,22 @@ internal static class PartEditorMenuBarPatch
         {
             Program.MainViewport.MenuBarInUse = true;
 
+            bool subPartsOpen = SpaceTapeSubmod.Current?.IsSubPartsWindowOpen ?? false;
+            if (ImGui.MenuItem("Toggle SubParts Window", "", ref subPartsOpen))
+            {
+                if (SpaceTapeSubmod.Current != null)
+                    SpaceTapeSubmod.Current.IsSubPartsWindowOpen = subPartsOpen;
+            }
+
+            bool editorWindowOpen = SpaceTapeSubmod.Current?.IsPartEditorWindowOpen ?? false;
+            if (ImGui.MenuItem("Toggle Part Editor Window", "", ref editorWindowOpen))
+            {
+                if (SpaceTapeSubmod.Current != null)
+                    SpaceTapeSubmod.Current.IsPartEditorWindowOpen = editorWindowOpen;
+            }
+
+            ImGui.Separator();
+
             if (ImGui.MenuItem("Exit Part Editor"))
                 SpaceTapeSubmod.Current?.ExitEditorFromMenu();
 
