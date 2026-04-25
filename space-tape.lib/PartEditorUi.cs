@@ -15,15 +15,11 @@ public sealed class PartEditorUi
 {
     public bool WindowOpen { get; set; }
 
-    private readonly ImInputString _partIdInput = new ImInputString(128);
     private readonly ImInputString _instanceIdInput = new ImInputString(128);
-    private readonly ImInputString _displayNameInput = new ImInputString(256);
 
     // Change-detection for input buffer sync (avoids overwriting in-progress edits)
-    private string _lastKnownPartId = "";
     private int _lastKnownPlacementIndex = -2;
     private string _lastKnownInstanceId = "";
-    private string _lastKnownDisplayName = "";
 
     private readonly SavePartModal _savePartModal = new();
     private readonly ImportModal _importModal = new();
@@ -74,7 +70,6 @@ public sealed class PartEditorUi
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
             {
-                _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
             }
             _savePartModal.Render(controller, writer, onSaveSuccess: () =>
@@ -125,7 +120,6 @@ public sealed class PartEditorUi
         {
             controller.NewPart();
             scene.SyncParts(controller.CurrentPart);
-            _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
         }
         if (ImGui.IsItemHovered())
@@ -699,20 +693,6 @@ public sealed class PartEditorUi
 
         var gd = controller.CurrentPart.GameData;
 
-        // --- Part ID (shown at top of Game Data) ---
-        if (controller.CurrentPart.PartId != _lastKnownPartId)
-        {
-            _partIdInput.SetValue(controller.CurrentPart.PartId.AsSpan());
-            _lastKnownPartId = controller.CurrentPart.PartId;
-        }
-
-        // Sync display name buffer when it changes externally
-        if (gd.DisplayName != _lastKnownDisplayName)
-        {
-            _displayNameInput.SetValue(gd.DisplayName.AsSpan());
-            _lastKnownDisplayName = gd.DisplayName;
-        }
-
         // --- Basic Info ---
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         if (ImGui.BeginTable("##st_gd_tbl", 2,
@@ -720,24 +700,6 @@ public sealed class PartEditorUi
         {
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part ID:");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##st_partid", _partIdInput))
-            {
-                controller.CurrentPart.PartId = _partIdInput.ToString();
-                _lastKnownPartId = controller.CurrentPart.PartId;
-            }
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Display Name:");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##st_dn", _displayNameInput))
-            {
-                gd.DisplayName = _displayNameInput.ToString();
-                _lastKnownDisplayName = gd.DisplayName;
-            }
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg):");
