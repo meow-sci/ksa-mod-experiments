@@ -208,7 +208,7 @@ public sealed class PartEditorController
         SelectedPlacementIndex = Math.Clamp(SelectedPlacementIndex - 1, -1, CurrentPart.Placements.Count - 1);
     }
 
-    /// <summary>Duplicate the currently selected placement with a slight position offset.</summary>
+    /// <summary>Duplicate the currently selected placement in-place (same position, no offset).</summary>
     public void DuplicateSelected()
     {
         if (SelectedPlacement == null) return;
@@ -220,7 +220,7 @@ public sealed class PartEditorController
         {
             InstanceId = $"{baseName}_{count + 1}",
             SubPartTemplateId = src.SubPartTemplateId,
-            Position = src.Position + new double3(0.5, 0, 0),
+            Position = src.Position,
             Rotation = src.Rotation,
             Scale = src.Scale
         };
