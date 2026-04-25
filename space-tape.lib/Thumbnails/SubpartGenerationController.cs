@@ -18,6 +18,14 @@ public sealed class SubpartGenerationController : IDisposable
     public int ImageSizeIndex { get; set; } = 1;
     public bool HasGeneratedAtLeastOnce { get; private set; }
 
+    /// <summary>ViewCount value used for the most recent completed generation run.</summary>
+    public int LastGeneratedViewCount { get; private set; }
+    /// <summary>Image size in pixels used for the most recent completed generation run.</summary>
+    public int LastGeneratedImageSize { get; private set; }
+
+    /// <summary>True for exactly one frame after generation transitions to Done.</summary>
+    public bool JustFinished { get; private set; }
+
     public GenerationState State => _generator.State;
     public int ProgressCurrent => _generator.ProgressCurrent;
     public int ProgressTotal => _generator.ProgressTotal;
@@ -29,8 +37,15 @@ public sealed class SubpartGenerationController : IDisposable
     {
         _generator.Update();
 
-        if (_generator.State == GenerationState.Done && _lastObservedState != GenerationState.Done)
+        bool justDone = _generator.State == GenerationState.Done && _lastObservedState != GenerationState.Done;
+        JustFinished = justDone;
+
+        if (justDone)
+        {
             HasGeneratedAtLeastOnce = true;
+            LastGeneratedViewCount = ViewCount;
+            LastGeneratedImageSize = ImageSizes[ImageSizeIndex];
+        }
 
         _lastObservedState = _generator.State;
     }

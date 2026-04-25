@@ -111,7 +111,10 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     private void RenderContentInner()
     {
-        if (ImGui.Button(" Load SubParts ##st_load_modal", new float2(-1, 0)))
+        string loadLabel = _generation.HasGeneratedAtLeastOnce
+            ? " Re-load SubParts ##st_load_modal"
+            : " Load SubParts ##st_load_modal";
+        if (ImGui.Button(loadLabel, new float2(-1, 0)))
         {
             ImGui.OpenPopup(LoadSubPartsModal.PopupId);
         }

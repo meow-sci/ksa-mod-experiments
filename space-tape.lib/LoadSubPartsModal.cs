@@ -12,7 +12,12 @@ public sealed class LoadSubPartsModal
     {
         ArgumentNullException.ThrowIfNull(gen);
 
+        // Auto-close when generation just finished
+        if (gen.JustFinished)
+            ImGui.CloseCurrentPopup();
+
         bool open = true;
+        ImGui.SetNextWindowSize(new float2(640f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
@@ -22,8 +27,28 @@ public sealed class LoadSubPartsModal
         if (ImGui.BeginTable("##st_load_tbl", 2,
                 ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 160f);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 200f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
+
+            // Info row (first)
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextDisabled("(?)");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.BeginTooltip();
+                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 28f);
+                ImGui.TextWrapped(
+                    "Generating SubPart thumbnails renders each sub-part from multiple angles and stores the results in GPU memory (VRAM). " +
+                    "Higher image counts and larger sizes produce smoother and sharper previews but consume more VRAM. " +
+                    "Reduce both settings if you experience slowdowns or GPU memory warnings.");
+                ImGui.PopTextWrapPos();
+                ImGui.EndTooltip();
+            }
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextDisabled("More thumbs / higher resolution eats into VRAM");
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -82,7 +107,7 @@ public sealed class LoadSubPartsModal
         {
             string status = gen.State switch
             {
-                GenerationState.Done => $"Done ({SubpartThumbnailCache.All.Count} subparts)",
+                GenerationState.Done => $"{SubpartThumbnailCache.All.Count} SubParts loaded: {gen.LastGeneratedViewCount} images each at {gen.LastGeneratedImageSize}px",
                 GenerationState.Failed => $"Failed: {gen.LastError}",
                 _ => "Ready to generate"
             };
