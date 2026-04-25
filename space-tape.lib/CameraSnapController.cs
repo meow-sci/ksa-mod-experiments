@@ -119,7 +119,9 @@ public sealed class CameraSnapController
             return;
 
         double4x4 matrixAsmb2Ego = scene.GetMatrixAsmb2Ego(viewport);
-        DrawGridForMode(ActiveMode, matrixAsmb2Ego);
+        // When no snap mode is active, draw the XY plane by default
+        CameraSnapMode drawMode = ActiveMode == CameraSnapMode.None ? CameraSnapMode.Top : ActiveMode;
+        DrawGridForMode(drawMode, matrixAsmb2Ego);
     }
 
     private void DrawGridForMode(CameraSnapMode mode, double4x4 matrixAsmb2Ego)

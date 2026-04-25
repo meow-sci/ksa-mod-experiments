@@ -137,14 +137,9 @@ public sealed class PartEditorUi
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
-            // Row: Camera Snap — show visual grid checkbox + 6 directional buttons
+            // Row: Camera Snap — 6 directional snap buttons
             ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            bool snapGrid = cameraSnap.GridVisible;
-            if (ImGui.Checkbox("##st_camsnap_grid", ref snapGrid))
-                cameraSnap.GridVisible = snapGrid;
-            if (ImGui.IsItemHovered())
-                ImGui.SetItemTooltip("Show Visual Grid");
+            ImGui.TableNextColumn(); // empty checkbox column
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding(); ImGui.Text("Camera Snap");
             ImGui.TableNextColumn();
@@ -160,47 +155,6 @@ public sealed class PartEditorUi
             RenderSnapButton("Back", CameraSnapMode.Back, cameraSnap, scene, snapBtnW);
             ImGui.SameLine(0, 4);
             RenderSnapButton("Bottom", CameraSnapMode.Bottom, cameraSnap, scene, snapBtnW);
-
-            if (cameraSnap.GridVisible)
-            {
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
-                ImGui.TableNextColumn();
-                float gridW = cameraSnap.GridWidth;
-                float gridH = cameraSnap.GridHeight;
-                float halfWidth = (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" x ").X) / 2f;
-                ImGui.SetNextItemWidth(halfWidth);
-                if (ImGui.DragFloat("##st_gridw", ref gridW, 0.1f, 0.5f, 50f, "%.1f"))
-                    cameraSnap.GridWidth = gridW;
-                ImGui.SameLine(0, 2);
-                ImGui.AlignTextToFramePadding(); ImGui.Text(" x ");
-                ImGui.SameLine(0, 2);
-                ImGui.SetNextItemWidth(halfWidth);
-                if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
-                    cameraSnap.GridHeight = gridH;
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
-                ImGui.TableNextColumn();
-                float spacing = cameraSnap.GridSpacing;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
-                    cameraSnap.GridSpacing = spacing;
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
-                ImGui.TableNextColumn();
-                float4 gridCol = cameraSnap.GridColor;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
-                    cameraSnap.GridColor = gridCol;
-            }
 
             if (cameraSnap.DebugReadout)
             {
@@ -218,6 +172,11 @@ public sealed class PartEditorUi
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
+
+        ImGui.Spacing();
+        bool gridVis = cameraSnap.GridVisible;
+        if (ImGui.Checkbox(" Show Visual Grid ##st_show_grid", ref gridVis))
+            cameraSnap.GridVisible = gridVis;
 
         // --- Editor Stuff (collapsible) ---
         if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
@@ -313,6 +272,47 @@ public sealed class PartEditorUi
                 ImGui.SetNextItemWidth(-1);
                 ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
                 if (!_rotSnapEnabled) ImGui.EndDisabled();
+
+                // Grid Size
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
+                ImGui.TableNextColumn();
+                float gridW = cameraSnap.GridWidth;
+                float gridH = cameraSnap.GridHeight;
+                float halfWidth = (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" x ").X) / 2f;
+                ImGui.SetNextItemWidth(halfWidth);
+                if (ImGui.DragFloat("##st_gridw", ref gridW, 0.1f, 0.5f, 50f, "%.1f"))
+                    cameraSnap.GridWidth = gridW;
+                ImGui.SameLine(0, 2);
+                ImGui.AlignTextToFramePadding(); ImGui.Text(" x ");
+                ImGui.SameLine(0, 2);
+                ImGui.SetNextItemWidth(halfWidth);
+                if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
+                    cameraSnap.GridHeight = gridH;
+
+                // Grid Spacing
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
+                ImGui.TableNextColumn();
+                float spacing = cameraSnap.GridSpacing;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
+                    cameraSnap.GridSpacing = spacing;
+
+                // Grid Color
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
+                ImGui.TableNextColumn();
+                float4 gridCol = cameraSnap.GridColor;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
+                    cameraSnap.GridColor = gridCol;
 
                 // Lighting
                 bool lightingEnabled = lighting.Arrangement != LightArrangement.Off;
