@@ -145,110 +145,17 @@ public sealed class PartEditorUi
 
         ImGui.Spacing();
 
-        // --- Settings table: [checkbox] | [label] | [widget] ---
+        // --- Camera Snap (always visible) ---
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         float checkW = ImGui.GetFrameHeight();
         var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##st_toolbar_tbl", 3, tableFlags))
+        if (ImGui.BeginTable("##st_camsnap_tbl", 3, tableFlags))
         {
             ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
-            // Row 1: Gizmo — checkbox enables/disables, radios pick mode
-            bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            if (ImGui.Checkbox("##st_gizmo_en", ref gizmoEnabled))
-                gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
-            ImGui.TableNextColumn();
-            if (!gizmoEnabled) ImGui.BeginDisabled();
-            if (ImGui.RadioButton("Translate##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
-            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate; }
-            ImGui.SameLine();
-            if (ImGui.RadioButton("Rotate##st_gizmo_r", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
-            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Rotate; }
-            ImGui.SameLine();
-            if (ImGui.RadioButton("Scale##st_gizmo_s", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
-            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Scale; }
-            if (!gizmoEnabled) ImGui.EndDisabled();
-
-            // Row 1b: Gizmo Scale
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); // empty checkbox column
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo Size");
-            ImGui.TableNextColumn();
-            float gizmoScale = gizmos.GizmoScale;
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragFloat("##st_gizmo_scale", ref gizmoScale, 0.05f, 0.1f, 10f, "%.2fx"))
-                gizmos.GizmoScale = gizmoScale;
-
-            // Row 2: Origin Alpha
-            bool originVisible = scene.OriginVisible;
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            if (ImGui.Checkbox("##st_origin_cb1", ref originVisible)) scene.OriginVisible = originVisible;
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Alpha");
-            ImGui.TableNextColumn();
-            if (!scene.OriginVisible) ImGui.BeginDisabled();
-            float originAlpha = scene.OriginAlpha;
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragFloat("##st_origin_alpha", ref originAlpha, 0.01f, 0f, 1f, "%.2f"))
-                scene.OriginAlpha = originAlpha;
-            if (!scene.OriginVisible) ImGui.EndDisabled();
-
-            // Row 3: Origin Size (checkbox linked to same OriginVisible)
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            bool originVisible2 = scene.OriginVisible;
-            if (ImGui.Checkbox("##st_origin_cb2", ref originVisible2)) scene.OriginVisible = originVisible2;
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Size");
-            ImGui.TableNextColumn();
-            if (!scene.OriginVisible) ImGui.BeginDisabled();
-            float originSize = scene.OriginSize;
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragFloat("##st_origin_size", ref originSize, 0.05f, 0.1f, 10f, "%.2fx"))
-                scene.OriginSize = originSize;
-            if (!scene.OriginVisible) ImGui.EndDisabled();
-
-            // Row 4: Grid Snap
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.Checkbox("##st_grid_en", ref _gridModeEnabled);
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Snap");
-            ImGui.TableNextColumn();
-            if (!_gridModeEnabled) ImGui.BeginDisabled();
-            ImGui.SetNextItemWidth(-1);
-            ImGui.DragFloat("##st_gridstep", ref _gridStep, 0.001f, 0.001f, 10f, "%.4f");
-            if (!_gridModeEnabled) ImGui.EndDisabled();
-
-            // Sync grid snap settings to interaction for pan mode snapping
-            interaction.GridSnapEnabled = _gridModeEnabled;
-            interaction.GridSnapStep = _gridStep;
-
-            // Row 5: Rotation Snap
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.Checkbox("##st_rot_en", ref _rotSnapEnabled);
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Rotation Snap");
-            ImGui.TableNextColumn();
-            if (!_rotSnapEnabled) ImGui.BeginDisabled();
-            ImGui.SetNextItemWidth(-1);
-            ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
-            if (!_rotSnapEnabled) ImGui.EndDisabled();
-
-            // Sync rotation snap to interaction for gizmo drag snapping
-            interaction.RotSnapEnabled = _rotSnapEnabled;
-            interaction.RotSnapDeg = _rotSnapDeg;
-
-            // Row 6: Camera Snap — 6 directional snap buttons + optional grid checkbox
+            // Row: Camera Snap — optional grid checkbox + 6 directional buttons
             bool snapEnabled = cameraSnap.ActiveMode != CameraSnapMode.None;
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -264,8 +171,7 @@ public sealed class PartEditorUi
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding(); ImGui.Text("Camera Snap");
             ImGui.TableNextColumn();
-            // 2x3 grid: Left | Front | Right / Top | Back | Bottom
-            float snapBtnW = (ImGui.GetContentRegionAvail().X - 8f) / 3f; // 3 columns with 4px gaps
+            float snapBtnW = (ImGui.GetContentRegionAvail().X - 8f) / 3f;
             RenderSnapButton("Left", CameraSnapMode.Left, cameraSnap, scene, snapBtnW);
             ImGui.SameLine(0, 4);
             RenderSnapButton("Front", CameraSnapMode.Front, cameraSnap, scene, snapBtnW);
@@ -277,11 +183,10 @@ public sealed class PartEditorUi
             ImGui.SameLine(0, 4);
             RenderSnapButton("Bottom", CameraSnapMode.Bottom, cameraSnap, scene, snapBtnW);
 
-            // Row 7: Grid Size (visible when grid is active)
             if (cameraSnap.GridVisible)
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty checkbox column
+                ImGui.TableNextColumn();
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
                 ImGui.TableNextColumn();
@@ -298,9 +203,8 @@ public sealed class PartEditorUi
                 if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
                     cameraSnap.GridHeight = gridH;
 
-                // Row 8: Grid Spacing
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty checkbox column
+                ImGui.TableNextColumn();
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
                 ImGui.TableNextColumn();
@@ -309,9 +213,8 @@ public sealed class PartEditorUi
                 if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
                     cameraSnap.GridSpacing = spacing;
 
-                // Row 9: Grid Color
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty checkbox column
+                ImGui.TableNextColumn();
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
                 ImGui.TableNextColumn();
@@ -321,7 +224,6 @@ public sealed class PartEditorUi
                     cameraSnap.GridColor = gridCol;
             }
 
-            // Debug readout for runtime calibration
             if (cameraSnap.DebugReadout)
             {
                 ImGui.TableNextRow();
@@ -335,99 +237,198 @@ public sealed class PartEditorUi
                     ImGui.TextDisabled("OrbitView: null");
             }
 
-            // --- Lighting ---
-            // Row: Lighting Mode
-            bool lightingEnabled = lighting.Arrangement != LightArrangement.Off;
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            if (ImGui.Checkbox("##st_light_en", ref lightingEnabled))
-                lighting.Arrangement = lightingEnabled ? LightArrangement.BoxCorners : LightArrangement.Off;
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Lighting");
-            ImGui.TableNextColumn();
-            if (!lightingEnabled) ImGui.BeginDisabled();
-            if (ImGui.RadioButton("Box##st_light_box", lighting.Arrangement == LightArrangement.BoxCorners))
-                lighting.Arrangement = LightArrangement.BoxCorners;
-            ImGui.SameLine();
-            if (ImGui.RadioButton("Sphere##st_light_sph", lighting.Arrangement == LightArrangement.Sphere))
-                lighting.Arrangement = LightArrangement.Sphere;
-            if (!lightingEnabled) ImGui.EndDisabled();
-
-            if (lightingEnabled)
-            {
-                // Row: Light Radius
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Light Radius");
-                ImGui.TableNextColumn();
-                float lightRadius = lighting.Radius;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_light_radius", ref lightRadius, 0.1f, 0.5f, 50f, "%.1f"))
-                    lighting.Radius = lightRadius;
-
-                // Row: Light Intensity
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Light Intensity");
-                ImGui.TableNextColumn();
-                float lightIntensity = lighting.Intensity;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_light_intensity", ref lightIntensity, 0.1f, 0.1f, 100f, "%.1f"))
-                    lighting.Intensity = lightIntensity;
-
-                // Row: Light Range
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Light Range");
-                ImGui.TableNextColumn();
-                float lightRange = lighting.Range;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_light_range", ref lightRange, 0.5f, 1f, 100f, "%.1f"))
-                    lighting.Range = lightRange;
-
-                // Row: Light Color
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); // empty
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Light Color");
-                ImGui.TableNextColumn();
-                float3 lightColor = lighting.Color;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.ColorEdit3("##st_light_color", ref lightColor, ImGuiColorEditFlags.NoLabel))
-                    lighting.Color = lightColor;
-
-                // Sphere-specific settings
-                if (lighting.Arrangement == LightArrangement.Sphere)
-                {
-                    // Row: Lights Per Ring
-                    ImGui.TableNextRow();
-                    ImGui.TableNextColumn(); // empty
-                    ImGui.TableNextColumn();
-                    ImGui.AlignTextToFramePadding(); ImGui.Text("Lights / Ring");
-                    ImGui.TableNextColumn();
-                    int lightsPerRing = lighting.LightsPerRing;
-                    ImGui.SetNextItemWidth(-1);
-                    if (ImGui.DragInt("##st_light_perring", ref lightsPerRing, 0.1f, 2, 16))
-                        lighting.LightsPerRing = lightsPerRing;
-
-                    // Row: Rings
-                    ImGui.TableNextRow();
-                    ImGui.TableNextColumn(); // empty
-                    ImGui.TableNextColumn();
-                    ImGui.AlignTextToFramePadding(); ImGui.Text("Rings");
-                    ImGui.TableNextColumn();
-                    int rings = lighting.Rings;
-                    ImGui.SetNextItemWidth(-1);
-                    if (ImGui.DragInt("##st_light_rings", ref rings, 0.1f, 1, 8))
-                        lighting.Rings = rings;
-                }
-            }
-
             ImGui.EndTable();
         }
+        ImGui.PopStyleVar();
+
+        // --- Editor Stuff (collapsible) ---
+        if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
+        {
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable("##st_editor_tbl", 3, tableFlags))
+            {
+                ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
+                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
+                ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
+
+                // Gizmo
+                bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Checkbox("##st_gizmo_en", ref gizmoEnabled))
+                    gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
+                ImGui.TableNextColumn();
+                if (!gizmoEnabled) ImGui.BeginDisabled();
+                if (ImGui.RadioButton("Translate##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
+                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate; }
+                ImGui.SameLine();
+                if (ImGui.RadioButton("Rotate##st_gizmo_r", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
+                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Rotate; }
+                ImGui.SameLine();
+                if (ImGui.RadioButton("Scale##st_gizmo_s", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
+                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Scale; }
+                if (!gizmoEnabled) ImGui.EndDisabled();
+
+                // Gizmo Size
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo Size");
+                ImGui.TableNextColumn();
+                float gizmoScale = gizmos.GizmoScale;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##st_gizmo_scale", ref gizmoScale, 0.05f, 0.1f, 10f, "%.2fx"))
+                    gizmos.GizmoScale = gizmoScale;
+
+                // Origin Alpha
+                bool originVisible = scene.OriginVisible;
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Checkbox("##st_origin_cb1", ref originVisible)) scene.OriginVisible = originVisible;
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Alpha");
+                ImGui.TableNextColumn();
+                if (!scene.OriginVisible) ImGui.BeginDisabled();
+                float originAlpha = scene.OriginAlpha;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##st_origin_alpha", ref originAlpha, 0.01f, 0f, 1f, "%.2f"))
+                    scene.OriginAlpha = originAlpha;
+                if (!scene.OriginVisible) ImGui.EndDisabled();
+
+                // Origin Size
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                bool originVisible2 = scene.OriginVisible;
+                if (ImGui.Checkbox("##st_origin_cb2", ref originVisible2)) scene.OriginVisible = originVisible2;
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Size");
+                ImGui.TableNextColumn();
+                if (!scene.OriginVisible) ImGui.BeginDisabled();
+                float originSize = scene.OriginSize;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##st_origin_size", ref originSize, 0.05f, 0.1f, 10f, "%.2fx"))
+                    scene.OriginSize = originSize;
+                if (!scene.OriginVisible) ImGui.EndDisabled();
+
+                // Grid Snap
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.Checkbox("##st_grid_en", ref _gridModeEnabled);
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Snap");
+                ImGui.TableNextColumn();
+                if (!_gridModeEnabled) ImGui.BeginDisabled();
+                ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat("##st_gridstep", ref _gridStep, 0.001f, 0.001f, 10f, "%.4f");
+                if (!_gridModeEnabled) ImGui.EndDisabled();
+
+                // Rotation Snap
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.Checkbox("##st_rot_en", ref _rotSnapEnabled);
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Rotation Snap");
+                ImGui.TableNextColumn();
+                if (!_rotSnapEnabled) ImGui.BeginDisabled();
+                ImGui.SetNextItemWidth(-1);
+                ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
+                if (!_rotSnapEnabled) ImGui.EndDisabled();
+
+                // Lighting
+                bool lightingEnabled = lighting.Arrangement != LightArrangement.Off;
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Checkbox("##st_light_en", ref lightingEnabled))
+                    lighting.Arrangement = lightingEnabled ? LightArrangement.BoxCorners : LightArrangement.Off;
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Lighting");
+                ImGui.TableNextColumn();
+                if (!lightingEnabled) ImGui.BeginDisabled();
+                if (ImGui.RadioButton("Box##st_light_box", lighting.Arrangement == LightArrangement.BoxCorners))
+                    lighting.Arrangement = LightArrangement.BoxCorners;
+                ImGui.SameLine();
+                if (ImGui.RadioButton("Sphere##st_light_sph", lighting.Arrangement == LightArrangement.Sphere))
+                    lighting.Arrangement = LightArrangement.Sphere;
+                if (!lightingEnabled) ImGui.EndDisabled();
+
+                if (lightingEnabled)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("Light Radius");
+                    ImGui.TableNextColumn();
+                    float lightRadius = lighting.Radius;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.DragFloat("##st_light_radius", ref lightRadius, 0.1f, 0.5f, 50f, "%.1f"))
+                        lighting.Radius = lightRadius;
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("Light Intensity");
+                    ImGui.TableNextColumn();
+                    float lightIntensity = lighting.Intensity;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.DragFloat("##st_light_intensity", ref lightIntensity, 0.1f, 0.1f, 100f, "%.1f"))
+                        lighting.Intensity = lightIntensity;
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("Light Range");
+                    ImGui.TableNextColumn();
+                    float lightRange = lighting.Range;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.DragFloat("##st_light_range", ref lightRange, 0.5f, 1f, 100f, "%.1f"))
+                        lighting.Range = lightRange;
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding(); ImGui.Text("Light Color");
+                    ImGui.TableNextColumn();
+                    float3 lightColor = lighting.Color;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.ColorEdit3("##st_light_color", ref lightColor, ImGuiColorEditFlags.NoLabel))
+                        lighting.Color = lightColor;
+
+                    if (lighting.Arrangement == LightArrangement.Sphere)
+                    {
+                        ImGui.TableNextRow();
+                        ImGui.TableNextColumn();
+                        ImGui.TableNextColumn();
+                        ImGui.AlignTextToFramePadding(); ImGui.Text("Lights / Ring");
+                        ImGui.TableNextColumn();
+                        int lightsPerRing = lighting.LightsPerRing;
+                        ImGui.SetNextItemWidth(-1);
+                        if (ImGui.DragInt("##st_light_perring", ref lightsPerRing, 0.1f, 2, 16))
+                            lighting.LightsPerRing = lightsPerRing;
+
+                        ImGui.TableNextRow();
+                        ImGui.TableNextColumn();
+                        ImGui.TableNextColumn();
+                        ImGui.AlignTextToFramePadding(); ImGui.Text("Rings");
+                        ImGui.TableNextColumn();
+                        int rings = lighting.Rings;
+                        ImGui.SetNextItemWidth(-1);
+                        if (ImGui.DragInt("##st_light_rings", ref rings, 0.1f, 1, 8))
+                            lighting.Rings = rings;
+                    }
+                }
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar();
+        }
+
+        // Always sync interaction settings regardless of collapsible state
+        interaction.GridSnapEnabled = _gridModeEnabled;
+        interaction.GridSnapStep = _gridStep;
+        interaction.RotSnapEnabled = _rotSnapEnabled;
+        interaction.RotSnapDeg = _rotSnapDeg;
 
         // Pan mode indicator
         ImGui.Spacing();
@@ -449,8 +450,6 @@ public sealed class PartEditorUi
         ImGui.TextColored(panColor, panLabel);
         ImGui.SameLine();
         ImGui.TextDisabled("(P to cycle)");
-
-        ImGui.PopStyleVar(); // CellPadding
     }
 
     private static void RenderSnapButton(string label, CameraSnapMode mode, CameraSnapController snap, PartEditorScene scene, float width)
