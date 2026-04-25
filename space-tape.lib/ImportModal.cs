@@ -37,7 +37,7 @@ public sealed class ImportModal
     public void Render(PartEditorController controller, PartEditorScene scene, PartModWriter writer)
     {
         bool open = true;
-        ImGui.SetNextWindowSize(new float2(600f, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new float2(800f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
@@ -55,7 +55,7 @@ public sealed class ImportModal
         if (ImGui.BeginTable("##st_imp_tbl", 2,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##st_imp_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##st_imp_lbl", ImGuiTableColumnFlags.WidthStretch, 1.5f);
             ImGui.TableSetupColumn("##st_imp_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             ImGui.TableNextRow();
