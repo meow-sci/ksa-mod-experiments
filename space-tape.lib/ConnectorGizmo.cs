@@ -10,7 +10,8 @@ namespace MeowSci.SpaceTapeLib;
 /// </summary>
 public sealed class ConnectorGizmo : IDisposable
 {
-    private GenericGizmo? _gizmo;
+    private GenericGizmo? _gizmo;       // box: position marker
+    private GenericGizmo? _arrowGizmo;  // arrow: direction indicator
     private int _capacity;
 
     public void EnsureCapacity(int count)
@@ -19,9 +20,14 @@ public sealed class ConnectorGizmo : IDisposable
         if (_gizmo != null && _capacity >= needed) return;
 
         _gizmo?.Dispose();
+        _arrowGizmo?.Dispose();
         _capacity = needed;
         _gizmo = new GenericGizmo(
             ModLibrary.Get<MeshReference>("Box"),
+            GenericGizmo.Static.GenericGizmoRenderData,
+            _capacity);
+        _arrowGizmo = new GenericGizmo(
+            ModLibrary.Get<MeshReference>("Arrow"),
             GenericGizmo.Static.GenericGizmoRenderData,
             _capacity);
     }
@@ -32,14 +38,17 @@ public sealed class ConnectorGizmo : IDisposable
         int selectedIndex,
         double4x4 matrixAsmb2Ego)
     {
-        if (_gizmo == null) return;
+        if (_gizmo == null || _arrowGizmo == null) return;
 
         var seg = _gizmo.GetSegmentDataByViewport(viewport);
+        var arrowSeg = _arrowGizmo.GetSegmentDataByViewport(viewport);
+
         for (int i = 0; i < _capacity; i++)
         {
             if (i >= connectors.Count)
             {
                 seg[i].Active = false;
+                arrowSeg[i].Active = false;
                 continue;
             }
 
@@ -50,17 +59,31 @@ public sealed class ConnectorGizmo : IDisposable
             seg[i].Active = true;
             seg[i].PositionEgo = posEgo;
             seg[i].Body2Cce = c.Rotation;
-            seg[i].Scale = new double3(0.06, 0.06, 0.06);
+            seg[i].Scale = new double3(0.05, 0.05, 0.05);
             seg[i].Color = color;
+
+            arrowSeg[i].Active = true;
+            arrowSeg[i].PositionEgo = posEgo;
+            arrowSeg[i].Body2Cce = c.Rotation;
+            arrowSeg[i].Scale = new double3(0.08, 0.12, 0.08);
+            arrowSeg[i].Color = color with { W = 0.85 };
         }
     }
 
     public void Deactivate(Viewport viewport)
     {
-        if (_gizmo == null) return;
-        var seg = _gizmo.GetSegmentDataByViewport(viewport);
-        for (int i = 0; i < _capacity; i++)
-            seg[i].Active = false;
+        if (_gizmo != null)
+        {
+            var seg = _gizmo.GetSegmentDataByViewport(viewport);
+            for (int i = 0; i < _capacity; i++)
+                seg[i].Active = false;
+        }
+        if (_arrowGizmo != null)
+        {
+            var arrowSeg = _arrowGizmo.GetSegmentDataByViewport(viewport);
+            for (int i = 0; i < _capacity; i++)
+                arrowSeg[i].Active = false;
+        }
     }
 
     private static double4 GetColor(ConnectorState c, bool selected)
@@ -83,5 +106,7 @@ public sealed class ConnectorGizmo : IDisposable
     {
         _gizmo?.Dispose();
         _gizmo = null;
+        _arrowGizmo?.Dispose();
+        _arrowGizmo = null;
     }
 }
