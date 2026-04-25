@@ -26,9 +26,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly PartModWriter _writer = new PartModWriter();
     private readonly CameraSnapController _cameraSnap = new CameraSnapController();
     private readonly EditorLighting _lighting = new EditorLighting();
-
-    // TODO(Task 6): Replace this placeholder with SubPartsWindow.IsOpen once SubPartsWindow exists.
-    private bool _subPartsWindowOpen;
+    private readonly SubPartsWindow _subPartsWindow = new();
 
     public SpaceTapeSubmod()
     {
@@ -44,23 +42,20 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void Update(double dt)
     {
         _generation.Update();
+        _subPartsWindow.Update(dt);
         _catalog.Update(dt);
 
         string? selected = _catalog.TakeSelectedSubPartId();
-        if (selected != null && _scene.IsActive)
+        if (selected != null)
         {
-            if (_subPartsWindowOpen)
+            if (_subPartsWindow.ViewSubPartsMode)
             {
-                bool viewSubpartsMode = false;
-                if (viewSubpartsMode)
-                {
-                    // TODO(Task 7): route selection to SubpartViewerWindow when view mode is active.
-                }
-                else
-                {
-                    _controller.AddSubPart(selected);
-                    _scene.SyncParts(_controller.CurrentPart);
-                }
+                // TODO(Task 7): route selection to SubpartViewerWindow when view mode is active.
+            }
+            else if (_scene.IsActive)
+            {
+                _controller.AddSubPart(selected);
+                _scene.SyncParts(_controller.CurrentPart);
             }
         }
     }
@@ -101,6 +96,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void RenderFloatingWindows()
     {
+        _subPartsWindow.Render(_catalog);
         _ui.RenderEditorWindow(_controller, _scene, _gizmos, _interaction, _catalog, _writer, _cameraSnap, _lighting);
     }
 
@@ -138,7 +134,7 @@ public sealed class SpaceTapeSubmod : ISubmod
         {
             _catalog.LoadSubParts();
             _ui.WindowOpen = true;
-            _subPartsWindowOpen = true;
+            _subPartsWindow.IsOpen = true;
             TryAutoLoadSavedAndStockParts();
         }
     }
@@ -147,7 +143,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     {
         _scene.Exit();
         _ui.WindowOpen = false;
-        _subPartsWindowOpen = false;
+        _subPartsWindow.IsOpen = false;
     }
 
     private void TryAutoLoadSavedAndStockParts()
