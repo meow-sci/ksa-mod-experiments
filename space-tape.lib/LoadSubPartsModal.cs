@@ -69,7 +69,7 @@ public sealed class LoadSubPartsModal
             if (busy) ImGui.BeginDisabled();
             int views = gen.ViewCount;
             ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragInt("##st_load_views", ref views, 0.1f, 2, 32))
+            if (ImGui.DragInt("##st_load_views", ref views, 0.1f, 2, 180))
                 gen.ViewCount = views;
             if (busy) ImGui.EndDisabled();
 
