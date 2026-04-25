@@ -46,6 +46,15 @@ public sealed class SpaceTapeSubmod : ISubmod
         Current = this;
         PartRenderHelper.Patch();
         PartEditorMenuBarPatch.Patch();
+
+        _subpartViewer.OnAddSubPartRequested = id =>
+        {
+            if (_scene.IsActive)
+            {
+                _controller.AddSubPart(id);
+                _scene.SyncParts(_controller.CurrentPart);
+            }
+        };
     }
 
     public void Update(double dt)

@@ -26,9 +26,13 @@ public sealed class SubpartViewerWindow
     private readonly SingleSubpartGenerator _hiResGen = new();
     private SubpartThumbnailEntry? _pendingDispose;
     private int _hiResViewCount = 60;
-    private int _hiResSizeIndex = 1; // default 512
+    private int _hiResSizeIndex = 2; // default 1024
     private static readonly int[] HiResSizes = { 256, 512, 1024, 1600, 2048 };
     private static readonly string[] HiResSizeLabels = { "256", "512", "1024", "1600", "2048" };
+
+    private bool _autoGenerateHiRes = false;
+
+    public Action<string>? OnAddSubPartRequested { get; set; }
 
     // Viewer tab state
     private bool _playing = true;
@@ -63,6 +67,13 @@ public sealed class SubpartViewerWindow
         _playing = true;
         _frameIndex = 0;
         _animTimer = 0;
+
+        if (_autoGenerateHiRes)
+        {
+            _hiResGen.ViewCount = _hiResViewCount;
+            _hiResGen.ThumbnailImageSize = HiResSizes[_hiResSizeIndex];
+            _hiResGen.Generate(_subpartName);
+        }
     }
 
     public void Close()
@@ -118,7 +129,7 @@ public sealed class SubpartViewerWindow
 
         ImGui.SetNextWindowSize(new float2(1050, 1550), ImGuiCond.FirstUseEver);
         bool open = _open;
-        if (ImGui.Begin("Subpart Viewer##icr_viewer", ref open))
+        if (ImGui.Begin("SubPart Viewer##icr_viewer", ref open))
         {
             try
             {
@@ -139,11 +150,19 @@ public sealed class SubpartViewerWindow
     {
         var activeEntry = ActiveEntry;
 
-        // Header: Copy Name button + part name with pixel size
+        // Header: Add SubPart | Copy Name | part name with pixel size
+        if (ImGui.Button(" Add SubPart ##icr_add"))
+        {
+            OnAddSubPartRequested?.Invoke(_subpartName);
+            Close();
+        }
+        ImGui.SameLine();
         if (ImGui.Button(" Copy Name ##icr_v"))
             ImGui.SetClipboardText(_subpartName);
         ImGui.SameLine();
         ImGui.Text($"{_subpartName} ({ActiveImageSize}px)");
+
+        ImGui.Checkbox(" Auto generate Hi-Res on Window Open ##icr_autogen", ref _autoGenerateHiRes);
 
         ImGui.Spacing();
         RenderHiResSection();
