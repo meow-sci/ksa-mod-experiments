@@ -105,21 +105,28 @@ public sealed class LoadSubPartsModal
         }
         else
         {
-            string status = gen.State switch
+            if (gen.State == GenerationState.Done)
             {
-                GenerationState.Done => $"{SubpartThumbnailCache.All.Count} SubParts loaded: {gen.LastGeneratedViewCount} images each at {gen.LastGeneratedImageSize}px",
-                GenerationState.Failed => $"Failed: {gen.LastError}",
-                _ => "Ready to generate"
-            };
-
-            float4 color = gen.State switch
+                var green = new float4(0.3f, 1f, 0.3f, 1f);
+                ImGui.TextColored(green, $"{SubpartThumbnailCache.All.Count} SubParts loaded");
+                ImGui.TextColored(green, $"{gen.LastGeneratedViewCount} images each at {gen.LastGeneratedImageSize}px");
+            }
+            else
             {
-                GenerationState.Done => new float4(0.3f, 1f, 0.3f, 1f),
-                GenerationState.Failed => new float4(1f, 0.3f, 0.3f, 1f),
-                _ => new float4(0.7f, 0.7f, 0.7f, 1f)
-            };
+                string status = gen.State switch
+                {
+                    GenerationState.Failed => $"Failed: {gen.LastError}",
+                    _ => "Ready to generate"
+                };
 
-            ImGui.TextColored(color, status);
+                float4 color = gen.State switch
+                {
+                    GenerationState.Failed => new float4(1f, 0.3f, 0.3f, 1f),
+                    _ => new float4(0.7f, 0.7f, 0.7f, 1f)
+                };
+
+                ImGui.TextColored(color, status);
+            }
         }
 
         ImGui.Spacing();
