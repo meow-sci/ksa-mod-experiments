@@ -115,7 +115,7 @@ public sealed class CameraSnapController
     /// </summary>
     public void DrawGrid(Viewport viewport, PartEditorScene scene)
     {
-        if (!GridVisible || ActiveMode == CameraSnapMode.None || !scene.IsActive)
+        if (!GridVisible || !scene.IsActive)
             return;
 
         double4x4 matrixAsmb2Ego = scene.GetMatrixAsmb2Ego(viewport);

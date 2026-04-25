@@ -17,7 +17,6 @@ public sealed class SubpartViewerWindow
 {
     private string _subpartName = string.Empty;
     private bool _open;
-    private string? _pendingAddRequest;
 
     // Default data from the main cache (not owned, never disposed by viewer)
     private SubpartThumbnailEntry? _defaultEntry;
@@ -41,21 +40,7 @@ public sealed class SubpartViewerWindow
     // Images tab state
     private int _imagesDisplaySize = 1024;
 
-    // Auto Hi-Res on open
-    private bool _autoGenerateHiRes;
-
     public bool IsOpen => _open;
-
-    /// <summary>
-    /// Returns and clears a pending "add this subpart to the scene" request.
-    /// Returns null if no request was made since the last call.
-    /// </summary>
-    public string? TakePendingAddRequest()
-    {
-        var val = _pendingAddRequest;
-        _pendingAddRequest = null;
-        return val;
-    }
 
     private SubpartThumbnailEntry ActiveEntry =>
         (_hiResGen.State == GenerationState.Done && _hiResGen.Result != null)
@@ -78,13 +63,6 @@ public sealed class SubpartViewerWindow
         _playing = true;
         _frameIndex = 0;
         _animTimer = 0;
-
-        if (_autoGenerateHiRes)
-        {
-            _hiResGen.ViewCount = _hiResViewCount;
-            _hiResGen.ThumbnailImageSize = HiResSizes[_hiResSizeIndex];
-            _hiResGen.Generate(name);
-        }
     }
 
     public void Close()
@@ -138,9 +116,9 @@ public sealed class SubpartViewerWindow
     {
         if (!_open || _defaultEntry == null) return;
 
-        ImGui.SetNextWindowSize(new float2(460, 560), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(1050, 1550), ImGuiCond.FirstUseEver);
         bool open = _open;
-        if (ImGui.Begin("SubPart Viewer##icr_viewer", ref open))
+        if (ImGui.Begin("Subpart Viewer##icr_viewer", ref open))
         {
             try
             {
@@ -149,7 +127,7 @@ public sealed class SubpartViewerWindow
             catch (Exception ex)
             {
                 ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Render error: {ex.Message}");
-                Console.WriteLine($"space-tape: SubPartViewerWindow error - {ex}");
+                Console.WriteLine($"space-tape: SubpartViewerWindow error - {ex}");
             }
         }
         ImGui.End();
@@ -161,19 +139,11 @@ public sealed class SubpartViewerWindow
     {
         var activeEntry = ActiveEntry;
 
-        // Header: Add SubPart + Copy Name buttons + part name with pixel size
-        if (ImGui.Button(" Add SubPart ##icr_add"))
-        {
-            _pendingAddRequest = _subpartName;
-            Close();
-        }
-        ImGui.SameLine(0, 8);
+        // Header: Copy Name button + part name with pixel size
         if (ImGui.Button(" Copy Name ##icr_v"))
             ImGui.SetClipboardText(_subpartName);
         ImGui.SameLine();
         ImGui.Text($"{_subpartName} ({ActiveImageSize}px)");
-
-        ImGui.Checkbox("Auto generate Hi-Res on Window Open", ref _autoGenerateHiRes);
 
         ImGui.Spacing();
         RenderHiResSection();

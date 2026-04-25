@@ -185,44 +185,6 @@ The pipeline **infrastructure** supports alpha blending, and the **C# `EncodeCol
 
 ---
 
-## Can We Control Color or Opacity Without Changing the Shader?
-
-### Alpha/opacity: No
-
-The fragment shader hardcodes `alpha = 1` unconditionally. Nothing passed in `GridColor.W` can change that without a shader modification.
-
-### RGB color: Partially yes — with a compensation formula
-
-The fresnel calculation for lines turns out to be **constant per-vertex**. Because `LineGizmo.vert` sets both `normal` and `viewDir` to `normalize(ego_position)`, their dot product is always `-1`:
-
-```glsl
-dot(viewDir, -nrm) = dot(v, -v) = -1
-max(0.0, -1) = 0
-fresnel = pow(1.0 - 0.0, 0.75) * 0.5 = 0.5   // always, for every line vertex
-```
-
-So the output RGB is a **fixed, predictable linear transform**:
-
-```
-outRGB = inputRGB * 0.5 + vec3(0.25)
-```
-
-You can back-calculate the input color to get a desired visual output:
-
-```
-inputRGB = (desiredRGB - 0.25) / 0.5 = desiredRGB * 2.0 - 0.5
-```
-
-However, `EncodeColor` clamps each channel to a `byte` (0–255), so input values are clamped to `[0, 1]`. This limits the achievable output range:
-
-- **Minimum achievable output per channel**: `0.25` (when input = `0.0`)
-- **Maximum achievable output per channel**: `0.75` (when input = `1.0`)
-- Colors darker than `(0.25, 0.25, 0.25)` or brighter than `(0.75, 0.75, 0.75)` per channel **are not achievable**
-
-**Bottom line**: RGB hue and mid-range brightness can be controlled by pre-compensating for the fresnel, but lines cannot be made transparent, fully dark, or fully bright. Opacity control requires a shader change.
-
----
-
 ## Questions for the KSA Developers
 
 The goal is to understand if/how we could control color and opacity of lines drawn via `GizmosRenderer.DrawLine()`:

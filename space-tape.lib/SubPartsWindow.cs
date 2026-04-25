@@ -12,7 +12,7 @@ public sealed class SubPartsWindow
     public bool IsOpen { get; set; }
     public bool ViewSubPartsMode { get; private set; }
 
-    private float _thumbDisplaySize = 92f;
+    private float _thumbDisplaySize = 96f;
     private int _animTickMs = 100;
     private double _animTimer;
     private readonly ImInputString _filter = new(256);
@@ -46,8 +46,7 @@ public sealed class SubPartsWindow
             return;
         }
 
-        ImGui.SetNextWindowPos(new float2(10f, 50f), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new float2(550f, 1000f), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(520, 520), ImGuiCond.FirstUseEver);
         bool open = IsOpen;
         if (ImGui.Begin("SubParts##st_subparts_window", ref open))
         {
@@ -67,8 +66,8 @@ public sealed class SubPartsWindow
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         if (ImGui.BeginTable("##st_sp_ctrl", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##st_sp_c0", ImGuiTableColumnFlags.WidthFixed, 250f);
-            ImGui.TableSetupColumn("##st_sp_c1", ImGuiTableColumnFlags.WidthStretch, 5f);
+            ImGui.TableSetupColumn("##st_sp_c0", ImGuiTableColumnFlags.WidthFixed, 225f);
+            ImGui.TableSetupColumn("##st_sp_c1", ImGuiTableColumnFlags.WidthStretch, 1f);
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -102,7 +101,7 @@ public sealed class SubPartsWindow
         if (ImGui.Checkbox(" Open SubPart Viewer ##st_sp_view", ref viewMode))
             ViewSubPartsMode = viewMode;
         if (ImGui.IsItemHovered())
-            ImGui.SetItemTooltip("When true, thumbnail opens the full viewer instead of adding the part to the editor.\n\nProtip: Hold ALT and click to open the viewer as a shortcut.");
+            ImGui.SetItemTooltip("When checked, clicking a thumbnail opens the full viewer instead of adding the part to the editor.");
     }
 
     private void RenderGrid(SubPartCatalog catalog)
