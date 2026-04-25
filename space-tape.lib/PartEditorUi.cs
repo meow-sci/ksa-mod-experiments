@@ -24,10 +24,6 @@ public sealed class PartEditorUi
     private readonly SavePartModal _savePartModal = new();
     private readonly ImportModal _importModal = new();
 
-    // Hot-reload spike state
-    private string? _hotReloadMessage;
-    private bool _hotReloadSuccess;
-
     private static readonly string[] KnownEditorTags =
         { "Command", "Structural", "Cargo", "Propulsion", "Aero",
           "Electrical", "Thermal", "Science", "Coupling", "Ground", "Payload" };
@@ -83,8 +79,6 @@ public sealed class PartEditorUi
             RenderPropertiesSection(controller, scene);
             ImGui.Spacing();
             RenderGameDataSection(controller);
-            ImGui.Spacing();
-            RenderExperimentalSection(controller);
         }
         ImGui.End();
         WindowOpen = open;
@@ -763,25 +757,4 @@ public sealed class PartEditorUi
         GameDataEditorUi.RenderCouplingSection(gd);
     }
 
-    private void RenderExperimentalSection(PartEditorController controller)
-    {
-        if (!ImGui.CollapsingHeader("Experimental##st_experimental")) return;
-
-        if (ImGui.Button(" Test Hot-Reload ##st_hotreload"))
-        {
-            var (success, message) = HotReloadSpike.TryRegisterPart(controller.CurrentPart);
-            _hotReloadSuccess = success;
-            _hotReloadMessage = success
-                ? message + " (Verified in ModLibrary)"
-                : message;
-        }
-
-        if (_hotReloadMessage != null)
-        {
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(
-                _hotReloadSuccess ? new float4(0.3f, 1f, 0.3f, 1f) : new float4(1f, 0.5f, 0.3f, 1f)));
-            ImGui.TextWrapped(_hotReloadMessage);
-            ImGui.PopStyleColor();
-        }
-    }
 }
