@@ -175,6 +175,38 @@ public sealed class PartEditorUi
         if (ImGui.Checkbox("Visual Grid ##st_show_grid", ref gridVis))
             cameraSnap.GridVisible = gridVis;
 
+        // --- Gizmo (always visible) ---
+        ImGui.Spacing();
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##st_gizmo_tbl", 3, tableFlags))
+        {
+            ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
+            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
+
+            bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            if (ImGui.Checkbox("##st_gizmo_en", ref gizmoEnabled))
+                gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
+            ImGui.TableNextColumn();
+            if (!gizmoEnabled) ImGui.BeginDisabled();
+            if (ImGui.RadioButton("Translate##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate; }
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Rotate##st_gizmo_r", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Rotate; }
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Scale##st_gizmo_s", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
+            { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Scale; }
+            if (!gizmoEnabled) ImGui.EndDisabled();
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
         // --- Editor Stuff (collapsible) ---
         if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
         {
@@ -184,26 +216,6 @@ public sealed class PartEditorUi
                 ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
                 ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
                 ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
-
-                // Gizmo
-                bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                if (ImGui.Checkbox("##st_gizmo_en", ref gizmoEnabled))
-                    gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
-                ImGui.TableNextColumn();
-                if (!gizmoEnabled) ImGui.BeginDisabled();
-                if (ImGui.RadioButton("Translate##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
-                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Translate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Translate; }
-                ImGui.SameLine();
-                if (ImGui.RadioButton("Rotate##st_gizmo_r", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Rotate))
-                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Rotate; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Rotate; }
-                ImGui.SameLine();
-                if (ImGui.RadioButton("Scale##st_gizmo_s", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Scale))
-                { gizmos.ActiveMode = PartEditorGizmos.GizmoMode.Scale; _lastNonNoneGizmoMode = PartEditorGizmos.GizmoMode.Scale; }
-                if (!gizmoEnabled) ImGui.EndDisabled();
 
                 // Gizmo Size
                 ImGui.TableNextRow();
