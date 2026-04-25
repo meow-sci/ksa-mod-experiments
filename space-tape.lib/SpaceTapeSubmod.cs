@@ -171,7 +171,6 @@ public sealed class SpaceTapeSubmod : ISubmod
             _catalog.LoadSubParts();
             _ui.WindowOpen = true;
             _subPartsWindow.IsOpen = true;
-            _ui.AutoLoadSavedAndStockParts(_writer);
         }
     }
 

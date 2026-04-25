@@ -138,6 +138,27 @@ public sealed class PartEditorController
         IsDirty = false;
     }
 
+    /// <summary>
+    /// Append SubParts from <paramref name="source"/> to the current part without replacing it.
+    /// Preserves existing SubParts, GameData, Part ID, etc.
+    /// </summary>
+    public void MergeSubParts(EditingPart source)
+    {
+        PushUndo();
+        foreach (var p in source.Placements)
+        {
+            CurrentPart.Placements.Add(new SubPartPlacement
+            {
+                InstanceId = p.InstanceId,
+                SubPartTemplateId = p.SubPartTemplateId,
+                Position = p.Position,
+                Rotation = p.Rotation,
+                Scale = p.Scale
+            });
+        }
+        IsDirty = true;
+    }
+
     /// <summary>Save a snapshot to the undo stack (call before making a mutation).</summary>
     public void PushUndo()
     {
