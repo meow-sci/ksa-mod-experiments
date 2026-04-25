@@ -27,6 +27,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     private readonly CameraSnapController _cameraSnap = new CameraSnapController();
     private readonly EditorLighting _lighting = new EditorLighting();
     private readonly SubPartsWindow _subPartsWindow = new();
+    private readonly SubpartViewerWindow _subpartViewer = new();
 
     public SpaceTapeSubmod()
     {
@@ -42,15 +43,23 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void Update(double dt)
     {
         _generation.Update();
-        _subPartsWindow.Update(dt);
         _catalog.Update(dt);
+        _subPartsWindow.Update(dt);
+        _subpartViewer.Update(dt);
 
         string? selected = _catalog.TakeSelectedSubPartId();
         if (selected != null)
         {
             if (_subPartsWindow.ViewSubPartsMode)
             {
-                // TODO(Task 7): route selection to SubpartViewerWindow when view mode is active.
+                SubpartThumbnailEntry? entry = SubpartThumbnailCache.Get(selected);
+                if (entry != null)
+                {
+                    _subpartViewer.Open(
+                        selected,
+                        entry,
+                        SubpartGenerationController.ImageSizes[_generation.ImageSizeIndex]);
+                }
             }
             else if (_scene.IsActive)
             {
@@ -96,8 +105,9 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void RenderFloatingWindows()
     {
-        _subPartsWindow.Render(_catalog);
         _ui.RenderEditorWindow(_controller, _scene, _gizmos, _interaction, _catalog, _writer, _cameraSnap, _lighting);
+        _subPartsWindow.Render(_catalog);
+        _subpartViewer.Render();
     }
 
     private void RenderContentInner()
@@ -155,6 +165,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void Dispose()
     {
         _cameraSnap.SnapTo(CameraSnapMode.None, _scene);
+        _subpartViewer.Dispose();
         _generation.Dispose();
         Current = null;
         PartRenderHelper.Unpatch();
