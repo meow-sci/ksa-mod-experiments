@@ -1,0 +1,25 @@
+- Load SubParts modal needs to be wider by 2x, at least
+- When SubPart generate is done, close the modal
+- When SubParts are already generated, change the Submod UI "Load SubParts" to say "Re-load SubParts"
+- When the modal is shown and SubPart thumbs are already generated, change the green label to say "228 SubParts loaded: 32 images each at 128px" (fix the numbers to the real ones), this means we'll need to remember the setitngs used to generate the last set of thumbs
+- On the Load SubParts modal, add an Info (?) line as the first line where the (?) shows a tooltip that explains that more thumbs are higher resolutions eats into VRAM
+- When the editor is opened, the Grant supermod window should be hidden
+- When the editor is opened, we should add a new top-level game mebu bar (see ksa skill about top-level menus) named "Part Editor", which has a single menu item "Exit Part Editor" which will close the part editor
+- Change the SubParts window "View SubParts" checkbox label to "Open SubPart Viewer"
+- Add a hotkey/shortcut so that if you hold alt and click one of the thumbs, it opens the subpart viewer window (regardless of the subpart viewer checkbox state)
+- in the subpart viewer details popup window, when the animation is playing, if the user clicks on the slider it should stop the animation and enable the slider so the user can drag it for manual scrubbing
+- in subpart viewer details popup window, default both the display size and thumb size to 1024, the image count to 60 and the anim tick to 120, change the anim tick label to "Anim tick (ms)"
+- change the duplicate button so it duplicates in-place and DOES NOT do an automatic shift of any position data
+- move Load/Import functionality into a modal.  At the first line in the Space Tape Part Editor window add a button "Import" that opens the modal.
+  - in the modal, add a new checkbox that is enabled by default labeled "Clear other SubParts" which when true and the selected part is imported, clears existing Subparts in the editor (I think it does this now), and if false, simply imports it without doing anything with existing SubParts already in the editor
+  - Remove the Load / Import collapsible header
+- in the SubParts collapsible header, add a filter text input above the list.  filters the list when used.
+- add a collapsible header "Editor Stuff" which encapsulates most of the editor-related things near the beginning of the space tape part editor window:
+  - gizmo related items
+  - origin related items
+  - grid related items
+  - rotation snap items
+  - grid size/spacing/color
+  - lighting
+  - NOT camera snap, I want this checkbox and set of 6 left/front/right/top/back/bottom buttons always visible.  mode it above the new "Editor Stuff" collapsible header
+  
