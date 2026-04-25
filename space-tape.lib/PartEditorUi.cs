@@ -68,23 +68,15 @@ public sealed class PartEditorUi
 
         ImGui.SetNextWindowSize(new float2(440, 700), ImGuiCond.FirstUseEver);
         bool open = WindowOpen;
-        if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
+        if (ImGui.Begin("Part Editor##st_editor", ref open))
         {
-            // Import button + modal
-            if (ImGui.Button(" Import ##st_imp_open_btn"))
-            {
-                _importModal.OnOpen(writer);
-                ImGui.OpenPopup(ImportModal.PopupId);
-            }
+            RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
             {
                 _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
             }
-
-            ImGui.Spacing();
-            RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
             _savePartModal.Render(controller, writer, onSaveSuccess: () =>
             {
                 controller.MarkSaved();
@@ -108,9 +100,7 @@ public sealed class PartEditorUi
 
     private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorInteraction interaction, PartEditorScene scene, PartModWriter writer, CameraSnapController cameraSnap, EditorLighting lighting)
     {
-        bool canSave = controller.CurrentPart.Placements.Count > 0
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.PartId)
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.GameData.DisplayName);
+        bool canSave = controller.CurrentPart.Placements.Count > 0;
 
         if (!canSave) ImGui.BeginDisabled();
         if (ImGui.Button(" Save "))
@@ -121,8 +111,15 @@ public sealed class PartEditorUi
         }
         if (!canSave) ImGui.EndDisabled();
         if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetItemTooltip("Add at least one SubPart, a Part ID, and a Display Name to save.");
-        ImGui.SameLine();
+            ImGui.SetItemTooltip("Add at least one SubPart to save.");
+        ImGui.SameLine(0, 8);
+
+        if (ImGui.Button(" Import ##st_imp_open_btn"))
+        {
+            _importModal.OnOpen(writer);
+            ImGui.OpenPopup(ImportModal.PopupId);
+        }
+        ImGui.SameLine(0, 8);
 
         if (ImGui.Button(" New Part "))
         {
