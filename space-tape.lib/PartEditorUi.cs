@@ -42,7 +42,6 @@ public sealed class PartEditorUi
     private readonly PartCatalog _gameParts = new();
     private int _selectedGamePartIndex = -1;
     private readonly ImInputString _gamePartFilter = new ImInputString(128);
-    private List<int> _filteredGamePartIndices = new();
 
     // Transform options
     private bool _gridModeEnabled;
@@ -55,7 +54,6 @@ public sealed class PartEditorUi
     private List<(string partId, string fileName)> _savedParts = new();
     private int _selectedSavedPartIndex = -1;
     private readonly ImInputString _loadFilter = new ImInputString(128);
-    private List<int> _filteredSavedPartIndices = new();
 
     // Combined load/import state
     private string? _loadImportStatusMessage;
@@ -462,103 +460,30 @@ public sealed class PartEditorUi
     {
         if (!ImGui.CollapsingHeader("Load / Import##st_loadimport")) return;
 
-        // --- Saved Parts combo ---
-        ImGui.SeparatorText("Saved Parts");
-
-        if (ImGui.Button(" Refresh ##st_load_refresh"))
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##st_load_import_tbl", 2,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            writer.RefreshFileList();
-            _savedParts = writer.ListSavedParts();
-            _selectedSavedPartIndex = -1;
+            ImGui.TableSetupColumn("##st_load_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##st_load_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Custom Parts");
+            ImGui.TableNextColumn();
+            RenderCustomPartsCombo();
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Stock Parts");
+            ImGui.TableNextColumn();
+            RenderStockPartsCombo();
+
+            ImGui.EndTable();
         }
-        ImGui.SameLine();
-        ImGui.TextDisabled($"({_savedParts.Count} found)");
-
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##st_load_filter", _loadFilter);
-
-        string loadFilterText = _loadFilter.ToString().Trim();
-        _filteredSavedPartIndices.Clear();
-        for (int i = 0; i < _savedParts.Count; i++)
-        {
-            var (pId, fName) = _savedParts[i];
-            if (string.IsNullOrEmpty(loadFilterText)
-                || pId.Contains(loadFilterText, StringComparison.OrdinalIgnoreCase)
-                || fName.Contains(loadFilterText, StringComparison.OrdinalIgnoreCase))
-                _filteredSavedPartIndices.Add(i);
-        }
-
-        {
-            string preview = _selectedSavedPartIndex >= 0 && _selectedSavedPartIndex < _savedParts.Count
-                ? $"{_savedParts[_selectedSavedPartIndex].partId}  [{_savedParts[_selectedSavedPartIndex].fileName}]"
-                : _savedParts.Count == 0 ? "(no saved parts)" : "(select a part)";
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.BeginCombo("##st_load_combo", preview))
-            {
-                for (int fi = 0; fi < _filteredSavedPartIndices.Count; fi++)
-                {
-                    int idx = _filteredSavedPartIndices[fi];
-                    var (partId, fileName) = _savedParts[idx];
-                    bool sel = idx == _selectedSavedPartIndex;
-                    if (ImGui.Selectable($"{partId}  [{fileName}]##st_lp{idx}", sel))
-                    {
-                        _selectedSavedPartIndex = idx;
-                        _selectedGamePartIndex = -1;   // clear the other combo
-                    }
-                }
-                ImGui.EndCombo();
-            }
-        }
-
-        // --- Game Parts combo ---
-        ImGui.SeparatorText("Game Parts");
-
-        if (ImGui.Button(" Load Game Parts ##st_import_load"))
-            _gameParts.Load();
-        if (_gameParts.IsLoaded)
-        {
-            ImGui.SameLine();
-            ImGui.TextDisabled($"({_gameParts.Parts.Count} found)");
-        }
-
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##st_import_filter", _gamePartFilter);
-
-        string importFilterText = _gamePartFilter.ToString().Trim();
-        _filteredGamePartIndices.Clear();
-        if (_gameParts.IsLoaded)
-        {
-            for (int i = 0; i < _gameParts.Parts.Count; i++)
-            {
-                var (id, displayName) = _gameParts.Parts[i];
-                if (string.IsNullOrEmpty(importFilterText)
-                    || id.Contains(importFilterText, StringComparison.OrdinalIgnoreCase)
-                    || displayName.Contains(importFilterText, StringComparison.OrdinalIgnoreCase))
-                    _filteredGamePartIndices.Add(i);
-            }
-        }
-
-        {
-            string preview = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count
-                ? $"{_gameParts.Parts[_selectedGamePartIndex].displayName}  ({_gameParts.Parts[_selectedGamePartIndex].id})"
-                : !_gameParts.IsLoaded ? "(click Load Game Parts)" : "(select a part)";
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.BeginCombo("##st_import_combo", preview))
-            {
-                for (int fi = 0; fi < _filteredGamePartIndices.Count; fi++)
-                {
-                    int idx = _filteredGamePartIndices[fi];
-                    var (id, displayName) = _gameParts.Parts[idx];
-                    bool sel = idx == _selectedGamePartIndex;
-                    if (ImGui.Selectable($"{displayName}  ({id})##st_ip{idx}", sel))
-                    {
-                        _selectedGamePartIndex = idx;
-                        _selectedSavedPartIndex = -1;   // clear the other combo
-                    }
-                }
-                ImGui.EndCombo();
-            }
-        }
+        ImGui.PopStyleVar();
 
         // --- Single shared Import button ---
         ImGui.Spacing();
@@ -569,50 +494,7 @@ public sealed class PartEditorUi
         ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(new float4(0.1f, 0.5f, 0.7f, 1f)));
         if (ImGui.Button(" Import ##st_loadimport_btn") && canImport)
         {
-            if (hasSavedSel)
-            {
-                var (partId, fileName) = _savedParts[_selectedSavedPartIndex];
-                var loaded = writer.LoadPart(partId, fileName);
-                if (loaded != null)
-                {
-                    controller.LoadPart(loaded);
-                    if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
-                    writer.CurrentFileName = fileName;
-                    _loadImportStatusMessage = $"Loaded '{partId}' from {fileName}.xml";
-                    _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
-                    _lastKnownPartId = "";
-                    _lastKnownPlacementIndex = -2;
-                    _saveStatusMessage = null;
-                    Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}'");
-                }
-                else
-                {
-                    _loadImportStatusMessage = $"Failed to load '{partId}' from {fileName}.xml";
-                    _loadImportStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
-                    Console.WriteLine($"space-tape: LoadPart failed for '{partId}' in '{fileName}'");
-                }
-            }
-            else if (hasGameSel)
-            {
-                var partId = _gameParts.Parts[_selectedGamePartIndex].id;
-                var imported = PartImporter.ImportFromTemplate(partId);
-                if (imported != null)
-                {
-                    controller.LoadPart(imported);
-                    if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
-                    _loadImportStatusMessage = $"Imported '{partId}' ({imported.Placements.Count} SubParts, {imported.GameData.Connectors.Count} Connectors)";
-                    _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
-                    _lastKnownPartId = "";
-                    _lastKnownPlacementIndex = -2;
-                    _saveStatusMessage = null;
-                    Console.WriteLine($"space-tape: Imported game part '{partId}'");
-                }
-                else
-                {
-                    _loadImportStatusMessage = $"Failed to import '{partId}'";
-                    _loadImportStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
-                }
-            }
+            DoImport(controller, scene, writer);
         }
         ImGui.PopStyleColor();
         if (!canImport) ImGui.EndDisabled();
@@ -621,6 +503,153 @@ public sealed class PartEditorUi
         {
             ImGui.TextColored(_loadImportStatusColor, _loadImportStatusMessage);
         }
+    }
+
+    private void RenderCustomPartsCombo()
+    {
+        string preview = _selectedSavedPartIndex >= 0 && _selectedSavedPartIndex < _savedParts.Count
+            ? $"{_savedParts[_selectedSavedPartIndex].partId}  [{_savedParts[_selectedSavedPartIndex].fileName}]"
+            : _savedParts.Count == 0 ? "(no saved parts)" : "(select a part)";
+
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##st_load_combo", preview))
+        {
+            if (ImGui.IsWindowAppearing())
+            {
+                _loadFilter.SetValue("".AsSpan());
+                ImGui.SetKeyboardFocusHere();
+            }
+
+            ImGui.InputText("##st_load_filter", _loadFilter);
+            string filterText = _loadFilter.ToString().Trim();
+
+            for (int i = 0; i < _savedParts.Count; i++)
+            {
+                var (partId, fileName) = _savedParts[i];
+                if (!string.IsNullOrEmpty(filterText)
+                    && !partId.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                    && !fileName.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                bool sel = i == _selectedSavedPartIndex;
+                if (ImGui.Selectable($"{partId}  [{fileName}]##st_lp{i}", sel))
+                {
+                    _selectedSavedPartIndex = i;
+                    _selectedGamePartIndex = -1;
+                }
+            }
+
+            ImGui.EndCombo();
+        }
+    }
+
+    private void RenderStockPartsCombo()
+    {
+        string preview = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count
+            ? $"{_gameParts.Parts[_selectedGamePartIndex].displayName}  ({_gameParts.Parts[_selectedGamePartIndex].id})"
+            : !_gameParts.IsLoaded ? "(no stock parts)" : "(select a part)";
+
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##st_import_combo", preview))
+        {
+            if (ImGui.IsWindowAppearing())
+            {
+                _gamePartFilter.SetValue("".AsSpan());
+                ImGui.SetKeyboardFocusHere();
+            }
+
+            ImGui.InputText("##st_import_filter", _gamePartFilter);
+            string filterText = _gamePartFilter.ToString().Trim();
+
+            if (_gameParts.IsLoaded)
+            {
+                for (int i = 0; i < _gameParts.Parts.Count; i++)
+                {
+                    var (id, displayName) = _gameParts.Parts[i];
+                    if (!string.IsNullOrEmpty(filterText)
+                        && !id.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+                        && !displayName.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    bool sel = i == _selectedGamePartIndex;
+                    if (ImGui.Selectable($"{displayName}  ({id})##st_ip{i}", sel))
+                    {
+                        _selectedGamePartIndex = i;
+                        _selectedSavedPartIndex = -1;
+                    }
+                }
+            }
+
+            ImGui.EndCombo();
+        }
+    }
+
+    private void DoImport(PartEditorController controller, PartEditorScene scene, PartModWriter writer)
+    {
+        bool hasSavedSel = _selectedSavedPartIndex >= 0 && _selectedSavedPartIndex < _savedParts.Count;
+        bool hasGameSel = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count;
+
+        if (hasSavedSel)
+        {
+            var (partId, fileName) = _savedParts[_selectedSavedPartIndex];
+            var loaded = writer.LoadPart(partId, fileName);
+            if (loaded != null)
+            {
+                controller.LoadPart(loaded);
+                if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
+                writer.CurrentFileName = fileName;
+                _loadImportStatusMessage = $"Loaded '{partId}' from {fileName}.xml";
+                _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
+                _lastKnownPartId = "";
+                _lastKnownPlacementIndex = -2;
+                _saveStatusMessage = null;
+                Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}'");
+            }
+            else
+            {
+                _loadImportStatusMessage = $"Failed to load '{partId}' from {fileName}.xml";
+                _loadImportStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
+                Console.WriteLine($"space-tape: LoadPart failed for '{partId}' in '{fileName}'");
+            }
+
+            return;
+        }
+
+        if (hasGameSel)
+        {
+            var partId = _gameParts.Parts[_selectedGamePartIndex].id;
+            var imported = PartImporter.ImportFromTemplate(partId);
+            if (imported != null)
+            {
+                controller.LoadPart(imported);
+                if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
+                _loadImportStatusMessage = $"Imported '{partId}' ({imported.Placements.Count} SubParts, {imported.GameData.Connectors.Count} Connectors)";
+                _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
+                _lastKnownPartId = "";
+                _lastKnownPlacementIndex = -2;
+                _saveStatusMessage = null;
+                Console.WriteLine($"space-tape: Imported game part '{partId}'");
+            }
+            else
+            {
+                _loadImportStatusMessage = $"Failed to import '{partId}'";
+                _loadImportStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
+            }
+        }
+    }
+
+    public void AutoLoadSavedAndStockParts(PartModWriter writer)
+    {
+        writer.RefreshFileList();
+        _savedParts = writer.ListSavedParts();
+        _selectedSavedPartIndex = -1;
+
+        _gameParts.Load();
+        _selectedGamePartIndex = -1;
     }
 
     // -------------------------------------------------------------------------

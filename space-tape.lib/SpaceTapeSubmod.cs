@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -145,7 +144,7 @@ public sealed class SpaceTapeSubmod : ISubmod
             _catalog.LoadSubParts();
             _ui.WindowOpen = true;
             _subPartsWindow.IsOpen = true;
-            TryAutoLoadSavedAndStockParts();
+            _ui.AutoLoadSavedAndStockParts(_writer);
         }
     }
 
@@ -154,12 +153,6 @@ public sealed class SpaceTapeSubmod : ISubmod
         _scene.Exit();
         _ui.WindowOpen = false;
         _subPartsWindow.IsOpen = false;
-    }
-
-    private void TryAutoLoadSavedAndStockParts()
-    {
-        MethodInfo? method = typeof(PartEditorUi).GetMethod("AutoLoadSavedAndStockParts", new[] { typeof(PartModWriter) });
-        method?.Invoke(_ui, new object[] { _writer });
     }
 
     public void Dispose()
