@@ -28,7 +28,7 @@ public sealed class CameraSnapController
     public CameraSnapMode ActiveMode { get; private set; } = CameraSnapMode.None;
 
     /// <summary>Whether the grid plane overlay is visible.</summary>
-    public bool GridVisible { get; set; }
+    public bool GridVisible { get; set; } = true;
 
     /// <summary>Grid width in meters (horizontal extent).</summary>
     public float GridWidth { get; set; } = 5.0f;
@@ -59,12 +59,7 @@ public sealed class CameraSnapController
 
         ActiveMode = mode;
         if (mode == CameraSnapMode.None)
-        {
-            GridVisible = false;
             return;
-        }
-
-        GridVisible = true;
 
         Camera? camera = Program.GetCamera();
         IFollowable? following = camera?.Following;

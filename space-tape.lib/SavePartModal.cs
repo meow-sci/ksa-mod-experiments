@@ -14,7 +14,13 @@ public sealed class SavePartModal
     private string? _lastStatusMessage;
     private float4 _lastStatusColor;
 
-    public void OnOpen(PartModWriter writer)
+    // Part ID and Display Name — moved here from the editor window
+    private readonly ImInputString _partIdInput = new(128);
+    private readonly ImInputString _displayNameInput = new(256);
+    private string _lastKnownPartId = "";
+    private string _lastKnownDisplayName = "";
+
+    public void OnOpen(PartModWriter writer, PartEditorController controller)
     {
         _selectedFileIndex = -1;
         for (int i = 0; i < writer.ExistingFiles.Count; i++)
@@ -29,13 +35,63 @@ public sealed class SavePartModal
         _newFileNameInput.SetValue(writer.CurrentFileName.AsSpan());
         _filter.Clear();
         _lastStatusMessage = null;
+
+        // Sync Part ID and Display Name from the current part
+        _partIdInput.SetValue(controller.CurrentPart.PartId.AsSpan());
+        _lastKnownPartId = controller.CurrentPart.PartId;
+        _displayNameInput.SetValue(controller.CurrentPart.GameData.DisplayName.AsSpan());
+        _lastKnownDisplayName = controller.CurrentPart.GameData.DisplayName;
     }
 
     public void Render(PartEditorController controller, PartModWriter writer, Action? onSaveSuccess = null)
     {
         bool open = true;
+        ImGui.SetNextWindowSize(new float2(800f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
+
+        // Part ID and Display Name — sync if externally changed (e.g. import)
+        if (controller.CurrentPart.PartId != _lastKnownPartId)
+        {
+            _partIdInput.SetValue(controller.CurrentPart.PartId.AsSpan());
+            _lastKnownPartId = controller.CurrentPart.PartId;
+        }
+        if (controller.CurrentPart.GameData.DisplayName != _lastKnownDisplayName)
+        {
+            _displayNameInput.SetValue(controller.CurrentPart.GameData.DisplayName.AsSpan());
+            _lastKnownDisplayName = controller.CurrentPart.GameData.DisplayName;
+        }
+
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##st_save_identity", 2,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+        {
+            ImGui.TableSetupColumn("##si_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##si_val", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part ID:");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.InputText("##st_save_partid", _partIdInput))
+            {
+                controller.CurrentPart.PartId = _partIdInput.ToString();
+                _lastKnownPartId = controller.CurrentPart.PartId;
+            }
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Display Name:");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+            if (ImGui.InputText("##st_save_dn", _displayNameInput))
+            {
+                controller.CurrentPart.GameData.DisplayName = _displayNameInput.ToString();
+                _lastKnownDisplayName = controller.CurrentPart.GameData.DisplayName;
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
+
+        ImGui.Spacing();
 
         RenderFileCombo(writer);
 

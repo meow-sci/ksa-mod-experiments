@@ -15,7 +15,7 @@ public enum LightArrangement { Off, BoxCorners, Sphere }
 /// </summary>
 public sealed class EditorLighting
 {
-    public LightArrangement Arrangement { get; set; } = LightArrangement.Off;
+    public LightArrangement Arrangement { get; set; } = LightArrangement.Sphere;
     public float Intensity { get; set; } = 3f;
     public float Range { get; set; } = 15f;
     public float3 Color { get; set; } = new float3(1f, 1f, 1f);

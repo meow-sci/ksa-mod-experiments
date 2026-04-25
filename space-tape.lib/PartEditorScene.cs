@@ -29,10 +29,10 @@ public sealed class PartEditorScene : IDisposable
     public bool OriginVisible { get; set; } = true;
 
     /// <summary>Alpha transparency of the origin axis marker (0 = transparent, 1 = opaque).</summary>
-    public float OriginAlpha { get; set; } = 0.8f;
+    public float OriginAlpha { get; set; } = 0.5f;
 
     /// <summary>Size scale multiplier applied to the origin axis marker arms.</summary>
-    public float OriginSize { get; set; } = 1.0f;
+    public float OriginSize { get; set; } = 0.5f;
 
     public IReadOnlyList<Part> EditorParts => _editorParts;
 

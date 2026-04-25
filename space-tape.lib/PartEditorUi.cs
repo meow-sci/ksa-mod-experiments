@@ -15,15 +15,11 @@ public sealed class PartEditorUi
 {
     public bool WindowOpen { get; set; }
 
-    private readonly ImInputString _partIdInput = new ImInputString(128);
     private readonly ImInputString _instanceIdInput = new ImInputString(128);
-    private readonly ImInputString _displayNameInput = new ImInputString(256);
 
     // Change-detection for input buffer sync (avoids overwriting in-progress edits)
-    private string _lastKnownPartId = "";
     private int _lastKnownPlacementIndex = -2;
     private string _lastKnownInstanceId = "";
-    private string _lastKnownDisplayName = "";
 
     private readonly SavePartModal _savePartModal = new();
     private readonly ImportModal _importModal = new();
@@ -66,7 +62,8 @@ public sealed class PartEditorUi
     {
         if (!WindowOpen) return;
 
-        ImGui.SetNextWindowSize(new float2(440, 700), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowPos(new float2(570f, 50f), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(850f, 1000f), ImGuiCond.FirstUseEver);
         bool open = WindowOpen;
         if (ImGui.Begin("Part Editor##st_editor", ref open))
         {
@@ -74,7 +71,6 @@ public sealed class PartEditorUi
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
             {
-                _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
             }
             _savePartModal.Render(controller, writer, onSaveSuccess: () =>
@@ -100,20 +96,18 @@ public sealed class PartEditorUi
 
     private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorInteraction interaction, PartEditorScene scene, PartModWriter writer, CameraSnapController cameraSnap, EditorLighting lighting)
     {
-        bool canSave = controller.CurrentPart.Placements.Count > 0
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.PartId)
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.GameData.DisplayName);
+        bool canSave = controller.CurrentPart.Placements.Count > 0;
 
         if (!canSave) ImGui.BeginDisabled();
         if (ImGui.Button(" Save "))
         {
             writer.RefreshFileList();
-            _savePartModal.OnOpen(writer);
+            _savePartModal.OnOpen(writer, controller);
             ImGui.OpenPopup(SavePartModal.PopupId);
         }
         if (!canSave) ImGui.EndDisabled();
         if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetItemTooltip("Add at least one SubPart, a Part ID, and a Display Name to save.");
+            ImGui.SetItemTooltip("Add at least one SubPart to save.");
         ImGui.SameLine();
 
         if (!controller.CanUndo) ImGui.BeginDisabled();
@@ -131,7 +125,6 @@ public sealed class PartEditorUi
         {
             controller.NewPart();
             scene.SyncParts(controller.CurrentPart);
-            _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
         }
 
@@ -148,85 +141,30 @@ public sealed class PartEditorUi
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         float checkW = ImGui.GetFrameHeight();
         var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##st_camsnap_tbl", 3, tableFlags))
+        if (ImGui.BeginTable("##st_camsnap_tbl", 2, tableFlags))
         {
-            ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
-            // Row: Camera Snap — optional grid checkbox + 6 directional buttons
-            bool snapEnabled = cameraSnap.ActiveMode != CameraSnapMode.None;
             ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            if (snapEnabled)
-            {
-                bool snapGrid = cameraSnap.GridVisible;
-                if (ImGui.Checkbox("##st_camsnap_en", ref snapGrid))
-                {
-                    cameraSnap.GridVisible = snapGrid;
-                    if (!snapGrid) cameraSnap.SnapTo(CameraSnapMode.None, scene);
-                }
-            }
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding(); ImGui.Text("Camera Snap");
             ImGui.TableNextColumn();
-            float snapBtnW = (ImGui.GetContentRegionAvail().X - 8f) / 3f;
+            float snapBtnW = (ImGui.GetContentRegionAvail().X - 16f) / 3f;
             RenderSnapButton("Left", CameraSnapMode.Left, cameraSnap, scene, snapBtnW);
-            ImGui.SameLine(0, 4);
+            ImGui.SameLine(0, 8);
             RenderSnapButton("Front", CameraSnapMode.Front, cameraSnap, scene, snapBtnW);
-            ImGui.SameLine(0, 4);
+            ImGui.SameLine(0, 8);
             RenderSnapButton("Right", CameraSnapMode.Right, cameraSnap, scene, snapBtnW);
             RenderSnapButton("Top", CameraSnapMode.Top, cameraSnap, scene, snapBtnW);
-            ImGui.SameLine(0, 4);
+            ImGui.SameLine(0, 8);
             RenderSnapButton("Back", CameraSnapMode.Back, cameraSnap, scene, snapBtnW);
-            ImGui.SameLine(0, 4);
+            ImGui.SameLine(0, 8);
             RenderSnapButton("Bottom", CameraSnapMode.Bottom, cameraSnap, scene, snapBtnW);
-
-            if (cameraSnap.GridVisible)
-            {
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
-                ImGui.TableNextColumn();
-                float gridW = cameraSnap.GridWidth;
-                float gridH = cameraSnap.GridHeight;
-                float halfWidth = (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" x ").X) / 2f;
-                ImGui.SetNextItemWidth(halfWidth);
-                if (ImGui.DragFloat("##st_gridw", ref gridW, 0.1f, 0.5f, 50f, "%.1f"))
-                    cameraSnap.GridWidth = gridW;
-                ImGui.SameLine(0, 2);
-                ImGui.AlignTextToFramePadding(); ImGui.Text(" x ");
-                ImGui.SameLine(0, 2);
-                ImGui.SetNextItemWidth(halfWidth);
-                if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
-                    cameraSnap.GridHeight = gridH;
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
-                ImGui.TableNextColumn();
-                float spacing = cameraSnap.GridSpacing;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
-                    cameraSnap.GridSpacing = spacing;
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
-                ImGui.TableNextColumn();
-                float4 gridCol = cameraSnap.GridColor;
-                ImGui.SetNextItemWidth(-1);
-                if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
-                    cameraSnap.GridColor = gridCol;
-            }
 
             if (cameraSnap.DebugReadout)
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn();
                 ImGui.TableNextColumn();
                 ImGui.TableNextColumn();
                 OrbitView? ov = Program.GetCamera()?.Following?.OrbitView;
@@ -239,6 +177,13 @@ public sealed class PartEditorUi
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
+
+        // Visual grid toggle (independent of camera snap)
+        {
+            bool gridVisible = cameraSnap.GridVisible;
+            if (ImGui.Checkbox(" Show Visual Grid ##st_showgrid", ref gridVisible))
+                cameraSnap.GridVisible = gridVisible;
+        }
 
         // --- Editor Stuff (collapsible) ---
         if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
@@ -335,12 +280,59 @@ public sealed class PartEditorUi
                 ImGui.DragFloat("##st_rotsnapdeg", ref _rotSnapDeg, 0.5f, 0.5f, 90f, "%.1f°");
                 if (!_rotSnapEnabled) ImGui.EndDisabled();
 
+                // Grid Size
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Size");
+                ImGui.TableNextColumn();
+                {
+                    float gridW = cameraSnap.GridWidth;
+                    float gridH = cameraSnap.GridHeight;
+                    float halfWidth = (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(" x ").X) / 2f;
+                    ImGui.SetNextItemWidth(halfWidth);
+                    if (ImGui.DragFloat("##st_gridw", ref gridW, 0.1f, 0.5f, 50f, "%.1f"))
+                        cameraSnap.GridWidth = gridW;
+                    ImGui.SameLine(0, 2);
+                    ImGui.AlignTextToFramePadding(); ImGui.Text(" x ");
+                    ImGui.SameLine(0, 2);
+                    ImGui.SetNextItemWidth(halfWidth);
+                    if (ImGui.DragFloat("##st_gridh", ref gridH, 0.1f, 0.5f, 50f, "%.1f"))
+                        cameraSnap.GridHeight = gridH;
+                }
+
+                // Grid Spacing
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Spacing");
+                ImGui.TableNextColumn();
+                {
+                    float spacing = cameraSnap.GridSpacing;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.DragFloat("##st_gridspacing", ref spacing, 0.01f, 0.01f, 5f, "%.3f"))
+                        cameraSnap.GridSpacing = spacing;
+                }
+
+                // Grid Color
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Color");
+                ImGui.TableNextColumn();
+                {
+                    float4 gridCol = cameraSnap.GridColor;
+                    ImGui.SetNextItemWidth(-1);
+                    if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
+                        cameraSnap.GridColor = gridCol;
+                }
+
                 // Lighting
                 bool lightingEnabled = lighting.Arrangement != LightArrangement.Off;
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 if (ImGui.Checkbox("##st_light_en", ref lightingEnabled))
-                    lighting.Arrangement = lightingEnabled ? LightArrangement.BoxCorners : LightArrangement.Off;
+                    lighting.Arrangement = lightingEnabled ? LightArrangement.Sphere : LightArrangement.Off;
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Lighting");
                 ImGui.TableNextColumn();
@@ -712,20 +704,6 @@ public sealed class PartEditorUi
 
         var gd = controller.CurrentPart.GameData;
 
-        // --- Part ID (shown at top of Game Data) ---
-        if (controller.CurrentPart.PartId != _lastKnownPartId)
-        {
-            _partIdInput.SetValue(controller.CurrentPart.PartId.AsSpan());
-            _lastKnownPartId = controller.CurrentPart.PartId;
-        }
-
-        // Sync display name buffer when it changes externally
-        if (gd.DisplayName != _lastKnownDisplayName)
-        {
-            _displayNameInput.SetValue(gd.DisplayName.AsSpan());
-            _lastKnownDisplayName = gd.DisplayName;
-        }
-
         // --- Basic Info ---
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         if (ImGui.BeginTable("##st_gd_tbl", 2,
@@ -733,24 +711,6 @@ public sealed class PartEditorUi
         {
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part ID:");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##st_partid", _partIdInput))
-            {
-                controller.CurrentPart.PartId = _partIdInput.ToString();
-                _lastKnownPartId = controller.CurrentPart.PartId;
-            }
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Display Name:");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##st_dn", _displayNameInput))
-            {
-                gd.DisplayName = _displayNameInput.ToString();
-                _lastKnownDisplayName = gd.DisplayName;
-            }
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg):");

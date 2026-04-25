@@ -1,0 +1,8 @@
+- make the SubPart Viewer window have a default width/height of 1050/1550
+- the "Camera Snap" functionality is still intertwined with the visual grid, i don't want this
+  - right now by default the "Show Visual Grid" checkbox is true but it's not displayed by default
+  - I have to click one of the camera snaps to show the grid initially, they should not be related anymore and solely controlled by the "Show Visual Grid" boolean value
+- add a tooltip to the "New Part" button which has a warning "Danger Will Robinson!\n\nThis will clear out all SubParts in the workspace!"
+- The Camera Snap top/left/right/bottom/back/top button table layout doesn't have a proper vertical gap as defined in our imgui-design skill (the horizontal gaps are correct)
+- add a tooltip to the "Lighting" checkbox that says "Uses invisible Light parts to illuminate the workspace on all sides"
+- rip out the undo/redo buttons and related logic, they don't work 

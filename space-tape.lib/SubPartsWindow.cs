@@ -46,7 +46,8 @@ public sealed class SubPartsWindow
             return;
         }
 
-        ImGui.SetNextWindowSize(new float2(520, 520), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowPos(new float2(10f, 50f), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new float2(550f, 1000f), ImGuiCond.FirstUseEver);
         bool open = IsOpen;
         if (ImGui.Begin("SubParts##st_subparts_window", ref open))
         {
