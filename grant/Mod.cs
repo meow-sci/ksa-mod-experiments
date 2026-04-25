@@ -19,7 +19,6 @@ using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
 using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
-using MeowSci.InanimateCarbonRodLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
 using MeowSci.SpaceTapeLib;
@@ -69,7 +68,6 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
-            _submods.Add(new InanimateCarbonRodSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);

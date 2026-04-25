@@ -49,7 +49,7 @@ public sealed class ThemeManager
         string icr_path = Path.Combine(_themesDirectory, "inanimate-carbon-rod.toml");
         if (!File.Exists(icr_path))
         {
-            var icr = BuiltInThemes.InanimateCarbonRod();
+            var icr = BuiltInThemes.CarbonRod();
             ThemeSerializer.SaveToFile(icr, icr_path);
             Console.WriteLine("skittles: Shipped Inanimate Carbon Rod preset");
         }

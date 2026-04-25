@@ -39,6 +39,10 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 
 Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It appears as a collapsible panel in the Grant Toolbox window alongside other submods. It can also run standalone via `Mod.cs` (F11 toggle).
 
+## Thumbnail Generation
+
+Space Tape owns SubPart thumbnail generation and caching. Thumbnails are generated on demand from within the Space Tape workflow and reused by the SubPart browser to provide animated previews without requiring a separate thumbnail mod.
+
 ## Project Structure
 
 ### space-tape/ (mod entry)

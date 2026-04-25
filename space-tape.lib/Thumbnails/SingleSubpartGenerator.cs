@@ -61,7 +61,7 @@ public sealed class SingleSubpartGenerator : IDisposable
         {
             LastError = ex.Message;
             State = GenerationState.Failed;
-            Console.WriteLine($"inanimate-carbon-rod: SingleSubpart BeginGeneration failed - {ex}");
+            Console.WriteLine($"space-tape: SingleSubpart BeginGeneration failed - {ex}");
             CleanupGenerationResources();
         }
     }
@@ -78,7 +78,7 @@ public sealed class SingleSubpartGenerator : IDisposable
         {
             LastError = ex.Message;
             State = GenerationState.Failed;
-            Console.WriteLine($"inanimate-carbon-rod: SingleSubpart StepGeneration failed - {ex}");
+            Console.WriteLine($"space-tape: SingleSubpart StepGeneration failed - {ex}");
             CleanupGenerationResources();
         }
     }
@@ -185,7 +185,7 @@ public sealed class SingleSubpartGenerator : IDisposable
 
         CleanupGenerationResources();
         State = GenerationState.Done;
-        Console.WriteLine($"inanimate-carbon-rod: Generated {ViewCount} hi-res views ({ThumbnailImageSize}px) for {_subpart.Id}");
+        Console.WriteLine($"space-tape: Generated {ViewCount} hi-res views ({ThumbnailImageSize}px) for {_subpart.Id}");
     }
 
     private void CleanupGenerationResources()

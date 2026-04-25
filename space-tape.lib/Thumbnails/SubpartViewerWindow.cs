@@ -127,7 +127,7 @@ public sealed class SubpartViewerWindow
             catch (Exception ex)
             {
                 ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), $"Render error: {ex.Message}");
-                Console.WriteLine($"inanimate-carbon-rod: SubpartViewerWindow error - {ex}");
+                Console.WriteLine($"space-tape: SubpartViewerWindow error - {ex}");
             }
         }
         ImGui.End();

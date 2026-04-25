@@ -6,7 +6,7 @@ namespace MeowSci.SkittlesLib;
 
 public static class BuiltInThemes
 {
-    public static ThemeDefinition InanimateCarbonRod()
+    public static ThemeDefinition CarbonRod()
     {
         var theme = new ThemeDefinition
         {

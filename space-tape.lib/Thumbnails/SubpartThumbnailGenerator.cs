@@ -52,7 +52,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         {
             LastError = "No celestial system loaded. Load a save first.";
             State = GenerationState.Failed;
-            Console.WriteLine("inanimate-carbon-rod: " + LastError);
+            Console.WriteLine("space-tape: " + LastError);
             return;
         }
 
@@ -64,7 +64,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         {
             LastError = ex.Message;
             State = GenerationState.Failed;
-            Console.WriteLine($"inanimate-carbon-rod: BeginGeneration failed - {ex}");
+            Console.WriteLine($"space-tape: BeginGeneration failed - {ex}");
             CleanupGenerationResources();
         }
     }
@@ -85,7 +85,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         {
             LastError = ex.Message;
             State = GenerationState.Failed;
-            Console.WriteLine($"inanimate-carbon-rod: StepGeneration failed - {ex}");
+            Console.WriteLine($"space-tape: StepGeneration failed - {ex}");
             CleanupGenerationResources();
         }
     }
@@ -121,12 +121,12 @@ public sealed class SubpartThumbnailGenerator : IDisposable
 
         if (_subparts.Count == 0)
         {
-            Console.WriteLine("inanimate-carbon-rod: No subparts need thumbnail generation.");
+            Console.WriteLine("space-tape: No subparts need thumbnail generation.");
             State = GenerationState.Done;
             return;
         }
 
-        Console.WriteLine($"inanimate-carbon-rod: Generating thumbnails for {_subparts.Count} subparts...");
+        Console.WriteLine($"space-tape: Generating thumbnails for {_subparts.Count} subparts...");
 
         // Override game thumbnail size for our custom resolution
         _savedThumbnailSize = GameSettings.Current.Graphics.PartThumbnailSize;
@@ -198,7 +198,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"inanimate-carbon-rod: Failed to render thumbnail for {_subparts[i].Id}: {ex.Message}");
+                    Console.WriteLine($"space-tape: Failed to render thumbnail for {_subparts[i].Id}: {ex.Message}");
                 }
                 ProgressCurrent = i + 1;
             }
@@ -216,7 +216,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
 
         if (_currentIndex >= _subparts.Count)
         {
-            Console.WriteLine($"inanimate-carbon-rod: Generated {SubpartThumbnailCache.All.Count} subpart thumbnails.");
+            Console.WriteLine($"space-tape: Generated {SubpartThumbnailCache.All.Count} subpart thumbnails.");
             CleanupGenerationResources();
             State = GenerationState.Done;
         }
@@ -352,7 +352,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         {
             subpart.Thumbnail = views[0];
             SubpartThumbnailCache.Store(subpart.Id, new SubpartThumbnailEntry(views));
-            Console.WriteLine($"inanimate-carbon-rod: Generated thumbnails for {subpart.Id}");
+            Console.WriteLine($"space-tape: Generated thumbnails for {subpart.Id}");
         }
     }
 
