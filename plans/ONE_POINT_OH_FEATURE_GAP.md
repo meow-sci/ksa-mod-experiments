@@ -6,3 +6,4 @@
 - fix load subparts visual issues with the log messages etc
 - can connectors render an arrow or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.
 - fix self-menu versus ModMenu
+- file management for custom subparts (list files, parts in files, delete, maybe ability to rename a part id and name)
