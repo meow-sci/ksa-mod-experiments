@@ -15,6 +15,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     public static SpaceTapeSubmod? Current { get; private set; }
 
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
+    private readonly SubpartGenerationController _generation = new();
     private readonly PartEditorController _controller = new PartEditorController();
     private readonly PartEditorScene _scene = new PartEditorScene();
     private readonly PartEditorGizmos _gizmos = new PartEditorGizmos();
@@ -37,6 +38,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     public void Update(double dt)
     {
+        _generation.Update();
         _catalog.Update(dt);
     }
 
@@ -97,6 +99,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     public void Dispose()
     {
         _cameraSnap.SnapTo(CameraSnapMode.None, _scene);
+        _generation.Dispose();
         Current = null;
         PartRenderHelper.Unpatch();
         _interaction.ClearVisualState();
