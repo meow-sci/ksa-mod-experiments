@@ -27,6 +27,7 @@ public sealed class PartEditorUi
 
     private string? _saveStatusMessage;
     private float4 _saveStatusColor;
+    private readonly SavePartModal _savePartModal = new();
 
     // Hot-reload spike state
     private string? _hotReloadMessage;
@@ -81,7 +82,13 @@ public sealed class PartEditorUi
         bool open = WindowOpen;
         if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
         {
-            RenderToolbar(controller, gizmos, interaction, scene, cameraSnap, lighting);
+            RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
+            _savePartModal.Render(controller, writer, onSaveSuccess: () =>
+            {
+                controller.MarkSaved();
+                _saveStatusMessage = "Saved!";
+                _saveStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
+            });
             ImGui.Spacing();
             RenderLoadImportSection(controller, scene, writer);
             ImGui.Spacing();
@@ -101,8 +108,24 @@ public sealed class PartEditorUi
     // Toolbar
     // -------------------------------------------------------------------------
 
-    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorInteraction interaction, PartEditorScene scene, CameraSnapController cameraSnap, EditorLighting lighting)
+    private void RenderToolbar(PartEditorController controller, PartEditorGizmos gizmos, PartEditorInteraction interaction, PartEditorScene scene, PartModWriter writer, CameraSnapController cameraSnap, EditorLighting lighting)
     {
+        bool canSave = controller.CurrentPart.Placements.Count > 0
+                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.PartId)
+                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.GameData.DisplayName);
+
+        if (!canSave) ImGui.BeginDisabled();
+        if (ImGui.Button(" Save "))
+        {
+            writer.RefreshFileList();
+            _savePartModal.OnOpen(writer);
+            ImGui.OpenPopup(SavePartModal.PopupId);
+        }
+        if (!canSave) ImGui.EndDisabled();
+        if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetItemTooltip("Add at least one SubPart, a Part ID, and a Display Name to save.");
+        ImGui.SameLine();
+
         if (!controller.CanUndo) ImGui.BeginDisabled();
         if (ImGui.Button(" Undo ")) controller.Undo();
         if (!controller.CanUndo) ImGui.EndDisabled();
