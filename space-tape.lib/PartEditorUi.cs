@@ -79,6 +79,8 @@ public sealed class PartEditorUi
             RenderPropertiesSection(controller, scene);
             ImGui.Spacing();
             RenderGameDataSection(controller);
+            ImGui.Spacing();
+            RenderConnectorsSection(controller);
         }
         ImGui.End();
         WindowOpen = open;
@@ -746,15 +748,23 @@ public sealed class PartEditorUi
         ImGui.SeparatorText("Power");
         GameDataEditorUi.RenderPowerSection(gd);
 
-        // --- Connectors ---
-        ImGui.Spacing();
-        ImGui.SeparatorText("Connectors");
-        GameDataEditorUi.RenderConnectorsSection(gd);
-
         // --- Coupling ---
         ImGui.Spacing();
         ImGui.SeparatorText("Coupling");
         GameDataEditorUi.RenderCouplingSection(gd);
+    }
+
+    // -------------------------------------------------------------------------
+    // Connectors
+    // -------------------------------------------------------------------------
+
+    private void RenderConnectorsSection(PartEditorController controller)
+    {
+        var gd = controller.CurrentPart.GameData;
+        int count = gd.Connectors.Count;
+        if (!ImGui.CollapsingHeader($"Connectors ({count})##st_connectors")) return;
+
+        GameDataEditorUi.RenderConnectorsSection(gd);
     }
 
 }
