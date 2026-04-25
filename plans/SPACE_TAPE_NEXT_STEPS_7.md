@@ -1,0 +1,25 @@
+- add a button "Add SubPart" before "Copy Name" in the SubPart viewer window which when clicked will close the window and add the part to the current editing space (same as if clicking on the thumbnails to add it)
+- in the SubPart Viewer window, after the button line, add a new line with a checkbox labaled "Auto generate Hi-Res on Window Open" which is false by default.  When true, whenever the window is initially opened, auto generate the images as if the "Generate Hi-Res" button is pushed
+- rename the Subpart Viewer window title to "SubPart Viewer"
+- default the SubPart Viewer generate image size to 1024 and display size to 1024
+- rename the "Space Tape - Part Editor" window to "Part Editor"
+- in the "Part Editor" window  make the Import button be on the same line as save/new part, make the order be: Save, Import, New Part
+- make the SubPart Viewer window have a default width/height of 1050/1550
+- refactor how the visual grid is toggled on/off and managed
+  - remove the checkbox on Camera Snap, i want camera snapping to be independent of the visual grid
+  - after the camera snap area, on a new line, add a checkbox (true by default) which is labeled "Show Visual Grid" which when checked displays the grid
+  - move Grid Size, Grid Spacing, Grid Color options under the "Editor Stuff" collapsible header
+- the "Camera Snap" functionality is still intertwined with the visual grid, i don't want this
+  - right now by default the "Show Visual Grid" checkbox is true but it's not displayed by default
+  - I have to click one of the camera snaps to show the grid initially, they should not be related anymore and solely controlled by the "Show Visual Grid" boolean value
+- add a tooltip to the "Lighting" checkbox LABEL (since its separate from the checkbox) that also says "Uses invisible Light parts to illuminate the workspace on all sides"
+- change the Save button disabled logic to only require at least one subpart present
+- move the text inputs for Part ID and Display Name into the save modal
+  - these values should be remembered if the modal is opened/closed
+  - if importing an existing custom Part, set these in-memory values to match the imported SubPart values
+- Make the "Save Part" modal much wider, at least 800px to accomodate moving more inputs into it
+- in the "Part Editor" top-level menu, add more menu items before the exisitng "Exit Part Editor":
+  - "Toggle SubParts Window" - make it show a checkbox when the window visible, clicking it toggles
+  - "Toggle Part Editor Window" - make it show a checkbox when the window visible, clicking it toggles
+- rename the "Import Part" modal window to "Import Existing Part"
+- in the "Import Existing Part" modal window, make the Import / Cancel buttons take up the full window width at 50% each with a gap from our imgui-design skill conventions
