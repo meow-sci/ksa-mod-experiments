@@ -11,7 +11,7 @@ namespace MeowSci.SpaceTapeLib;
 /// </summary>
 public sealed class ImportModal
 {
-    public const string PopupId = "Import Part##st_import_popup";
+    public const string PopupId = "Import Existing Part##st_import_popup";
 
     private readonly PartCatalog _gameParts = new();
     private List<(string partId, string fileName)> _savedParts = new();
@@ -37,7 +37,7 @@ public sealed class ImportModal
     public void Render(PartEditorController controller, PartEditorScene scene, PartModWriter writer)
     {
         bool open = true;
-        ImGui.SetNextWindowSize(new float2(600f, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new float2(800f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
@@ -46,7 +46,7 @@ public sealed class ImportModal
             _clearOtherSubParts = clearSubParts;
         if (ImGui.IsItemHovered())
             ImGui.SetItemTooltip(
-                "When enabled, importing replaces the current editor content.\n" +
+                "When enabled, importing replaces the current editor content.\n\n" +
                 "When disabled, the imported SubParts are merged into the existing editor.");
 
         ImGui.Spacing();
@@ -55,8 +55,8 @@ public sealed class ImportModal
         if (ImGui.BeginTable("##st_imp_tbl", 2,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##st_imp_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##st_imp_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
+            ImGui.TableSetupColumn("##st_imp_lbl", ImGuiTableColumnFlags.WidthFixed, 350f);
+            ImGui.TableSetupColumn("##st_imp_widget", ImGuiTableColumnFlags.WidthStretch, 1f);
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -82,9 +82,13 @@ public sealed class ImportModal
         bool hasGameSel = _selectedGamePartIndex >= 0 && _selectedGamePartIndex < _gameParts.Parts.Count;
         bool canImport = hasSavedSel || hasGameSel;
 
+        float availW = ImGui.GetContentRegionAvail().X;
+        const float gap = 8f;
+        float btnW = (availW - gap) / 2f;
+
         if (!canImport) ImGui.BeginDisabled();
         ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(new float4(0.1f, 0.5f, 0.7f, 1f)));
-        if (ImGui.Button(" Import ##st_imp_btn") && canImport)
+        if (ImGui.Button(" Import ##st_imp_btn", new float2(btnW, 0)) && canImport)
         {
             DoImport(controller, scene, writer);
             ImGui.CloseCurrentPopup();
@@ -92,8 +96,8 @@ public sealed class ImportModal
         ImGui.PopStyleColor();
         if (!canImport) ImGui.EndDisabled();
 
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Cancel ##st_imp_cancel"))
+        ImGui.SameLine(0, gap);
+        if (ImGui.Button(" Cancel ##st_imp_cancel", new float2(btnW, 0)))
             ImGui.CloseCurrentPopup();
 
         ImGui.EndPopup();

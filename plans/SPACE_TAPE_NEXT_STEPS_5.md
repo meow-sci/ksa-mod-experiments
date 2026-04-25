@@ -1,0 +1,17 @@
+- when rendering the editor SubParts and Part Editor windows, we need some default locations and sizes so they don't overlap each other
+  - SubParts on left, 550px wide, 1000px tall
+  - Part Editor to the right of that at 850px wide, 1000px tall
+- refactor how the visual grid is toggled on/off and managed
+  - remove the checkbox on Camera Snap, i want camera snapping to be independent of the visual grid
+  - after the camera snap area, on a new line, add a checkbox (true by default) which is labeled "Show Visual Grid" which when checked displays the grid
+  - move Grid Size, Grid Spacing, Grid Color options under the "Editor Stuff" collapsible header
+- Fix the Camera Snap six buttons: left/front/right/top/back/bottom to have proper spacing convention from our imgui-design skill
+- enable Lighting by default
+- make Sphere lighting be the default selection
+- default the origin size to 0.5x or if we have control of it's "natural" size change that to be half what it is now and leave the scaling at 1x
+- change origin alpha default to 0.5
+- change the Save button disabled logic to only require at least one subpart present
+- move the text inputs for Part ID and Display Name into the save modal
+  - these values should be remembered if the modal is opened/closed
+  - if importing an existing custom Part, set these in-memory values to match the imported SubPart values
+- Make the "Save Part" modal much wider, at least 800px to accomodate moving more inputs into it

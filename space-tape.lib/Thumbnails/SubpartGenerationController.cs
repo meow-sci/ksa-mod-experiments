@@ -8,14 +8,14 @@ namespace MeowSci.SpaceTapeLib;
 /// </summary>
 public sealed class SubpartGenerationController : IDisposable
 {
-    public static readonly int[] ImageSizes = { 64, 128, 256, 512, 1024 };
-    public static readonly string[] ImageSizeLabels = { "64", "128", "256", "512", "1024" };
+    public static readonly int[] ImageSizes = { 64, 92, 128, 256, 512, 1024 };
+    public static readonly string[] ImageSizeLabels = { "64", "92", "128", "256", "512", "1024" };
 
     private readonly SubpartThumbnailGenerator _generator = new();
     private GenerationState _lastObservedState = GenerationState.Idle;
 
     public int ViewCount { get; set; } = 32;
-    public int ImageSizeIndex { get; set; } = 1;
+    public int ImageSizeIndex { get; set; } = 1; // default: 92px
     public bool HasGeneratedAtLeastOnce { get; private set; }
 
     /// <summary>ViewCount value used for the most recent completed generation run.</summary>

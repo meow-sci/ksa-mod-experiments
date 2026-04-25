@@ -68,23 +68,15 @@ public sealed class PartEditorUi
 
         ImGui.SetNextWindowSize(new float2(440, 700), ImGuiCond.FirstUseEver);
         bool open = WindowOpen;
-        if (ImGui.Begin("Space Tape — Part Editor##st_editor", ref open))
+        if (ImGui.Begin("Part Editor##st_editor", ref open))
         {
-            // Import button + modal
-            if (ImGui.Button(" Import ##st_imp_open_btn"))
-            {
-                _importModal.OnOpen(writer);
-                ImGui.OpenPopup(ImportModal.PopupId);
-            }
+            RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
             {
                 _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
             }
-
-            ImGui.Spacing();
-            RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
             _savePartModal.Render(controller, writer, onSaveSuccess: () =>
             {
                 controller.MarkSaved();
@@ -141,6 +133,13 @@ public sealed class PartEditorUi
             scene.SyncParts(controller.CurrentPart);
             _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button(" Import ##st_imp_open_btn"))
+        {
+            _importModal.OnOpen(writer);
+            ImGui.OpenPopup(ImportModal.PopupId);
         }
 
         ImGui.Spacing();

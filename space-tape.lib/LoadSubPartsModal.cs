@@ -23,37 +23,35 @@ public sealed class LoadSubPartsModal
 
         bool busy = gen.IsBusy;
 
+        ImGui.TextDisabled("(?)");
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 28f);
+            ImGui.TextWrapped(
+                "Generating SubPart thumbnails renders each sub-part from multiple angles and stores the results in GPU memory (VRAM). " +
+                "\n\nHigher image counts and larger sizes produce smoother and sharper previews but consume more VRAM. " +
+                "\n\nReduce both settings if you experience slowdowns or GPU memory warnings.");
+            ImGui.PopTextWrapPos();
+            ImGui.EndTooltip();
+        }
+
+        ImGui.SameLine();
+        ImGui.TextDisabled(" More thumbs + Hi-Res = moar VRAM");
+
+        ImGui.NewLine();
+
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         if (ImGui.BeginTable("##st_load_tbl", 2,
                 ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 200f);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 450f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
-            // Info row (first)
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
-            ImGui.TextDisabled("(?)");
-            if (ImGui.IsItemHovered())
-            {
-                ImGui.BeginTooltip();
-                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 28f);
-                ImGui.TextWrapped(
-                    "Generating SubPart thumbnails renders each sub-part from multiple angles and stores the results in GPU memory (VRAM). " +
-                    "Higher image counts and larger sizes produce smoother and sharper previews but consume more VRAM. " +
-                    "Reduce both settings if you experience slowdowns or GPU memory warnings.");
-                ImGui.PopTextWrapPos();
-                ImGui.EndTooltip();
-            }
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextDisabled("More thumbs / higher resolution eats into VRAM");
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.Text("Images per SubPart");
+            ImGui.Text("Thumbnails per SubPart");
             ImGui.SameLine();
             ImGui.TextDisabled("(?)");
             if (ImGui.IsItemHovered())
@@ -76,7 +74,7 @@ public sealed class LoadSubPartsModal
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text("Image Size");
+            ImGui.Text("Thumbnail Size");
             ImGui.SameLine();
             ImGui.TextDisabled("(?)");
             if (ImGui.IsItemHovered())
@@ -130,17 +128,22 @@ public sealed class LoadSubPartsModal
         }
 
         ImGui.Spacing();
+        ImGui.Spacing();
+        ImGui.Spacing();
 
         string genLabel = gen.HasGeneratedAtLeastOnce ? " Re-generate ##st_load_gen" : " Generate ##st_load_gen";
+        float availW = ImGui.GetContentRegionAvail().X;
+        const float gap = 8f;
+        float btnW = (availW - gap) / 2f;
         if (busy) ImGui.BeginDisabled();
-        if (ImGui.Button(genLabel))
+        if (ImGui.Button(genLabel, new float2(btnW, 0)))
         {
             if (gen.HasGeneratedAtLeastOnce)
                 gen.Reset();
             gen.Generate();
         }
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Close ##st_load_close"))
+        ImGui.SameLine(0, gap);
+        if (ImGui.Button(" Close ##st_load_close", new float2(btnW, 0)))
             ImGui.CloseCurrentPopup();
         if (busy) ImGui.EndDisabled();
 

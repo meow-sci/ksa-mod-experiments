@@ -22,6 +22,20 @@ public sealed class SpaceTapeSubmod : ISubmod
     /// <summary>True while the part editor scene is active.</summary>
     public bool IsEditorActive => _scene.IsActive;
 
+    /// <summary>Controls visibility of the SubParts floating window.</summary>
+    public bool SubPartsWindowOpen
+    {
+        get => _subPartsWindow.IsOpen;
+        set => _subPartsWindow.IsOpen = value;
+    }
+
+    /// <summary>Controls visibility of the Part Editor floating window.</summary>
+    public bool EditorWindowOpen
+    {
+        get => _ui.WindowOpen;
+        set => _ui.WindowOpen = value;
+    }
+
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly SubpartGenerationController _generation = new();
     private readonly LoadSubPartsModal _loadSubPartsModal = new();
@@ -67,6 +81,14 @@ public sealed class SpaceTapeSubmod : ISubmod
                     entry,
                     SubpartGenerationController.ImageSizes[_generation.ImageSizeIndex]);
             }
+        }
+
+        // "Add SubPart" button in viewer — add to scene and close viewer
+        string? viewerAdd = _subpartViewer.TakePendingAddRequest();
+        if (viewerAdd != null && _scene.IsActive)
+        {
+            _controller.AddSubPart(viewerAdd);
+            _scene.SyncParts(_controller.CurrentPart);
         }
 
         string? selected = _catalog.TakeSelectedSubPartId();
@@ -155,9 +177,15 @@ public sealed class SpaceTapeSubmod : ISubmod
         }
         else
         {
+            bool hasSubParts = _generation.HasGeneratedAtLeastOnce;
+            if (!hasSubParts) ImGui.BeginDisabled();
             if (ImGui.Button(" Open Part Editor ##st_editor_open", new float2(-1, 0)))
-            {
                 OpenEditor();
+            if (!hasSubParts) ImGui.EndDisabled();
+            if (!hasSubParts)
+            {
+                ImGui.Spacing();
+                ImGui.TextDisabled("Load SubParts first to enable the editor.");
             }
         }
     }

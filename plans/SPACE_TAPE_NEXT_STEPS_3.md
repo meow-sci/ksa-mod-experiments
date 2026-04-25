@@ -1,0 +1,6 @@
+- disable the Submod UI "Open Part Editor" button until subparts have their thumbs loaded.
+- on the Load SubParts modal, is it possible to center the buttons Generate/Close buttons?  Or stretch them to 50% width each with our gap using imgui-design skill
+- change the part editor default thumb display size to 92
+- add a button "Add SubPart" before "Copy Name" in the SubPart viewer window which when clicked will close the window and add the part to the current editing space (same as if clicking on the thumbnails to add it)
+- change the "Thumbnails per SubPart" in the Load SubParts modal to include an 92 option and make that the default
+- in the SubPart Viewer window, after the button line, add a new line with a checkbox labaled "Auto generate Hi-Res on Window Open" which is false by default.  When true, whenever the window is initially opened, auto generate the images as if the "Generate Hi-Res" button is pushed
