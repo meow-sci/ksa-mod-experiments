@@ -25,8 +25,6 @@ public sealed class PartEditorUi
     private string _lastKnownInstanceId = "";
     private string _lastKnownDisplayName = "";
 
-    private string? _saveStatusMessage;
-    private float4 _saveStatusColor;
     private readonly SavePartModal _savePartModal = new();
 
     // Hot-reload spike state
@@ -86,8 +84,6 @@ public sealed class PartEditorUi
             _savePartModal.Render(controller, writer, onSaveSuccess: () =>
             {
                 controller.MarkSaved();
-                _saveStatusMessage = "Saved!";
-                _saveStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
             });
             ImGui.Spacing();
             RenderLoadImportSection(controller, scene, writer);
@@ -98,7 +94,7 @@ public sealed class PartEditorUi
             ImGui.Spacing();
             RenderGameDataSection(controller);
             ImGui.Spacing();
-            RenderSaveSection(controller, writer);
+            RenderExperimentalSection(controller);
         }
         ImGui.End();
         WindowOpen = open;
@@ -141,7 +137,6 @@ public sealed class PartEditorUi
         {
             controller.NewPart();
             scene.SyncParts(controller.CurrentPart);
-            _saveStatusMessage = null;
             _loadImportStatusMessage = null;
             _lastKnownPartId = "";
             _lastKnownPlacementIndex = -2;
@@ -629,7 +624,6 @@ public sealed class PartEditorUi
                 _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
                 _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
-                _saveStatusMessage = null;
                 Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}'");
             }
             else
@@ -654,7 +648,6 @@ public sealed class PartEditorUi
                 _loadImportStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
                 _lastKnownPartId = "";
                 _lastKnownPlacementIndex = -2;
-                _saveStatusMessage = null;
                 Console.WriteLine($"space-tape: Imported game part '{partId}'");
             }
             else
@@ -1000,68 +993,19 @@ public sealed class PartEditorUi
         GameDataEditorUi.RenderCouplingSection(gd);
     }
 
-    // -------------------------------------------------------------------------
-    // Save
-    // -------------------------------------------------------------------------
-
-    private void RenderSaveSection(PartEditorController controller, PartModWriter writer)
+    private void RenderExperimentalSection(PartEditorController controller)
     {
-        ImGui.SeparatorText("Save");
+        if (!ImGui.CollapsingHeader("Experimental##st_experimental")) return;
 
-        bool canSave = controller.CurrentPart.Placements.Count > 0
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.PartId)
-                       && !string.IsNullOrWhiteSpace(controller.CurrentPart.GameData.DisplayName);
-
-        if (!canSave)
-            ImGui.TextDisabled("Add at least one SubPart, set a Part ID, and set a Display Name to save.");
-
-        writer.RenderFilePicker();
-
-        ImGui.Spacing();
-
-        if (!canSave) ImGui.BeginDisabled();
-        if (ImGui.Button(" Save to Disk ##st_save"))
-        {
-            bool ok = writer.SavePart(controller.CurrentPart);
-            if (ok)
-            {
-                controller.MarkSaved();
-                _saveStatusMessage = "Saved!";
-                _saveStatusColor = new float4(0.3f, 1f, 0.3f, 1f);
-                Console.WriteLine($"space-tape: Part '{controller.CurrentPart.PartId}' saved.");
-            }
-            else
-            {
-                _saveStatusMessage = $"Save failed: {writer.LastError}";
-                _saveStatusColor = new float4(1f, 0.3f, 0.3f, 1f);
-                Console.WriteLine($"space-tape: Save failed: {writer.LastError}");
-            }
-        }
-        if (!canSave) ImGui.EndDisabled();
-
-        if (_saveStatusMessage != null)
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(_saveStatusColor, _saveStatusMessage);
-        }
-
-        // Hot-reload spike (experimental)
-        ImGui.Spacing();
-        ImGui.SeparatorText("Experimental");
         if (ImGui.Button(" Test Hot-Reload ##st_hotreload"))
         {
             var (success, message) = HotReloadSpike.TryRegisterPart(controller.CurrentPart);
             _hotReloadSuccess = success;
-            if (success)
-            {
-                bool verified = HotReloadSpike.VerifyRegistration(controller.CurrentPart.PartId);
-                _hotReloadMessage = message + (verified ? "  (Verified in ModLibrary)" : "  (NOT found in ModLibrary after registration!)");
-            }
-            else
-            {
-                _hotReloadMessage = message;
-            }
+            _hotReloadMessage = success
+                ? message + " (Verified in ModLibrary)"
+                : message;
         }
+
         if (_hotReloadMessage != null)
         {
             ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(
