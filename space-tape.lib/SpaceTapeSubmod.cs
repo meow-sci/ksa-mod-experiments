@@ -9,8 +9,6 @@ namespace MeowSci.SpaceTapeLib;
 
 public sealed class SpaceTapeSubmod : ISubmod
 {
-    private const string LoadSubPartsPopupId = "Load SubParts##st_load_popup";
-
     public string Name => "Space Tape";
     public string Tooltip => "In-game Part editor. Compose new Parts from existing SubParts.";
 
@@ -19,6 +17,7 @@ public sealed class SpaceTapeSubmod : ISubmod
 
     private readonly SubPartCatalog _catalog = new SubPartCatalog();
     private readonly SubpartGenerationController _generation = new();
+    private readonly LoadSubPartsModal _loadSubPartsModal = new();
     private readonly PartEditorController _controller = new PartEditorController();
     private readonly PartEditorScene _scene = new PartEditorScene();
     private readonly PartEditorGizmos _gizmos = new PartEditorGizmos();
@@ -109,10 +108,10 @@ public sealed class SpaceTapeSubmod : ISubmod
     {
         if (ImGui.Button(" Load SubParts ##st_load_modal", new float2(-1, 0)))
         {
-            ImGui.OpenPopup(LoadSubPartsPopupId);
+            ImGui.OpenPopup(LoadSubPartsModal.PopupId);
         }
 
-        // Task 5 will render modal body; popup open call is wired now.
+        _loadSubPartsModal.Render(_generation);
 
         ImGui.Spacing();
 
