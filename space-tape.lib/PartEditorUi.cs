@@ -790,7 +790,19 @@ public sealed class PartEditorUi
         int count = gd.Connectors.Count;
         if (!ImGui.CollapsingHeader($"Connectors ({count})##st_connectors", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild("##st_conn_child", new float2(childW, 0),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+            ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar(); // WindowPadding
+
         GameDataEditorUi.RenderConnectorsSection(gd);
+
+        ImGui.Spacing();
+        ImGui.EndChild();
     }
 
 }
