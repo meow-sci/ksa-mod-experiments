@@ -23,6 +23,8 @@ public sealed class PartEditorUi
 
     private readonly SavePartModal _savePartModal = new();
     private readonly ImportModal _importModal = new();
+    private bool _openSaveModal;
+    private bool _openImportModal;
 
     private static readonly string[] KnownEditorTags =
         { "Command", "Structural", "Cargo", "Propulsion", "Aero",
@@ -74,6 +76,12 @@ public sealed class PartEditorUi
             ImGui.PopStyleVar();
 
             RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
+
+            ImGui.Spacing();
+            ImGui.EndChild();
+
+            if (_openSaveModal) { ImGui.OpenPopup(SavePartModal.PopupId); _openSaveModal = false; }
+            if (_openImportModal) { ImGui.OpenPopup(ImportModal.PopupId); _openImportModal = false; }
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
             {
@@ -83,9 +91,6 @@ public sealed class PartEditorUi
             {
                 controller.MarkSaved();
             });
-
-            ImGui.Spacing();
-            ImGui.EndChild();
 
             ImGui.Spacing();
             RenderEditorStuffSection(gizmos, interaction, scene, cameraSnap, lighting);
@@ -120,7 +125,7 @@ public sealed class PartEditorUi
             {
                 writer.RefreshFileList();
                 _savePartModal.OnOpen(writer, controller);
-                ImGui.OpenPopup(SavePartModal.PopupId);
+                _openSaveModal = true;
             }
             if (!canSave) ImGui.EndDisabled();
             if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -131,7 +136,7 @@ public sealed class PartEditorUi
             if (ImGui.Button(" Import ##st_imp_open_btn", new float2(-1, 0)))
             {
                 _importModal.OnOpen(writer);
-                ImGui.OpenPopup(ImportModal.PopupId);
+                _openImportModal = true;
             }
 
             // New Part
