@@ -308,7 +308,7 @@ In-game Part editor. Compose new Parts from existing SubParts by placing them in
 - Quick-flip rotation hotkeys (D = +45° Y-axis, F = +45° X-axis)
 - Plane-locked drag — P key cycles pan modes (Normal / YZ / XZ / XY), click-and-drag to move SubParts constrained to a plane
 - Camera snap views (Front, Back, Left, Right, Top, Bottom) for standard orthographic vantage points
-- Grid plane overlay — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and main-line color/alpha
+- Grid plane overlay — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and axis-line color/alpha
 - Grid rendering uses KSA's orbit line renderer to preserve line alpha without modifying core shader files
 - Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
 - Import hardening: logs and skips invalid imported SubPart records; editor gizmo rendering guards invalid mesh data while Space Tape is active

@@ -17,7 +17,7 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **Quick-flip rotation** — D key rotates +45° around Y-axis, F key rotates +45° around X-axis (cumulative)
 - **Plane-locked drag** — P key cycles through pan modes (Normal / YZ / XZ / XY plane), click-and-drag to move SubParts constrained to a plane; respects grid snap when enabled
 - **Camera snap views** — six orthographic-style snap buttons (Front, Back, Left, Right, Top, Bottom) instantly orient the camera to standard vantage points
-- **Grid plane overlay** — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and main-line color/alpha
+- **Grid plane overlay** — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and axis-line color/alpha
 - **Connector visualization** — 3D gizmo cubes color-coded by flag type (yellow=Internal, cyan=ToSurface, magenta=FromSurface, green=selected)
 - **Transform controls** — per-SubPart position, rotation, and scale with grid snap and rotation snap
 - **Gizmo sizing** — single slider to uniformly scale all transform gizmos (translate/rotate/scale)
