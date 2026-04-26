@@ -23,9 +23,12 @@ This forces the game to recompute all derived values for the part tree, which re
 
 Forces interior (IVA) parts to render even when not in IVA camera mode. After a KSA update, interior parts only render when the camera is in IVA mode — this feature restores the old behavior.
 
+Kitchen Sink also keeps IVA meshes visible in the vehicle editor. The editor renders through the main viewport rather than an IVA camera, so KSA's default `PartModel.AddInstance` check can otherwise skip internal SubPart meshes even though they are needed for part authoring.
+
 **How it works:**
 - When toggled ON, directly mutates `Template.Internal = false` on all loaded `PartModel` instances so the game's rendering check no longer skips them.
 - A Harmony postfix on the `PartModel` constructor catches parts created after the toggle is enabled.
+- A Harmony postfix on `PartModel.AddInstance` re-adds internal mesh instances while `Program.Editor` is active, fixing IVA SubParts that the editor preview would otherwise hide.
 - When toggled OFF (or on mod unload), all mutated templates are restored to `Internal = true`.
 
 **How to use:**

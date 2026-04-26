@@ -116,7 +116,7 @@ G-force recorder and display. Monitors acceleration forces (g-forces) acting on 
 ### [kitchen-sink](kitchen-sink) / [kitchen-sink.lib](kitchen-sink.lib)
 Random collection of one-off hacks and fixes for KSA. F11 window toggle.
 - **Fix Invisible Subparts**: button that calls `ReinitializeDerivedValues` on `Program.Editor.EditingSpace.Parts` to restore visibility of invisible subparts in the vehicle editor (workaround for a KSA bug)
-- **Force IVA Rendering**: toggle that directly mutates `Template.Internal` on all `PartModel` instances to force interior parts to render outside IVA camera mode; includes a Harmony constructor patch to catch newly created parts
+- **Force IVA Rendering**: toggle that directly mutates `Template.Internal` on all `PartModel` instances to force interior parts to render outside IVA camera mode; includes a Harmony constructor patch to catch newly created parts and a `PartModel.AddInstance` editor override so IVA SubParts remain visible in the vehicle editor
 - **kitchen-sink.lib**: `KitchenSinkSubmod` (ISubmod — renders fix panels), `IvaForceRender` (static API — template mutation + tracking for IVA force rendering)
 
 ### [steely-eyed-missile-kitten](steely-eyed-missile-kitten) / [steely-eyed-missile-kitten.lib](steely-eyed-missile-kitten.lib)
