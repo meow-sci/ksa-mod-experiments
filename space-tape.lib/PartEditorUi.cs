@@ -207,6 +207,27 @@ public sealed class PartEditorUi
         }
         ImGui.PopStyleVar();
 
+        // Pan mode indicator
+        ImGui.Spacing();
+        PanMode panMode = interaction.CurrentPanMode;
+        float4 panColor = panMode switch
+        {
+            PanMode.PlaneX => new float4(1f, 0.3f, 0.3f, 1f),
+            PanMode.PlaneY => new float4(0.3f, 1f, 0.3f, 1f),
+            PanMode.PlaneZ => new float4(0.3f, 0.3f, 1f, 1f),
+            _ => new float4(0.5f, 0.5f, 0.5f, 1f)
+        };
+        string panLabel = panMode switch
+        {
+            PanMode.PlaneX => "Pan: YZ Plane (lock X / front)",
+            PanMode.PlaneY => "Pan: XZ Plane (lock Y) / side",
+            PanMode.PlaneZ => "Pan: XY Plane (lock Z) / top",
+            _ => "Pan: Normal"
+        };
+        ImGui.TextColored(panColor, panLabel);
+        ImGui.SameLine();
+        ImGui.TextDisabled("(P to cycle)");
+
         // --- Editor Stuff (collapsible) ---
         if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
         {
@@ -420,27 +441,6 @@ public sealed class PartEditorUi
         interaction.GridSnapStep = _gridStep;
         interaction.RotSnapEnabled = _rotSnapEnabled;
         interaction.RotSnapDeg = _rotSnapDeg;
-
-        // Pan mode indicator
-        ImGui.Spacing();
-        PanMode panMode = interaction.CurrentPanMode;
-        float4 panColor = panMode switch
-        {
-            PanMode.PlaneX => new float4(1f, 0.3f, 0.3f, 1f),
-            PanMode.PlaneY => new float4(0.3f, 1f, 0.3f, 1f),
-            PanMode.PlaneZ => new float4(0.3f, 0.3f, 1f, 1f),
-            _ => new float4(0.5f, 0.5f, 0.5f, 1f)
-        };
-        string panLabel = panMode switch
-        {
-            PanMode.PlaneX => "Pan: YZ Plane (lock X / front)",
-            PanMode.PlaneY => "Pan: XZ Plane (lock Y) / side",
-            PanMode.PlaneZ => "Pan: XY Plane (lock Z) / top",
-            _ => "Pan: Normal"
-        };
-        ImGui.TextColored(panColor, panLabel);
-        ImGui.SameLine();
-        ImGui.TextDisabled("(P to cycle)");
     }
 
     private static void RenderSnapButton(string label, CameraSnapMode mode, CameraSnapController snap, PartEditorScene scene, float width)
