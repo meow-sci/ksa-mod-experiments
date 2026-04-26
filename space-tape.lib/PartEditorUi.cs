@@ -172,7 +172,7 @@ public sealed class PartEditorUi
 
         ImGui.Spacing();
         bool gridVis = cameraSnap.GridVisible;
-        if (ImGui.Checkbox("Visual Grid ##st_show_grid", ref gridVis))
+        if (ImGui.Checkbox(" Visual Grid ##st_show_grid", ref gridVis))
             cameraSnap.GridVisible = gridVis;
 
         // --- Gizmo (always visible) ---

@@ -1,0 +1,8 @@
+- the "Open Part Editor" button in the Submod UI should be disabled until subparts  are loaded (thumbs generated)
+- for the SubPart Properties collapsible header area, some minor changes:
+  - "Positon (m)" label should be changed to "Position (m) - [x, y, z]" where x, y, z are the plane/dimensions in the order of the inputs (fix the label to properly reflect the order)
+  - "Rotation (deg)"  similarly change the label to indicate what each input is for (use short names)
+  - Same for "Scale"
+- Refactor to remove "SubPart Properties" collapsible header and include all the content from it into the end of the "SubParts (N)" section
+- Move the "Delete" and "Duplicate" buttons on a line immediately after the "Instance ID" line
+- whenever a connector is added, the Connectors collapsible header collapses. this shouldn't happen (is it because the label changes w/ the number?)

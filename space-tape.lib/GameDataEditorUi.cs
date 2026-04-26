@@ -177,7 +177,7 @@ public static class GameDataEditorUi
             ImGui.TextDisabled("No connectors. Click + to add.");
         ImGui.EndChild();
 
-        if (ImGui.SmallButton("+ Connector##st_cn_add"))
+        if (ImGui.SmallButton(" + Connector ##st_cn_add"))
         {
             int nextIdx = gd.Connectors.Count + 1;
             gd.Connectors.Add(new ConnectorState { Id = $"conn_{nextIdx}" });
@@ -186,7 +186,7 @@ public static class GameDataEditorUi
         ImGui.SameLine();
         bool canRemove = _selectedConnectorIndex >= 0 && _selectedConnectorIndex < gd.Connectors.Count;
         if (!canRemove) ImGui.BeginDisabled();
-        if (ImGui.SmallButton("- Remove##st_cn_rm") && canRemove)
+        if (ImGui.SmallButton(" - Remove ##st_cn_rm") && canRemove)
         {
             gd.Connectors.RemoveAt(_selectedConnectorIndex);
             if (_selectedConnectorIndex >= gd.Connectors.Count)
