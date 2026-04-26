@@ -63,6 +63,16 @@ public sealed class PartEditorUi
         bool open = WindowOpen;
         if (ImGui.Begin("Part Editor##st_editor", ref open))
         {
+            // Toolbar area: bordered child with padding for the initial content
+            var wpadX = ImGui.GetStyle().WindowPadding.X;
+            float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+            ImGui.BeginChild("##st_toolbar_child", new float2(childW, 0),
+                ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+                ImGuiWindowFlags.NoScrollbar);
+            ImGui.PopStyleVar();
+
             RenderToolbar(controller, gizmos, interaction, scene, writer, cameraSnap, lighting);
             _importModal.Render(controller, scene, writer);
             if (_importModal.ShouldResetTracking)
@@ -73,6 +83,10 @@ public sealed class PartEditorUi
             {
                 controller.MarkSaved();
             });
+
+            ImGui.Spacing();
+            ImGui.EndChild();
+
             ImGui.Spacing();
             RenderHierarchySection(controller, scene);
             ImGui.Spacing();
