@@ -112,8 +112,12 @@ public sealed class SavePartModal
             : writer.ExistingFiles[_selectedFileIndex];
         bool canSave = !string.IsNullOrWhiteSpace(fileName);
 
+        float availW = ImGui.GetContentRegionAvail().X;
+        const float gap = 8f;
+        float btnW = (availW - gap) / 2f;
+
         if (!canSave) ImGui.BeginDisabled();
-        if (ImGui.Button(" Save ##st_save_confirm"))
+        if (ImGui.Button(" Save ##st_save_confirm", new float2(btnW, 0)))
         {
             writer.CurrentFileName = fileName;
             bool ok = writer.SavePart(controller.CurrentPart);
@@ -132,8 +136,8 @@ public sealed class SavePartModal
         }
         if (!canSave) ImGui.EndDisabled();
 
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Cancel ##st_save_cancel"))
+        ImGui.SameLine(0, gap);
+        if (ImGui.Button(" Cancel ##st_save_cancel", new float2(btnW, 0)))
             ImGui.CloseCurrentPopup();
 
         if (_lastStatusMessage != null)
