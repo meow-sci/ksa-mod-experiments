@@ -37,7 +37,7 @@ public sealed class ImportModal
     public void Render(PartEditorController controller, PartEditorScene scene, PartModWriter writer)
     {
         bool open = true;
-        ImGui.SetNextWindowSize(new float2(800f, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new float2(1200f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
