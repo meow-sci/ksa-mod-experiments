@@ -574,7 +574,7 @@ public sealed class PartEditorUi
 
             bool posX = false, posY = false, posZ = false;
             float posSpeed = _gridModeEnabled ? _gridStep : 0.001f;
-            ImGui.TextDisabled("Position (m)");
+            ImGui.TextDisabled("Position (m) - [X, Y, Z]");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_pos_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
@@ -608,7 +608,7 @@ public sealed class PartEditorUi
 
             bool rotX = false, rotY = false, rotZ = false;
             float rotSpeed = _rotSnapEnabled ? _rotSnapDeg : 0.05f;
-            ImGui.TextDisabled("Rotation (\u00b0)");
+            ImGui.TextDisabled("Rotation (\u00b0) - [X, Y, Z]");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_rot_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
@@ -644,7 +644,7 @@ public sealed class PartEditorUi
             float sz = (float)placement.Scale.Z;
 
             bool scaleX = false, scaleY = false, scaleZ = false;
-            ImGui.TextDisabled("Scale");
+            ImGui.TextDisabled("Scale - [X, Y, Z]");
             ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(4f, 4f));
             if (ImGui.BeginTable("##st_scale_tbl", 3,
                 ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))

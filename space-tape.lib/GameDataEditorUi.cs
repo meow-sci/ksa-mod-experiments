@@ -228,7 +228,7 @@ public static class GameDataEditorUi
             ImGui.Checkbox("FromSurface##st_cn_ff", ref ff); c.FlagFromSurface = ff;
 
             // Position
-            ImGui.TextDisabled("Position (m)");
+            ImGui.TextDisabled("Position (m) - [X, Y, Z]");
             {
                 float x = (float)c.Position.X, y = (float)c.Position.Y, z = (float)c.Position.Z;
                 bool cx, cy, cz;
@@ -237,7 +237,7 @@ public static class GameDataEditorUi
             }
 
             // Rotation (Euler degrees)
-            ImGui.TextDisabled("Rotation (\u00b0)");
+            ImGui.TextDisabled("Rotation (\u00b0) - [X, Y, Z]");
             {
                 double3 eulerRad = c.Rotation.NormalizedOrIdentity().ToXyzRadians();
                 float rx = (float)(eulerRad.X * (180.0 / Math.PI));
@@ -251,7 +251,7 @@ public static class GameDataEditorUi
             }
 
             // Scale
-            ImGui.TextDisabled("Scale");
+            ImGui.TextDisabled("Scale - [X, Y, Z]");
             {
                 float sx = (float)c.Scale.X, sy = (float)c.Scale.Y, sz = (float)c.Scale.Z;
                 bool cx, cy, cz;
