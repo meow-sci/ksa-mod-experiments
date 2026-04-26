@@ -46,7 +46,7 @@ public sealed class SavePartModal
     public void Render(PartEditorController controller, PartModWriter writer, Action? onSaveSuccess = null)
     {
         bool open = true;
-        ImGui.SetNextWindowSize(new float2(800f, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new float2(1120f, 0f), ImGuiCond.Always);
         if (!ImGui.BeginPopupModal(PopupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
