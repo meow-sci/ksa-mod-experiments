@@ -564,6 +564,24 @@ public sealed class PartEditorUi
         }
         ImGui.PopStyleVar();
 
+        // Delete / Duplicate
+        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(new float4(0.7f, 0.1f, 0.1f, 1f)));
+        if (ImGui.Button(" Delete ##st_del"))
+        {
+            controller.RemoveSelected();
+            scene.SyncParts(controller.CurrentPart);
+            _lastKnownPlacementIndex = -2;
+        }
+        ImGui.PopStyleColor();
+
+        ImGui.SameLine();
+        if (ImGui.Button(" Duplicate ##st_dup"))
+        {
+            controller.DuplicateSelected();
+            scene.SyncParts(controller.CurrentPart);
+            _lastKnownPlacementIndex = -2;
+        }
+
         ImGui.Spacing();
 
         // Position
@@ -668,24 +686,6 @@ public sealed class PartEditorUi
             }
         }
 
-        // Delete / Duplicate
-        ImGui.Spacing();
-        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(new float4(0.7f, 0.1f, 0.1f, 1f)));
-        if (ImGui.Button(" Delete ##st_del"))
-        {
-            controller.RemoveSelected();
-            scene.SyncParts(controller.CurrentPart);
-            _lastKnownPlacementIndex = -2;
-        }
-        ImGui.PopStyleColor();
-
-        ImGui.SameLine();
-        if (ImGui.Button(" Duplicate ##st_dup"))
-        {
-            controller.DuplicateSelected();
-            scene.SyncParts(controller.CurrentPart);
-            _lastKnownPlacementIndex = -2;
-        }
     }
 
     // -------------------------------------------------------------------------
