@@ -156,33 +156,34 @@ public sealed class CameraSnapController
         float halfV = GridHeight / 2f;
         float spacing = Math.Max(GridSpacing, 0.01f);
         int maxLines = 200;
+        int maxLinesPerSide = (maxLines - 1) / 2;
+        int lineCountU = Math.Min((int)Math.Floor(halfU / spacing), maxLinesPerSide);
+        int lineCountV = Math.Min((int)Math.Floor(halfV / spacing), maxLinesPerSide);
 
         float4 gridColor = GridColor;
         float4 gridAxisColor = GridAxisColor;
 
         // Lines along U axis (varying V position)
-        int linesV = Math.Min((int)(GridHeight / spacing) + 1, maxLines);
-        for (int i = 0; i <= linesV; i++)
+        for (int i = -lineCountV; i <= lineCountV; i++)
         {
-            double v = -halfV + i * spacing;
+            double v = i * spacing;
             double3 startAsmb = axisU * (-halfU) + axisV * v;
             double3 endAsmb = axisU * halfU + axisV * v;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
-            float4 color = Math.Abs(v) < spacing * 0.5 ? gridAxisColor : gridColor;
+            float4 color = i == 0 ? gridAxisColor : gridColor;
             DrawGridLine(viewport, startEgo, endEgo, color);
         }
 
         // Lines along V axis (varying U position)
-        int linesU = Math.Min((int)(GridWidth / spacing) + 1, maxLines);
-        for (int i = 0; i <= linesU; i++)
+        for (int i = -lineCountU; i <= lineCountU; i++)
         {
-            double u = -halfU + i * spacing;
+            double u = i * spacing;
             double3 startAsmb = axisU * u + axisV * (-halfV);
             double3 endAsmb = axisU * u + axisV * halfV;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
-            float4 color = Math.Abs(u) < spacing * 0.5 ? gridAxisColor : gridColor;
+            float4 color = i == 0 ? gridAxisColor : gridColor;
             DrawGridLine(viewport, startEgo, endEgo, color);
         }
     }
