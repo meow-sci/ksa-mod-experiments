@@ -88,6 +88,8 @@ public sealed class PartEditorUi
             ImGui.EndChild();
 
             ImGui.Spacing();
+            RenderEditorStuffSection(gizmos, interaction, scene, cameraSnap, lighting);
+            ImGui.Spacing();
             RenderHierarchySection(controller, scene);
             ImGui.Spacing();
             RenderGameDataSection(controller);
@@ -257,6 +259,27 @@ public sealed class PartEditorUi
         ImGui.TextColored(panColor, panLabel);
         ImGui.SameLine();
         ImGui.TextDisabled("(P to cycle)");
+
+        // Always sync interaction settings regardless of collapsible state
+        interaction.GridSnapEnabled = _gridModeEnabled;
+        interaction.GridSnapStep = _gridStep;
+        interaction.RotSnapEnabled = _rotSnapEnabled;
+        interaction.RotSnapDeg = _rotSnapDeg;
+    }
+
+    // -------------------------------------------------------------------------
+    // Editor Stuff
+    // -------------------------------------------------------------------------
+
+    private void RenderEditorStuffSection(
+        PartEditorGizmos gizmos,
+        PartEditorInteraction interaction,
+        PartEditorScene scene,
+        CameraSnapController cameraSnap,
+        EditorLighting lighting)
+    {
+        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
+        float checkW = ImGui.GetFrameHeight();
 
         // --- Editor Stuff (collapsible) ---
         if (ImGui.CollapsingHeader("Editor Stuff##st_editor_stuff"))
@@ -474,12 +497,6 @@ public sealed class PartEditorUi
             }
             ImGui.PopStyleVar();
         }
-
-        // Always sync interaction settings regardless of collapsible state
-        interaction.GridSnapEnabled = _gridModeEnabled;
-        interaction.GridSnapStep = _gridStep;
-        interaction.RotSnapEnabled = _rotSnapEnabled;
-        interaction.RotSnapDeg = _rotSnapDeg;
     }
 
     private static void RenderSnapButton(string label, CameraSnapMode mode, CameraSnapController snap, PartEditorScene scene, float width)
