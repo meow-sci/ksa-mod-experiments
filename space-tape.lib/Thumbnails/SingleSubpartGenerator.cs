@@ -152,35 +152,18 @@ public sealed class SingleSubpartGenerator : IDisposable
         Viewport viewport = Program.RenderedViewport;
         Camera camera = viewport.GetCamera();
 
-        int2 savedFramebufferSize = camera.FramebufferSize;
-        int2 savedViewportSize = viewport.Size;
-        IFollowable? savedFollowing = camera.Following;
-
-        camera.Unfollow();
-        int2 thumbSize = new int2(ThumbnailRenderer.SIZE);
-        camera.Resize(thumbSize);
-        viewport.Size = thumbSize;
-        camera.LocalPosition = double3.Zero;
-        camera.LocalRotation = doubleQuat.Identity;
-        camera.LocalScale = double3.One;
-        camera.OnFrame(1.0 / 60.0);
-        Program.Instance.UpdateShaderData(1.0 / 60.0, viewport);
-        Program.Instance.UpdateRenderingResources(0);
-        Program.DeviceHostSharedMemoryDebug.PostMemoryWrite = false;
-        Program.DeviceHostSharedMemoryDebug.PostDescriptorSet = false;
+        var cameraState = new ThumbnailCameraState(viewport, camera);
 
         try
         {
+            cameraState.ConfigureForThumbnailRender(new int2(ThumbnailRenderer.SIZE));
+
             Result = RenderSubpartViews(_subpart, _root, _thumbRenderer,
                 renderer, viewport, _commandPool, ViewCount);
         }
         finally
         {
-            camera.Resize(savedFramebufferSize);
-            viewport.Size = savedViewportSize;
-            if (savedFollowing != null)
-                camera.SetFollow(savedFollowing, tidalLocking: false);
-            camera.OnFrame(1.0 / 60.0);
+            cameraState.Restore();
         }
 
         CleanupGenerationResources();

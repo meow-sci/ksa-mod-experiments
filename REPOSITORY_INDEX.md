@@ -298,6 +298,7 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 ### [space-tape](space-tape) / [space-tape.lib](space-tape.lib)
 In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
 - Owns SubPart thumbnail generation and cache
+- Thumbnail rendering quietly restores KSA camera follow/control state without emitting `Following ...` timed alerts
 - Grant panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
 - Load SubParts modal with generation controls (Images per SubPart, image size, Generate/Re-generate, generation progress)
 - Dedicated SubParts floating window tied to Part Editor lifecycle

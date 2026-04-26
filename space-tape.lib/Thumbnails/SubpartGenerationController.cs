@@ -14,8 +14,8 @@ public sealed class SubpartGenerationController : IDisposable
     private readonly SubpartThumbnailGenerator _generator = new();
     private GenerationState _lastObservedState = GenerationState.Idle;
 
-    public int ViewCount { get; set; } = 32;
-    public int ImageSizeIndex { get; set; } = 2;
+    public int ViewCount { get; set; } = 64;
+    public int ImageSizeIndex { get; set; } = 1;
     public bool HasGeneratedAtLeastOnce { get; private set; }
 
     /// <summary>ViewCount value used for the most recent completed generation run.</summary>

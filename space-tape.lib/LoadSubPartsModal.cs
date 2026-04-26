@@ -89,6 +89,21 @@ public sealed class LoadSubPartsModal
                 gen.ImageSizeIndex = sizeIdx;
             if (busy) ImGui.EndDisabled();
 
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Required VRAM Estimate");
+            ImGui.TableNextColumn();
+            {
+                int px = SubpartGenerationController.ImageSizes[gen.ImageSizeIndex];
+                int subpartCount = SubpartThumbnailCache.All.Count > 0
+                    ? SubpartThumbnailCache.All.Count
+                    : (gen.ProgressTotal > 0 ? gen.ProgressTotal : SubpartThumbnailCache.CountAllSubparts());
+                long totalBytes = (long)px * px * 4 * subpartCount * gen.ViewCount;
+                int totalMb = (int)Math.Ceiling(totalBytes / (1024.0 * 1024.0));
+                ImGui.Text($"{totalMb} MB");
+            }
+
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();

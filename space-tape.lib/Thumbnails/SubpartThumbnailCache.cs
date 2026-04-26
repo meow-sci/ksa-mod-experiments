@@ -41,6 +41,22 @@ public static class SubpartThumbnailCache
     /// <summary>Returns true if any thumbnails have been generated.</summary>
     public static bool HasAny => _thumbnails.Count > 0;
 
+    /// <summary>
+    /// Counts all subparts currently registered in the game's ModLibrary (IsSubPart and not Hidden).
+    /// Returns 0 if the library cannot be accessed.
+    /// </summary>
+    public static int CountAllSubparts()
+    {
+        var parts = GetAllParts();
+        int count = 0;
+        foreach (var p in parts)
+        {
+            if (p.IsSubPart && !p.IsHidden)
+                count++;
+        }
+        return count;
+    }
+
     internal static void Store(string id, SubpartThumbnailEntry entry)
         => _thumbnails[id] = entry;
 

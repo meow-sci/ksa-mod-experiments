@@ -167,27 +167,12 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         Viewport viewport = Program.RenderedViewport;
         Camera camera = viewport.GetCamera();
 
-        // Save camera/viewport state (changes each frame from gameplay)
-        int2 savedFramebufferSize = camera.FramebufferSize;
-        int2 savedViewportSize = viewport.Size;
-        IFollowable? savedFollowing = camera.Following;
-
-        // Configure camera for thumbnail rendering
-        camera.Unfollow();
-        int2 thumbSize = new int2(ThumbnailRenderer.SIZE);
-        camera.Resize(thumbSize);
-        viewport.Size = thumbSize;
-        camera.LocalPosition = double3.Zero;
-        camera.LocalRotation = doubleQuat.Identity;
-        camera.LocalScale = double3.One;
-        camera.OnFrame(1.0 / 60.0);
-        Program.Instance.UpdateShaderData(1.0 / 60.0, viewport);
-        Program.Instance.UpdateRenderingResources(0);
-        Program.DeviceHostSharedMemoryDebug.PostMemoryWrite = false;
-        Program.DeviceHostSharedMemoryDebug.PostDescriptorSet = false;
+        var cameraState = new ThumbnailCameraState(viewport, camera);
 
         try
         {
+            cameraState.ConfigureForThumbnailRender(new int2(ThumbnailRenderer.SIZE));
+
             int batchEnd = Math.Min(_currentIndex + BatchSize, _subparts.Count);
             for (int i = _currentIndex; i < batchEnd; i++)
             {
@@ -206,12 +191,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         }
         finally
         {
-            // Restore camera/viewport for normal game rendering
-            camera.Resize(savedFramebufferSize);
-            viewport.Size = savedViewportSize;
-            if (savedFollowing != null)
-                camera.SetFollow(savedFollowing, tidalLocking: false);
-            camera.OnFrame(1.0 / 60.0);
+            cameraState.Restore();
         }
 
         if (_currentIndex >= _subparts.Count)

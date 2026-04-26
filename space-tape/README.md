@@ -97,6 +97,8 @@ Saving follows a modal flow from the editor toolbar:
 
 Space Tape owns SubPart thumbnail generation and caching. Thumbnails are generated on demand from within the Space Tape workflow and reused by the SubPart browser to provide animated previews without requiring a separate thumbnail mod.
 
+Thumbnail generation temporarily reconfigures the rendered viewport camera for off-screen SubPart views, then restores the user's camera and controlled vehicle state quietly. Restores use KSA's `alert: false` follow path so the load flow does not spam on-screen `Following ...` timed alerts while batches are generated.
+
 ## Project Structure
 
 ### space-tape/ (mod entry)
@@ -128,6 +130,7 @@ Space Tape owns SubPart thumbnail generation and caching. Thumbnails are generat
 | `HotReloadSpike.cs` | Registers edited PartTemplates into ModLibrary at runtime |
 | `SubPartCatalog.cs` | Loads SubPart catalog with thumbnail previews |
 | `SubPartCatalogUi.cs` | Filterable SubPart browser with grid/list layout modes |
+| `Thumbnails/ThumbnailCameraState.cs` | Captures/restores camera, viewport, and control state around quiet thumbnail rendering |
 
 ## Architecture
 

@@ -1,12 +1,11 @@
-- make visual grids completely independent of camera snaps
-    - add visual grid controls for different planes
+- ✅ make visual grids completely independent of camera snaps
+    - ✅ add visual grid controls for different planes
     - plane offsets?
     - multiple planes?
-- fix visual grid color and opacity controls (see HOW_SPACE_TAPE_GRID_LINES_WORK.md)
+- ✅ fix visual grid color and opacity controls (see HOW_SPACE_TAPE_GRID_LINES_WORK.md)
 - fix load subparts visual issues with the log messages etc
-- can connectors render an arrow or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.
+-  ✅ can connectors render an arrow or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.
 - fix self-menu versus ModMenu
 - file management for custom subparts (list files, parts in files, delete, maybe ability to rename a part id and name)
 - VRAM usage estimates before subpart thumb generation
 - VRAM usage estimates before hi-res viewer thumb generation
-- for hi-res can we just render an arbitrary subpart?

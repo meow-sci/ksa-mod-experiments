@@ -192,7 +192,7 @@ public sealed class SubpartViewerWindow
         var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
         if (ImGui.BeginTable("##icr_hires", 2, tableFlags))
         {
-            ImGui.TableSetupColumn("##hr_lbl", ImGuiTableColumnFlags.WidthFixed);
+            ImGui.TableSetupColumn("##hr_lbl", ImGuiTableColumnFlags.WidthFixed, 440f);
             ImGui.TableSetupColumn("##hr_input", ImGuiTableColumnFlags.WidthStretch);
 
             // ---- Images Count row ----
@@ -238,6 +238,20 @@ public sealed class SubpartViewerWindow
             ImGui.SetNextItemWidth(-1);
             ImGui.Combo("##hr_imgsize", ref _hiResSizeIndex, HiResSizeLabels, HiResSizeLabels.Length);
             if (isGenerating) ImGui.EndDisabled();
+
+            // ---- VRAM Estimate row ----
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Required VRAM Estimate");
+            ImGui.TableNextColumn();
+            {
+                int px = HiResSizes[_hiResSizeIndex];
+                long totalBytes = (long)px * px * 4 * _hiResViewCount;
+                int totalMb = (int)Math.Ceiling(totalBytes / (1024.0 * 1024.0));
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text($"{totalMb} MB");
+            }
 
             // ---- Generate/Reset + Status row ----
             ImGui.TableNextRow();
