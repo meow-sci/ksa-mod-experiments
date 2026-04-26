@@ -49,10 +49,10 @@ public sealed class CameraSnapController
     public float GridSpacing { get; set; } = 0.25f;
 
     /// <summary>Color of regular grid lines (translucent gray).</summary>
-    public float4 GridColor { get; set; } = new float4(0.5f, 0.5f, 0.5f, 0.4f);
+    public float4 GridColor { get; set; } = new float4(1f, 1f, 1f, 0.211f);
 
     /// <summary>Color of axis-aligned grid lines through the origin.</summary>
-    public float4 GridAxisColor { get; set; } = new float4(0.8f, 0.8f, 0.2f, 0.6f);
+    public float4 GridAxisColor { get; set; } = new float4(0.8f, 0.8f, 0.196f, 0.49f);
 
     /// <summary>Whether to show a debug readout of current azimuth/elevation values.</summary>
     public bool DebugReadout { get; set; }
