@@ -76,8 +76,6 @@ public sealed class PartEditorUi
             ImGui.Spacing();
             RenderHierarchySection(controller, scene);
             ImGui.Spacing();
-            RenderPropertiesSection(controller, scene);
-            ImGui.Spacing();
             RenderGameDataSection(controller);
             ImGui.Spacing();
             RenderConnectorsSection(controller);
@@ -518,6 +516,7 @@ public sealed class PartEditorUi
             ImGui.TextDisabled("No matches.");
 
         ImGui.EndChild();
+        RenderPropertiesSection(controller, scene);
     }
 
     // -------------------------------------------------------------------------
@@ -526,8 +525,9 @@ public sealed class PartEditorUi
 
     private void RenderPropertiesSection(PartEditorController controller, PartEditorScene scene)
     {
-        bool open = ImGui.CollapsingHeader("SubPart Properties##st_props", ImGuiTreeNodeFlags.DefaultOpen);
-        if (!open) return;
+        ImGui.Spacing();
+        ImGui.SeparatorText("Selected SubPart");
+        ImGui.Spacing();
 
         var placement = controller.SelectedPlacement;
         if (placement == null)
