@@ -159,6 +159,17 @@ public sealed class PartEditorController
         IsDirty = true;
     }
 
+    /// <summary>
+    /// Replace the current part's GameData with <paramref name="source"/> without touching SubParts.
+    /// Pushes an undo snapshot.
+    /// </summary>
+    public void ApplyGameData(PartGameDataState source)
+    {
+        PushUndo();
+        CurrentPart.GameData = source;
+        IsDirty = true;
+    }
+
     /// <summary>Save a snapshot to the undo stack (call before making a mutation).</summary>
     public void PushUndo()
     {

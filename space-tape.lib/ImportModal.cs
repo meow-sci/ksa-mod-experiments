@@ -20,6 +20,7 @@ public sealed class ImportModal
     private readonly ImInputString _loadFilter = new(128);
     private readonly ImInputString _gamePartFilter = new(128);
     private bool _clearOtherSubParts = true;
+    private bool _importGameData = true;
 
     // Set to true after a successful import so PartEditorUi resets its tracking state.
     public bool ShouldResetTracking { get; private set; }
@@ -48,6 +49,15 @@ public sealed class ImportModal
             ImGui.SetItemTooltip(
                 "When enabled, importing replaces the current editor content.\n" +
                 "When disabled, the imported SubParts are merged into the existing editor.");
+
+        bool importGameData = _importGameData;
+        if (ImGui.Checkbox(" Import part Game Data ##st_imp_gamedata", ref importGameData))
+            _importGameData = importGameData;
+        if (ImGui.IsItemHovered())
+            ImGui.SetItemTooltip(
+                "When enabled, imports game data from the selected part (tank, batteries,\n" +
+                "generators, power consumers, connectors, coupling, display name, etc.).\n" +
+                "When disabled, only SubParts are imported.");
 
         ImGui.Spacing();
 
@@ -199,19 +209,11 @@ public sealed class ImportModal
             var loaded = writer.LoadPart(partId, fileName);
             if (loaded != null)
             {
+                ApplyImportedPart(controller, scene, loaded);
                 if (_clearOtherSubParts)
-                {
-                    controller.LoadPart(loaded);
                     writer.CurrentFileName = fileName;
-                }
-                else
-                {
-                    controller.MergeSubParts(loaded);
-                }
-
-                if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
                 ShouldResetTracking = true;
-                Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}' (clear={_clearOtherSubParts})");
+                Console.WriteLine($"space-tape: Loaded part '{partId}' from '{fileName}' (clear={_clearOtherSubParts}, gameData={_importGameData})");
             }
             else
             {
@@ -227,19 +229,42 @@ public sealed class ImportModal
             var imported = PartImporter.ImportFromTemplate(partId);
             if (imported != null)
             {
-                if (_clearOtherSubParts)
-                    controller.LoadPart(imported);
-                else
-                    controller.MergeSubParts(imported);
-
-                if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
+                ApplyImportedPart(controller, scene, imported);
                 ShouldResetTracking = true;
-                Console.WriteLine($"space-tape: Imported game part '{partId}' (clear={_clearOtherSubParts})");
+                Console.WriteLine($"space-tape: Imported game part '{partId}' (clear={_clearOtherSubParts}, gameData={_importGameData})");
             }
             else
             {
                 Console.WriteLine($"space-tape: ImportFromTemplate failed for '{partId}'");
             }
         }
+    }
+
+    /// <summary>
+    /// Applies an imported <see cref="EditingPart"/> to the editor according to the current
+    /// checkbox states:
+    /// <list type="bullet">
+    ///   <item>clear + gameData  — full replace (SubParts + GameData)</item>
+    ///   <item>clear + no gameData — replace SubParts only, keep existing GameData</item>
+    ///   <item>merge + gameData  — merge SubParts and overwrite GameData</item>
+    ///   <item>merge + no gameData — merge SubParts only (original behaviour)</item>
+    /// </list>
+    /// </summary>
+    private void ApplyImportedPart(PartEditorController controller, PartEditorScene scene, EditingPart imported)
+    {
+        if (_clearOtherSubParts)
+        {
+            if (!_importGameData)
+                imported.GameData = new PartGameDataState();
+            controller.LoadPart(imported);
+        }
+        else
+        {
+            controller.MergeSubParts(imported);
+            if (_importGameData)
+                controller.ApplyGameData(imported.GameData);
+        }
+
+        if (scene.IsActive) scene.SyncParts(controller.CurrentPart);
     }
 }
