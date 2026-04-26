@@ -1,0 +1,7 @@
+- i want more visual grid flexibility and options.  right now, we have a single toggle for the visual grids, however, we have no independent controls of which grid plane is displayed.  instead, when we use the camera snaps, for example top/bottom/left/right we change what grid plane is displayed, we need some better controls for those grids:
+  - independent plane control checkboxes for each of the x, y, z planes
+    - placed to the right of the existing Visual Grid checkbox
+  - when camera snap buttons are used, enable each plane these booleans for the x,y,z plane checkboxes and these bools should be shared to indicate which grid planes are visible
+- allow setting the visual grid primary line colors/alpha that go through the origin separately.  add a "Grid Main Color" after the existing "Grid Color"
+- the visual grids should always have a line through the origin and then determine where the grid lines should be based on that in both directions.  right now a grid line does not fall through the origin, instead, the origin is centered between grid lines.
+- visual grids have an awkward floating line not attached to grid on one side of each direction, something is wrong with our calculation of how many lines to draw, there's one extra in each direction for some reason (with no perpendicular lines extended to meet it)
