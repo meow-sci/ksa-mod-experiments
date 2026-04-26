@@ -1,0 +1,14 @@
+- on save dialog, when selecting (new file), the new filename input should default to blank
+- the save button should be disabled until it's safe to save:
+  - either an existing file is selected or (new file) is selected and a filename is provided (to a non-blank value)
+  - part id is set (to a non-blank value)
+  - display name is set (to a non-blank value)
+- make the arrow we render on the connector boxes 50% larger
+- make the import existing part modal 50% wider
+- for the Gizmo checkbox (which enables the translate/rotate/scale), since we render the checkbox separate from the label, can we fix the "Gizmo" label to toggle the checkbox?  Can it be associated with that ImGui checkbox somehow?
+  - this pattern also needs to apply to a bunch of checkbox / labels that are separate under Editor Stuff:
+    - Origin Alpha
+    - Origin Size
+    - Grid Snap
+    - Rotation Snap
+    - Lighting
