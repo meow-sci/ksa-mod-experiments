@@ -178,10 +178,15 @@ public sealed class SpaceTapeSubmod : ISubmod
         }
         else
         {
+            bool canOpen = _generation.HasGeneratedAtLeastOnce;
+            if (!canOpen) ImGui.BeginDisabled();
             if (ImGui.Button(" Open Part Editor ##st_editor_open", new float2(-1, 0)))
             {
                 OpenEditor();
             }
+            if (!canOpen) ImGui.EndDisabled();
+            if (!canOpen && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetItemTooltip("Load SubParts first (click 'Load SubParts' above).");
         }
     }
 
