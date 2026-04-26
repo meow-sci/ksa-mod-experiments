@@ -716,6 +716,15 @@ public sealed class PartEditorUi
     {
         if (!ImGui.CollapsingHeader("Game Data##st_gd")) return;
 
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild("##st_gd_child", new float2(childW, 0),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+            ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar(); // WindowPadding
+
         var gd = controller.CurrentPart.GameData;
 
         // --- Basic Info ---
@@ -778,6 +787,9 @@ public sealed class PartEditorUi
         ImGui.Spacing();
         ImGui.SeparatorText("Coupling");
         GameDataEditorUi.RenderCouplingSection(gd);
+
+        ImGui.Spacing();
+        ImGui.EndChild();
     }
 
     // -------------------------------------------------------------------------
