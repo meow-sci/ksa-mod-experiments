@@ -87,27 +87,26 @@ public sealed class SavePartModal
                 _lastKnownDisplayName = controller.CurrentPart.GameData.DisplayName;
             }
 
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("File");
+            ImGui.TableNextColumn();
+            RenderFileCombo(writer);
+
+            if (_selectedFileIndex < 0)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Filename");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
+                ImGui.InputText("##st_save_newname", _newFileNameInput);
+            }
+
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
 
-        RenderFileCombo(writer);
-
         bool isNewFile = _selectedFileIndex < 0;
-        if (isNewFile)
-        {
-            ImGui.Spacing();
-            ImGui.AlignTextToFramePadding();
-            ImGui.Text("Filename");
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("##st_save_newname", _newFileNameInput);
-        }
-
-        ImGui.Spacing();
-
         string fileName = isNewFile
             ? _newFileNameInput.ToString().Trim()
             : writer.ExistingFiles[_selectedFileIndex];
@@ -155,9 +154,6 @@ public sealed class SavePartModal
             ? "(new file)"
             : writer.ExistingFiles[_selectedFileIndex];
 
-        ImGui.AlignTextToFramePadding();
-        ImGui.Text("File");
-        ImGui.SameLine();
         ImGui.SetNextItemWidth(-1);
         if (!ImGui.BeginCombo("##st_save_combo", preview))
             return;
