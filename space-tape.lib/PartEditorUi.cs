@@ -424,6 +424,17 @@ public sealed class PartEditorUi
                 if (ImGui.ColorEdit4("##st_gridcolor", ref gridCol, ImGuiColorEditFlags.NoLabel))
                     cameraSnap.GridColor = gridCol;
 
+                // Grid Main Color
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Main Color");
+                ImGui.TableNextColumn();
+                float4 gridMainCol = cameraSnap.GridAxisColor;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.ColorEdit4("##st_gridmaincolor", ref gridMainCol, ImGuiColorEditFlags.NoLabel))
+                    cameraSnap.GridAxisColor = gridMainCol;
+
                 // Lighting
                 bool lightingEnabled = lighting.Arrangement != LightArrangement.Off;
                 ImGui.TableNextRow();
