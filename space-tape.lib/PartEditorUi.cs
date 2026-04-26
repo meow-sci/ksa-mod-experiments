@@ -156,7 +156,7 @@ public sealed class PartEditorUi
         if (ImGui.BeginTable("##st_camsnap_tbl", 3, tableFlags))
         {
             ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 240f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
             // Row: Camera Snap — 6 directional snap buttons
@@ -197,7 +197,7 @@ public sealed class PartEditorUi
 
         ImGui.Spacing();
         bool gridVis = cameraSnap.GridVisible;
-        if (ImGui.Checkbox(" Visual Grid ##st_show_grid", ref gridVis))
+        if (ImGui.Checkbox("Visual Grid ##st_show_grid", ref gridVis))
             cameraSnap.GridVisible = gridVis;
 
         // --- Gizmo (always visible) ---
@@ -206,7 +206,7 @@ public sealed class PartEditorUi
         if (ImGui.BeginTable("##st_gizmo_tbl", 3, tableFlags))
         {
             ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 240f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
             bool gizmoEnabled = gizmos.ActiveMode != PartEditorGizmos.GizmoMode.None;
@@ -265,7 +265,7 @@ public sealed class PartEditorUi
             if (ImGui.BeginTable("##st_editor_tbl", 3, tableFlags))
             {
                 ImGui.TableSetupColumn("##cb", ImGuiTableColumnFlags.WidthFixed, checkW);
-                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 270f);
+                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 240f);
                 ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch);
 
                 // Gizmo Size

@@ -47,8 +47,8 @@ public static class GameDataEditorUi
         if (ImGui.BeginTable("##st_tank_tbl", 2,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 300f);
+            ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 1f);
 
             // Material ID row -- sync input buffer when tank changes
             if (tank.WallMaterialId != _lastTankMaterial)
