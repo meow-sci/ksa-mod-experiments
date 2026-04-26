@@ -191,6 +191,11 @@ public sealed class PartEditorUi
                 gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding(); ImGui.Text("Gizmo");
+            if (ImGui.IsItemClicked())
+            {
+                gizmoEnabled = !gizmoEnabled;
+                gizmos.ActiveMode = gizmoEnabled ? _lastNonNoneGizmoMode : PartEditorGizmos.GizmoMode.None;
+            }
             ImGui.TableNextColumn();
             if (!gizmoEnabled) ImGui.BeginDisabled();
             if (ImGui.RadioButton("Translate##st_gizmo_t", gizmos.ActiveMode == PartEditorGizmos.GizmoMode.Translate))
@@ -256,6 +261,7 @@ public sealed class PartEditorUi
                 if (ImGui.Checkbox("##st_origin_cb1", ref originVisible)) scene.OriginVisible = originVisible;
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Alpha");
+                if (ImGui.IsItemClicked()) scene.OriginVisible = !scene.OriginVisible;
                 ImGui.TableNextColumn();
                 if (!scene.OriginVisible) ImGui.BeginDisabled();
                 float originAlpha = scene.OriginAlpha;
@@ -271,6 +277,7 @@ public sealed class PartEditorUi
                 if (ImGui.Checkbox("##st_origin_cb2", ref originVisible2)) scene.OriginVisible = originVisible2;
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Origin Size");
+                if (ImGui.IsItemClicked()) scene.OriginVisible = !scene.OriginVisible;
                 ImGui.TableNextColumn();
                 if (!scene.OriginVisible) ImGui.BeginDisabled();
                 float originSize = scene.OriginSize;
@@ -285,6 +292,7 @@ public sealed class PartEditorUi
                 ImGui.Checkbox("##st_grid_en", ref _gridModeEnabled);
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Snap");
+                if (ImGui.IsItemClicked()) _gridModeEnabled = !_gridModeEnabled;
                 ImGui.TableNextColumn();
                 if (!_gridModeEnabled) ImGui.BeginDisabled();
                 ImGui.SetNextItemWidth(-1);
@@ -297,6 +305,7 @@ public sealed class PartEditorUi
                 ImGui.Checkbox("##st_rot_en", ref _rotSnapEnabled);
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Rotation Snap");
+                if (ImGui.IsItemClicked()) _rotSnapEnabled = !_rotSnapEnabled;
                 ImGui.TableNextColumn();
                 if (!_rotSnapEnabled) ImGui.BeginDisabled();
                 ImGui.SetNextItemWidth(-1);
@@ -356,6 +365,11 @@ public sealed class PartEditorUi
                 ImGui.AlignTextToFramePadding(); ImGui.Text("Lighting");
                 if (ImGui.IsItemHovered())
                     ImGui.SetItemTooltip("Uses invisible Light parts to illuminate the workspace on all sides");
+                if (ImGui.IsItemClicked())
+                {
+                    lightingEnabled = !lightingEnabled;
+                    lighting.Arrangement = lightingEnabled ? LightArrangement.BoxCorners : LightArrangement.Off;
+                }
                 ImGui.TableNextColumn();
                 if (!lightingEnabled) ImGui.BeginDisabled();
                 if (ImGui.RadioButton("Box##st_light_box", lighting.Arrangement == LightArrangement.BoxCorners))
