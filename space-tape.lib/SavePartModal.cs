@@ -32,7 +32,10 @@ public sealed class SavePartModal
             }
         }
 
-        _newFileNameInput.SetValue(writer.CurrentFileName.AsSpan());
+        if (_selectedFileIndex >= 0)
+            _newFileNameInput.SetValue(writer.CurrentFileName.AsSpan());
+        else
+            _newFileNameInput.Clear();
         _filter.Clear();
         _lastStatusMessage = null;
 
@@ -110,7 +113,9 @@ public sealed class SavePartModal
         string fileName = isNewFile
             ? _newFileNameInput.ToString().Trim()
             : writer.ExistingFiles[_selectedFileIndex];
-        bool canSave = !string.IsNullOrWhiteSpace(fileName);
+        bool canSave = !string.IsNullOrWhiteSpace(fileName)
+            && !string.IsNullOrWhiteSpace(_partIdInput.ToString())
+            && !string.IsNullOrWhiteSpace(_displayNameInput.ToString());
 
         float availW = ImGui.GetContentRegionAvail().X;
         const float gap = 8f;
