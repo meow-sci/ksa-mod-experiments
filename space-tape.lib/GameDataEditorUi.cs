@@ -248,15 +248,6 @@ public static class GameDataEditorUi
                         rx * (Math.PI / 180.0), ry * (Math.PI / 180.0), rz * (Math.PI / 180.0)));
             }
 
-            // Scale
-            ImGui.TextDisabled("Scale - [X, Y, Z]");
-            {
-                float sx = (float)c.Scale.X, sy = (float)c.Scale.Y, sz = (float)c.Scale.Z;
-                bool cx, cy, cz;
-                Drag3("st_cn_scl", ref sx, out cx, ref sy, out cy, ref sz, out cz, 0.001f);
-                if (cx || cy || cz)
-                    c.Scale = new double3(Math.Max(sx, 0.001), Math.Max(sy, 0.001), Math.Max(sz, 0.001));
-            }
         }
     }
 
