@@ -159,6 +159,8 @@ public sealed class CameraSnapController
         int maxLinesPerSide = (maxLines - 1) / 2;
         int lineCountU = Math.Min((int)Math.Floor(halfU / spacing), maxLinesPerSide);
         int lineCountV = Math.Min((int)Math.Floor(halfV / spacing), maxLinesPerSide);
+        double extentU = GetDrawExtent(halfU, lineCountU, spacing);
+        double extentV = GetDrawExtent(halfV, lineCountV, spacing);
 
         float4 gridColor = GridColor;
         float4 gridAxisColor = GridAxisColor;
@@ -167,8 +169,8 @@ public sealed class CameraSnapController
         for (int i = -lineCountV; i <= lineCountV; i++)
         {
             double v = i * spacing;
-            double3 startAsmb = axisU * (-halfU) + axisV * v;
-            double3 endAsmb = axisU * halfU + axisV * v;
+            double3 startAsmb = axisU * (-extentU) + axisV * v;
+            double3 endAsmb = axisU * extentU + axisV * v;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
             float4 color = i == 0 ? gridAxisColor : gridColor;
@@ -179,14 +181,17 @@ public sealed class CameraSnapController
         for (int i = -lineCountU; i <= lineCountU; i++)
         {
             double u = i * spacing;
-            double3 startAsmb = axisU * u + axisV * (-halfV);
-            double3 endAsmb = axisU * u + axisV * halfV;
+            double3 startAsmb = axisU * u + axisV * (-extentV);
+            double3 endAsmb = axisU * u + axisV * extentV;
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
             float4 color = i == 0 ? gridAxisColor : gridColor;
             DrawGridLine(viewport, startEgo, endEgo, color);
         }
     }
+
+    private static double GetDrawExtent(float halfExtent, int lineCount, float spacing)
+        => lineCount > 0 ? lineCount * spacing : halfExtent;
 
     private static void DrawGridLine(Viewport viewport, double3 startEgo, double3 endEgo, float4 color)
     {
