@@ -84,6 +84,7 @@ public static class WeldEngine
         );
 
         entry.Source.Teleport(newOrbit, newSrcBody2Cce, newBodyRates);
+        entry.Source.UpdatePerFrameData();
         return true;
     }
 
