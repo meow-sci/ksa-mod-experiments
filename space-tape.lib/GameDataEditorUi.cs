@@ -160,10 +160,8 @@ public static class GameDataEditorUi
     /// <summary>Renders the Connectors section with list and selected connector detail editor.</summary>
     public static void RenderConnectorsSection(PartGameDataState gd)
     {
-        ImGui.TextDisabled($"Connectors ({gd.Connectors.Count})");
-
         // List
-        ImGui.BeginChild("##st_conn_list", new float2(0, 80),
+        ImGui.BeginChild("##st_conn_list", new float2(0, 120),
             ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY);
         for (int i = 0; i < gd.Connectors.Count; i++)
         {
@@ -171,7 +169,7 @@ public static class GameDataEditorUi
             string flagStr = FormatConnectorFlags(c);
             bool sel = _selectedConnectorIndex == i;
             if (ImGui.Selectable($"{c.Id}  {flagStr}##st_cn{i}", sel))
-                _selectedConnectorIndex = i;
+                _selectedConnectorIndex = sel ? -1 : i;
         }
         if (gd.Connectors.Count == 0)
             ImGui.TextDisabled("No connectors. Click + to add.");
