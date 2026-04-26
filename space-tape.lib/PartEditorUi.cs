@@ -484,6 +484,15 @@ public sealed class PartEditorUi
             ImGuiTreeNodeFlags.DefaultOpen);
         if (!open) return;
 
+        var wpadX = ImGui.GetStyle().WindowPadding.X;
+        float childW = ImGui.GetContentRegionAvail().X + wpadX * 2;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - wpadX);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new float2(20f, 10f));
+        ImGui.BeginChild("##st_hier_child", new float2(childW, 0),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY | ImGuiChildFlags.AlwaysUseWindowPadding,
+            ImGuiWindowFlags.NoScrollbar);
+        ImGui.PopStyleVar(); // WindowPadding
+
         ImGui.SetNextItemWidth(-1);
         ImGui.InputText("##st_hier_filter", _hierarchyFilter);
         if (ImGui.IsItemHovered()) ImGui.SetItemTooltip("Filter SubParts by instance ID or template ID");
@@ -517,6 +526,9 @@ public sealed class PartEditorUi
 
         ImGui.EndChild();
         RenderPropertiesSection(controller, scene);
+
+        ImGui.Spacing();
+        ImGui.EndChild();
     }
 
     // -------------------------------------------------------------------------
