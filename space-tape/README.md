@@ -17,7 +17,7 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 - **Quick-flip rotation** — D key rotates +45° around Y-axis, F key rotates +45° around X-axis (cumulative)
 - **Plane-locked drag** — P key cycles through pan modes (Normal / YZ / XZ / XY plane), click-and-drag to move SubParts constrained to a plane; respects grid snap when enabled
 - **Camera snap views** — six orthographic-style snap buttons (Front, Back, Left, Right, Top, Bottom) instantly orient the camera to standard vantage points
-- **Grid plane overlay** — translucent reference grid drawn in 3D on the plane facing the snapped camera direction, with configurable size and spacing
+- **Grid plane overlay** — translucent reference grid drawn in 3D on the plane facing the snapped camera direction, with configurable size, spacing, color, and opacity
 - **Connector visualization** — 3D gizmo cubes color-coded by flag type (yellow=Internal, cyan=ToSurface, magenta=FromSurface, green=selected)
 - **Transform controls** — per-SubPart position, rotation, and scale with grid snap and rotation snap
 - **Gizmo sizing** — single slider to uniformly scale all transform gizmos (translate/rotate/scale)
@@ -80,6 +80,7 @@ SubPart browsing now lives in a dedicated floating window tied to the Part Edito
 - Import still pulls full supported data (SubParts, Connectors, Tank, Power, Coupling) into the current editing state
 - Import skips and logs individual bad SubPart records instead of aborting the whole import
 - Connector direction markers use the game's interleaved gizmo mesh path, with a render safety patch active while the editor is open to prevent invalid gizmo mesh data from crashing the game
+- Grid lines use KSA's orbit line renderer instead of the shared gizmo line shader, so grid opacity is driven by the configured RGBA alpha without modifying game shader files.
 
 ## Saving Parts (Modal Flow)
 
@@ -111,7 +112,7 @@ Space Tape owns SubPart thumbnail generation and caching. Thumbnails are generat
 |------|---------|
 | `SpaceTapeSubmod.cs` | ISubmod entry point for grant integration |
 | `EditorLighting.cs` | Manages helper point lights around the editor workspace (Box Corners / Sphere modes) |
-| `CameraSnapController.cs` | Camera snap-to-view state machine and grid plane drawing via GizmosRenderer |
+| `CameraSnapController.cs` | Camera snap-to-view state machine and grid plane drawing via OrbitLinePass |
 | `PartEditorState.cs` | Core state models — EditingPart, SubPartPlacement, PartGameDataState |
 | `GameDataModels.cs` | State classes for Tank, Connector, Coupling, Battery, Generator, PowerConsumer |
 | `PartEditorUi.cs` | Main ImGui editor window with import, SubPart catalog, and GameData editing |

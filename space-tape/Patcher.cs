@@ -1,7 +1,5 @@
 using System;
 using HarmonyLib;
-using Brutal.Numerics;
-using KSA;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTape;
@@ -16,7 +14,10 @@ internal static class Patcher
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            if (_harmony != null)
+            {
+                HotkeyGuard.Patch(_harmony);
+            }
         }
         catch (Exception ex)
         {
@@ -28,7 +29,10 @@ internal static class Patcher
     {
         try
         {
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            if (_harmony != null)
+            {
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony?.UnpatchAll("space-tape");
             _harmony = null;
         }

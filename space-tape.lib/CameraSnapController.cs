@@ -110,7 +110,7 @@ public sealed class CameraSnapController
     }
 
     /// <summary>
-    /// Draws the grid plane overlay using GizmosRenderer.DrawLine().
+    /// Draws the grid plane overlay using KSA's orbit line renderer.
     /// Must be called once per frame from the render update when the grid is visible.
     /// </summary>
     public void DrawGrid(Viewport viewport, PartEditorScene scene)
@@ -121,10 +121,10 @@ public sealed class CameraSnapController
         double4x4 matrixAsmb2Ego = scene.GetMatrixAsmb2Ego(viewport);
         // When no snap mode is active, draw the XY plane by default
         CameraSnapMode drawMode = ActiveMode == CameraSnapMode.None ? CameraSnapMode.Top : ActiveMode;
-        DrawGridForMode(drawMode, matrixAsmb2Ego);
+        DrawGridForMode(drawMode, viewport, matrixAsmb2Ego);
     }
 
-    private void DrawGridForMode(CameraSnapMode mode, double4x4 matrixAsmb2Ego)
+    private void DrawGridForMode(CameraSnapMode mode, Viewport viewport, double4x4 matrixAsmb2Ego)
     {
         // Determine the two axes of the grid plane based on snap mode.
         // Front/Back (look along X) → YZ plane, Left/Right (look along Y) → XZ plane, Top/Bottom (look along Z) → XY plane.
@@ -168,7 +168,7 @@ public sealed class CameraSnapController
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
             float4 color = Math.Abs(v) < spacing * 0.5 ? gridAxisColor : gridColor;
-            Program.GizmosRenderer.DrawLine(startEgo, endEgo, color);
+            DrawGridLine(viewport, startEgo, endEgo, color);
         }
 
         // Lines along V axis (varying U position)
@@ -181,7 +181,26 @@ public sealed class CameraSnapController
             double3 startEgo = startAsmb.Transform(matrixAsmb2Ego);
             double3 endEgo = endAsmb.Transform(matrixAsmb2Ego);
             float4 color = Math.Abs(u) < spacing * 0.5 ? gridAxisColor : gridColor;
-            Program.GizmosRenderer.DrawLine(startEgo, endEgo, color);
+            DrawGridLine(viewport, startEgo, endEgo, color);
         }
+    }
+
+    private static void DrawGridLine(Viewport viewport, double3 startEgo, double3 endEgo, float4 color)
+    {
+        byte4 lineColor = ToByteColor(color);
+        OrbitLinePass.AddLineVertex(viewport, float3.Pack(in startEgo), lineColor);
+        OrbitLinePass.AddLineVertex(viewport, float3.Pack(in endEgo), lineColor);
+        OrbitLinePass.AddLineEnd(viewport);
+    }
+
+    private static byte4 ToByteColor(float4 color)
+    {
+        float4 clamped = new float4(
+            Math.Clamp(color.X, 0f, 1f),
+            Math.Clamp(color.Y, 0f, 1f),
+            Math.Clamp(color.Z, 0f, 1f),
+            Math.Clamp(color.W, 0f, 1f));
+
+        return byte4.Pack(in clamped, Pack.Float.Normalize);
     }
 }

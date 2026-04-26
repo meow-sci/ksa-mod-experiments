@@ -308,7 +308,8 @@ In-game Part editor. Compose new Parts from existing SubParts by placing them in
 - Quick-flip rotation hotkeys (D = +45° Y-axis, F = +45° X-axis)
 - Plane-locked drag — P key cycles pan modes (Normal / YZ / XZ / XY), click-and-drag to move SubParts constrained to a plane
 - Camera snap views (Front, Back, Left, Right, Top, Bottom) for standard orthographic vantage points
-- Grid plane overlay — translucent reference grid drawn in 3D on the snap-facing plane, configurable size and spacing
+- Grid plane overlay — translucent reference grid drawn in 3D on the snap-facing plane, configurable size, spacing, color, and opacity
+- Grid rendering uses KSA's orbit line renderer to preserve line alpha without modifying core shader files
 - Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
 - Import hardening: logs and skips invalid imported SubPart records; editor gizmo rendering guards invalid mesh data while Space Tape is active
 - Fuel tank definition (Cylindrical/Spherical) with full material/density/mass config
@@ -319,7 +320,7 @@ In-game Part editor. Compose new Parts from existing SubParts by placing them in
 - ImGui property panel with transform editing, GameData sections (Tank, Power, Connectors, Coupling)
 - Saves Part XML + GameData XML to space-tape-parts mod directory with Tomlyn mod.toml management
 - Hot-reload spike for registering parts at runtime without restart
-- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `CameraSnapController`, `PartEditorInteraction` (hover/select/drag/quick-flip/plane-drag), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
+- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `CameraSnapController` (camera snap and OrbitLinePass grid renderer), `PartEditorInteraction` (hover/select/drag/quick-flip/plane-drag), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
 
 ### [flexo](flexo) / [flexo.lib](flexo.lib)
 Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime.
