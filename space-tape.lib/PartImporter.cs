@@ -11,7 +11,7 @@ public static class PartImporter
 {
     public static EditingPart? ImportFromTemplate(string partId)
     {
-        var template = ModLibrary.Get<PartTemplate>(partId);
+        var template = TryGetPartTemplate(partId, "part");
         if (template == null)
         {
             Console.WriteLine($"space-tape: PartImporter — template not found: {partId}");
@@ -24,20 +24,44 @@ public static class PartImporter
         };
 
         // SubParts
-        foreach (var sp in template.SubPartInstances)
+        int skippedSubParts = 0;
+        foreach (var subPartInstance in template.SubPartInstances)
         {
-            var placement = new SubPartPlacement
+            try
             {
-                InstanceId = sp.Id ?? "",
-                SubPartTemplateId = sp.InstanceOf ?? "",
-            };
-            if (sp.Transform != null)
-            {
-                placement.Position = sp.Transform.PositionValue;
-                placement.Rotation = sp.Transform.RotationValue;
-                placement.Scale = sp.Transform.ScaleValue;
+                string instanceId = subPartInstance.Id ?? "";
+                string subPartTemplateId = subPartInstance.InstanceOf ?? "";
+                if (string.IsNullOrWhiteSpace(subPartTemplateId))
+                {
+                    Console.WriteLine($"space-tape: skipped imported SubPart '{instanceId}' from '{partId}' because InstanceOf is empty");
+                    skippedSubParts++;
+                    continue;
+                }
+
+                if (TryGetPartTemplate(subPartTemplateId, $"SubPart '{instanceId}'") == null)
+                {
+                    skippedSubParts++;
+                    continue;
+                }
+
+                var placement = new SubPartPlacement
+                {
+                    InstanceId = string.IsNullOrWhiteSpace(instanceId) ? CreateFallbackInstanceId(subPartTemplateId, part.Placements.Count) : instanceId,
+                    SubPartTemplateId = subPartTemplateId,
+                };
+                if (subPartInstance.Transform != null)
+                {
+                    placement.Position = subPartInstance.Transform.PositionValue;
+                    placement.Rotation = subPartInstance.Transform.RotationValue;
+                    placement.Scale = subPartInstance.Transform.ScaleValue;
+                }
+                part.Placements.Add(placement);
             }
-            part.Placements.Add(placement);
+            catch (Exception ex)
+            {
+                skippedSubParts++;
+                Console.WriteLine($"space-tape: skipped imported SubPart '{subPartInstance.Id}' from '{partId}': {ex.Message}");
+            }
         }
 
         var gd = part.GameData;
@@ -116,8 +140,33 @@ public static class PartImporter
         if (template.EVADoor != null)
             gd.EVADoor = new EVADoorState();
 
-        Console.WriteLine($"space-tape: Imported '{partId}' — {part.Placements.Count} SubParts, {gd.Connectors.Count} Connectors");
+        Console.WriteLine($"space-tape: Imported '{partId}' — {part.Placements.Count} SubParts, {gd.Connectors.Count} Connectors, {skippedSubParts} skipped");
         return part;
+    }
+
+    private static PartTemplate? TryGetPartTemplate(string templateId, string context)
+    {
+        if (string.IsNullOrWhiteSpace(templateId))
+            return null;
+
+        try
+        {
+            return ModLibrary.Get<PartTemplate>(templateId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"space-tape: template lookup failed for {context} '{templateId}': {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string CreateFallbackInstanceId(string templateId, int placementCount)
+    {
+        int lastDot = templateId.LastIndexOf('.');
+        string baseName = lastDot >= 0 && lastDot < templateId.Length - 1
+            ? templateId[(lastDot + 1)..]
+            : templateId;
+        return $"{baseName}_{placementCount + 1}";
     }
 
     private static TankState ImportTank(AsmbTankTemplate tank)

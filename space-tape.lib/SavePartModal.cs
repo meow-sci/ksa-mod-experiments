@@ -66,11 +66,11 @@ public sealed class SavePartModal
         if (ImGui.BeginTable("##st_save_identity", 2,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
-            ImGui.TableSetupColumn("##si_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##si_lbl", ImGuiTableColumnFlags.WidthFixed, 300f);
             ImGui.TableSetupColumn("##si_val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part ID:");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part ID");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
             if (ImGui.InputText("##st_save_partid", _partIdInput))
             {
@@ -79,7 +79,7 @@ public sealed class SavePartModal
             }
 
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Display Name:");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Display Name");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
             if (ImGui.InputText("##st_save_dn", _displayNameInput))
             {
@@ -100,7 +100,7 @@ public sealed class SavePartModal
         {
             ImGui.Spacing();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text("File:");
+            ImGui.Text("Filename");
             ImGui.SameLine();
             ImGui.SetNextItemWidth(-1);
             ImGui.InputText("##st_save_newname", _newFileNameInput);
@@ -156,7 +156,7 @@ public sealed class SavePartModal
             : writer.ExistingFiles[_selectedFileIndex];
 
         ImGui.AlignTextToFramePadding();
-        ImGui.Text("File:");
+        ImGui.Text("File");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(-1);
         if (!ImGui.BeginCombo("##st_save_combo", preview))

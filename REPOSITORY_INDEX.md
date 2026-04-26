@@ -310,6 +310,7 @@ In-game Part editor. Compose new Parts from existing SubParts by placing them in
 - Camera snap views (Front, Back, Left, Right, Top, Bottom) for standard orthographic vantage points
 - Grid plane overlay — translucent reference grid drawn in 3D on the snap-facing plane, configurable size and spacing
 - Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
+- Import hardening: logs and skips invalid imported SubPart records; editor gizmo rendering guards invalid mesh data while Space Tape is active
 - Fuel tank definition (Cylindrical/Spherical) with full material/density/mass config
 - Connector system — define attachment points with position, rotation, and flag types (Internal/ToSurface/FromSurface)
 - Coupling support — Decoupler, Docking Port, and EVA Door with connector references

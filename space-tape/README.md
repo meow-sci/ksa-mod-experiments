@@ -78,6 +78,8 @@ SubPart browsing now lives in a dedicated floating window tied to the Part Edito
 - Save is now performed from a toolbar button that opens a save modal
 - Load/import flows use a compact 2x2 filterable combo table for selecting source category/part
 - Import still pulls full supported data (SubParts, Connectors, Tank, Power, Coupling) into the current editing state
+- Import skips and logs individual bad SubPart records instead of aborting the whole import
+- Connector direction markers use the game's interleaved gizmo mesh path, with a render safety patch active while the editor is open to prevent invalid gizmo mesh data from crashing the game
 
 ## Saving Parts (Modal Flow)
 

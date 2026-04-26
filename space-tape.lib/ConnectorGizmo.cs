@@ -19,17 +19,29 @@ public sealed class ConnectorGizmo : IDisposable
         int needed = Math.Max(count, 4);
         if (_gizmo != null && _capacity >= needed) return;
 
-        _gizmo?.Dispose();
-        _arrowGizmo?.Dispose();
-        _capacity = needed;
-        _gizmo = new GenericGizmo(
-            ModLibrary.Get<MeshReference>("Box"),
-            GenericGizmo.Static.GenericGizmoRenderData,
-            _capacity);
-        _arrowGizmo = new GenericGizmo(
-            ModLibrary.Get<MeshReference>("Arrow"),
-            GenericGizmo.Static.GenericGizmoRenderData,
-            _capacity);
+        try
+        {
+            _gizmo?.Dispose();
+            _arrowGizmo?.Dispose();
+            _capacity = needed;
+            _gizmo = new GenericGizmo(
+                ModLibrary.Get<MeshReference>("Box"),
+                GenericGizmo.Static.GenericGizmoRenderData,
+                _capacity);
+            _arrowGizmo = new GenericGizmo(
+                ModLibrary.Get<MeshReference>("ArrowMesh"),
+                GenericGizmo.Static.GenericGizmoRenderData,
+                _capacity);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"space-tape: failed to create connector gizmos: {ex.Message}");
+            _gizmo?.Dispose();
+            _gizmo = null;
+            _arrowGizmo?.Dispose();
+            _arrowGizmo = null;
+            _capacity = 0;
+        }
     }
 
     public void Update(

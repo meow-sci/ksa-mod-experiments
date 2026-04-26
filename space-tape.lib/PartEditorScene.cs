@@ -224,7 +224,20 @@ public sealed class PartEditorScene : IDisposable
         _editorParts.Clear();
         foreach (var placement in editingPart.Placements)
         {
-            _editorParts.Add(CreatePartFromPlacement(placement));
+            try
+            {
+                if (string.IsNullOrWhiteSpace(placement.SubPartTemplateId))
+                {
+                    Console.WriteLine($"space-tape: skipped editor SubPart '{placement.InstanceId}' because template id is empty");
+                    continue;
+                }
+
+                _editorParts.Add(CreatePartFromPlacement(placement));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"space-tape: skipped editor SubPart '{placement.InstanceId}' ({placement.SubPartTemplateId}): {ex.Message}");
+            }
         }
     }
 
