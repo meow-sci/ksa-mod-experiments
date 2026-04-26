@@ -106,33 +106,46 @@ public sealed class PartEditorUi
     {
         bool canSave = controller.CurrentPart.Placements.Count > 0;
 
-        if (!canSave) ImGui.BeginDisabled();
-        if (ImGui.Button(" Save "))
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+        if (ImGui.BeginTable("##st_btn_tbl", 3, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
         {
-            writer.RefreshFileList();
-            _savePartModal.OnOpen(writer, controller);
-            ImGui.OpenPopup(SavePartModal.PopupId);
-        }
-        if (!canSave) ImGui.EndDisabled();
-        if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetItemTooltip("Add at least one SubPart to save.");
-        ImGui.SameLine(0, 8);
+            ImGui.TableNextRow();
 
-        if (ImGui.Button(" Import ##st_imp_open_btn"))
-        {
-            _importModal.OnOpen(writer);
-            ImGui.OpenPopup(ImportModal.PopupId);
-        }
-        ImGui.SameLine(0, 8);
+            // Save
+            ImGui.TableNextColumn();
+            if (!canSave) ImGui.BeginDisabled();
+            if (ImGui.Button(" Save ##st_save_btn", new float2(-1, 0)))
+            {
+                writer.RefreshFileList();
+                _savePartModal.OnOpen(writer, controller);
+                ImGui.OpenPopup(SavePartModal.PopupId);
+            }
+            if (!canSave) ImGui.EndDisabled();
+            if (!canSave && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetItemTooltip("Add at least one SubPart to save.");
 
-        if (ImGui.Button(" New Part "))
-        {
-            controller.NewPart();
-            scene.SyncParts(controller.CurrentPart);
-            _lastKnownPlacementIndex = -2;
+            // Import
+            ImGui.TableNextColumn();
+            if (ImGui.Button(" Import ##st_imp_open_btn", new float2(-1, 0)))
+            {
+                _importModal.OnOpen(writer);
+                ImGui.OpenPopup(ImportModal.PopupId);
+            }
+
+            // New Part
+            ImGui.TableNextColumn();
+            if (ImGui.Button(" New Part ##st_new_btn", new float2(-1, 0)))
+            {
+                controller.NewPart();
+                scene.SyncParts(controller.CurrentPart);
+                _lastKnownPlacementIndex = -2;
+            }
+            if (ImGui.IsItemHovered())
+                ImGui.SetItemTooltip("Danger Will Robinson!\n\nThis will clear out all SubParts in the workspace!");
+
+            ImGui.EndTable();
         }
-        if (ImGui.IsItemHovered())
-            ImGui.SetItemTooltip("Danger Will Robinson!\n\nThis will clear out all SubParts in the workspace!");
+        ImGui.PopStyleVar();
 
         ImGui.Spacing();
 
