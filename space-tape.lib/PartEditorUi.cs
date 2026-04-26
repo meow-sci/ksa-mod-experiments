@@ -788,7 +788,7 @@ public sealed class PartEditorUi
     {
         var gd = controller.CurrentPart.GameData;
         int count = gd.Connectors.Count;
-        if (!ImGui.CollapsingHeader($"Connectors ({count})##st_connectors")) return;
+        if (!ImGui.CollapsingHeader($"Connectors ({count})##st_connectors", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         GameDataEditorUi.RenderConnectorsSection(gd);
     }
