@@ -30,6 +30,15 @@ public sealed class CameraSnapController
     /// <summary>Whether the grid plane overlay is visible.</summary>
     public bool GridVisible { get; set; } = true;
 
+    /// <summary>Whether to draw the grid plane perpendicular to the X axis (YZ plane).</summary>
+    public bool ShowXPlane { get; set; }
+
+    /// <summary>Whether to draw the grid plane perpendicular to the Y axis (XZ plane).</summary>
+    public bool ShowYPlane { get; set; }
+
+    /// <summary>Whether to draw the grid plane perpendicular to the Z axis (XY plane).</summary>
+    public bool ShowZPlane { get; set; } = true;
+
     /// <summary>Grid width in meters (horizontal extent).</summary>
     public float GridWidth { get; set; } = 5.0f;
 
@@ -61,6 +70,8 @@ public sealed class CameraSnapController
         if (mode == CameraSnapMode.None)
             return;
 
+        SetPlaneVisibilityForSnap(mode);
+
         Camera? camera = Program.GetCamera();
         IFollowable? following = camera?.Following;
         OrbitView? orbitView = following?.OrbitView;
@@ -74,6 +85,13 @@ public sealed class CameraSnapController
         orbitView.Azimuth = azimuth;
         orbitView.Elevation = elevation;
         // Preserve the user's current zoom level (DistancePower)
+    }
+
+    private void SetPlaneVisibilityForSnap(CameraSnapMode mode)
+    {
+        ShowXPlane = mode is CameraSnapMode.Front or CameraSnapMode.Back;
+        ShowYPlane = mode is CameraSnapMode.Left or CameraSnapMode.Right;
+        ShowZPlane = mode is CameraSnapMode.Top or CameraSnapMode.Bottom;
     }
 
     /// <summary>
@@ -119,37 +137,21 @@ public sealed class CameraSnapController
             return;
 
         double4x4 matrixAsmb2Ego = scene.GetMatrixAsmb2Ego(viewport);
-        // When no snap mode is active, draw the XY plane by default
-        CameraSnapMode drawMode = ActiveMode == CameraSnapMode.None ? CameraSnapMode.Top : ActiveMode;
-        DrawGridForMode(drawMode, viewport, matrixAsmb2Ego);
+        DrawEnabledGridPlanes(viewport, matrixAsmb2Ego);
     }
 
-    private void DrawGridForMode(CameraSnapMode mode, Viewport viewport, double4x4 matrixAsmb2Ego)
+    private void DrawEnabledGridPlanes(Viewport viewport, double4x4 matrixAsmb2Ego)
     {
-        // Determine the two axes of the grid plane based on snap mode.
-        // Front/Back (look along X) → YZ plane, Left/Right (look along Y) → XZ plane, Top/Bottom (look along Z) → XY plane.
-        double3 axisU, axisV;
-        switch (mode)
-        {
-            case CameraSnapMode.Front:
-            case CameraSnapMode.Back:
-                axisU = double3.UnitZ;
-                axisV = double3.UnitY;
-                break;
-            case CameraSnapMode.Left:
-            case CameraSnapMode.Right:
-                axisU = double3.UnitX;
-                axisV = double3.UnitZ;
-                break;
-            case CameraSnapMode.Top:
-            case CameraSnapMode.Bottom:
-                axisU = double3.UnitX;
-                axisV = double3.UnitY;
-                break;
-            default:
-                return;
-        }
+        if (ShowXPlane)
+            DrawGridPlane(double3.UnitZ, double3.UnitY, viewport, matrixAsmb2Ego);
+        if (ShowYPlane)
+            DrawGridPlane(double3.UnitX, double3.UnitZ, viewport, matrixAsmb2Ego);
+        if (ShowZPlane)
+            DrawGridPlane(double3.UnitX, double3.UnitY, viewport, matrixAsmb2Ego);
+    }
 
+    private void DrawGridPlane(double3 axisU, double3 axisV, Viewport viewport, double4x4 matrixAsmb2Ego)
+    {
         float halfU = GridWidth / 2f;
         float halfV = GridHeight / 2f;
         float spacing = Math.Max(GridSpacing, 0.01f);

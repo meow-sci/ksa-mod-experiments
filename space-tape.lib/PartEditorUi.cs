@@ -206,6 +206,24 @@ public sealed class PartEditorUi
         bool gridVis = cameraSnap.GridVisible;
         if (ImGui.Checkbox("Visual Grid ##st_show_grid", ref gridVis))
             cameraSnap.GridVisible = gridVis;
+        ImGui.SameLine(0, 16f);
+        bool showXPlane = cameraSnap.ShowXPlane;
+        if (ImGui.Checkbox("X##st_grid_plane_x", ref showXPlane))
+            cameraSnap.ShowXPlane = showXPlane;
+        if (ImGui.IsItemHovered())
+            ImGui.SetItemTooltip("Show the YZ grid plane.");
+        ImGui.SameLine(0, 8f);
+        bool showYPlane = cameraSnap.ShowYPlane;
+        if (ImGui.Checkbox("Y##st_grid_plane_y", ref showYPlane))
+            cameraSnap.ShowYPlane = showYPlane;
+        if (ImGui.IsItemHovered())
+            ImGui.SetItemTooltip("Show the XZ grid plane.");
+        ImGui.SameLine(0, 8f);
+        bool showZPlane = cameraSnap.ShowZPlane;
+        if (ImGui.Checkbox("Z##st_grid_plane_z", ref showZPlane))
+            cameraSnap.ShowZPlane = showZPlane;
+        if (ImGui.IsItemHovered())
+            ImGui.SetItemTooltip("Show the XY grid plane.");
 
         // --- Gizmo (always visible) ---
         ImGui.Spacing();
