@@ -71,7 +71,7 @@ public sealed class ConnectorGizmo : IDisposable
             seg[i].Active = true;
             seg[i].PositionEgo = posEgo;
             seg[i].Body2Cce = c.Rotation;
-            seg[i].Scale = new double3(0.05, 0.05, 0.05);
+            seg[i].Scale = new double3(0.075, 0.075, 0.075);
             seg[i].Color = color;
 
             arrowSeg[i].Active = true;
