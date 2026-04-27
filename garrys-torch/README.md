@@ -15,6 +15,7 @@ Garry's Torch allows you to:
 ## Features
 
 - **Real-time vehicle positioning** - Welds update every frame to maintain relative position/rotation
+- **Physics-loop safe updates** - Welds run immediately before KSA queues vehicle solver jobs, avoiding worker-thread state races in the refactored physics loop
 - **Body-frame coordinates** - Positions specified in the target vehicle's local coordinate system
 - **Rotation locking** - Option to prevent source vehicle from rotating relative to target
 - **Parent validation** - Welds automatically break if vehicles cross celestial body boundaries
@@ -26,11 +27,17 @@ Garry's Torch allows you to:
 
 ### Core Classes
 
+#### Solver Hook
+
+The standalone mod applies a Harmony prefix to `Universe.ExecuteNextVehicleSolvers`. This prefix calls `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` after the previous solver results and input events have been applied, but before KSA snapshots vehicle state for the next vehicle update task.
+
+This timing is required by newer KSA builds: updating welds from the StarMap UI callbacks can race the vehicle worker jobs and produce `Populating analytic states from outdated kinematic states` errors.
+
 #### WeldEngine
 Stateless computation engine for vehicle welding. Contains all physics/math logic.
 
 **Key Methods**:
-- `UpdateWeld(WeldEntry weld)` - Teleports source vehicle to maintain relative position/rotation to target
+- `UpdateWeld(WeldEntry weld)` - Teleports source vehicle to maintain relative position/rotation to target, then refreshes per-frame vehicle caches
 - `EulerDegreesToQuat(float pitch, float yaw, float roll)` - Converts Euler angles to quaternion with ZYX intrinsic convention
 - `ApplyVehicleScale(Vehicle vehicle, float scale)` - Applies uniform scale to all parts
 
@@ -64,6 +71,8 @@ Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/
 - TOML format via Tomlyn library
 
 ### UI (Mod.cs / GarrysTorchSubmod)
+
+`Mod.OnBeforeUi` intentionally does not run weld physics. UI callbacks occur after KSA has already queued vehicle solver jobs for the next frame, so vehicle state mutations happen through the solver hook instead.
 
 ImGui window with:
 - **Create Weld section** - Collapsible header with filterable source/target vehicle combos
@@ -221,7 +230,7 @@ The animation system (`WeldAnimation`, `WeldAnimationManager`) enables smooth in
 - **Easing types**: Linear, EaseIn, EaseOut, EaseInOut
 - **Configurable power**: `easingPowerStart` and `easingPowerEnd` control the sharpness of the ease function
 - **Queue**: Multiple animations can be queued per weld; each starts when the previous completes
-- **Frame update**: Animations run in `GarrysTorchSubmod.Update(dt)` before the weld engine teleport, ensuring smooth motion
+- **Frame update**: Animations run in `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` before the weld engine teleport, ensuring smooth motion without racing KSA vehicle solver jobs
 - **Snap to target**: Animation completes by snapping to exact target values to prevent floating-point drift
 
 See `garrys-torch.lib/openapi/garrystorch.yml` (in `unladen-swallow.lib/openapi/`) for the full OpenAPI 3.1.0 specification.

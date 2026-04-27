@@ -1,7 +1,7 @@
 using System;
 using HarmonyLib;
-using Brutal.Numerics;
 using KSA;
+using MeowSci.GarrysTorchLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GarrysTorch;
@@ -9,14 +9,15 @@ namespace MeowSci.GarrysTorch;
 [HarmonyPatch]
 internal static class Patcher
 {
-    private static Harmony? _harmony = new Harmony("garrys-torch");
+    private static Harmony? _harmony;
 
     public static void Patch()
     {
         try
         {
-            _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            _harmony ??= new Harmony("garrys-torch");
+            GarrysTorchSolverPatch.Apply(_harmony);
+            HotkeyGuard.Patch(_harmony);
         }
         catch (Exception ex)
         {
@@ -38,4 +39,29 @@ internal static class Patcher
         }
     }
 
+}
+
+internal static class GarrysTorchSolverPatch
+{
+    public static void Apply(Harmony harmony)
+    {
+        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
+        var prefix = new HarmonyMethod(typeof(GarrysTorchSolverPatch), nameof(BeforeVehicleSolvers))
+        {
+            priority = Priority.First
+        };
+        harmony.Patch(original, prefix: prefix);
+    }
+
+    private static void BeforeVehicleSolvers(double dtPlayer)
+    {
+        try
+        {
+            GarrysTorchSubmod.Instance?.UpdateBeforeVehicleSolvers(dtPlayer);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"garrys-torch: Error updating welds before vehicle solvers: {ex.Message}");
+        }
+    }
 }

@@ -1,0 +1,2 @@
+- The "Editor Stuff" collapsible header is padded with the top most area, which is wrong.  it should be a top-level collapsible header like "SubParts (N)" and "Game Data"
+- the Save and Import buttons are completely broken, the modals they are supposed to open no longer appear when the buttons are pressed

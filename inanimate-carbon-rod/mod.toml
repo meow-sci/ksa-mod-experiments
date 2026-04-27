@@ -1,7 +1,0 @@
-name = "inanimate-carbon-rod"
-description = "Generates thumbnails for KSA subparts on demand."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.InanimateCarbonRod"

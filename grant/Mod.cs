@@ -19,9 +19,11 @@ using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
 using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
-using MeowSci.InanimateCarbonRodLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
+using MeowSci.SpaceTapeLib;
+using MeowSci.FlexoLib;
+using MeowSci.KitchenSinkLib;
 
 namespace MeowSci.Grant;
 
@@ -66,13 +68,15 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(iFeelSeen);
-            _submods.Add(new InanimateCarbonRodSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
             _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new HumbleArteestSubmod());
             _submods.Add(new ZippoSubmod());
+            _submods.Add(new SpaceTapeSubmod());
+            _submods.Add(new FlexoSubmod());
+            _submods.Add(new KitchenSinkSubmod());
 
             // Initialize all submods so Tracker is populated before patching
             foreach (var submod in _submods)
@@ -94,6 +98,7 @@ public class Mod
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
+            SpaceTapeSubmod.HideHostWindow = () => _windowVisible = false;
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
             Patcher.MenuBarToggle = () => _windowVisible = !_windowVisible;
 
@@ -144,6 +149,14 @@ public class Mod
                         SaveAll();
                     }
                 }
+            }
+
+            // Floating windows are always rendered so they remain visible when the
+            // grant window is hidden (e.g. while the Space Tape part editor is open).
+            foreach (var submod in _submods)
+            {
+                try { submod.RenderFloatingWindows(); }
+                catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
             }
         }
         catch (Exception ex)
@@ -274,14 +287,6 @@ public class Mod
                 _windowVisible = false;
         }
         ImGui.End();
-
-        // Floating windows (e.g. editor popups) are rendered unconditionally so they
-        // are not affected by whether the parent collapsing section is open.
-        foreach (var submod in _submods)
-        {
-            try { submod.RenderFloatingWindows(); }
-            catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
-        }
     }
 
     private void SaveAll()

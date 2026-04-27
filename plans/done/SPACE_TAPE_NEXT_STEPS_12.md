@@ -1,0 +1,7 @@
+- make connectors deselectable by clicking on one already selected
+- remove scale settings from connectors, this doesn't do anything
+- in the connectors collapsible header, pad all the content using our imgui and imgui-design skills for our preferred look n feel for spacing
+- in the game data collapsible header, pad all the content using our imgui and imgui-design skills for our preferred look n feel for spacing
+- in the subparts (n) collapsible header, pad all the content using our imgui and imgui-design skills for our preferred look n feel for spacing
+- in the part editor window initial content (not under a collapsible header) add padding around using our imgui and imgui-design skills for our preferred look n feel for spacing
+- make the save/import/new part buttons flex to take up the whole line equally each (use a table if needed)

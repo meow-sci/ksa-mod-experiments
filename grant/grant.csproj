@@ -24,7 +24,6 @@
     <ProjectReference Include="..\geeforce.lib\geeforce.lib.csproj" />
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
-    <ProjectReference Include="..\inanimate-carbon-rod.lib\inanimate-carbon-rod.lib.csproj" />
     <ProjectReference Include="..\kitten-animations.lib\kitten-animations.lib.csproj" />
     <ProjectReference Include="..\kiwis-marbles.lib\kiwis-marbles.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
@@ -32,6 +31,9 @@
     <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
     <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
     <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
+    <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
+    <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
+    <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

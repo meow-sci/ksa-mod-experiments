@@ -1,0 +1,7 @@
+- Rename the "Space Tape - Part Editor" window title to "Part Editor"
+- in the "Part Editor" top-level menu, add more menu items before the exisitng "Exit Part Editor":
+  - "Toggle SubParts Window" - make it show a checkbox when the window visible, clicking it toggles
+  - "Toggle Part Editor Window" - make it show a checkbox when the window visible, clicking it toggles
+- make the Import button be on the same line as the Save/Undo/Redo/New Part buttons in the Part Editor window
+- rename the "Import Part" modal window to "Import Existing Part"
+- in the "Import Existing Part" modal window, make the Import / Cancel buttons take up the full window width at 50% each with a gap from our imgui-design skill conventions

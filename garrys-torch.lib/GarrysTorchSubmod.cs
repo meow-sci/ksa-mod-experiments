@@ -58,6 +58,10 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     public void Update(double dt)
     {
+    }
+
+    public void UpdateBeforeVehicleSolvers(double dt)
+    {
         _animationManager.Update(dt);
 
         var toRemove = new List<WeldEntry>();

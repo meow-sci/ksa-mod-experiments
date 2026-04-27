@@ -265,7 +265,7 @@ components:
         intensity:
           type: number
           format: float
-          description: Current brightness (0–1).
+          description: Current brightness (0–100).
         color:
           $ref: '#/components/schemas/ZippoColor'
         isEnabled:
@@ -320,7 +320,7 @@ components:
           type: number
           format: float
           minimum: 0.0
-          maximum: 1.0
+          maximum: 100.0
           description: Set intensity (0–1). Omit to leave unchanged.
         enabled:
           type: boolean
@@ -410,11 +410,11 @@ components:
         startIntensity:
           type: number
           format: float
-          description: Starting intensity (0–1). Defaults to current intensity if omitted.
+          description: Starting intensity (0–100). Defaults to current intensity if omitted.
         endIntensity:
           type: number
           format: float
-          description: Ending intensity (0–1). Defaults to current intensity if omitted.
+          description: Ending intensity (0–100). Defaults to current intensity if omitted.
         easing:
           $ref: '#/components/schemas/ZippoEasingConfig'
           description: Easing configuration. Defaults to EaseInOut with power 3.0/3.0.

@@ -36,12 +36,14 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Per-weld rotation offset (pitch/yaw/roll)
 - Uniform vehicle scaling with KittenEva avatar support
 - Rotation lock toggle and auto-unweld on parent mismatch
+- Weld updates run from a Harmony prefix on `Universe.ExecuteNextVehicleSolvers`, before KSA queues vehicle solver jobs; this avoids refactored physics-loop kinematic/analytic state races
 - Multiple simultaneous welds with topological sort for correct ordering
 - User-defined presets persisted to TOML (`~/.iryr/garrys-torch-presets.toml`)
 - Save weld settings as named presets, load presets into create form
 - ImGui control panel with filterable combos and bordered weld sections
 - **Animation system**: Smooth interpolation of weld position/rotation/scale with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
 - **Public API**: `GarrysTorchSubmod.Instance` singleton, `CreateWeld`, `ModifyWeld`, `RemoveWeld`, `AnimateWeld`, `FindWeld`, preset pass-throughs — exposed for use by `unladen-swallow.lib` RPC endpoints
+- **Safe update API**: `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` performs animation and weld teleports; ordinary `ISubmod.Update(dt)` is intentionally non-mutating for weld physics
 
 ### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
 Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, updating it every game tick.
@@ -112,6 +114,12 @@ G-force recorder and display. Monitors acceleration forces (g-forces) acting on 
 - Interactive scrub slider for reviewing history; live/paused modes
 - Configurable history window and kill-gee/jerk thresholds
 - **geeforce.lib**: `GeeForceSubmod` (ISubmod — owns sampling loop + delegates to GForceUI.RenderContent), `GForceRecorder` (ring-buffer + stats), `GForceUI` (static graph/UI — `RenderContent()` for embedded use, `Render()` for standalone window)
+
+### [kitchen-sink](kitchen-sink) / [kitchen-sink.lib](kitchen-sink.lib)
+Random collection of one-off hacks and fixes for KSA. F11 window toggle.
+- **Fix Invisible Subparts**: button that calls `ReinitializeDerivedValues` on `Program.Editor.EditingSpace.Parts` to restore visibility of invisible subparts in the vehicle editor (workaround for a KSA bug)
+- **Force IVA Rendering**: toggle that directly mutates `Template.Internal` on all `PartModel` instances to force interior parts to render outside IVA camera mode; includes a Harmony constructor patch to catch newly created parts and a `PartModel.AddInstance` editor override so IVA SubParts remain visible in the vehicle editor
+- **kitchen-sink.lib**: `KitchenSinkSubmod` (ISubmod — renders fix panels), `IvaForceRender` (static API — template mutation + tracking for IVA force rendering)
 
 ### [steely-eyed-missile-kitten](steely-eyed-missile-kitten) / [steely-eyed-missile-kitten.lib](steely-eyed-missile-kitten.lib)
 Mission monitoring, event detection, and achievement tracking mod. Passively samples telemetry for all vehicles at a configurable rate, detects interesting flight events, evaluates YAML-defined mission conditions, and persists everything to a local SQLite database.
@@ -260,34 +268,18 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 
 ---
 
-## Rendering & Thumbnails
-
-### [inanimate-carbon-rod](inanimate-carbon-rod) / [inanimate-carbon-rod.lib](inanimate-carbon-rod.lib)
-On-demand subpart thumbnail generator. The game skips thumbnail generation for subparts (`IsSubPart == true`) during startup — this mod generates them at runtime via the same Vulkan rendering pipeline, triggered by a button click in the UI.
-- F10 window toggle (standalone mode)
-- One-click "Generate Subpart Thumbnails" button
-- Mirrors game's `ThumbnailCreator` Vulkan rendering loop exactly
-- Saves/restores camera and viewport state after generation
-- Scrollable thumbnail grid (64x64 images) with subpart ID tooltips
-- Progress bar and status display during generation
-- Static cache (`SubpartThumbnailCache`) for cross-mod access to generated thumbnails
-- **inanimate-carbon-rod.lib**: `SubpartThumbnailGenerator` (on-demand Vulkan rendering), `SubpartThumbnailCache` (static thumbnail storage), `LdrPostPassCommand` (HDR→LDR blit for VRAM optimization), `InanimateCarbonRodSubmod` (ISubmod — full UI)
-- No Harmony patches required — uses only public game APIs (plus reflection for `ModLibrary.AllParts`)
-
----
-
 ## Unified Supermod
 
 ### [grant](grant)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
-- F11 window toggle with unified panel for all 15 submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Inanimate Carbon Rod, Kitten Animations, Kiwi's Marbles, Skittles, Unladen Swallow, Zippo
+- F11 window toggle with unified panel for all core submods
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Space Tape, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, inanimate-carbon-rod.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, space-tape.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 
@@ -298,6 +290,51 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 - Basic mod skeleton
 - F11 window toggle
 - Ready for feature development
+
+---
+
+## Part Editor Mods
+
+### [space-tape](space-tape) / [space-tape.lib](space-tape.lib)
+In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
+- Owns SubPart thumbnail generation and cache
+- Thumbnail rendering quietly restores KSA camera follow/control state without emitting `Following ...` timed alerts
+- Grant panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
+- Load SubParts modal with generation controls (Images per SubPart, image size, Generate/Re-generate, generation progress)
+- Dedicated SubParts floating window tied to Part Editor lifecycle
+- SubParts window view controls: grid/list mode toggle, thumbnail size, animation delay, filter, and large viewer toggle
+- Load/import workflow uses compact 2x2 filterable combo table (category/part + import source)
+- Save flow moved to toolbar `Save` button with a modal popup
+- SubPart catalog browser with animated thumbnail previews
+- 3D editing scene with gizmos for translate/rotate/scale and origin axis marker
+- Hover highlight and click-to-select SubParts in the 3D viewport with native highlight/selection shaders
+- Quick-flip rotation hotkeys (D = +45° Y-axis, F = +45° X-axis)
+- Plane-locked drag — P key cycles pan modes (Normal / YZ / XZ / XY), click-and-drag to move SubParts constrained to a plane
+- Camera snap views (Front, Back, Left, Right, Top, Bottom) for standard orthographic vantage points
+- Grid plane overlay — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and axis-line color/alpha
+- Grid rendering uses KSA's orbit line renderer to preserve line alpha without modifying core shader files
+- Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
+- Import hardening: logs and skips invalid imported SubPart records; editor gizmo rendering guards invalid mesh data while Space Tape is active
+- Fuel tank definition (Cylindrical/Spherical) with full material/density/mass config
+- Connector system — define attachment points with position, rotation, and flag types (Internal/ToSurface/FromSurface)
+- Coupling support — Decoupler, Docking Port, and EVA Door with connector references
+- Multiple Batteries, Generators, and Power Consumers per part
+- 3D connector gizmo visualization (color-coded by flag type, highlights selected)
+- ImGui property panel with transform editing, GameData sections (Tank, Power, Connectors, Coupling)
+- Saves Part XML + GameData XML to space-tape-parts mod directory with Tomlyn mod.toml management
+- Hot-reload spike for registering parts at runtime without restart
+- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `CameraSnapController` (camera snap and OrbitLinePass grid renderer), `PartEditorInteraction` (hover/select/drag/quick-flip/plane-drag), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
+
+### [flexo](flexo) / [flexo.lib](flexo.lib)
+Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime.
+- Hinge creator: select fixed and moving Parts from a vehicle, define rotation axis, degree range, resting position, and motor speed
+- TOML-based persistence — flexo definitions saved to `~/.flexo/flexo_part_*.toml`
+- Vehicle scanning — detect flexo parts on the active vehicle by matching Part template IDs and connectivity
+- Runtime hinge control — open/close/reset buttons, manual angle slider, animated rotation via `Part.Asmb2ParentAsmb`
+- 3D editor scene with camera snaps, lighting, hover/select interaction (reuses space-tape patterns)
+- Live preview — rotate Parts in the editor to verify hinge axis and range before saving
+- Grant integration as ISubmod with runtime panel and floating editor window
+- **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`
 
 ---
 

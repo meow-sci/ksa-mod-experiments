@@ -35,7 +35,7 @@ These attributes are the **complete** StarMap interface. Do not attempt to call 
 ## Researching KSA Game APIs
 
 When you need to understand game types, APIs, or behavior:
-- **Prefer the decompiled sources** in `decomp/ksa/` — they contain all available information and are much easier to read
+- **Prefer the decompiled sources** in [../../../decomp/ksa/](../../../decomp/ksa/) — they contain all available information and are much easier to read
 - Do **not** attempt to inspect DLL files directly using shell commands or reflection tooling — use the decompiled sources instead
 
 > **Important:** The decompiled sources may be outdated. The running binary can have a completely different internal structure — field names that appear in decompiled code may not exist at runtime. When in doubt, use the runtime reflection dump strategy to discover the real structure. See [debug.md](debug.md).
@@ -127,6 +127,12 @@ vehicle.Parent.GetCci2Cce() // doubleQuat — CCI-to-CCE frame rotation
 
 # Parts
 
+Parts are the building blocks of vehicles. Each `Part` is created from a `PartTemplate` and contains typed modules (`PartModelModule` for rendering, `MeshViewModule` for raycasting, `EngineController`, `Tank`, etc.) in its `Modules` collection.
+
+**Key architecture:** A Part has a `SubParts[]` array of child Parts. SubPart templates are leaf-level — they define individual meshes like fuel tank skins, IVA chairs, etc. Not all SubPart templates include a `MeshViewModule` component, which means raycasting (mouse hover/click detection) silently fails for those parts unless manually patched.
+
+For detailed information on Part rendering, raycasting, mouse detection, the missing-MeshViewModule workaround, and coordinate spaces, see [parts.md](parts.md).
+
 ## Regular Vehicles
 
 Top-level parts are accessed via `vehicle.Parts.Parts`. Each `Part` has a `SubParts` collection forming a tree. Recurse to reach all parts:
@@ -172,7 +178,7 @@ After modifying module state (e.g. activating/deactivating engines), call:
 vehicle.Parts.RecomputeAllDerivedData();
 ```
 
-For engine control details see [vehicle-api.md](vehicle-api.md).
+For engine control details see [vehicle-api.md](vehicle-api.md). For rendering and raycasting modules (`PartModelModule`, `MeshViewModule`) see [parts.md](parts.md).
 
 ## Dynamically Adding Parts at Runtime
 
