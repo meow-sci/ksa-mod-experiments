@@ -4,6 +4,7 @@ using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
 using MeowSci.KitchenSinkLib;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.KitchenSink;
 

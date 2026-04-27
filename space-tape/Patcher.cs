@@ -17,6 +17,7 @@ internal static class Patcher
             if (_harmony != null)
             {
                 HotkeyGuard.Patch(_harmony);
+                IvaForceRender.Patch(_harmony);
             }
         }
         catch (Exception ex)
@@ -31,6 +32,7 @@ internal static class Patcher
         {
             if (_harmony != null)
             {
+                IvaForceRender.Unpatch(_harmony);
                 HotkeyGuard.Unpatch(_harmony);
             }
             _harmony?.UnpatchAll("space-tape");

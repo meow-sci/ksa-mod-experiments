@@ -16,7 +16,11 @@ internal static class Patcher
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            if (_harmony != null)
+            {
+                HotkeyGuard.Patch(_harmony);
+                IvaForceRender.Patch(_harmony);
+            }
         }
         catch (Exception ex)
         {
@@ -28,7 +32,11 @@ internal static class Patcher
     {
         try
         {
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            if (_harmony != null)
+            {
+                IvaForceRender.Unpatch(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony?.UnpatchAll("kitchen-sink");
             _harmony = null;
         }

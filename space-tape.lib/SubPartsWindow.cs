@@ -4,6 +4,7 @@ using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using KSA.Rendering.Thumbnails;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -97,6 +98,12 @@ public sealed class SubPartsWindow
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
+
+        var ivaEnabled = IvaForceRender.Enabled;
+        if (ImGui.Checkbox(" Render IVA SubParts ##st_sp_iva", ref ivaEnabled))
+            IvaForceRender.Enabled = ivaEnabled;
+        if (ImGui.IsItemHovered())
+            ImGui.SetItemTooltip("Force interior (IVA) parts to render even when not in IVA camera mode.");
 
         bool viewMode = ViewSubPartsMode;
         if (ImGui.Checkbox(" Open SubPart Viewer ##st_sp_view", ref viewMode))

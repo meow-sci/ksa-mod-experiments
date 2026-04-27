@@ -3,6 +3,7 @@ using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTape;
 
@@ -60,6 +61,7 @@ public class Mod
   {
     try
     {
+      IvaForceRender.Enabled = false;
       Patcher.Unload();
       _isDisposed = true;
     }
