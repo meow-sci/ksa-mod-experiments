@@ -13,7 +13,7 @@ namespace MeowSci.DohLib;
 /// <summary>
 /// ISubmod implementation for DOH (Dynamically Originating Hominids).
 /// Provides kitten spawning controls and management UI.
-/// Used by grant supermod and standalone doh mod.
+/// Used by unscience supermod and standalone doh mod.
 /// </summary>
 public sealed class DohSubmod : ISubmod
 {

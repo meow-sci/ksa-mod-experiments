@@ -72,7 +72,7 @@ This method only handles fuel systems, mass properties, and staging — not Part
 ### Project Structure
 
 ```
-flexo.lib/                              # Shared library (grant integration)
+flexo.lib/                              # Shared library (unscience integration)
 ├── FlexoSubmod.cs                      # ISubmod implementation — orchestrator
 ├── FlexoPatches.cs                     # Harmony patch class (PartRenderHelper equivalent)
 ├── Data/
@@ -100,19 +100,19 @@ flexo/                                   # Standalone mod entry point
 └── flexo.csproj
 ```
 
-### Grant Integration
+### Unscience Integration
 
-Add to `grant/grant.csproj`:
+Add to `unscience/unscience.csproj`:
 ```xml
 <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
 ```
 
-Add to `grant/Mod.cs` in `OnFullyLoaded()`:
+Add to `unscience/Mod.cs` in `OnFullyLoaded()`:
 ```csharp
 _submods.Add(new FlexoSubmod());
 ```
 
-Add to `grant/Patcher.cs` in `Patch()`:
+Add to `unscience/Patcher.cs` in `Patch()`:
 ```csharp
 FlexoPatches.Apply(_harmony);
 ```
@@ -190,7 +190,7 @@ public sealed class HingeDefinition
 
 ### TOML Read/Write Pattern
 
-Follow `garrys-torch.lib/PresetManager.cs` and `grant/GrantState.cs`:
+Follow `garrys-torch.lib/PresetManager.cs` and `unscience/UnscienceState.cs`:
 
 ```csharp
 // Writing
@@ -204,7 +204,7 @@ File.WriteAllText(path, Toml.FromModel(root));
 // Reading
 var toml = File.ReadAllText(path);
 if (!Toml.TryToModel<TomlTable>(toml, out var root, out var diag)) { /* error */ }
-// Extract values from TomlTable manually (same pattern as GrantState.cs)
+// Extract values from TomlTable manually (same pattern as UnscienceState.cs)
 ```
 
 Uses `Tomlyn` NuGet package (already in use across the project). Must add `<PackageReference Include="Tomlyn" Version="0.19.0" />` to `flexo.lib.csproj`.
@@ -517,7 +517,7 @@ public sealed class HingeController
 
 ### Runtime Control Panel UI
 
-The grant submod's `RenderContent()` panel shows:
+The unscience submod's `RenderContent()` panel shows:
 
 ```
 [Flexo]
@@ -598,7 +598,7 @@ public static class FlexoPatches
 }
 ```
 
-Register in `grant/Patcher.cs`:
+Register in `unscience/Patcher.cs`:
 ```csharp
 FlexoPatches.Apply(_harmony);
 ```
@@ -687,13 +687,13 @@ Create the `flexo/` directory with:
 - `Patcher.cs` — Harmony setup. Follow `space-tape/Patcher.cs` pattern. **MUST** include `HotkeyGuard.Patch(_harmony)` in `Patch()` and `HotkeyGuard.Unpatch(_harmony)` in `Unload()`.
 - `mod.toml` — StarMap descriptor with `EntryAssembly = "MeowSci.Flexo"`.
 
-#### Task 1.3: Register with grant
+#### Task 1.3: Register with unscience
 
-- Add `<ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />` to `grant/grant.csproj`
-- Add `using MeowSci.FlexoLib;` to `grant/Mod.cs`
+- Add `<ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />` to `unscience/unscience.csproj`
+- Add `using MeowSci.FlexoLib;` to `unscience/Mod.cs`
 - Add `_submods.Add(new FlexoSubmod());` in the submod instantiation section of `OnFullyLoaded()`
-- Add `FlexoPatches.Apply(_harmony);` to `grant/Patcher.cs` in the `Patch()` method
-- Add `FlexoPatches.Remove(_harmony);` to `grant/Patcher.cs` in the `Unload()` method (if there's an unload section)
+- Add `FlexoPatches.Apply(_harmony);` to `unscience/Patcher.cs` in the `Patch()` method
+- Add `FlexoPatches.Remove(_harmony);` to `unscience/Patcher.cs` in the `Unload()` method (if there's an unload section)
 
 #### Task 1.4: Add to solution and repository index
 
@@ -777,7 +777,7 @@ Responsibilities:
 - `DeleteDefinition(string fileName)` → delete TOML file
 - `ListDefinitions()` → return cached list
 
-**TOML parsing**: Use `Tomlyn.Toml.TryToModel<TomlTable>()` for reading (same pattern as `GrantState.LoadSubmodState()`). Use `new TomlTable { ... }` + `Toml.FromModel()` for writing (same pattern as `GrantState.SaveSubmodState()` and `PresetManager.Save()`).
+**TOML parsing**: Use `Tomlyn.Toml.TryToModel<TomlTable>()` for reading (same pattern as `UnscienceState.LoadSubmodState()`). Use `new TomlTable { ... }` + `Toml.FromModel()` for writing (same pattern as `UnscienceState.SaveSubmodState()` and `PresetManager.Save()`).
 
 **TOML schema** (see Data Model section above for full format):
 ```toml
@@ -863,7 +863,7 @@ Methods:
 
 Create `flexo.lib/Runtime/FlexoRuntimeUi.cs`:
 
-Single `Render(FlexoRuntime runtime)` method that renders in the grant panel:
+Single `Render(FlexoRuntime runtime)` method that renders in the unscience panel:
 
 1. **Header row**: `[Scan Vehicle]` button + `[Reload Definitions]` button
 2. **Status text**: "Definitions loaded: N" + "Active hinges: N"
@@ -1144,8 +1144,8 @@ Full test:
 
 #### Task 6.1: End-to-end test
 
-1. Open game, open grant panel
-2. Flexo panel shows in grant with "0 definitions"
+1. Open game, open unscience panel
+2. Flexo panel shows in unscience with "0 definitions"
 3. Open flexo editor, load vehicle, create hinge, save
 4. Close editor
 5. "Reload Definitions" → shows 1 definition
@@ -1168,7 +1168,7 @@ Full test:
 
 Add entries for:
 - `flexo/` — Standalone robotics mod (Mod.cs, Patcher.cs, mod.toml)
-- `flexo.lib/` — Flexo library: editor for designing robotic parts (hinges, rotors), runtime articulation, TOML persistence, grant submod integration
+- `flexo.lib/` — Flexo library: editor for designing robotic parts (hinges, rotors), runtime articulation, TOML persistence, unscience submod integration
 
 #### Task 6.4: Create README files
 
@@ -1216,7 +1216,7 @@ Add entries for:
 ### Abstractions (ksa-abstractions.lib/)
 | File | Usage |
 |------|-------|
-| `ISubmod.cs` | Interface for grant submods |
+| `ISubmod.cs` | Interface for unscience submods |
 | `SubmodUI.cs` | `BeginContentArea/EndContentArea` |
 | `VehicleProvider.cs` | `GetControlledVehicle()`, `GetAllVehicles()` |
 | `PartHelpers.cs` | `GetAllParts(vehicle)`, `GetPartsWhere(vehicle, predicate)` |
@@ -1227,9 +1227,9 @@ Add entries for:
 | File | Pattern |
 |------|---------|
 | `garrys-torch.lib/PresetManager.cs` | TOML read/write with Tomlyn |
-| `grant/GrantState.cs` | TOML read/write, KsaPaths usage |
-| `grant/Mod.cs` | Submod registration, lifecycle orchestration |
-| `grant/Patcher.cs` | Harmony patch consolidation |
+| `unscience/UnscienceState.cs` | TOML read/write, KsaPaths usage |
+| `unscience/Mod.cs` | Submod registration, lifecycle orchestration |
+| `unscience/Patcher.cs` | Harmony patch consolidation |
 
 ---
 

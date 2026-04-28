@@ -31,7 +31,7 @@ public sealed class GlassSubmod : ISubmod
     public void Update(double dt)
     {
         try { FovController.ApplyFov(); }
-        catch (Exception ex) { Console.WriteLine($"grant/glass: Error applying FOV override: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"unscience/glass: Error applying FOV override: {ex.Message}"); }
     }
 
     public void RenderContent()

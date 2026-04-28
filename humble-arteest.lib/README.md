@@ -6,7 +6,7 @@ Humble Arteest provides three visual customization features for KSA:
 2. **Kitten Color** — Tints kitten character models by modifying GPU material buffers
 3. **Engine Emissive** — Controls per-engine glow/heat effects via Temperature field overrides
 
-All features are accessible as `ISubmod` implementations for use in the grant supermod or standalone.
+All features are accessible as `ISubmod` implementations for use in the unscience supermod or standalone.
 
 ---
 
@@ -291,7 +291,7 @@ humble-arteest/                    — Standalone mod (F11 toggle)
 ├── humble-arteest.csproj
 └── mod.toml
 
-humble-arteest.lib/                — Core library (referenced by grant supermod)
+humble-arteest.lib/                — Core library (referenced by unscience supermod)
 ├── VehiclePaint.cs                — Paint state + shader compilation/swap
 ├── VehiclePaintPatches.cs         — Harmony prefix on PartModel.AddInstance
 ├── VehiclePaintSubmod.cs          — ISubmod UI for vehicle painting
@@ -312,15 +312,15 @@ humble-arteest.lib/                — Core library (referenced by grant supermo
 
 ---
 
-## Grant Supermod Integration
+## Unscience Supermod Integration
 
-All three submods (`VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`) implement `ISubmod` from `ksa-abstractions.lib`. Grant registers them alongside other submods and provides Harmony patches via its consolidated patcher.
+All three submods (`VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`) implement `ISubmod` from `ksa-abstractions.lib`. Unscience registers them alongside other submods and provides Harmony patches via its consolidated patcher.
 
-Grant's `Patcher.cs` calls:
+Unscience's `Patcher.cs` calls:
 - `VehiclePaintPatches.Apply(harmony)` / `.Remove(harmony)`
 - `EngineEmissivePatches.Apply(harmony)` / `.Remove(harmony)`
 
-Grant's `Patcher.Unload()` also calls:
+Unscience's `Patcher.Unload()` also calls:
 - `VehiclePaint.Cleanup()` — deactivates shaders and clears paint state
 - `EngineEmissive.Cleanup()` — clears all engine overrides
 

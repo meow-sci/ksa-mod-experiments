@@ -1,10 +1,10 @@
 # Space Tape Combine Plan
 
-Combine the `inanimate-carbon-rod` (ICR) mod into `space-tape`, and refactor the Space Tape UI so the Grant submod panel is minimal, SubPart browsing lives in a dedicated floating window tied to the Part Editor, Load/Import is consolidated into a compact 2x2 table of filterable combos, and Save moves into a modal popup.
+Combine the `inanimate-carbon-rod` (ICR) mod into `space-tape`, and refactor the Space Tape UI so the Unscience submod panel is minimal, SubPart browsing lives in a dedicated floating window tied to the Part Editor, Load/Import is consolidated into a compact 2x2 table of filterable combos, and Save moves into a modal popup.
 
 ## Confirmed design decisions
 
-- **ICR removal:** Full delete. Migrate ICR classes into `space-tape.lib`, delete both `inanimate-carbon-rod/` (mod) and `inanimate-carbon-rod.lib/` projects, remove `InanimateCarbonRodSubmod` registration from `grant/Mod.cs`, update `ksa-mod-experiments.slnx`, update `REPOSITORY_INDEX.md`.
+- **ICR removal:** Full delete. Migrate ICR classes into `space-tape.lib`, delete both `inanimate-carbon-rod/` (mod) and `inanimate-carbon-rod.lib/` projects, remove `InanimateCarbonRodSubmod` registration from `unscience/Mod.cs`, update `ksa-mod-experiments.slnx`, update `REPOSITORY_INDEX.md`.
 - **SubParts window lifecycle:** Auto-opens when Part Editor opens, auto-closes when Part Editor closes. Additionally exposes an independent toggle button (similar to the existing "Editor Window" button) so the user can re-open it while the editor is still active.
 - **Save modal semantics:** Use existing [PartModWriter.SavePart](space-tape.lib/PartModWriter.cs) merge semantics (appends/replaces-by-Id within the target file). No behavior change on the I/O side; only the UI wrapping moves into a modal.
 - **Large viewer:** Reuse the existing [SubpartViewerWindow](inanimate-carbon-rod.lib/SubpartViewerWindow.cs), migrated into `space-tape.lib`, rendered as a floating window from `SpaceTapeSubmod.RenderFloatingWindows()`.
@@ -36,8 +36,8 @@ Read these before any task. Do NOT paraphrase or invent signatures — copy from
   - [inanimate-carbon-rod.lib/SingleSubpartGenerator.cs](inanimate-carbon-rod.lib/SingleSubpartGenerator.cs)
   - [inanimate-carbon-rod.lib/SubpartViewerWindow.cs](inanimate-carbon-rod.lib/SubpartViewerWindow.cs)
 - Integration points:
-  - [grant/Mod.cs](grant/Mod.cs) lines ~60–82 — submod registration
-  - [grant/grant.csproj](grant/grant.csproj) line 27 — ICR project reference
+  - [unscience/Mod.cs](unscience/Mod.cs) lines ~60–82 — submod registration
+  - [unscience/unscience.csproj](unscience/unscience.csproj) line 27 — ICR project reference
   - [ksa-mod-experiments.slnx](ksa-mod-experiments.slnx) — solution entries
   - [REPOSITORY_INDEX.md](REPOSITORY_INDEX.md) — catalog
 - Patterns & conventions:
@@ -54,9 +54,9 @@ Read these before any task. Do NOT paraphrase or invent signatures — copy from
 Each task is atomic, compiles, and preserves existing functionality between tasks so behavior is never broken. Each task ends with `dotnet build` passing and a conventional commit via the `git-commit` skill.
 
 1. Migrate ICR library code into `space-tape.lib` (behavior-preserving move).
-2. Remove `inanimate-carbon-rod` and `inanimate-carbon-rod.lib` projects; update grant, slnx, repo index.
+2. Remove `inanimate-carbon-rod` and `inanimate-carbon-rod.lib` projects; update unscience, slnx, repo index.
 3. Introduce `SubpartGenerationController` static API in `space-tape.lib` (encapsulates generator + config).
-4. Simplify Grant submod panel (Load SubParts + Open/Close Part Editor only).
+4. Simplify Unscience submod panel (Load SubParts + Open/Close Part Editor only).
 5. Implement Load SubParts modal (Images per SubPart, Image Size, Generate/Re-generate, Close).
 6. Build new "SubParts" floating window tied to editor lifecycle with view-subparts toggle.
 7. Wire SubpartViewerWindow as floating window owned by `SpaceTapeSubmod`.
@@ -71,7 +71,7 @@ Each task is atomic, compiles, and preserves existing functionality between task
 
 ### Goal
 
-Move all reusable thumbnail-generation/viewer classes from `inanimate-carbon-rod.lib` into `space-tape.lib` under namespace `MeowSci.SpaceTapeLib`. Do NOT yet delete `inanimate-carbon-rod/` or `inanimate-carbon-rod.lib/`. Do NOT yet touch grant. This task is a behavior-preserving code move that leaves the ICR mod still functional as a thin shim referencing the new classes through a re-exported namespace alias.
+Move all reusable thumbnail-generation/viewer classes from `inanimate-carbon-rod.lib` into `space-tape.lib` under namespace `MeowSci.SpaceTapeLib`. Do NOT yet delete `inanimate-carbon-rod/` or `inanimate-carbon-rod.lib/`. Do NOT yet touch unscience. This task is a behavior-preserving code move that leaves the ICR mod still functional as a thin shim referencing the new classes through a re-exported namespace alias.
 
 ### Why first
 
@@ -98,7 +98,7 @@ Do NOT move `InanimateCarbonicRodSubmod.cs` — its UI is being redesigned and i
 
 ### `InanimateCarbonicRodSubmod.cs` edits (temporary)
 
-Add `using MeowSci.SpaceTapeLib;` at the top so it can still resolve `SubpartThumbnailGenerator`, `SubpartThumbnailCache`, `SubpartViewerWindow`. Delete any stale `using MeowSci.InanimateCarbonRodLib;` it might have on moved types. The submod should still compile and behave identically — it is the F10 ICR window + grant collapsing header.
+Add `using MeowSci.SpaceTapeLib;` at the top so it can still resolve `SubpartThumbnailGenerator`, `SubpartThumbnailCache`, `SubpartViewerWindow`. Delete any stale `using MeowSci.InanimateCarbonRodLib;` it might have on moved types. The submod should still compile and behave identically — it is the F10 ICR window + unscience collapsing header.
 
 ### Update all consumers
 
@@ -109,7 +109,7 @@ Add `using MeowSci.SpaceTapeLib;` at the top so it can still resolve `SubpartThu
 ### Acceptance
 
 - `dotnet build` clean.
-- Running the game: ICR F10 window still works; grant panel still shows "Inanimate Carbon Rod" submod with Generator UI; space-tape still uses animated thumbnails.
+- Running the game: ICR F10 window still works; unscience panel still shows "Inanimate Carbon Rod" submod with Generator UI; space-tape still uses animated thumbnails.
 - Commit: `refactor(space-tape): move thumbnail generator/cache/viewer from icr into space-tape.lib`.
 
 ---
@@ -122,10 +122,10 @@ Remove ICR entirely from the repo and workspace. After this task, only `space-ta
 
 ### Steps
 
-1. Remove from [grant/Mod.cs](grant/Mod.cs):
+1. Remove from [unscience/Mod.cs](unscience/Mod.cs):
    - Line ~72: delete `_submods.Add(new InanimateCarbonRodSubmod());`
    - Delete the `using MeowSci.InanimateCarbonRodLib;` statement near the top of the file.
-2. Remove from [grant/grant.csproj](grant/grant.csproj):
+2. Remove from [unscience/unscience.csproj](unscience/unscience.csproj):
    - Line 27: delete `<ProjectReference Include="..\inanimate-carbon-rod.lib\inanimate-carbon-rod.lib.csproj" />`.
 3. Remove from [space-tape.lib/space-tape.lib.csproj](space-tape.lib/space-tape.lib.csproj):
    - Delete `<ProjectReference Include="..\inanimate-carbon-rod.lib\inanimate-carbon-rod.lib.csproj" />`.
@@ -147,7 +147,7 @@ Before committing, run these searches and resolve any hits (should be zero after
 ### Acceptance
 
 - `dotnet build` clean.
-- Grant main window no longer lists "Inanimate Carbon Rod" submod.
+- Unscience main window no longer lists "Inanimate Carbon Rod" submod.
 - Space Tape still works (animated thumbnails still visible after clicking Load SubParts).
 - Commit: `refactor(icr): remove inanimate-carbon-rod mod and lib (functionality merged into space-tape)`.
 
@@ -242,7 +242,7 @@ In [SpaceTapeSubmod.cs](space-tape.lib/SpaceTapeSubmod.cs):
 
 ---
 
-## Task 4 — Simplify the Grant submod panel
+## Task 4 — Simplify the Unscience submod panel
 
 ### Goal
 
@@ -251,7 +251,7 @@ Reduce `SpaceTapeSubmod.RenderContentInner()` / the existing `SubPartCatalog` re
 - `Load SubParts` — opens the Load SubParts modal (Task 5).
 - `Open Part Editor` when editor is inactive; `Close Part Editor` when active.
 
-Remove the old thumb-size slider, anim delay, filter text, grid display, selection handling, and the `Editor Window` button from the grant panel. All SubPart browsing moves to the dedicated floating window (Task 6).
+Remove the old thumb-size slider, anim delay, filter text, grid display, selection handling, and the `Editor Window` button from the unscience panel. All SubPart browsing moves to the dedicated floating window (Task 6).
 
 ### Files to edit
 
@@ -355,10 +355,10 @@ else if (selected != null && _subPartsWindow.ViewSubPartsMode)
 
 ### Acceptance
 
-- Grant panel shows only the two buttons.
+- Unscience panel shows only the two buttons.
 - Clicking Open Part Editor opens the editor window AND the SubParts window (once Task 6 ships).
 - `dotnet build` clean.
-- Commit: `refactor(space-tape): minimize grant submod panel to Load SubParts + Open Editor`.
+- Commit: `refactor(space-tape): minimize unscience submod panel to Load SubParts + Open Editor`.
 
 ---
 
@@ -512,7 +512,7 @@ public sealed class LoadSubPartsModal
 
 ### Goal
 
-A new floating window titled `SubParts##st_subparts_window` that owns the control panel + thumbnail grid formerly in the grant panel. Lifecycle coupled to the Part Editor (Task 4 `OpenEditor`/`CloseEditor`).
+A new floating window titled `SubParts##st_subparts_window` that owns the control panel + thumbnail grid formerly in the unscience panel. Lifecycle coupled to the Part Editor (Task 4 `OpenEditor`/`CloseEditor`).
 
 ### UI layout (follow imgui-design skill)
 
@@ -1084,7 +1084,7 @@ Bring README/REPOSITORY_INDEX in sync with the new reality.
 
 - [REPOSITORY_INDEX.md](REPOSITORY_INDEX.md) — remove any ICR rows; expand the space-tape entry to describe new capabilities (thumbnail generation, subparts window, save/load modal).
 - [space-tape/README.md](space-tape/README.md) — add user-facing sections:
-  - "Grant submod panel" (two buttons).
+  - "Unscience submod panel" (two buttons).
   - "Load SubParts modal" (Images per SubPart / Image Size / Generate).
   - "SubParts window" (filter, anim, view-subparts toggle).
   - "Part Editor" (unchanged except the new Save button in toolbar).
@@ -1094,7 +1094,7 @@ Bring README/REPOSITORY_INDEX in sync with the new reality.
 ### Final verification
 
 - `dotnet build` clean across the solution.
-- Smoke test in game: open grant panel, click Load SubParts, generate, close; click Open Part Editor; verify SubParts window appears; toggle View SubParts and click a thumb (verify viewer); click Import to load a stock part; edit then click Save in the toolbar; verify modal save flow to both new and existing files.
+- Smoke test in game: open unscience panel, click Load SubParts, generate, close; click Open Part Editor; verify SubParts window appears; toggle View SubParts and click a thumb (verify viewer); click Import to load a stock part; edit then click Save in the toolbar; verify modal save flow to both new and existing files.
 - Commit: `docs(space-tape): update readme and repository index after icr merge`.
 
 ---
@@ -1115,5 +1115,5 @@ Bring README/REPOSITORY_INDEX in sync with the new reality.
 - Rewriting the 3D editor (scene, gizmos, interaction).
 - Changing [PartModWriter.SavePart](space-tape.lib/PartModWriter.cs) file format or merge semantics.
 - Changing [PartImporter](space-tape.lib/PartImporter.cs).
-- Touching other mods besides grant + space-tape + inanimate-carbon-rod.
+- Touching other mods besides unscience + space-tape + inanimate-carbon-rod.
 

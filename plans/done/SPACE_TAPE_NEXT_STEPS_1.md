@@ -3,7 +3,7 @@
 - When SubParts are already generated, change the Submod UI "Load SubParts" to say "Re-load SubParts"
 - When the modal is shown and SubPart thumbs are already generated, change the green label to say "228 SubParts loaded: 32 images each at 128px" (fix the numbers to the real ones), this means we'll need to remember the setitngs used to generate the last set of thumbs
 - On the Load SubParts modal, add an Info (?) line as the first line where the (?) shows a tooltip that explains that more thumbs are higher resolutions eats into VRAM
-- When the editor is opened, the Grant supermod window should be hidden
+- When the editor is opened, the Unscience supermod window should be hidden
 - When the editor is opened, we should add a new top-level game mebu bar (see ksa skill about top-level menus) named "Part Editor", which has a single menu item "Exit Part Editor" which will close the part editor
 - Change the SubParts window "View SubParts" checkbox label to "Open SubPart Viewer"
 - Add a hotkey/shortcut so that if you hold alt and click one of the thumbs, it opens the subpart viewer window (regardless of the subpart viewer checkbox state)

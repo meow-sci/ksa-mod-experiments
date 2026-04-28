@@ -54,7 +54,7 @@ ISubmod implementation that owns the animation controller and all animation UI.
 - Implements `ISubmod` (from `ksa-abstractions.lib`): `Name="Kitten Animations"`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Owns `KittenAnimationController` instance; calls `Update(dt, avatar)` in `Update()`
 - `RenderContent()` renders MMU Animations, Expressions, and Walking Animations collapsible headers — no window framing
-- Used standalone via `kitten-animations/Mod.cs` (which wraps in its own ImGui window) and embedded in grant's collapsible header
+- Used standalone via `kitten-animations/Mod.cs` (which wraps in its own ImGui window) and embedded in unscience's collapsible header
 
 #### KittenAvatarAccessor
 Reflection-based access to KSA's kitten avatar system.

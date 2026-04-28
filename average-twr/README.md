@@ -23,7 +23,7 @@ Average TWR lets you:
 
 ## Architecture
 
-`AverageTwrSubmod` lives in `average-twr.lib` and implements `ISubmod` from `ksa-abstractions.lib`. It is instantiated directly by the grant supermod and also used standalone by the `average-twr` mod.
+`AverageTwrSubmod` lives in `average-twr.lib` and implements `ISubmod` from `ksa-abstractions.lib`. It is instantiated directly by the unscience supermod and also used standalone by the `average-twr` mod.
 
 ### Core Classes
 

@@ -401,7 +401,7 @@ public sealed class ZippoSubmod : ISubmod
                 var v = SelectedVehicle;
                 if (v != null)
                 {
-                    Console.WriteLine("grant/zippo: === debug dump (parts with Components > 0) ===");
+                    Console.WriteLine("unscience/zippo: === debug dump (parts with Components > 0) ===");
                     var parts = v.Parts.Parts;
                     for (int i = 0; i < parts.Length; i++)
                         LightController.DumpPartsWithComponents(parts[i]);

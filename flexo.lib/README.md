@@ -1,12 +1,12 @@
 # Flexo Library
 
-Shared library for the Flexo robotics mod. Contains the editor, runtime logic, data persistence, and grant submod integration.
+Shared library for the Flexo robotics mod. Contains the editor, runtime logic, data persistence, and unscience submod integration.
 
 ## Architecture
 
 ```
 flexo.lib/
-├── FlexoSubmod.cs              # ISubmod — orchestrator for grant integration
+├── FlexoSubmod.cs              # ISubmod — orchestrator for unscience integration
 ├── FlexoPatches.cs             # Harmony patches (editor rendering)
 ├── Data/
 │   ├── FlexoPartType.cs        # Enum: Hinge, Rotor (future)
@@ -28,7 +28,7 @@ flexo.lib/
 
 ## Key Classes
 
-- **FlexoSubmod**: Implements `ISubmod` for grant integration. Manages runtime and editor lifecycle.
+- **FlexoSubmod**: Implements `ISubmod` for unscience integration. Manages runtime and editor lifecycle.
 - **FlexoDataManager**: Reads/writes `~/.flexo/flexo_part_*.toml` TOML files using Tomlyn.
 - **HingeController**: Manages per-hinge-instance animation. Uses `doubleQuat.CreateFromAxisAngle()` to rotate Parts via `Part.Asmb2ParentAsmb`.
 - **FlexoEditorScene**: Isolated 3D editing space using `VehicleEditingSpace`. Loads vehicle Parts for selection.

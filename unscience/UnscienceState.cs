@@ -7,18 +7,18 @@ using MeowSci.KsaAbstractions;
 using Tomlyn;
 using Tomlyn.Model;
 
-namespace MeowSci.Grant;
+namespace MeowSci.Unscience;
 
-internal static class GrantState
+internal static class UnscienceState
 {
     private const string WindowIniFile = "window.ini";
     private const string StateTomlFile = "state.toml";
-    private const string WindowName = "Grants Toolbox";
+    private const string WindowName = "Unscience Toolbox";
     private const int DefaultSaveInterval = 5;
     private const bool DefaultAutoSaveEnabled = false;
 
     private static readonly string _stateDir =
-        Path.Combine(KsaPaths.UserDataDir, ".iryr");
+        Path.Combine(KsaPaths.UserDataDir, ".unscience");
 
     public static int SaveIntervalSeconds { get; set; } = DefaultSaveInterval;
     public static bool AutoSaveEnabled { get; set; } = DefaultAutoSaveEnabled;
@@ -33,11 +33,11 @@ internal static class GrantState
         {
             var iniData = File.ReadAllText(path);
             ImGui.LoadIniSettingsFromMemory(iniData);
-            Console.WriteLine("grant: Loaded window state");
+            Console.WriteLine("unscience: Loaded window state");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Failed to load window state: {ex.Message}");
+            Console.WriteLine($"unscience: Failed to load window state: {ex.Message}");
         }
     }
 
@@ -46,7 +46,7 @@ internal static class GrantState
         try
         {
             var fullIni = ImGui.SaveIniSettingsToMemory().ToString();
-            var filtered = FilterIniForGrantWindows(fullIni);
+            var filtered = FilterIniForUnscienceWindows(fullIni);
             if (string.IsNullOrEmpty(filtered)) return;
 
             Directory.CreateDirectory(_stateDir);
@@ -54,13 +54,13 @@ internal static class GrantState
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Failed to save window state: {ex.Message}");
+            Console.WriteLine($"unscience: Failed to save window state: {ex.Message}");
         }
     }
 
-    private static string FilterIniForGrantWindows(string iniData)
+    private static string FilterIniForUnscienceWindows(string iniData)
     {
-        // Extract only the [Window][Grants Toolbox] section from ImGui ini data
+        // Extract only the [Window][Unscience Toolbox] section from ImGui ini data
         // so we don't persist/restore state for unrelated game windows
         var sb = new StringBuilder();
         var lines = iniData.Split('\n');
@@ -100,7 +100,7 @@ internal static class GrantState
             if (!Toml.TryToModel<TomlTable>(tomlString, out var root, out var diagnostics))
             {
                 foreach (var d in diagnostics)
-                    Console.WriteLine($"grant: TOML parse error: {d}");
+                    Console.WriteLine($"unscience: TOML parse error: {d}");
                 return (headerOpen, visibility);
             }
 
@@ -124,11 +124,11 @@ internal static class GrantState
                     ShowModTooltips = tooltips;
             }
 
-            Console.WriteLine("grant: Loaded submod state");
+            Console.WriteLine("unscience: Loaded submod state");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Failed to load submod state: {ex.Message}");
+            Console.WriteLine($"unscience: Failed to load submod state: {ex.Message}");
         }
 
         return (headerOpen, visibility);
@@ -164,7 +164,7 @@ internal static class GrantState
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Failed to save submod state: {ex.Message}");
+            Console.WriteLine($"unscience: Failed to save submod state: {ex.Message}");
         }
     }
 }

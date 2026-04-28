@@ -1,4 +1,4 @@
-# Grant — Unified Supermod
+# Unscience — Unified Supermod
 
 A unified supermod that consolidates 13 standalone KSA mods into a single ImGui window with collapsible headers. Each submod's content appears under its own header, and a gear icon context menu lets you toggle individual submod visibility.
 
@@ -22,7 +22,7 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 
 ## Usage
 
-- **F11** — Toggle the grant window
+- **F11** — Toggle the unscience window
 - **Gear icon (⚙)** — Opens a popup to show/hide individual submods
 - Each submod has a **collapsible header** that can be expanded or collapsed
 - The **Skittles Theme Editor** opens in a separate window via the "Open Theme Editor" button
@@ -32,10 +32,10 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 - **`ISubmod`** interface (from `ksa-abstractions.lib`) defines the submod contract: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - **`Mod.cs`** orchestrates all submods — instantiates lib submod classes directly, calls `Update()` every frame for all (even hidden), renders only visible ones
 - **`Patcher.cs`** consolidates Harmony patches from blinky (render-skip), camera-controller-override (sequence playback via `CameraControllerOverridePatches`), garrys-torch (safe pre-vehicle-solver weld updates), glass (FOV override), i-feel-seen (render distance), and skittles (hotkey blocking), delegating to patch helpers in each lib
-- **Garry's Torch update timing**: Grant hosts `GarrysTorchSubmod` directly, so it applies the same `Universe.ExecuteNextVehicleSolvers` prefix as the standalone mod. The regular submod `Update(dt)` path is intentionally non-mutating for weld physics.
+- **Garry's Torch update timing**: Unscience hosts `GarrysTorchSubmod` directly, so it applies the same `Universe.ExecuteNextVehicleSolvers` prefix as the standalone mod. The regular submod `Update(dt)` path is intentionally non-mutating for weld physics.
 - Submod implementations live in their respective **`.lib` projects** (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` + `BlinkyPatchState` in `blinky.lib`, `CameraControllerOverrideSubmod` in `camera-controller-override.lib`, `GeeForceSubmod` in `geeforce.lib`, `KittenAnimationsSubmod` in `kitten-animations.lib`)
-- **`grant/Submods/`** directory has been removed — no intermediate wrapper layer
-- Each lib submod owns its own ImGui `RenderContent()` — grant just calls it
+- **`unscience/Submods/`** directory has been removed — no intermediate wrapper layer
+- Each lib submod owns its own ImGui `RenderContent()` — unscience just calls it
 
 ## Dependencies
 

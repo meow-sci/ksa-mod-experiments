@@ -38,7 +38,7 @@ Refactor blinky to support **multiple named grids per vehicle**. Currently blink
 ### Consumers
 
 - **blinky mod** (`blinky/Mod.cs`) — standalone mod, creates `BlinkySubmod`, renders window.
-- **grant mod** (`grant/Mod.cs`) — supermod, creates `BlinkySubmod` as one of 14 submods.
+- **unscience mod** (`unscience/Mod.cs`) — supermod, creates `BlinkySubmod` as one of 14 submods.
 - **unladen-swallow.lib** — RPC endpoints call `BlinkyGridManager` static methods.
 
 ---
@@ -535,13 +535,13 @@ Update all blinky endpoint schemas to include the `gridName` field in request bo
 
 ---
 
-### Task 9: Update grant supermod (if needed)
+### Task 9: Update unscience supermod (if needed)
 
-**Files:** `grant/Mod.cs`, `grant/Patcher.cs`
+**Files:** `unscience/Mod.cs`, `unscience/Patcher.cs`
 
-The grant supermod creates `new BlinkySubmod()` and calls its `ISubmod` interface methods. Since the `ISubmod` interface hasn't changed (same `Initialize`, `Update`, `RenderContent`, `Dispose`), **no changes are needed in grant** itself. The `BlinkySubmod` internal changes (Task 4) handle everything.
+The unscience supermod creates `new BlinkySubmod()` and calls its `ISubmod` interface methods. Since the `ISubmod` interface hasn't changed (same `Initialize`, `Update`, `RenderContent`, `Dispose`), **no changes are needed in unscience** itself. The `BlinkySubmod` internal changes (Task 4) handle everything.
 
-Verify by building — if grant compiles without changes, this task is complete.
+Verify by building — if unscience compiles without changes, this task is complete.
 
 ---
 
@@ -560,7 +560,7 @@ Run `dotnet build` on the entire solution. Fix any compilation errors. Ensure al
 - `blinky`
 - `unladen-swallow.lib`
 - `unladen-swallow`
-- `grant`
+- `unscience`
 - All other mods (should be unaffected but verify no transitive breakage)
 
 ---
@@ -577,7 +577,7 @@ Tasks should be executed in this order due to dependencies:
 6. **Task 6** — RPC endpoints updated (fixes unladen-swallow.lib callers)
 7. **Task 7** — New list endpoint added
 8. **Task 8** — openapi.yml updated
-9. **Task 9** — Verify grant compiles
+9. **Task 9** — Verify unscience compiles
 10. **Task 11** — Full build verification
 11. **Task 10** — Documentation updates
 

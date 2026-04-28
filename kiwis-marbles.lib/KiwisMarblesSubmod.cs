@@ -422,7 +422,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
         _welds.Add(new CelestialWeldEntry { Source = source, Target = target, Offset = offset, OriginalOrbit = source.Orbit });
         _pendingOffset = new float3(0f, 0f, 0f);
         SortWelds();
-        Console.WriteLine($"grant/kiwis-marbles: Welded {source.Id} to {target.Id}");
+        Console.WriteLine($"unscience/kiwis-marbles: Welded {source.Id} to {target.Id}");
     }
 
     private void RemoveWeld(CelestialWeldEntry entry)
@@ -436,11 +436,11 @@ public sealed class KiwisMarblesSubmod : ISubmod
             {
                 entry.Source.SetOrbit(entry.OriginalOrbit);
                 entry.Source.UpdatePerFrameData();
-                Console.WriteLine($"grant/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+                Console.WriteLine($"unscience/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"grant/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+                Console.WriteLine($"unscience/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
             }
         }
 
@@ -466,7 +466,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
         foreach (var kv in shiftedSurf)
             _weldSurfaceState[kv.Key] = kv.Value;
 
-        Console.WriteLine($"grant/kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
+        Console.WriteLine($"unscience/kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
     }
 
     private void SortWelds()

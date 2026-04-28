@@ -15,7 +15,7 @@ public sealed class SpaceTapeSubmod : ISubmod
     public static SpaceTapeSubmod? Current { get; private set; }
 
     /// <summary>
-    /// Optional callback set by the host (e.g. grant) to hide its own window when the part editor opens.
+    /// Optional callback set by the host (e.g. unscience) to hide its own window when the part editor opens.
     /// </summary>
     public static Action? HideHostWindow { get; set; }
 

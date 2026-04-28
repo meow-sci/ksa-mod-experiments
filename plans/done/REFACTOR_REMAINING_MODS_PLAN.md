@@ -8,7 +8,7 @@
 
 these mods have not yet been refactored to
 
-- have all their functionality refactored into an ISubmod (from ksa-abstractions.lib), where all functionality, including ImGui content (not the window, but the window contents) is contained in the mod.lib cspproj and then reused from the mod project to put it into a standalone ImGui window for just that mod and inside grant for being one of many submods living in collapsible headers in one ImGui window
+- have all their functionality refactored into an ISubmod (from ksa-abstractions.lib), where all functionality, including ImGui content (not the window, but the window contents) is contained in the mod.lib cspproj and then reused from the mod project to put it into a standalone ImGui window for just that mod and inside unscience for being one of many submods living in collapsible headers in one ImGui window
 
 make a detailed plan of tasks with deep detail so that future ai coding subagents will have enough unabiguous information as to perform these refactors correctly and accurately and efficiently
 
@@ -35,9 +35,9 @@ A refactored standalone mod is a thin shell that:
 5. `RenderWindow()` does `ImGui.Begin(...)` → `submod.RenderContent()` → `ImGui.End()`
 6. Calls `submod.Dispose()` and `Patcher.Unload()` in `Unload()`
 
-# reference: grant integration pattern (grant/Mod.cs)
+# reference: unscience integration pattern (unscience/Mod.cs)
 
-Grant creates all submod instances in `OnFullyLoaded()`, adds them to `_submods` list, calls `Initialize()` on each, then `Patcher.Patch()`. In `OnBeforeUi()` it calls `Update(dt)` on all submods. In `OnAfterUi()` it renders each visible submod's `RenderContent()` inside a `CollapsingHeader`. Grant's `Patcher.cs` calls each lib's `XxxPatches.Apply(_harmony)` / `Remove(_harmony)` for any lib that has Harmony patches.
+Unscience creates all submod instances in `OnFullyLoaded()`, adds them to `_submods` list, calls `Initialize()` on each, then `Patcher.Patch()`. In `OnBeforeUi()` it calls `Update(dt)` on all submods. In `OnAfterUi()` it renders each visible submod's `RenderContent()` inside a `CollapsingHeader`. Unscience's `Patcher.cs` calls each lib's `XxxPatches.Apply(_harmony)` / `Remove(_harmony)` for any lib that has Harmony patches.
 
 # reference: lib Harmony patches pattern (e.g. glass.lib/GlassPatches.cs, blinky.lib/BlinkyPatches.cs)
 
@@ -46,13 +46,13 @@ Libs that need Harmony patches expose a static class with:
 - A static `Remove(Harmony harmony)` method that unpatches them
 - Static state properties/fields that the patch methods reference (set by the caller before Apply)
 
-This allows both the standalone mod's Patcher and grant's Patcher to share the same patch logic.
+This allows both the standalone mod's Patcher and unscience's Patcher to share the same patch logic.
 
 ---
 
 # plan
 
-Each mod refactor follows 3 phases: (A) create ISubmod in the .lib, (B) refactor the standalone mod to use it, (C) wire into grant. All 3 mods can be done independently. After all 3 are done, do phase (D) to update docs.
+Each mod refactor follows 3 phases: (A) create ISubmod in the .lib, (B) refactor the standalone mod to use it, (C) wire into unscience. All 3 mods can be done independently. After all 3 are done, do phase (D) to update docs.
 
 Verify compilation with `dotnet build` after completing each mod's refactor.
 
@@ -228,13 +228,13 @@ Key changes from current:
 - Move sampling from `OnAfterUi` to `OnBeforeUi` via `_submod.Update(dt)` (matches the standard pattern; the original had sampling in OnAfterUi which is non-standard)
 - `RenderWindow()` uses `ImGui.Begin/End` and delegates to `_submod.RenderContent()`
 
-### C) wire into grant
+### C) wire into unscience
 
-**grant/Mod.cs changes:**
+**unscience/Mod.cs changes:**
 1. Add `using MeowSci.GeeForceLib;` to the imports
 2. In `OnFullyLoaded()`, add `_submods.Add(new GeeForceSubmod());` in the desired display order (after existing submods, or alphabetically — place between `GlassSubmod` and `IFeelSeenSubmod` to maintain alphabetical order by mod name)
 
-**grant/Patcher.cs changes:** None needed — geeforce has no Harmony patches that need to be shared.
+**unscience/Patcher.cs changes:** None needed — geeforce has no Harmony patches that need to be shared.
 
 ---
 
@@ -419,13 +419,13 @@ Key changes from current:
 - Remove the inline `OnBeforeUi` logic — replaced by `_submod.Update(dt)`
 - Remove ~80 lines of inline ImGui UI code — replaced by `_submod.RenderContent()`
 
-### C) wire into grant
+### C) wire into unscience
 
-**grant/Mod.cs changes:**
+**unscience/Mod.cs changes:**
 1. Add `using MeowSci.KittenAnimationsLib;` to imports
 2. In `OnFullyLoaded()`, add `_submods.Add(new KittenAnimationsSubmod());` (place after KiwisMarblesSubmod alphabetically)
 
-**grant/Patcher.cs changes:** None needed — kitten-animations has no Harmony patches that need to be shared.
+**unscience/Patcher.cs changes:** None needed — kitten-animations has no Harmony patches that need to be shared.
 
 ---
 
@@ -741,22 +741,22 @@ Key changes:
 - Delegates to `CameraControllerOverridePatches.Apply/Remove` in the .lib
 - No more `[HarmonyPatch]` attribute on the class, no more `PatchAll`, no more inline patch methods
 
-### C) wire into grant
+### C) wire into unscience
 
-**grant/Mod.cs changes:**
+**unscience/Mod.cs changes:**
 1. Add `using MeowSci.CameraControllerOverrideLib;` to imports
 2. In `OnFullyLoaded()`:
    - Create the submod: `var cameraOverride = new CameraControllerOverrideSubmod();`
    - Add to list: `_submods.Add(cameraOverride);` (place after BlinkySubmod to maintain roughly alphabetical order)
-   - The submod exposes `SequencePlayer` which the grant Patcher needs
+   - The submod exposes `SequencePlayer` which the unscience Patcher needs
 
-**grant/Patcher.cs changes:**
+**unscience/Patcher.cs changes:**
 1. Add `using MeowSci.CameraControllerOverrideLib;` to imports
 2. Add a `SequencePlayer` property: `public static KeyframeSequencePlayer? CameraSequencePlayer { private get; set; }`
 3. In `Patch()`: set `CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;` then call `CameraControllerOverridePatches.Apply(_harmony);`
 4. In `Unload()`: call `CameraControllerOverridePatches.Remove(_harmony);` and null out the property
 
-**grant/Mod.cs OnFullyLoaded() wiring:**
+**unscience/Mod.cs OnFullyLoaded() wiring:**
 After creating cameraOverride submod and before calling Patcher.Patch():
 ```csharp
 Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
@@ -773,11 +773,11 @@ Add entries for the 3 new submods under the appropriate sections:
 - `geeforce.lib` — note it now provides `GeeForceSubmod`
 - `kitten-animations.lib` — note it now provides `KittenAnimationsSubmod`
 
-Update the grant mod entry to list 13 submods (was 10).
+Update the unscience mod entry to list 13 submods (was 10).
 
-### D2) update grant/README.md
+### D2) update unscience/README.md
 
-Add the 3 new submods to grant's README feature list.
+Add the 3 new submods to unscience's README feature list.
 
 ### D3) update individual mod READMEs
 
@@ -790,6 +790,6 @@ Update each mod's README.md to reflect the new architecture (ISubmod pattern, sh
 After all changes:
 1. `dotnet build` succeeds for the entire solution
 2. Each standalone mod (camera-controller-override, geeforce, kitten-animations) still works independently with its own ImGui window
-3. Grant includes all 3 new submods in collapsible headers
-4. Camera-controller-override Harmony patches work from both standalone and grant contexts
+3. Unscience includes all 3 new submods in collapsible headers
+4. Camera-controller-override Harmony patches work from both standalone and unscience contexts
 5. No code duplication — all ImGui content and business logic lives exclusively in the .lib projects

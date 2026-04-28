@@ -106,4 +106,4 @@ blinky.lib/                   ← Core reusable logic (headless)
 - Grids are registered by compound key `(vehicleId, gridName)` and discoverable from any consumer
 - Multiple grids per vehicle are fully independent (own config, scroll state, active pixels)
 - The mod UI (`Mod.cs`) is a thin ImGui layer that delegates all logic to `BlinkyGridManager`
-- **`BlinkySubmod`** lives in `blinky.lib` and implements `ISubmod` from `ksa-abstractions.lib`; it is instantiated directly by the grant supermod
+- **`BlinkySubmod`** lives in `blinky.lib` and implements `ISubmod` from `ksa-abstractions.lib`; it is instantiated directly by the unscience supermod

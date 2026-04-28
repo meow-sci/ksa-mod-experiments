@@ -1,10 +1,10 @@
-# Grant Supermod — Unification Plan
+# Unscience Supermod — Unification Plan
 
 ## Overview
 
-Unify 11 standalone mods into a single **grant** supermod that presents one top-level ImGui window. Each submod's content appears under a collapsible header inside that window. A context menu (gear icon, top-right) controls which submods are visible. All business logic stays in (or is lifted to) the corresponding `.lib` projects; the standalone mod projects are refactored to become thin ImGui wrappers reusing that same `.lib` logic.
+Unify 11 standalone mods into a single **unscience** supermod that presents one top-level ImGui window. Each submod's content appears under a collapsible header inside that window. A context menu (gear icon, top-right) controls which submods are visible. All business logic stays in (or is lifted to) the corresponding `.lib` projects; the standalone mod projects are refactored to become thin ImGui wrappers reusing that same `.lib` logic.
 
-## Mods Being Unified Into Grant
+## Mods Being Unified Into Unscience
 
 | Submod | .lib | Has Harmony Patches | Has `OnBeforeUi` Logic |
 |--------|------|--------------------|-----------------------|
@@ -22,11 +22,11 @@ Unify 11 standalone mods into a single **grant** supermod that presents one top-
 
 ## Architecture
 
-### Grant Window Layout
+### Unscience Window Layout
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  grant Mod                                          [⚙] [X] │
+│  unscience Mod                                          [⚙] [X] │
 │─────────────────────────────────────────────────────────────│
 │  ▼ Average TWR                                              │
 │    [TWR content: samples, stats, start/pause/reset]         │
@@ -61,9 +61,9 @@ The `[⚙]` button in the top-right opens a popup where each submod has a checkb
 
 ### Key Design Decisions
 
-1. **Each submod gets its own `IGrantSubmod` render file** — a class that encapsulates state + `RenderContent()` + `Update(dt)` methods, living in the **grant** project as a thin UI wrapper around the `.lib` logic. Target ~300 lines per file max.
-2. **One unified Patcher.cs** in grant — consolidates all Harmony patches from blinky, glass, i-feel-seen, and skittles. Uses a single `Harmony("MeowSci.Grant")` instance.
-3. **No changes to `.lib` projects** — all existing `.lib` code stays as-is. The grant mod simply references and uses them.
+1. **Each submod gets its own `IUnscienceSubmod` render file** — a class that encapsulates state + `RenderContent()` + `Update(dt)` methods, living in the **unscience** project as a thin UI wrapper around the `.lib` logic. Target ~300 lines per file max.
+2. **One unified Patcher.cs** in unscience — consolidates all Harmony patches from blinky, glass, i-feel-seen, and skittles. Uses a single `Harmony("MeowSci.Unscience")` instance.
+3. **No changes to `.lib` projects** — all existing `.lib` code stays as-is. The unscience mod simply references and uses them.
 4. **Standalone mods are NOT deleted** — they continue to work independently. The refactor makes their ImGui rendering reuse the same `.lib` logic but they remain separate deployable mods.
 5. **Submod visibility state** is stored in a `Dictionary<string, bool>` keyed by submod name. Initially all visible.
 
@@ -71,21 +71,21 @@ The `[⚙]` button in the top-right opens a popup where each submod has a checkb
 
 ## Task List
 
-### Task 0: Define the `IGrantSubmod` Interface
+### Task 0: Define the `IUnscienceSubmod` Interface
 
-**Goal:** Create a simple interface/base pattern that each submod renderer will implement in the grant project.
+**Goal:** Create a simple interface/base pattern that each submod renderer will implement in the unscience project.
 
 **Files to create:**
-- `grant/IGrantSubmod.cs`
+- `unscience/IUnscienceSubmod.cs`
 
 **Interface definition:**
 ```csharp
-namespace MeowSci.Grant;
+namespace MeowSci.Unscience;
 
 /// <summary>
-/// Interface for a submod panel rendered inside the grant supermod window.
+/// Interface for a submod panel rendered inside the unscience supermod window.
 /// </summary>
-internal interface IGrantSubmod
+internal interface IUnscienceSubmod
 {
     /// <summary>Display name shown in the collapsible header and context menu.</summary>
     string Name { get; }
@@ -103,7 +103,7 @@ internal interface IGrantSubmod
 
     /// <summary>
     /// Renders this submod's ImGui content. Called between Begin/End of the
-    /// main grant window — do NOT call ImGui.Begin/ImGui.End for the main content.
+    /// main unscience window — do NOT call ImGui.Begin/ImGui.End for the main content.
     /// Additional popup/child windows (like Skittles editor) are fine.
     /// </summary>
     void RenderContent();
@@ -114,24 +114,24 @@ internal interface IGrantSubmod
 ```
 
 **Acceptance criteria:**
-- File compiles as part of the grant project
-- Interface is internal to `MeowSci.Grant` namespace
+- File compiles as part of the unscience project
+- Interface is internal to `MeowSci.Unscience` namespace
 
 ---
 
 ### Task 1: Create `AverageTwrSubmod` 
 
-**Goal:** Implement the Average TWR submod panel for grant.
+**Goal:** Implement the Average TWR submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/AverageTwrSubmod.cs`
+- `unscience/Submods/AverageTwrSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `average-twr.lib` → `TwrSampleAccumulator`, `TwrDataReader`, `TwrStatistics`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Average TWR"`
 - `Initialize()` — creates a `TwrSampleAccumulator` instance
 - `Update(dt)` — replicates the sampling logic from `average-twr/Mod.cs` `OnBeforeUi`: accumulate dt, every 10ms sample the controlled vehicle's TWR and max accel via `TwrDataReader`, feed to `TwrSampleAccumulator`
@@ -153,7 +153,7 @@ internal interface IGrantSubmod
 - Reset button
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - No `ImGui.Begin`/`ImGui.End` calls for the main window
 - Uses only `.lib` types, no copy-paste of business logic
 
@@ -161,17 +161,17 @@ internal interface IGrantSubmod
 
 ### Task 2: Create `BlinkySubmod`
 
-**Goal:** Implement the Blinky LCD grid submod panel for grant.
+**Goal:** Implement the Blinky LCD grid submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/BlinkySubmod.cs`
+- `unscience/Submods/BlinkySubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `blinky.lib` → `BlinkyGridManager`, `LcdGridBuilder`, `LcdGridConfig`, `GridLayout`, `PixelGrid`, `BlinkyPixelGrid`, `PixelPatterns`, `ScrollAnimation`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Blinky — Dynamic LCD Grid"`
 - `Initialize()` — no-op
 - `Update(dt)` — calls `BlinkyGridManager.TickAll(dt)` to advance scroll animations
@@ -191,12 +191,12 @@ internal interface IGrantSubmod
 - `static readonly string[] EnginePresets` array
 
 **Important notes:**
-- The `Patcher.RenderPixelParts` static bool must be accessible. The grant Patcher will have this field. Reference it as `Patcher.RenderPixelParts` within grant's namespace.
+- The `Patcher.RenderPixelParts` static bool must be accessible. The unscience Patcher will have this field. Reference it as `Patcher.RenderPixelParts` within unscience's namespace.
 - All debug helper methods (`DoBuildGrid`, `DoScanVehicle`, `DumpVehiclePartsType`, `DumpRootPart`, `ListEngineTemplates`, `DumpGridEngines`, `DumpEngineActiveStates`, `ForceSetIsActiveAllOn`, `RescanGrid`, `DumpEngineComparison`, `DumpSingleEngine`, `DumpAllFields`, `SetBuildMessage`) should be replicated as private methods in this class.
 - All ImGui IDs must be unique (already use `##blinky` suffixes which is good).
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - Full blinky UI functionality available via collapsible header
 - No `ImGui.Begin`/`ImGui.End` for main window
 
@@ -204,17 +204,17 @@ internal interface IGrantSubmod
 
 ### Task 3: Create `EternalFlameSubmod`
 
-**Goal:** Implement the Eternal Flame infinite fuel submod panel for grant.
+**Goal:** Implement the Eternal Flame infinite fuel submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/EternalFlameSubmod.cs`
+- `unscience/Submods/EternalFlameSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `eternal-flame.lib` → `FuelManager`, `MonitoredVehicle`
 - `ksa-abstractions.lib` → `VehicleProvider` (used indirectly via `Universe.CurrentSystem`)
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Eternal Flame — Infinite Fuel"`
 - `Initialize()` — creates `FuelManager` instance
 - `Update(dt)` — calls `_fuelManager.Update(dt)` exactly like `eternal-flame/Mod.cs` `OnBeforeUi`
@@ -236,24 +236,24 @@ internal interface IGrantSubmod
 **ImGui ID suffixes:** Keep existing `##selector`, `##active_{i}`, etc. or add `##ef` prefix to avoid collisions with other submods if needed.
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - Vehicle monitoring and refill loop works via `Update(dt)` → `FuelManager.Update(dt)`
 
 ---
 
 ### Task 4: Create `GarrysTorchSubmod`
 
-**Goal:** Implement the Garry's Torch vehicle welding submod panel for grant.
+**Goal:** Implement the Garry's Torch vehicle welding submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/GarrysTorchSubmod.cs`
+- `unscience/Submods/GarrysTorchSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `garrys-torch.lib` → `WeldEntry`, `WeldEngine`, `WeldPreset`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Garry's Torch"`
 - `Initialize()` — no-op
 - `Update(dt)` — updates all active welds by calling `WeldEngine.UpdateWeld(weld)` for each, removes failed welds (same logic as `garrys-torch/Mod.cs` `OnAfterUi`). Note: this MUST run every frame even if not visible, because welds must be maintained.
@@ -282,23 +282,23 @@ internal interface IGrantSubmod
 **Important:** The `Update(dt)` method must be called EVERY frame regardless of visibility because active welds need per-frame position updates. The `RenderContent()` method only runs when visible.
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - Welds persist and update even when the submod header is collapsed or hidden
 
 ---
 
 ### Task 5: Create `GlassSubmod`
 
-**Goal:** Implement the Glass camera FOV submod panel for grant.
+**Goal:** Implement the Glass camera FOV submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/GlassSubmod.cs`
+- `unscience/Submods/GlassSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `glass.lib` → `FovController`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Glass — Camera Lens"`
 - `Initialize()` — no-op
 - `Update(dt)` — calls `FovController.ApplyFov()` every frame (same as `glass/Mod.cs` `OnAfterUi` logic)
@@ -326,19 +326,19 @@ internal interface IGrantSubmod
 
 ### Task 6: Create `IFeelSeenSubmod`
 
-**Goal:** Implement the I Feel Seen vehicle render distance override submod panel for grant.
+**Goal:** Implement the I Feel Seen vehicle render distance override submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/IFeelSeenSubmod.cs`
+- `unscience/Submods/IFeelSeenSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `i-feel-seen.lib` → `VehicleTracker`, `TrackedVehicle`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"I Feel Seen"`
-- `Initialize()` — creates `VehicleTracker` instance. **Exposes `Tracker` property** so the grant Patcher can access it for the Harmony patches.
+- `Initialize()` — creates `VehicleTracker` instance. **Exposes `Tracker` property** so the unscience Patcher can access it for the Harmony patches.
 - `Update(dt)` — no-op (Harmony patches handle rendering)
 - `RenderContent()` — replicates ImGui content from `i-feel-seen/Mod.cs` `RenderWindow()` without `ImGui.Begin`/`ImGui.End`:
   - Green header "Vehicle Render Distance Override"
@@ -352,27 +352,27 @@ internal interface IGrantSubmod
 - `VehicleTracker _tracker`
 - `int _pendingVehicleIndex`
 
-**Important:** The `VehicleTracker` instance must be publicly accessible (via property) because the grant `Patcher.cs` needs to pass it to the Harmony patches for `Vehicle.GetWorldMatrix` and `Vehicle.UpdateRenderData`. The Patcher will reference `IFeelSeenSubmod.Tracker`.
+**Important:** The `VehicleTracker` instance must be publicly accessible (via property) because the unscience `Patcher.cs` needs to pass it to the Harmony patches for `Vehicle.GetWorldMatrix` and `Vehicle.UpdateRenderData`. The Patcher will reference `IFeelSeenSubmod.Tracker`.
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - VehicleTracker instance accessible to Patcher
 
 ---
 
 ### Task 7: Create `KiwisMarblesSubmod`
 
-**Goal:** Implement the Kiwi's Marbles celestial welding submod panel for grant.
+**Goal:** Implement the Kiwi's Marbles celestial welding submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/KiwisMarblesSubmod.cs`
+- `unscience/Submods/KiwisMarblesSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `kiwis-marbles.lib` → `CelestialWeldEntry`, `CelestialWeldEngine`
 - `ksa-abstractions.lib` → `CelestialProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Kiwi's Marbles"`
 - `Initialize()` — no-op
 - `Update(dt)` — updates all active celestial welds by calling `CelestialWeldEngine.UpdateWeld(weld)` for each, removes failed welds (same logic as `kiwis-marbles/Mod.cs` `OnAfterUi`). Must run every frame even when hidden.
@@ -408,18 +408,18 @@ internal interface IGrantSubmod
 
 ### Task 8: Create `SkittlesSubmod`
 
-**Goal:** Implement the Skittles theme manager submod panel for grant.
+**Goal:** Implement the Skittles theme manager submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/SkittlesSubmod.cs`
+- `unscience/Submods/SkittlesSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `skittles.lib` → `ThemeManager`, `ThemeEntry`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Skittles — Theme Manager"`
-- `Initialize()` — creates `ThemeManager`, calls `Initialize()`, finds initial theme index. **Exposes `HasFocusedTextInput` bool** for the grant Patcher's hotkey blocking patch.
+- `Initialize()` — creates `ThemeManager`, calls `Initialize()`, finds initial theme index. **Exposes `HasFocusedTextInput` bool** for the unscience Patcher's hotkey blocking patch.
 - `Update(dt)` — no-op
 - `RenderContent()` — replicates the ImGui content from BOTH `skittles/Mod.cs` `RenderMainWindow()` content (the main theme picker) without `ImGui.Begin`/`ImGui.End`. Specifically:
   - Green header + "Global Theme Manager" disabled text
@@ -444,7 +444,7 @@ internal interface IGrantSubmod
 **Private methods to replicate:**
 - `UpdateSelectedIndex()`, `FindThemeIndex()`
 
-**Important:** The `HasFocusedTextInput` bool must be accessible from the grant Patcher for the `GameSettings.OnKeyAll` patch. Set it per-frame during render.
+**Important:** The `HasFocusedTextInput` bool must be accessible from the unscience Patcher for the `GameSettings.OnKeyAll` patch. Set it per-frame during render.
 
 **Acceptance criteria:**
 - Theme picker works inside collapsible header
@@ -455,17 +455,17 @@ internal interface IGrantSubmod
 
 ### Task 9: Create `UnladenSwallowSubmod`
 
-**Goal:** Implement the Unladen Swallow HTTP RPC server submod panel for grant.
+**Goal:** Implement the Unladen Swallow HTTP RPC server submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/UnladenSwallowSubmod.cs`
+- `unscience/Submods/UnladenSwallowSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `unladen-swallow.lib` → `SwallowServer`
 - `ksa-abstractions.lib` → `GameThread`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Unladen Swallow"`
 - `Initialize()` — creates `SwallowServer` instance
 - `Update(dt)` — calls `GameThread.DrainOnGameThread()` every frame (required for HTTP→game-thread scheduling)
@@ -490,17 +490,17 @@ internal interface IGrantSubmod
 
 ### Task 10: Create `ZippoSubmod`
 
-**Goal:** Implement the Zippo light control submod panel for grant.
+**Goal:** Implement the Zippo light control submod panel for unscience.
 
 **Files to create:**
-- `grant/Submods/ZippoSubmod.cs`
+- `unscience/Submods/ZippoSubmod.cs`
 
 **Dependencies (already exist, no changes needed):**
 - `zippo.lib` → `LightController`
 - `ksa-abstractions.lib` → `VehicleProvider`
 
 **What this class does:**
-- Implements `IGrantSubmod`
+- Implements `IUnscienceSubmod`
 - `Name` = `"Zippo — Light Control"`
 - `Initialize()` — no-op
 - `Update(dt)` — no-op
@@ -531,21 +531,21 @@ internal interface IGrantSubmod
 - `RefreshVehicles()`, `ClearLightParts()`, `RebuildLightParts()`, `OnPartSelected()`
 
 **Acceptance criteria:**
-- Compiles with grant project
+- Compiles with unscience project
 - Light control works for selected vehicle/part
 
 ---
 
-### Task 11: Update `grant/Patcher.cs` — Consolidate All Harmony Patches
+### Task 11: Update `unscience/Patcher.cs` — Consolidate All Harmony Patches
 
-**Goal:** Merge all necessary Harmony patches from blinky, glass, i-feel-seen, and skittles into the grant Patcher.
+**Goal:** Merge all necessary Harmony patches from blinky, glass, i-feel-seen, and skittles into the unscience Patcher.
 
 **File to modify:**
-- `grant/Patcher.cs`
+- `unscience/Patcher.cs`
 
 **What to implement:**
 
-The Patcher uses a SINGLE Harmony instance `"MeowSci.Grant"` and consolidates these patches:
+The Patcher uses a SINGLE Harmony instance `"MeowSci.Unscience"` and consolidates these patches:
 
 1. **Blinky render-skip patches** (from `blinky/Patcher.cs`):
    - `PartModelModule.UpdateRenderData` prefix — skip `pixel_*` parts
@@ -603,12 +603,12 @@ internal static class Patcher
 
 ---
 
-### Task 12: Update `grant/grant.csproj` — Add Missing Project References
+### Task 12: Update `unscience/unscience.csproj` — Add Missing Project References
 
 **Goal:** Add project references for all `.lib` projects needed by the new submods.
 
 **File to modify:**
-- `grant/grant.csproj`
+- `unscience/unscience.csproj`
 
 **Current references (already present):**
 - `average-twr.lib`
@@ -644,18 +644,18 @@ internal static class Patcher
 
 ---
 
-### Task 13: Rewrite `grant/Mod.cs` — Main Supermod Orchestrator
+### Task 13: Rewrite `unscience/Mod.cs` — Main Supermod Orchestrator
 
-**Goal:** Rewrite the grant Mod.cs to be the supermod orchestrator that manages all submods and the unified ImGui window.
+**Goal:** Rewrite the unscience Mod.cs to be the supermod orchestrator that manages all submods and the unified ImGui window.
 
 **File to modify:**
-- `grant/Mod.cs`
+- `unscience/Mod.cs`
 
 **What this class does:**
 
 1. **Fields:**
-   - `List<IGrantSubmod> _submods` — ordered list of all submod instances
-   - `Dictionary<string, bool> _submodVisibility` — tracks which submods are shown (keyed by `IGrantSubmod.Name`)
+   - `List<IUnscienceSubmod> _submods` — ordered list of all submod instances
+   - `Dictionary<string, bool> _submodVisibility` — tracks which submods are shown (keyed by `IUnscienceSubmod.Name`)
    - `bool _windowVisible` — F11 toggle for main window
    - `bool _isInitialized`, `bool _isDisposed`
 
@@ -687,12 +687,12 @@ internal static class Patcher
 
 5. **`RenderWindow()`:**
    - `ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver)`
-   - `ImGui.Begin("grant Mod", ref _windowVisible)`
-   - Render header: `"grant"` in green + separator
+   - `ImGui.Begin("unscience Mod", ref _windowVisible)`
+   - Render header: `"unscience"` in green + separator
    - **Context menu button** (top-right corner):
      - Use `ImGui.GetWindowWidth()` and `ImGui.SetCursorPosX()` to position a `[⚙]` button in the top-right
-     - On click: `ImGui.OpenPopup("##grant_context")`
-     - In `ImGui.BeginPopup("##grant_context")`:
+     - On click: `ImGui.OpenPopup("##unscience_context")`
+     - In `ImGui.BeginPopup("##unscience_context")`:
        - For each submod: `ImGui.MenuItem(submod.Name, "", ref visible)` where `visible` is `_submodVisibility[submod.Name]`
      - `ImGui.EndPopup()`
    - **Submod content rendering:**
@@ -718,27 +718,27 @@ internal static class Patcher
 
 ### Task 14: Update Standalone Mods to Reuse `.lib` Logic (Optional/Future)
 
-**Goal:** Refactor the standalone mod projects (average-twr, blinky, etc.) so their Mod.cs files become thin wrappers that reuse the same `.lib` types — eliminating duplication. This is a housekeeping step and is **lower priority** than getting grant working.
+**Goal:** Refactor the standalone mod projects (average-twr, blinky, etc.) so their Mod.cs files become thin wrappers that reuse the same `.lib` types — eliminating duplication. This is a housekeeping step and is **lower priority** than getting unscience working.
 
-**This task is informational only — it does NOT need to be done as part of the initial grant unification.** The standalone mods already work and reference their `.lib` projects. The main risk of NOT doing this is divergent ImGui code, but since the `.lib` business logic is shared, this is cosmetic.
+**This task is informational only — it does NOT need to be done as part of the initial unscience unification.** The standalone mods already work and reference their `.lib` projects. The main risk of NOT doing this is divergent ImGui code, but since the `.lib` business logic is shared, this is cosmetic.
 
 If done later, each standalone mod's Mod.cs would be simplified to create its own `XxxSubmod` instance, call `Initialize()` / `Update(dt)` / `RenderContent()` (wrapped in `ImGui.Begin`/`End`), and `Dispose()`.
 
 ---
 
-### Task 15: Update `grant/README.md`
+### Task 15: Update `unscience/README.md`
 
-**Goal:** Update the grant README to document the supermod functionality.
+**Goal:** Update the unscience README to document the supermod functionality.
 
 **File to modify:**
-- `grant/README.md`
+- `unscience/README.md`
 
 **Content to write:**
-- Brief description of grant as a unified supermod
+- Brief description of unscience as a unified supermod
 - List of all 10 included submods with one-line descriptions
 - F11 toggle, context menu usage
 - Note that each submod's behavior matches its standalone counterpart
-- Architecture notes (IGrantSubmod interface, submod files in `grant/Submods/`)
+- Architecture notes (IUnscienceSubmod interface, submod files in `unscience/Submods/`)
 - Dependencies (all `.lib` projects + ksa-abstractions.lib)
 
 **Acceptance criteria:**
@@ -748,18 +748,18 @@ If done later, each standalone mod's Mod.cs would be simplified to create its ow
 
 ### Task 16: Update `REPOSITORY_INDEX.md`
 
-**Goal:** Update the repository index to reflect that grant is now a unified supermod.
+**Goal:** Update the repository index to reflect that unscience is now a unified supermod.
 
 **File to modify:**
 - `REPOSITORY_INDEX.md`
 
 **Changes:**
-- Update the grant section description from "Minimal Template Mod" to "Unified Supermod" with description of all included submod functionality
+- Update the unscience section description from "Minimal Template Mod" to "Unified Supermod" with description of all included submod functionality
 - Mention that standalone mods still work independently
 - List all `.lib` dependencies
 
 **Acceptance criteria:**
-- REPOSITORY_INDEX accurately reflects the new grant supermod
+- REPOSITORY_INDEX accurately reflects the new unscience supermod
 
 ---
 
@@ -773,7 +773,7 @@ If done later, each standalone mod's Mod.cs would be simplified to create its ow
 3. Verify no regressions in standalone mod compilation
 
 **Acceptance criteria:**
-- `dotnet build` succeeds with 0 errors for the grant project
+- `dotnet build` succeeds with 0 errors for the unscience project
 - All other projects in the solution continue to compile cleanly
 
 ---
@@ -782,13 +782,13 @@ If done later, each standalone mod's Mod.cs would be simplified to create its ow
 
 Tasks can be executed in this suggested order, though Tasks 1–10 are independent of each other and can be done in any order:
 
-1. **Task 0** — Define `IGrantSubmod` interface
-2. **Task 12** — Update `grant.csproj` with all `.lib` references
+1. **Task 0** — Define `IUnscienceSubmod` interface
+2. **Task 12** — Update `unscience.csproj` with all `.lib` references
 3. **Tasks 1–10** — Create all submod implementations (independent, any order)
 4. **Task 11** — Consolidate Patcher.cs with all Harmony patches
 5. **Task 13** — Rewrite Mod.cs as orchestrator
 6. **Task 17** — Build and verify compilation
-7. **Task 15** — Update grant/README.md
+7. **Task 15** — Update unscience/README.md
 8. **Task 16** — Update REPOSITORY_INDEX.md
 9. **Task 14** — (Optional/Future) Refactor standalone mods
 
@@ -796,19 +796,19 @@ Tasks can be executed in this suggested order, though Tasks 1–10 are independe
 
 | File | Action | Task |
 |------|--------|------|
-| `grant/IGrantSubmod.cs` | Create | 0 |
-| `grant/Submods/AverageTwrSubmod.cs` | Create | 1 |
-| `grant/Submods/BlinkySubmod.cs` | Create | 2 |
-| `grant/Submods/EternalFlameSubmod.cs` | Create | 3 |
-| `grant/Submods/GarrysTorchSubmod.cs` | Create | 4 |
-| `grant/Submods/GlassSubmod.cs` | Create | 5 |
-| `grant/Submods/IFeelSeenSubmod.cs` | Create | 6 |
-| `grant/Submods/KiwisMarblesSubmod.cs` | Create | 7 |
-| `grant/Submods/SkittlesSubmod.cs` | Create | 8 |
-| `grant/Submods/UnladenSwallowSubmod.cs` | Create | 9 |
-| `grant/Submods/ZippoSubmod.cs` | Create | 10 |
-| `grant/Patcher.cs` | Rewrite | 11 |
-| `grant/grant.csproj` | Modify | 12 |
-| `grant/Mod.cs` | Rewrite | 13 |
-| `grant/README.md` | Rewrite | 15 |
+| `unscience/IUnscienceSubmod.cs` | Create | 0 |
+| `unscience/Submods/AverageTwrSubmod.cs` | Create | 1 |
+| `unscience/Submods/BlinkySubmod.cs` | Create | 2 |
+| `unscience/Submods/EternalFlameSubmod.cs` | Create | 3 |
+| `unscience/Submods/GarrysTorchSubmod.cs` | Create | 4 |
+| `unscience/Submods/GlassSubmod.cs` | Create | 5 |
+| `unscience/Submods/IFeelSeenSubmod.cs` | Create | 6 |
+| `unscience/Submods/KiwisMarblesSubmod.cs` | Create | 7 |
+| `unscience/Submods/SkittlesSubmod.cs` | Create | 8 |
+| `unscience/Submods/UnladenSwallowSubmod.cs` | Create | 9 |
+| `unscience/Submods/ZippoSubmod.cs` | Create | 10 |
+| `unscience/Patcher.cs` | Rewrite | 11 |
+| `unscience/unscience.csproj` | Modify | 12 |
+| `unscience/Mod.cs` | Rewrite | 13 |
+| `unscience/README.md` | Rewrite | 15 |
 | `REPOSITORY_INDEX.md` | Modify | 16 |

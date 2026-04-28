@@ -13,7 +13,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `ReflectionHelpers` — utility for safe field/property access via reflection
 - `PartHelpers` — recursive part tree helpers
 - `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
-- `ISubmod` — generic submod interface used by grant supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
+- `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
 
@@ -38,7 +38,7 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Rotation lock toggle and auto-unweld on parent mismatch
 - Weld updates run from a Harmony prefix on `Universe.ExecuteNextVehicleSolvers`, before KSA queues vehicle solver jobs; this avoids refactored physics-loop kinematic/analytic state races
 - Multiple simultaneous welds with topological sort for correct ordering
-- User-defined presets persisted to TOML (`~/.iryr/garrys-torch-presets.toml`)
+- User-defined presets persisted to TOML (`~/.unscience/garrys-torch-presets.toml`)
 - Save weld settings as named presets, load presets into create form
 - ImGui control panel with filterable combos and bordered weld sections
 - **Animation system**: Smooth interpolation of weld position/rotation/scale with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
@@ -248,8 +248,8 @@ Programmatic kitten spawning with per-kitten GPU material customization. Spawns 
 - Individual despawn or despawn-all management
 - Spawned kitten registry with full tracking
 - F8 ImGui window with vehicle/character combos (filterable), color picker, kitten list table
-- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking), `DohSubmod` (ISubmod for grant integration). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
-- **Grant integration**: DOH is available as a submod in the grant supermod via `DohSubmod`.
+- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking), `DohSubmod` (ISubmod for unscience integration). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
+- **Unscience integration**: DOH is available as a submod in the unscience supermod via `DohSubmod`.
 
 ---
 
@@ -261,7 +261,7 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 - **Kitten Color**: Tints character models (fur, glass, eyes) by writing AlbedoColor to the `GpuMaterialSystem.BigBuffer` via Vulkan staged uploads. Only affects `ModelPbr.frag` path — vehicle parts are unaffected.
 - **Engine Emissive**: Per-engine Temperature/TFI override via Harmony prefix on `PartModelDynamic.AddInstance()`. No shader modifications needed — uses the game's existing emissive color LUT.
 - F11 window toggle (standalone mode)
-- Grant supermod integration via `ISubmod`: `VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`
+- Unscience supermod integration via `ISubmod`: `VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`
 - Harmony patches: `VehiclePaintPatches` (PartModel.AddInstance), `EngineEmissivePatches` (PartModelDynamic.AddInstance)
 - Experiments directory with Phase 0 feasibility validation tests
 - **humble-arteest.lib**: `VehiclePaint` (shader swap + paint state), `VehiclePaintPatches`, `VehiclePaintSubmod`, `KittenColor` (GPU buffer writes), `KittenColorSubmod`, `EngineEmissive` (temperature state), `EngineEmissivePatches`, `EngineEmissiveSubmod`
@@ -270,13 +270,13 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 
 ## Unified Supermod
 
-### [grant](grant)
-Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — grant instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
+### [unscience](unscience)
+Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
 - Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Space Tape, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
-- `grant/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
+- `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
 - References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, space-tape.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
@@ -299,7 +299,7 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
 - Owns SubPart thumbnail generation and cache
 - Thumbnail rendering quietly restores KSA camera follow/control state without emitting `Following ...` timed alerts
-- Grant panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
+- Unscience panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
 - Load SubParts modal with generation controls (Images per SubPart, image size, Generate/Re-generate, generation progress)
 - Dedicated SubParts floating window tied to Part Editor lifecycle
 - SubParts window view controls: grid/list mode toggle, thumbnail size, animation delay, filter, and large viewer toggle
@@ -333,7 +333,7 @@ Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part
 - Runtime hinge control — open/close/reset buttons, manual angle slider, animated rotation via `Part.Asmb2ParentAsmb`
 - 3D editor scene with camera snaps, lighting, hover/select interaction (reuses space-tape patterns)
 - Live preview — rotate Parts in the editor to verify hinge axis and range before saving
-- Grant integration as ISubmod with runtime panel and floating editor window
+- Unscience integration as ISubmod with runtime panel and floating editor window
 - **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`
 
 ---

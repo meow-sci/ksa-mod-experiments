@@ -20,7 +20,7 @@ public sealed class PresetManager
 
     public PresetManager()
     {
-        _configDir = Path.Combine(KsaPaths.UserDataDir, ".iryr");
+        _configDir = Path.Combine(KsaPaths.UserDataDir, ".unscience");
         _filePath = Path.Combine(_configDir, "garrys-torch-presets.toml");
     }
 

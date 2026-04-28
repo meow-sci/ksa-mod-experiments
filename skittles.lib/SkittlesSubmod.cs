@@ -171,7 +171,7 @@ public sealed class SkittlesSubmod : ISubmod
                     if (ImGui.Button($"Save \"{activeEntry!.Name}\"##sk"))
                     {
                         _themeManager.SaveCurrentAsTheme(activeEntry.Name);
-                        Console.WriteLine($"grant/skittles: Saved theme '{activeEntry.Name}'");
+                        Console.WriteLine($"unscience/skittles: Saved theme '{activeEntry.Name}'");
                         UpdateSelectedIndex();
                     }
                     ImGui.SameLine();
@@ -205,7 +205,7 @@ public sealed class SkittlesSubmod : ISubmod
                 if (ImGui.Button("Save##sk_save"))
                 {
                     _themeManager.SaveCurrentAsTheme(nameStr);
-                    Console.WriteLine($"grant/skittles: Saved theme '{nameStr}'");
+                    Console.WriteLine($"unscience/skittles: Saved theme '{nameStr}'");
                     _showSaveInput = false;
                     _themeNameInput.Clear();
                     UpdateSelectedIndex();

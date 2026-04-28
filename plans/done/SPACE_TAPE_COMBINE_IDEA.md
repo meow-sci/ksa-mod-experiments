@@ -13,7 +13,7 @@ research the current mods and make a detailed implementation plan into plans/SPA
 the things I want to do are:
 
 - move the inanimate-carbon-rod functionality into space-tape (bring over the generate)
-- change the Space Tape Grant Submod UI to just be:
+- change the Space Tape Unscience Submod UI to just be:
   - "Load SubParts" button (see next for functionality)
   - "Open Part Editor" (change to "Close Part Editor" while it's open)
 - change the space-tape Load SubParts button to open a modal which contains the inanimate-carbon-rod Generator collapsible header functionality: Images Per SubPart, image size

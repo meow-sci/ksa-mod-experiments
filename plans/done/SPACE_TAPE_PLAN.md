@@ -4,14 +4,14 @@
 
 **Space Tape** is a Part editor mod for KSA that lets players compose new Parts from existing SubParts. SubParts are the atomic meshes in KSA (panels, screws, pipes, hinges, switches, etc.), and Parts are arrangements of SubParts with position/rotation/scale transforms. Today there is no in-game tooling for authoring Parts — they are hand-written in XML. Space Tape fills that gap.
 
-The editor will be integrated into the **grant supermod** as a new `ISubmod`, following the same lifecycle and UI patterns as existing submods. It will render SubParts in an isolated 3D editing space (far from any celestials), provide 3D gizmos for translation/rotation/scale, ImGui panels for precise numeric input, a SubPart catalog with thumbnail browsing, and output saved Part definitions as standard KSA mod XML files that the game auto-loads on next start.
+The editor will be integrated into the **unscience supermod** as a new `ISubmod`, following the same lifecycle and UI patterns as existing submods. It will render SubParts in an isolated 3D editing space (far from any celestials), provide 3D gizmos for translation/rotation/scale, ImGui panels for precise numeric input, a SubPart catalog with thumbnail browsing, and output saved Part definitions as standard KSA mod XML files that the game auto-loads on next start.
 
 ---
 
 ## Architecture Summary
 
 ```
-grant/Mod.cs
+unscience/Mod.cs
   └─ _submods.Add(new SpaceTapeSubmod())
 
 space-tape.lib/                          # Core library
@@ -51,7 +51,7 @@ space-tape.lib/                          # Core library
 
 #### Task 1.1 — Create `space-tape.lib` project scaffold
 
-**Goal:** Create the .lib project, ISubmod implementation, and register it in grant. After this task, `dotnet build` succeeds and "Space Tape" appears in Grant's Toolbox.
+**Goal:** Create the .lib project, ISubmod implementation, and register it in unscience. After this task, `dotnet build` succeeds and "Space Tape" appears in Unscience's Toolbox.
 
 **Files to create:**
 
@@ -95,12 +95,12 @@ space-tape.lib/                          # Core library
 
 **Files to modify:**
 
-3. **`grant/grant.csproj`** — Add a new `<ProjectReference>` line in the existing `<ItemGroup>` that contains all the other .lib references (see lines 83-103 of grant.csproj):
+3. **`unscience/unscience.csproj`** — Add a new `<ProjectReference>` line in the existing `<ItemGroup>` that contains all the other .lib references (see lines 83-103 of unscience.csproj):
    ```xml
    <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
    ```
 
-4. **`grant/Mod.cs`** — Two changes:
+4. **`unscience/Mod.cs`** — Two changes:
    - Add `using MeowSci.SpaceTapeLib;` to the using block (after the existing `using MeowSci.*` lines, ~line 24)
    - Add `_submods.Add(new SpaceTapeSubmod());` in `OnFullyLoaded()` after the existing submod registrations (~line 75, after the ZippoSubmod line)
 
@@ -187,7 +187,7 @@ space-tape.lib/                          # Core library
    }
    ```
 
-**Validation:** `dotnet build` succeeds. The SubPart catalog appears in the Space Tape section of Grant's Toolbox with thumbnail generation capability.
+**Validation:** `dotnet build` succeeds. The SubPart catalog appears in the Space Tape section of Unscience's Toolbox with thumbnail generation capability.
 
 ---
 
@@ -991,7 +991,7 @@ _controller.SelectedPlacement.Position = placementPos;
 
 This is the main UI file. It should contain all the ImGui rendering for the editor (called from `SpaceTapeSubmod.RenderFloatingWindows()`).
 
-**Window structure** — The editor UI should be a floating window (rendered in `RenderFloatingWindows()`, NOT in `RenderContent()`). This ensures it stays visible even when the Grant Toolbox's Space Tape section is collapsed.
+**Window structure** — The editor UI should be a floating window (rendered in `RenderFloatingWindows()`, NOT in `RenderContent()`). This ensures it stays visible even when the Unscience Toolbox's Space Tape section is collapsed.
 
 ```csharp
 public sealed class PartEditorUi
@@ -1482,7 +1482,7 @@ void HandleKeyboardShortcuts(PartEditorController controller, PartEditorGizmos g
 }
 ```
 
-**Note:** The HotkeyGuard from ksa-abstractions blocks game hotkeys when typing in ImGui text inputs. This is already applied by grant's Patcher.cs. However, when NOT in a text input, these shortcuts may conflict with game hotkeys. Consider only processing shortcuts when the editor window is focused: `ImGui.IsWindowFocused(ImGuiFocusedFlags.ChildWindows)`.
+**Note:** The HotkeyGuard from ksa-abstractions blocks game hotkeys when typing in ImGui text inputs. This is already applied by unscience's Patcher.cs. However, when NOT in a text input, these shortcuts may conflict with game hotkeys. Consider only processing shortcuts when the editor window is focused: `ImGui.IsWindowFocused(ImGuiFocusedFlags.ChildWindows)`.
 
 **Validation:** `dotnet build` succeeds.
 
@@ -1571,7 +1571,7 @@ space-tape.lib/
   │              GenericGizmo, VehicleEditingSpace, ModLibrary, MeshReference, Camera,
   │              Viewport, Program, Universe, CameraMode, OrbitView, PartTree, Ray, etc.)
   │
-grant/
-  ├─ References: space-tape.lib (ProjectReference in grant.csproj)
+unscience/
+  ├─ References: space-tape.lib (ProjectReference in unscience.csproj)
   └─ Registers SpaceTapeSubmod in Mod.cs OnFullyLoaded()
 ```

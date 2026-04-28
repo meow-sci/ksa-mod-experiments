@@ -54,7 +54,7 @@ public class GForceSample
 Static methods for graph rendering and UI state management.
 
 **Methods**:
-- `RenderContent(GForceRecorder recorder, double sampleIntervalSec)` - Renders ImGui content without Begin/End window framing (used by `GeeForceSubmod` and embeddable in grant)
+- `RenderContent(GForceRecorder recorder, double sampleIntervalSec)` - Renders ImGui content without Begin/End window framing (used by `GeeForceSubmod` and embeddable in unscience)
 - `Render(ref bool visible, GForceRecorder recorder, double sampleIntervalSec)` - Full standalone window with Begin/End (legacy; calls RenderContent internally)
 - `GetRequiredCapacity(double sampleIntervalSec)` - Calculates buffer capacity for the current history window
 - `GetSelectedHistorySeconds()` - Returns currently selected history duration
@@ -66,7 +66,7 @@ ISubmod implementation that owns the sampling loop and delegates rendering to GF
 - Implements `ISubmod` (from `ksa-abstractions.lib`): `Name="G-Force Monitor"`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Owns the fixed 40Hz accumulator/sampling loop in `Update(dt)`
 - `RenderContent()` calls `GForceUI.RenderContent()` — no window framing
-- Used standalone via `geeforce/Mod.cs` (which wraps it in its own ImGui window) and embedded in grant's collapsible header
+- Used standalone via `geeforce/Mod.cs` (which wraps it in its own ImGui window) and embedded in unscience's collapsible header
 
 ### Sampling Details
 

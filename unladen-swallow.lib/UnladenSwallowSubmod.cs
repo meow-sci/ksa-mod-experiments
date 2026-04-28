@@ -51,7 +51,7 @@ public sealed class UnladenSwallowSubmod : ISubmod
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"grant/unladen-swallow: Failed to start server: {ex.Message}");
+                        Console.WriteLine($"unscience/unladen-swallow: Failed to start server: {ex.Message}");
                         _serverEnabled = false;
                     }
                 }
@@ -63,7 +63,7 @@ public sealed class UnladenSwallowSubmod : ISubmod
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"grant/unladen-swallow: Failed to stop server: {ex.Message}");
+                        Console.WriteLine($"unscience/unladen-swallow: Failed to stop server: {ex.Message}");
                     }
                 }
             }
@@ -130,7 +130,7 @@ public sealed class UnladenSwallowSubmod : ISubmod
         if (_server is not null && _server.IsRunning)
         {
             try { _server.StopAsync().GetAwaiter().GetResult(); }
-            catch (Exception ex) { Console.WriteLine($"grant/unladen-swallow: Error stopping server: {ex.Message}"); }
+            catch (Exception ex) { Console.WriteLine($"unscience/unladen-swallow: Error stopping server: {ex.Message}"); }
         }
     }
 }

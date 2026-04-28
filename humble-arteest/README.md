@@ -12,6 +12,6 @@ Standalone KSA mod providing visual customization features. Toggle with F11.
 
 See [humble-arteest.lib/README.md](../humble-arteest.lib/README.md) for comprehensive technical documentation including shader modification details, struct layouts, rendering pipeline analysis, and maintenance guidance.
 
-## Grant Integration
+## Unscience Integration
 
-All features are also available as submods in the grant supermod via `humble-arteest.lib`.
+All features are also available as submods in the unscience supermod via `humble-arteest.lib`.

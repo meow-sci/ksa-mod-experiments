@@ -65,7 +65,7 @@ public class WeldEntry
 Data container for preset weld configuration (position, rotation, scale, lock rotation).
 
 #### PresetManager
-Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/.iryr/garrys-torch-presets.toml`.
+Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/.unscience/garrys-torch-presets.toml`.
 - Load/save/delete named presets
 - Cached preset name list for UI performance
 - TOML format via Tomlyn library

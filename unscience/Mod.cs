@@ -25,7 +25,7 @@ using MeowSci.SpaceTapeLib;
 using MeowSci.FlexoLib;
 using MeowSci.KitchenSinkLib;
 
-namespace MeowSci.Grant;
+namespace MeowSci.Unscience;
 
 [StarMapMod]
 public class Mod
@@ -86,15 +86,15 @@ public class Mod
             }
 
             // Restore persisted state
-            GrantState.LoadImGuiWindowState();
-            var (savedHeaders, savedVisibility) = GrantState.LoadSubmodState();
+            UnscienceState.LoadImGuiWindowState();
+            var (savedHeaders, savedVisibility) = UnscienceState.LoadSubmodState();
             foreach (var kvp in savedHeaders)
                 _headerOpen[kvp.Key] = kvp.Value;
             foreach (var kvp in savedVisibility)
                 if (_submodVisibility.ContainsKey(kvp.Key))
                     _submodVisibility[kvp.Key] = kvp.Value;
-            _autoSaveEnabled = GrantState.AutoSaveEnabled;
-            _showModTooltips = GrantState.ShowModTooltips;
+            _autoSaveEnabled = UnscienceState.AutoSaveEnabled;
+            _showModTooltips = UnscienceState.ShowModTooltips;
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
@@ -105,11 +105,11 @@ public class Mod
             Patcher.Patch();
 
             _isInitialized = true;
-            Console.WriteLine($"grant: Initialized with {_submods.Count} submods");
+            Console.WriteLine($"unscience: Initialized with {_submods.Count} submods");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Error during initialization: {ex.Message}");
+            Console.WriteLine($"unscience: Error during initialization: {ex.Message}");
         }
     }
 
@@ -122,7 +122,7 @@ public class Mod
         foreach (var submod in _submods)
         {
             try { submod.Update(dt); }
-            catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: Update error: {ex.Message}"); }
+            catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: Update error: {ex.Message}"); }
         }
     }
 
@@ -143,7 +143,7 @@ public class Mod
                 if (_autoSaveEnabled)
                 {
                     _timeSinceLastSave += dt;
-                    if (_timeSinceLastSave >= GrantState.SaveIntervalSeconds)
+                    if (_timeSinceLastSave >= UnscienceState.SaveIntervalSeconds)
                     {
                         _timeSinceLastSave = 0;
                         SaveAll();
@@ -152,16 +152,16 @@ public class Mod
             }
 
             // Floating windows are always rendered so they remain visible when the
-            // grant window is hidden (e.g. while the Space Tape part editor is open).
+            // unscience window is hidden (e.g. while the Space Tape part editor is open).
             foreach (var submod in _submods)
             {
                 try { submod.RenderFloatingWindows(); }
-                catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Error in OnAfterUi: {ex.Message}");
+            Console.WriteLine($"unscience: Error in OnAfterUi: {ex.Message}");
         }
     }
 
@@ -176,7 +176,7 @@ public class Mod
             foreach (var submod in _submods)
             {
                 try { submod.Dispose(); }
-                catch (Exception ex) { Console.WriteLine($"grant/{submod.Name}: Dispose error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: Dispose error: {ex.Message}"); }
             }
 
             Patcher.Unload();
@@ -184,7 +184,7 @@ public class Mod
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Error during unload: {ex.Message}");
+            Console.WriteLine($"unscience: Error during unload: {ex.Message}");
         }
     }
 
@@ -192,7 +192,7 @@ public class Mod
     {
         ImGui.SetNextWindowSize(new float2(600, 800), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin("Grants Toolbox", ref _windowVisible, ImGuiWindowFlags.MenuBar))
+        if (ImGui.Begin("Unscience Toolbox", ref _windowVisible, ImGuiWindowFlags.MenuBar))
         {
             // Menu bar
             if (ImGui.BeginMenuBar())
@@ -210,7 +210,7 @@ public class Mod
                     ImGui.Separator();
 
                     if (ImGui.MenuItem("Submod Tooltips", "", ref _showModTooltips))
-                        GrantState.ShowModTooltips = _showModTooltips;
+                        UnscienceState.ShowModTooltips = _showModTooltips;
                     ImGui.Separator();
 
                     var sorted = new List<ISubmod>(_submods);
@@ -234,12 +234,12 @@ public class Mod
                 if (ImGui.BeginMenu("State"))
                 {
                     if (ImGui.MenuItem("Auto save enabled", "", ref _autoSaveEnabled))
-                        GrantState.AutoSaveEnabled = _autoSaveEnabled;
+                        UnscienceState.AutoSaveEnabled = _autoSaveEnabled;
 
                     ImGui.PushItemWidth(120f);
-                    int interval = GrantState.SaveIntervalSeconds;
+                    int interval = UnscienceState.SaveIntervalSeconds;
                     if (ImGui.DragInt("Auto-save interval (s)", ref interval, 1.0f, 1, 30))
-                        GrantState.SaveIntervalSeconds = interval;
+                        UnscienceState.SaveIntervalSeconds = interval;
                     ImGui.PopItemWidth();
 
                     if (ImGui.MenuItem("Save window state now"))
@@ -283,7 +283,7 @@ public class Mod
 
             // Close button
             ImGui.Spacing();
-            if (ImGui.Button("Close##grant"))
+            if (ImGui.Button("Close##unscience"))
                 _windowVisible = false;
         }
         ImGui.End();
@@ -291,8 +291,8 @@ public class Mod
 
     private void SaveAll()
     {
-        GrantState.SaveImGuiWindowState();
-        GrantState.SaveSubmodState(_headerOpen, _submodVisibility);
+        UnscienceState.SaveImGuiWindowState();
+        UnscienceState.SaveSubmodState(_headerOpen, _submodVisibility);
     }
 }
 

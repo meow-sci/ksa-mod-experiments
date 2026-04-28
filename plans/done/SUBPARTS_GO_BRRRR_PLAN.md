@@ -283,7 +283,7 @@ Find the method that creates the `ThumbnailReference` (look for the `ImageEx.Cre
 ### 1.5 — Testing
 
 1. Run `dotnet build` — must compile cleanly
-2. Launch KSA with the mod, open the Inanimate Carbon Rod window (F10 or F11 via Grant)
+2. Launch KSA with the mod, open the Inanimate Carbon Rod window (F10 or F11 via Unscience)
 3. Generate thumbnails at various resolutions (64, 128, 256, 512)
 4. Verify thumbnails display correctly in the grid — no black images, no visual artifacts
 5. Verify the SubpartViewerWindow works — open a subpart, verify all views render
@@ -919,7 +919,7 @@ Apply the same readback pattern: render → blit to LDR → CopyImageToBuffer �
 
 Two options:
 
-**(A) Keep `SubpartThumbnailCache` for backward compatibility but empty**: Other mods (`grant`) may reference `SubpartThumbnailCache.All` or `SubpartThumbnailCache.Get()`. If so, keep the type but have it return empty/null. Document that consumers should migrate to `CpuThumbnailCache`.
+**(A) Keep `SubpartThumbnailCache` for backward compatibility but empty**: Other mods (`unscience`) may reference `SubpartThumbnailCache.All` or `SubpartThumbnailCache.Get()`. If so, keep the type but have it return empty/null. Document that consumers should migrate to `CpuThumbnailCache`.
 
 **(B) Remove it entirely**: If no other mod currently uses it, simplify by removing.
 

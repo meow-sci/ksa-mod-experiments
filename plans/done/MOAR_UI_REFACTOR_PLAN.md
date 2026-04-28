@@ -14,7 +14,7 @@ SubmodUI.EndContentArea();
 `BeginContentArea` pushes `WindowPadding = float2(20, 20)`, opens a borderless
 auto-height child window, and pops the style var. `EndContentArea` adds a 20 px
 bottom dummy and closes the child. This guarantees uniform inset padding on every
-side for all submods rendered inside the Grant unified window.
+side for all submods rendered inside the Unscience unified window.
 
 This plan covers two layers of work for each non-conformant submod:
 1. **Conformance** — add the `SubmodUI` wrapper and remove ad-hoc padding substitutes.
@@ -109,7 +109,7 @@ before writing any ImGui code:
 2. Wrap the **entire body** of `RenderContent()` in
    `SubmodUI.BeginContentArea("##<short_id>")` … `SubmodUI.EndContentArea()`.
 3. **Remove** any manual padding substitutes that the convention now handles:
-   - Leading `ImGui.TextColored(...)` title headers (Grant collapsible header already labels the section).
+   - Leading `ImGui.TextColored(...)` title headers (Unscience collapsible header already labels the section).
    - Leading `ImGui.Separator()` / `ImGui.Spacing()` calls compensating for missing top padding.
    - `ImGui.Indent()` / `ImGui.Unindent()` pairs that exist only for indentation, not section grouping.
 4. **Keep** separators and spacing that logically divide content sections.
@@ -807,7 +807,7 @@ then a 2-column table for all per-light parameters:
 ## Verification Checklist (run after all 8 tasks are complete)
 
 - [ ] `dotnet build` from repo root produces zero errors and zero warnings introduced by these changes.
-- [ ] In the Grant supermod window, every refactored submod's collapsible section renders with consistent top, left, and right inset matching the conformant submods (Eternal Flame, Blinky, etc.).
+- [ ] In the Unscience supermod window, every refactored submod's collapsible section renders with consistent top, left, and right inset matching the conformant submods (Eternal Flame, Blinky, etc.).
 - [ ] No submod produces a visible nested child-window artifact or double-scroll.
 - [ ] Standalone mod versions are unaffected — the SubmodUI child window nests cleanly inside any parent `ImGui.Begin/End`.
 - [ ] `GForceUI.Render()` (standalone geeforce window) is visually unchanged.

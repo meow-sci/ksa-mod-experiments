@@ -20,7 +20,7 @@ Headless library providing programmatic kitten spawning and per-kitten GPU mater
 
 ### DohSubmod (`DohSubmod.cs`)
 
-- **`DohSubmod`** — `ISubmod` implementation for grant supermod integration. Encapsulates the full spawning UI (vehicle/character selection, offset, batch count, color picker, kitten list with live recoloring and despawn). Also used by standalone `doh/Mod.cs` to avoid code duplication.
+- **`DohSubmod`** — `ISubmod` implementation for unscience supermod integration. Encapsulates the full spawning UI (vehicle/character selection, offset, batch count, color picker, kitten list with live recoloring and despawn). Also used by standalone `doh/Mod.cs` to avoid code duplication.
 
 ### Spawning (`Spawning/`)
 

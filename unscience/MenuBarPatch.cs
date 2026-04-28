@@ -3,7 +3,7 @@ using Brutal.ImGuiApi;
 using HarmonyLib;
 using KSA;
 
-namespace MeowSci.Grant;
+namespace MeowSci.Unscience;
 
 [HarmonyPatch(typeof(Program), nameof(Program.DrawProgramMenusHook))]
 internal static class MenuBarPatch
@@ -13,7 +13,7 @@ internal static class MenuBarPatch
     public static void Apply(Harmony harmony)
     {
         harmony.CreateClassProcessor(typeof(MenuBarPatch)).Patch();
-        Console.WriteLine("grant: MenuBarPatch applied");
+        Console.WriteLine("unscience: MenuBarPatch applied");
     }
 
     public static void Remove(Harmony harmony)
@@ -27,7 +27,7 @@ internal static class MenuBarPatch
     [HarmonyPostfix]
     static void Postfix()
     {
-        if (ImGui.MenuItem("IRYR"))
+        if (ImGui.MenuItem("Unscience"))
             ToggleWindow?.Invoke();
     }
 }

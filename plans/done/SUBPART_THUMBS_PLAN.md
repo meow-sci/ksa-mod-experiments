@@ -2,7 +2,7 @@
 
 ## Overview
 
-`inanimate-carbon-rod` is a KSA mod + grant supermod submod that generates runtime GPU thumbnails
+`inanimate-carbon-rod` is a KSA mod + unscience supermod submod that generates runtime GPU thumbnails
 for subpart `PartTemplate` objects (those with `IsSubPart == true`) which the game skips by default.
 Thumbnails are stored in a static cache and displayable via ImGui anywhere in a mod UI.
 
@@ -658,7 +658,7 @@ public sealed class SubpartThumbnailGenerator
 **File**: `inanimate-carbon-rod.lib/InanimateCarbonRodSubmod.cs`
 
 **Goal**: The `ISubmod` that wires the generator and cache to an ImGui UI. This class is used by
-both the standalone mod and the grant supermod.
+both the standalone mod and the unscience supermod.
 
 **UI design**:
 - Status line (Idle / Generating / Done / Failed)
@@ -889,20 +889,20 @@ public class Mod
 
 ---
 
-### TASK 6 — Grant Supermod Integration
+### TASK 6 — Unscience Supermod Integration
 
-**Goal**: Register `inanimate-carbon-rod.lib` with the grant supermod so `InanimateCarbonRodSubmod`
-appears as a collapsible section in the grant window.
+**Goal**: Register `inanimate-carbon-rod.lib` with the unscience supermod so `InanimateCarbonRodSubmod`
+appears as a collapsible section in the unscience window.
 
 **Files to modify**:
 
-#### `grant/grant.csproj`
+#### `unscience/unscience.csproj`
 Add a `ProjectReference` to the lib (alongside existing .lib references):
 ```xml
 <ProjectReference Include="..\inanimate-carbon-rod.lib\inanimate-carbon-rod.lib.csproj" />
 ```
 
-#### `grant/Mod.cs`
+#### `unscience/Mod.cs`
 1. Add using at the top:
    ```csharp
    using MeowSci.InanimateCarbonRodLib;
@@ -913,10 +913,10 @@ Add a `ProjectReference` to the lib (alongside existing .lib references):
    var inanimateCarbonCarbonicRod = new InanimateCarbonRodSubmod();
    _submods.Add(inanimateCarbonCarbonicRod);
    ```
-   The rest of the grant initialization loop (`Initialize()`, `_submodVisibility` registration)
+   The rest of the unscience initialization loop (`Initialize()`, `_submodVisibility` registration)
    already handles all submods uniformly — no further changes needed.
 
-**⚠ Read `grant/Mod.cs` fully before editing** to understand where `_submods` is populated and
+**⚠ Read `unscience/Mod.cs` fully before editing** to understand where `_submods` is populated and
 what the exact pattern looks like — it has changed over time. Insert the new submod in the correct
 location.
 
@@ -959,6 +959,6 @@ location.
 | `decomp/ksa/KSA/PartInstance.cs` | InstanceOf field, GetTemplate() |
 | `decomp/ksa/KSA/Universe.cs` | CurrentSystem null check |
 | `decomp/ksa/KSA/VehicleEditor.cs` | Reference for how ImGui.ImageButton is used with ThumbnailReference (lines ~1412-1415) |
-| `grant/Mod.cs` | How submods are registered in the grant supermod |
+| `unscience/Mod.cs` | How submods are registered in the unscience supermod |
 | `ksa-abstractions.lib/ISubmod.cs` | Interface definition |
 | `zippo.lib/` | Simplest example of a mod.lib to compare against |

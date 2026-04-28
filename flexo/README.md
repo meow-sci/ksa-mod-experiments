@@ -1,6 +1,6 @@
 # Flexo — Robotics Mod
 
-Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime through the grant panel.
+Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime through the unscience panel.
 
 ## Features
 
@@ -16,8 +16,8 @@ Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Desig
 ### Standalone
 Press F11 to toggle the Flexo window.
 
-### Grant Integration
-The Flexo panel appears in Grant's Toolbox with runtime controls. The editor opens as a floating window.
+### Unscience Integration
+The Flexo panel appears in Unscience's Toolbox with runtime controls. The editor opens as a floating window.
 
 ### Editor Workflow
 
