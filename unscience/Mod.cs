@@ -42,7 +42,7 @@ public class Mod
     private bool _collapseAll;
     private bool _expandAll;
     private double _timeSinceLastSave;
-    private bool _autoSaveEnabled = false;
+    private bool _autoSaveEnabled = true;
     private bool _showModTooltips = true;
 
     [StarMapImmediateLoad]

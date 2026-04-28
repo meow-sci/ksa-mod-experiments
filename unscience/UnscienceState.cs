@@ -15,7 +15,7 @@ internal static class UnscienceState
     private const string StateTomlFile = "state.toml";
     private const string WindowName = "Unscience Toolbox";
     private const int DefaultSaveInterval = 5;
-    private const bool DefaultAutoSaveEnabled = false;
+    private const bool DefaultAutoSaveEnabled = true;
 
     private static readonly string _stateDir =
         Path.Combine(KsaPaths.UserDataDir, ".unscience");
