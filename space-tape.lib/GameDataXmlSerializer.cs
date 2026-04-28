@@ -22,8 +22,8 @@ public static class GameDataXmlSerializer
             el.Add(new XElement("CustomMass",
                 new XElement("Mass", new XAttribute("Kg", gameData.CustomMass.Value.ToString("G6")))));
 
-        if (gameData.Tank != null)
-            el.Add(new XElement("Tank", SerializeTank(gameData.Tank)));
+        foreach (var tank in gameData.Tanks)
+            el.Add(new XElement("Tank", SerializeTank(tank)));
 
         foreach (var battery in gameData.Batteries)
             el.Add(new XElement("Battery",

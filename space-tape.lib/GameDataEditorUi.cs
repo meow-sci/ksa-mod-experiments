@@ -16,71 +16,113 @@ public static class GameDataEditorUi
     private static int _selectedConnectorIndex = -1;
     private static readonly ImInputString _connectorIdInput = new ImInputString(64);
     private static string _lastConnectorId = "";
+
+    // Tank editor state
+    private static int _selectedTankIndex = -1;
     private static readonly ImInputString _tankMaterialInput = new ImInputString(128);
     private static string _lastTankMaterial = "";
 
     public static int SelectedConnectorIndex => _selectedConnectorIndex;
 
-    /// <summary>Renders the Tank section.</summary>
+    /// <summary>Renders the Tank section supporting multiple tanks.</summary>
     public static void RenderTankSection(PartGameDataState gd)
     {
-        bool hasTank = gd.Tank != null;
-        if (ImGui.Checkbox("Enable Tank##st_gd_tank_en", ref hasTank))
+        ImGui.SeparatorText($"Tanks ({gd.Tanks.Count})");
+
+        // Tank list
+        ImGui.BeginChild("##st_tank_list", new float2(0, 100),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY);
+        for (int i = 0; i < gd.Tanks.Count; i++)
         {
-            gd.Tank = hasTank ? new TankState() : null;
+            var t = gd.Tanks[i];
+            string label = t.Shape == TankShape.Cylindrical
+                ? $"[{i + 1}] Cylindrical  r={t.OuterRadiusM:G4} m  L={t.LengthM:G4} m"
+                : $"[{i + 1}] Spherical    r={t.OuterRadiusM:G4} m";
+            bool sel = _selectedTankIndex == i;
+            if (ImGui.Selectable($"{label}##st_tk{i}", sel))
+                _selectedTankIndex = sel ? -1 : i;
         }
+        if (gd.Tanks.Count == 0)
+            ImGui.TextDisabled("No tanks. Click + to add.");
+        ImGui.EndChild();
 
-        if (gd.Tank == null) return;
-        var tank = gd.Tank;
-
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        if (ImGui.BeginTable("##st_tank_tbl", 2,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+        if (ImGui.SmallButton(" + Tank ##st_tk_add"))
         {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 330f);
-            ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 1f);
-
-            // Shape row
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Shape");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            int shapeIdx = (int)tank.Shape;
-            if (ImGui.Combo("##st_tank_shape", ref shapeIdx, "Cylindrical\0Spherical\0"))
-                tank.Shape = (TankShape)shapeIdx;
-
-            // Material ID row -- sync input buffer when tank changes
-            if (tank.WallMaterialId != _lastTankMaterial)
-            {
-                _tankMaterialInput.SetValue(tank.WallMaterialId.AsSpan());
-                _lastTankMaterial = tank.WallMaterialId;
-            }
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Material");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            if (ImGui.InputText("##st_tank_mat", _tankMaterialInput))
-            {
-                tank.WallMaterialId = _tankMaterialInput.ToString();
-                _lastTankMaterial = tank.WallMaterialId;
-            }
-
-            if (tank.Shape == TankShape.Cylindrical)
-            {
-                double length = tank.LengthM;
-                TableInputDouble("Length (m)", "##st_tank_len", ref length, 0.1);
-                tank.LengthM = length;
-            }
-
-            double outerR = tank.OuterRadiusM;
-            TableInputDouble("Outer Radius (m)", "##st_tank_or", ref outerR, 0.01);
-            tank.OuterRadiusM = outerR;
-
-            double wallT = tank.WallThicknessMm;
-            TableInputDouble("Wall Thick (mm)", "##st_tank_wt", ref wallT, 0.1);
-            tank.WallThicknessMm = wallT;
-
-            ImGui.EndTable();
+            gd.Tanks.Add(new TankState());
+            _selectedTankIndex = gd.Tanks.Count - 1;
         }
-        ImGui.PopStyleVar();
+        ImGui.SameLine();
+        bool canRemoveTank = _selectedTankIndex >= 0 && _selectedTankIndex < gd.Tanks.Count;
+        if (!canRemoveTank) ImGui.BeginDisabled();
+        if (ImGui.SmallButton(" - Remove ##st_tk_rm") && canRemoveTank)
+        {
+            gd.Tanks.RemoveAt(_selectedTankIndex);
+            if (_selectedTankIndex >= gd.Tanks.Count)
+                _selectedTankIndex = gd.Tanks.Count - 1;
+            _lastTankMaterial = "";
+        }
+        if (!canRemoveTank) ImGui.EndDisabled();
+
+        // Detail editor for selected tank
+        if (_selectedTankIndex >= 0 && _selectedTankIndex < gd.Tanks.Count)
+        {
+            var tank = gd.Tanks[_selectedTankIndex];
+
+            ImGui.Spacing();
+            ImGui.SeparatorText($"Tank {_selectedTankIndex + 1}");
+
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable("##st_tank_tbl", 2,
+                ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+            {
+                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 330f);
+                ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 1f);
+
+                // Shape row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Shape");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+                int shapeIdx = (int)tank.Shape;
+                if (ImGui.Combo("##st_tank_shape", ref shapeIdx, "Cylindrical\0Spherical\0"))
+                {
+                    tank.Shape = (TankShape)shapeIdx;
+                    _lastTankMaterial = "";  // force buffer resync if tank identity changes
+                }
+
+                // Material ID row
+                if (tank.WallMaterialId != _lastTankMaterial)
+                {
+                    _tankMaterialInput.SetValue(tank.WallMaterialId.AsSpan());
+                    _lastTankMaterial = tank.WallMaterialId;
+                }
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Material");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+                if (ImGui.InputText("##st_tank_mat", _tankMaterialInput))
+                {
+                    tank.WallMaterialId = _tankMaterialInput.ToString();
+                    _lastTankMaterial = tank.WallMaterialId;
+                }
+
+                if (tank.Shape == TankShape.Cylindrical)
+                {
+                    double length = tank.LengthM;
+                    TableInputDouble("Length (m)", "##st_tank_len", ref length, 0.1);
+                    tank.LengthM = length;
+                }
+
+                double outerR = tank.OuterRadiusM;
+                TableInputDouble("Outer Radius (m)", "##st_tank_or", ref outerR, 0.01);
+                tank.OuterRadiusM = outerR;
+
+                double wallT = tank.WallThicknessMm;
+                TableInputDouble("Wall Thick (mm)", "##st_tank_wt", ref wallT, 0.1);
+                tank.WallThicknessMm = wallT;
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar();
+        }
     }
 
     /// <summary>Renders the Power section (Batteries, Generators, PowerConsumers).</summary>

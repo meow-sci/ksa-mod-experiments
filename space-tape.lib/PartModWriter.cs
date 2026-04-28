@@ -234,31 +234,32 @@ public sealed class PartModWriter
         if (massEl != null && TryParseDouble(massEl, "Kg", out double mass))
             part.GameData.CustomMass = mass;
 
-        // Tank (CylindricalTank or SphericalTank)
-        // Look inside <Tank> wrapper first (correct KSA format), then fall back to direct children
-        var tankWrapper = gdEl.Element("Tank");
-        var cylEl = tankWrapper?.Element("CylindricalTank") ?? gdEl.Element("CylindricalTank");
-        var sphEl = tankWrapper?.Element("SphericalTank") ?? gdEl.Element("SphericalTank");
-        var tankEl = cylEl ?? sphEl;
-        if (tankEl != null)
+        // Tanks (multiple) — each wrapped in <Tank><CylindricalTank/> or <Tank><SphericalTank/>
+        foreach (var tankWrapper in gdEl.Elements("Tank"))
         {
-            var tank = new TankState
+            var cylEl = tankWrapper.Element("CylindricalTank");
+            var sphEl = tankWrapper.Element("SphericalTank");
+            var tankEl = cylEl ?? sphEl;
+            if (tankEl != null)
             {
-                Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
-            };
-            tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
-                                ?? tankEl.Element("Material")?.Attribute("Value")?.Value
-                                ?? "Aluminum.2014";
-            if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
-                tank.OuterRadiusM = outerR;
-            if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
-                tank.WallThicknessMm = wallMm;
-            if (cylEl != null)
-            {
-                if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
-                    tank.LengthM = length;
+                var tank = new TankState
+                {
+                    Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
+                };
+                tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
+                                    ?? tankEl.Element("Material")?.Attribute("Value")?.Value
+                                    ?? "Aluminum.2014(s)";
+                if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
+                    tank.OuterRadiusM = outerR;
+                if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
+                    tank.WallThicknessMm = wallMm;
+                if (cylEl != null)
+                {
+                    if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
+                        tank.LengthM = length;
+                }
+                part.GameData.Tanks.Add(tank);
             }
-            part.GameData.Tank = tank;
         }
 
         // Batteries (multiple)

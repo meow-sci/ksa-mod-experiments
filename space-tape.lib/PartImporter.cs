@@ -81,9 +81,9 @@ public static class PartImporter
             }
         }
 
-        // Tank
+        // Tank (game templates only ever have one)
         if (template.Tank != null)
-            gd.Tank = ImportTank(template.Tank);
+            gd.Tanks.Add(ImportTank(template.Tank));
 
         // Connectors
         foreach (var c in template.Connectors)
@@ -173,7 +173,7 @@ public static class PartImporter
     {
         var state = new TankState
         {
-            WallMaterialId = tank.Material?.Id ?? "Aluminum.2014",
+            WallMaterialId = tank.Material?.Id ?? "Aluminum.2014(s)",
         };
 
         if (tank is CylindricalTankTemplate cyl)
