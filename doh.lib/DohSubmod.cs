@@ -27,12 +27,12 @@ public sealed class DohSubmod : ISubmod
 
     // UI state — vehicle selection
     private int _selectedVehicleIndex = -1;
-    private ImGuiTextFilter _vehicleFilter = new();
+    private readonly ImInputString _vehicleFilter = new(128);
 
     // UI state — character selection
     private string[] _availableCharacters = Array.Empty<string>();
     private int _selectedCharacterIndex = -1;
-    private ImGuiTextFilter _characterFilter = new();
+    private readonly ImInputString _characterFilter = new(128);
 
     // UI state — spawn parameters
     private float3 _offset = new float3(0f, 0f, 10f);
@@ -223,11 +223,17 @@ public sealed class DohSubmod : ISubmod
                 ImGui.SetKeyboardFocusHere();
                 _vehicleFilter.Clear();
             }
-            _vehicleFilter.Draw("##doh_vfilter", -1f);
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextWithHint("##doh_vfilter", "filter..."u8, _vehicleFilter);
+            string vehicleFilterText = _vehicleFilter.ToString().Trim();
 
             for (int i = 0; i < vehicleNames.Length; i++)
             {
-                if (!_vehicleFilter.PassFilter(vehicleNames[i])) continue;
+                if (vehicleFilterText.Length > 0
+                    && !vehicleNames[i].Contains(vehicleFilterText, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 bool sel = _selectedVehicleIndex == i;
                 if (ImGui.Selectable(vehicleNames[i] + "##doh_v", sel))
                     _selectedVehicleIndex = i;
@@ -256,9 +262,12 @@ public sealed class DohSubmod : ISubmod
                 ImGui.SetKeyboardFocusHere();
                 _characterFilter.Clear();
             }
-            _characterFilter.Draw("##doh_cfilter", -1f);
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextWithHint("##doh_cfilter", "filter..."u8, _characterFilter);
+            string characterFilterText = _characterFilter.ToString().Trim();
 
-            if (_characterFilter.PassFilter("(random)"))
+            if (characterFilterText.Length == 0
+                || "(random)".Contains(characterFilterText, StringComparison.OrdinalIgnoreCase))
             {
                 bool noSel = _selectedCharacterIndex < 0;
                 if (ImGui.Selectable("(random)##doh_c", noSel))
@@ -268,7 +277,11 @@ public sealed class DohSubmod : ISubmod
 
             for (int i = 0; i < _availableCharacters.Length; i++)
             {
-                if (!_characterFilter.PassFilter(_availableCharacters[i])) continue;
+                if (characterFilterText.Length > 0
+                    && !_availableCharacters[i].Contains(characterFilterText, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 bool sel = _selectedCharacterIndex == i;
                 if (ImGui.Selectable(_availableCharacters[i] + "##doh_c", sel))
                     _selectedCharacterIndex = i;
@@ -523,7 +536,7 @@ public sealed class DohSubmod : ISubmod
         if (ImGui.BeginCombo("##xkcd_combo", previewText))
         {
             ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("##xkcd_filter", _xkcdFilterText);
+            ImGui.InputTextWithHint("##xkcd_filter", "filter..."u8, _xkcdFilterText);
 
             string filterStr = _xkcdFilterText.ToString();
             var colors = XkcdColorHelper.GetAll();

@@ -68,7 +68,7 @@ public sealed class SkittlesSubmod : ISubmod
                     _filterInput.Clear();
 
                 ImGui.SetNextItemWidth(-1);
-                ImGui.InputText("##sk_filter", _filterInput);
+                ImGui.InputTextWithHint("##sk_filter", "filter..."u8, _filterInput);
                 ImGui.Separator();
 
                 string filterText = _filterInput.ToString();

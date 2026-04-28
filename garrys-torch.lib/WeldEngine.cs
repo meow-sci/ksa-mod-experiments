@@ -22,6 +22,9 @@ public static class WeldEngine
             return false;
         }
 
+        if (!entry.WeldEnabled)
+            return true;
+
         double3 tgtPosCci = entry.Target.GetPositionCci();
         double3 tgtVelCci = entry.Target.GetVelocityCci();
         doubleQuat tgtBody2Cci = entry.Target.GetBody2Cci();

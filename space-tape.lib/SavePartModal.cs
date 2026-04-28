@@ -174,7 +174,7 @@ public sealed class SavePartModal
         }
 
         ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##st_save_combo_filter", _filter);
+        ImGui.InputTextWithHint("##st_save_combo_filter", "filter..."u8, _filter);
 
         string filterText = _filter.ToString().Trim();
         if (filterText.Length == 0

@@ -17,7 +17,7 @@ public sealed class ConManSubmod : ISubmod
 
   // Layout selector state
   private int _selectedLayoutIndex = -1;
-  private ImGuiTextFilter _layoutFilter = new ImGuiTextFilter();
+  private readonly ImInputString _layoutFilter = new ImInputString(128);
 
   // Save input state
   private readonly ImInputString _saveNameInput = new ImInputString(128);
@@ -25,7 +25,7 @@ public sealed class ConManSubmod : ISubmod
 
   // Startup default state
   private int _selectedDefaultIndex;  // 0 = "(None)", 1+ = layout names
-  private ImGuiTextFilter _defaultFilter = new ImGuiTextFilter();
+  private readonly ImInputString _defaultFilter = new ImInputString(128);
 
   // Delete confirmation
   private bool _pendingOpenDelete;
@@ -101,10 +101,13 @@ public sealed class ConManSubmod : ISubmod
           ImGui.SetKeyboardFocusHere();
           _layoutFilter.Clear();
         }
-        _layoutFilter.Draw("##cm_layout_filter", -1);
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##cm_layout_filter", "filter..."u8, _layoutFilter);
+        string layoutFilterText = _layoutFilter.ToString().Trim();
         for (int i = 0; i < names.Length; i++)
         {
-          if (!_layoutFilter.PassFilter(names[i]))
+          if (layoutFilterText.Length > 0
+              && !names[i].Contains(layoutFilterText, StringComparison.OrdinalIgnoreCase))
             continue;
           bool selected = _selectedLayoutIndex == i;
           if (ImGui.Selectable(names[i], selected))
@@ -185,8 +188,11 @@ public sealed class ConManSubmod : ISubmod
           ImGui.SetKeyboardFocusHere();
           _defaultFilter.Clear();
         }
-        _defaultFilter.Draw("##cm_default_filter", -1);
-        if (_defaultFilter.PassFilter("(None)"))
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##cm_default_filter", "filter..."u8, _defaultFilter);
+        string defaultFilterText = _defaultFilter.ToString().Trim();
+        if (defaultFilterText.Length == 0
+            || "(None)".Contains(defaultFilterText, StringComparison.OrdinalIgnoreCase))
         {
           bool noneSelected = _selectedDefaultIndex == 0;
           if (ImGui.Selectable("(None)", noneSelected))
@@ -198,7 +204,8 @@ public sealed class ConManSubmod : ISubmod
         }
         for (int i = 0; i < layoutNames.Length; i++)
         {
-          if (!_defaultFilter.PassFilter(layoutNames[i]))
+          if (defaultFilterText.Length > 0
+              && !layoutNames[i].Contains(defaultFilterText, StringComparison.OrdinalIgnoreCase))
             continue;
           bool selected = _selectedDefaultIndex == i + 1;
           if (ImGui.Selectable(layoutNames[i] + "##cm_def", selected))

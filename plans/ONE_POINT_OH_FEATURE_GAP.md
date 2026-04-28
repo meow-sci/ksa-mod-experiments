@@ -3,10 +3,14 @@
     - plane offsets?
     - multiple planes?
 - ✅ fix visual grid color and opacity controls (see HOW_SPACE_TAPE_GRID_LINES_WORK.md)
-- fix load subparts visual issues with the log messages etc
+-✅  fix load subparts visual issues with the log messages etc
 - ✅ can connectors render an arrow or maybe an origin marker or something to indicate which face should be facing "out" away from the part.  this indicator should be fixed in one orientation so that if the connector is rotated you can see the indicator move with that face.
-- fix self-menu versus ModMenu
-- file management for custom subparts (list files, parts in files, delete, maybe ability to rename a part id and name)
+- ✅ file management for custom subparts (list files, parts in files, delete, maybe ability to rename a part id and name)
 - ✅ VRAM usage estimates before subpart thumb generation
 - ✅ VRAM usage estimates before hi-res viewer thumb generation
+- ✅ garry's torch
+  - ✅ move the Lock Rotation checkbox to be on its own line after Scale (both when creating a weld and the per-weld instance section)
+  -  ✅ add a "Weld Enabled" checkbox (true by default) on the per-weld instance section on its own line after the Lock Rotation line
+    - ✅ when false (unchecked), disable the weld from having any impact.  the intent is to allow the player to temporarily disable the weld without destroying it
+- fix self-menu versus ModMenu
 - rename grant to Unscience

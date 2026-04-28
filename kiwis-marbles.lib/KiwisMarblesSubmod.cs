@@ -20,8 +20,8 @@ public sealed class KiwisMarblesSubmod : ISubmod
     private string? _weldError;
     private readonly Dictionary<int, (float3 proxy, int scaleIndex)> _weldEditState = new();
     private readonly Dictionary<int, (float lon, float lat, float radialKm, bool surfaceMode)> _weldSurfaceState = new();
-    private ImGuiTextFilter _sourceFilter = new();
-    private ImGuiTextFilter _targetFilter = new();
+    private readonly ImInputString _sourceFilter = new(128);
+    private readonly ImInputString _targetFilter = new(128);
 
     private static readonly string[] OffsetScaleLabels = { "m", "km", "Mm", "Gm" };
     private static readonly double[] OffsetScaleFactors = { 1.0, 1_000.0, 1_000_000.0, 1_000_000_000.0 };
@@ -94,10 +94,12 @@ public sealed class KiwisMarblesSubmod : ISubmod
             if (ImGui.BeginCombo("##kmsrc", celestialIds[_pendingSourceIndex]))
             {
                 if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _sourceFilter.Clear(); }
-                _sourceFilter.Draw("##kmsrcfilter", -1f);
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.InputTextWithHint("##kmsrcfilter", "filter..."u8, _sourceFilter);
+                string srcFilterText = _sourceFilter.ToString().Trim();
                 for (int i = 0; i < celestials.Count; i++)
                 {
-                    if (_sourceFilter.PassFilter(celestialIds[i]))
+                    if (srcFilterText.Length == 0 || celestialIds[i].Contains(srcFilterText, StringComparison.OrdinalIgnoreCase))
                     {
                         bool sel = _pendingSourceIndex == i;
                         if (ImGui.Selectable(celestialIds[i], sel)) _pendingSourceIndex = i;
@@ -117,10 +119,12 @@ public sealed class KiwisMarblesSubmod : ISubmod
             if (ImGui.BeginCombo("##kmtgt", orbiterIds[_pendingTargetIndex]))
             {
                 if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _targetFilter.Clear(); }
-                _targetFilter.Draw("##kmtgtfilter", -1f);
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.InputTextWithHint("##kmtgtfilter", "filter..."u8, _targetFilter);
+                string tgtFilterText = _targetFilter.ToString().Trim();
                 for (int i = 0; i < orbiters.Count; i++)
                 {
-                    if (_targetFilter.PassFilter(orbiterIds[i]))
+                    if (tgtFilterText.Length == 0 || orbiterIds[i].Contains(tgtFilterText, StringComparison.OrdinalIgnoreCase))
                     {
                         bool sel = _pendingTargetIndex == i;
                         if (ImGui.Selectable(orbiterIds[i], sel)) _pendingTargetIndex = i;

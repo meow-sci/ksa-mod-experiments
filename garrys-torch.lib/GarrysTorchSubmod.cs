@@ -34,9 +34,9 @@ public sealed class GarrysTorchSubmod : ISubmod
     private string? _weldError;
 
     // Combo filters
-    private ImGuiTextFilter _sourceFilter = new();
-    private ImGuiTextFilter _targetFilter = new();
-    private ImGuiTextFilter _presetFilter = new();
+    private readonly ImInputString _sourceFilter = new(128);
+    private readonly ImInputString _targetFilter = new(128);
+    private readonly ImInputString _presetFilter = new(128);
 
     // Deferred modal open flags (popups must be opened at matching ID scope)
     private bool _openDeleteModal;
@@ -243,6 +243,9 @@ public sealed class GarrysTorchSubmod : ISubmod
             WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
 
         ImGui.Spacing();
+        ImGui.Checkbox($"Weld Enabled##gt_w{index}_enabled", ref weld.WeldEnabled);
+
+        ImGui.Spacing();
         if (ImGui.Button($" Save settings as preset... ##gt_save_{index}"))
         {
             _pendingSavePreset = new WeldPreset
@@ -285,28 +288,27 @@ public sealed class GarrysTorchSubmod : ISubmod
         ImGui.Spacing();
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         var flags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable($"{idPrefix}_scaletbl", 3, flags))
+        if (ImGui.BeginTable($"{idPrefix}_scaletbl", 2, flags))
         {
             ImGui.TableSetupColumn("##s_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##s_val", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##s_lock", ImGuiTableColumnFlags.WidthStretch, 2f);
+            ImGui.TableSetupColumn("##s_val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Scale");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
             ImGui.DragFloat($"{idPrefix}_scaleval", ref scale, 0.001f, 0.05f, 20f);
-            ImGui.TableNextColumn();
-            ImGui.Checkbox($"Lock Rotation{idPrefix}_lockrot", ref lockRotation);
 
             ImGui.EndTable();
         }
         ImGui.PopStyleVar(); // CellPadding
+        ImGui.Spacing();
+        ImGui.Checkbox($"Lock Rotation{idPrefix}_lockrot", ref lockRotation);
     }
 
     // ---- Filterable Combos ----
 
     private void RenderFilteredCombo(string id, string[] items, ref int selectedIndex,
-        ImGuiTextFilter filter)
+        ImInputString filter)
     {
         string preview = selectedIndex >= 0 && selectedIndex < items.Length
             ? items[selectedIndex] : "Select...";
@@ -319,11 +321,13 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGui.SetKeyboardFocusHere();
             filter.Clear();
         }
-        filter.Draw($"{id}_filter", -1f);
+        ImGui.SetNextItemWidth(-1f);
+        ImGui.InputTextWithHint($"{id}_filter", "filter..."u8, filter);
+        string filterText = filter.ToString().Trim();
 
         for (int i = 0; i < items.Length; i++)
         {
-            if (!filter.PassFilter(items[i])) continue;
+            if (filterText.Length > 0 && !items[i].Contains(filterText, StringComparison.OrdinalIgnoreCase)) continue;
             bool sel = selectedIndex == i;
             if (ImGui.Selectable(items[i], sel))
                 selectedIndex = i;
@@ -345,11 +349,13 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGui.SetKeyboardFocusHere();
             _presetFilter.Clear();
         }
-        _presetFilter.Draw("##gt_preset_filter", -1f);
+        ImGui.SetNextItemWidth(-1f);
+        ImGui.InputTextWithHint("##gt_preset_filter", "filter..."u8, _presetFilter);
+        string filterText = _presetFilter.ToString().Trim();
 
         for (int i = 0; i < presetNames.Length; i++)
         {
-            if (!_presetFilter.PassFilter(presetNames[i])) continue;
+            if (filterText.Length > 0 && !presetNames[i].Contains(filterText, StringComparison.OrdinalIgnoreCase)) continue;
             bool sel = _selectedPresetIndex == i;
             if (ImGui.Selectable(presetNames[i], sel))
             {

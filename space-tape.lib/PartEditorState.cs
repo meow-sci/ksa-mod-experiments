@@ -53,8 +53,8 @@ public sealed class PartGameDataState
 /// </summary>
 public sealed class EditingPart
 {
-    /// <summary>The Part ID used in XML (must be unique, e.g. "MyMod.MyPart").</summary>
-    public string PartId { get; set; } = "MyMod.NewPart";
+    /// <summary>The Part ID used in XML (must be unique, e.g. "fixme_part_id").</summary>
+    public string PartId { get; set; } = "fixme_part_id";
 
     /// <summary>All placed SubPart instances.</summary>
     public List<SubPartPlacement> Placements { get; set; } = new();

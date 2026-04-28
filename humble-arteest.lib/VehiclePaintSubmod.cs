@@ -25,7 +25,7 @@ public sealed class VehiclePaintSubmod : ISubmod
 
     // Vehicle selection (when not applying to all)
     private int _selectedVehicleIndex = -1;
-    private ImGuiTextFilter _vehicleFilter = new();
+    private readonly ImInputString _vehicleFilter = new(128);
 
     // Cached part entries for the selected vehicle
     private List<PartEntry> _cachedParts = new();
@@ -374,7 +374,7 @@ public sealed class VehiclePaintSubmod : ISubmod
     // ---- Filtered combo helper ----
 
     private static void RenderFilteredCombo(string id, string[] items, ref int selectedIndex,
-        ImGuiTextFilter filter)
+        ImInputString filter)
     {
         string preview = selectedIndex >= 0 && selectedIndex < items.Length
             ? items[selectedIndex] : "Select...";
@@ -387,11 +387,15 @@ public sealed class VehiclePaintSubmod : ISubmod
             ImGui.SetKeyboardFocusHere();
             filter.Clear();
         }
-        filter.Draw($"{id}_filter", -1f);
+        ImGui.SetNextItemWidth(-1f);
+        ImGui.InputTextWithHint($"{id}_filter", "filter..."u8, filter);
+        string filterText = filter.ToString().Trim();
 
         for (int i = 0; i < items.Length; i++)
         {
-            if (!filter.PassFilter(items[i])) continue;
+            if (filterText.Length > 0 &&
+                !items[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                continue;
             bool sel = selectedIndex == i;
             if (ImGui.Selectable(items[i], sel))
                 selectedIndex = i;

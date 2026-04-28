@@ -35,10 +35,10 @@ public sealed class BlinkySubmod : ISubmod
     private string _enginePartId = "CorePropulsionA_Prefab_EngineA3";
     private int _configLayoutIndex = 0; // 0=Flat, 1=Cylinder
     private int _enginePresetIndex = 2;
-    private ImGuiTextFilter _engineFilter = new();
+    private readonly ImInputString _engineFilter = new(128);
 
     // Vehicle selection for grid creation
-    private ImGuiTextFilter _vehicleFilter = new();
+    private readonly ImInputString _vehicleFilter = new(128);
     private int _selectedVehicleIndex = -1;
 
     // Deferred action runner
@@ -363,10 +363,12 @@ public sealed class BlinkySubmod : ISubmod
             ImGui.SetKeyboardFocusHere();
             _engineFilter.Clear();
         }
-        _engineFilter.Draw("##bk_engine_filter", -1f);
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##bk_engine_filter", "filter..."u8, _engineFilter);
+        string engineFilterText = _engineFilter.ToString().Trim();
         for (int i = 0; i < EnginePresets.Length; i++)
         {
-            if (!_engineFilter.PassFilter(EnginePresets[i])) continue;
+            if (engineFilterText.Length > 0 && !EnginePresets[i].Contains(engineFilterText, StringComparison.OrdinalIgnoreCase)) continue;
             bool sel = _enginePresetIndex == i;
             if (ImGui.Selectable(EnginePresets[i], sel))
             {
@@ -395,11 +397,13 @@ public sealed class BlinkySubmod : ISubmod
             ImGui.SetKeyboardFocusHere();
             _vehicleFilter.Clear();
         }
-        _vehicleFilter.Draw("##bk_vehicle_filter", -1f);
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##bk_vehicle_filter", "filter..."u8, _vehicleFilter);
+        string vehicleFilterText = _vehicleFilter.ToString().Trim();
         for (int i = 0; i < vehicles.Count; i++)
         {
             var vid = vehicles[i].Id;
-            if (!_vehicleFilter.PassFilter(vid)) continue;
+            if (vehicleFilterText.Length > 0 && !vid.Contains(vehicleFilterText, StringComparison.OrdinalIgnoreCase)) continue;
             bool sel = _selectedVehicleIndex == i;
             if (ImGui.Selectable(vid + "##bkv", sel))
                 _selectedVehicleIndex = i;

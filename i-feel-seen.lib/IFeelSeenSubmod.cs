@@ -12,7 +12,7 @@ public sealed class IFeelSeenSubmod : ISubmod
 
     private VehicleTracker _tracker = null!;
     private int _pendingVehicleIndex;
-    private ImGuiTextFilter _vehicleFilter = new ImGuiTextFilter();
+    private readonly ImInputString _vehicleFilter = new(128);
 
     /// <summary>Exposed so Harmony patches can reference it for vehicle render distance overrides.</summary>
     public VehicleTracker Tracker => _tracker;
@@ -57,10 +57,14 @@ public sealed class IFeelSeenSubmod : ISubmod
                         ImGui.SetKeyboardFocusHere();
                         _vehicleFilter.Clear();
                     }
-                    _vehicleFilter.Draw("##ifs_vehicle_filter", -1);
+                    ImGui.SetNextItemWidth(-1f);
+                    ImGui.InputTextWithHint("##ifs_vehicle_filter", "filter..."u8, _vehicleFilter);
+                    string filterText = _vehicleFilter.ToString().Trim();
                     for (int i = 0; i < vehicles.Count; i++)
                     {
-                        if (!_vehicleFilter.PassFilter(vehicles[i].Id)) continue;
+                        if (filterText.Length > 0 &&
+                            !vehicles[i].Id.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                            continue;
                         bool selected = _pendingVehicleIndex == i;
                         if (ImGui.Selectable(vehicles[i].Id, selected))
                             _pendingVehicleIndex = i;
