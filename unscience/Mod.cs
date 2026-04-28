@@ -263,10 +263,10 @@ public class Mod
                 else if (_collapseAll)
                     ImGui.SetNextItemOpen(false, ImGuiCond.Always);
                 else
-                    ImGui.SetNextItemOpen(_headerOpen.GetValueOrDefault(submod.Name, true), ImGuiCond.Once);
+                    ImGui.SetNextItemOpen(_headerOpen.GetValueOrDefault(submod.Name, false), ImGuiCond.Once);
 
                 var headerLabel = _showModTooltips ? $"{submod.Name}  (?)" : submod.Name;
-                bool isOpen = ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.DefaultOpen);
+                bool isOpen = ImGui.CollapsingHeader(headerLabel, ImGuiTreeNodeFlags.None);
                 _headerOpen[submod.Name] = isOpen;
                 if (_showModTooltips && ImGui.IsItemHovered(ImGuiHoveredFlags.DelayNormal))
                     ImGui.SetTooltip(submod.Tooltip);
