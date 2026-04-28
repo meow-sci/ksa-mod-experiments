@@ -7,7 +7,7 @@ namespace MeowSci.IFeelSeenLib;
 
 public sealed class IFeelSeenSubmod : ISubmod
 {
-    public string Name => "I Feel Seen";
+    public string Name => "I Feel Seen - Always Visible Vehicles";
     public string Tooltip => "Makes vehicles visible from infinite distance.";
 
     private VehicleTracker _tracker = null!;

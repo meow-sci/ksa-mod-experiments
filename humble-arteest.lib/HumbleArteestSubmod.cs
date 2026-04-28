@@ -9,7 +9,7 @@ namespace MeowSci.HumbleArteestLib;
 /// </summary>
 public sealed class HumbleArteestSubmod : ISubmod
 {
-    public string Name => "Humble Arteest";
+    public string Name => "Humble Arteest - Paint Stuff";
     public string Tooltip => "Vehicle paint, Kitten color, and engine emissive paint brushes";
 
     private readonly VehiclePaintSubmod _vehiclePaint = new();

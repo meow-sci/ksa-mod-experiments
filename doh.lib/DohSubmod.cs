@@ -17,7 +17,7 @@ namespace MeowSci.DohLib;
 /// </summary>
 public sealed class DohSubmod : ISubmod
 {
-    public string Name => "DOH";
+    public string Name => "DOH - Clone Kittens";
     public string Tooltip => "Programmatic kitten spawning with per-kitten material customization.";
 
     // Core systems

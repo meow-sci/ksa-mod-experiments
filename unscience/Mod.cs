@@ -64,19 +64,19 @@ public class Mod
             _submods.Add(new ConManSubmod());
             _submods.Add(new DohSubmod());
             _submods.Add(new EternalFlameSubmod());
+            _submods.Add(new FlexoSubmod());
             _submods.Add(new GarrysTorchSubmod());
-            _submods.Add(new GlassSubmod());
             _submods.Add(new GeeForceSubmod());
+            _submods.Add(new GlassSubmod());
+            _submods.Add(new HumbleArteestSubmod());
             _submods.Add(iFeelSeen);
+            _submods.Add(new KitchenSinkSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(skittles);
-            _submods.Add(new UnladenSwallowSubmod());
-            _submods.Add(new HumbleArteestSubmod());
-            _submods.Add(new ZippoSubmod());
             _submods.Add(new SpaceTapeSubmod());
-            _submods.Add(new FlexoSubmod());
-            _submods.Add(new KitchenSinkSubmod());
+            _submods.Add(new UnladenSwallowSubmod());
+            _submods.Add(new ZippoSubmod());
 
             // Initialize all submods so Tracker is populated before patching
             foreach (var submod in _submods)

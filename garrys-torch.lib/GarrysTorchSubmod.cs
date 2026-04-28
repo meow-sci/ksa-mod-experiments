@@ -11,7 +11,7 @@ namespace MeowSci.GarrysTorchLib;
 
 public sealed class GarrysTorchSubmod : ISubmod
 {
-    public string Name => "Garry's Torch";
+    public string Name => "Garry's Torch - Vehicle Welding";
     public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
 
     public static GarrysTorchSubmod? Instance { get; private set; }

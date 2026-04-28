@@ -8,7 +8,7 @@ namespace MeowSci.SpaceTapeLib;
 
 public sealed class SpaceTapeSubmod : ISubmod
 {
-    public string Name => "Space Tape";
+    public string Name => "Space Tape - Part Builder";
     public string Tooltip => "In-game Part editor. Compose new Parts from existing SubParts.";
 
     /// <summary>Active instance, read by the render patch to call UpdateScene per-frame.</summary>
