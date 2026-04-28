@@ -21,6 +21,7 @@ Kitten Animations lets you:
 - **Weight-based fading** - Expressions fade naturally
 - **Avatar reflex access** - Safe reflection-based avatar retrieval
 - **Per-frame updates** - Expression state updated every frame
+- **KSA animation cache compatibility** - Clears KSA's cached expression pose when swapping expression assets so each expression button samples its own animation
 
 ## Architecture
 
@@ -181,6 +182,8 @@ public void TriggerExpression(ExpressionType type, AnimationAssetRef asset, Char
     ExpressionDuration = configuredDuration;
 }
 ```
+
+Current KSA builds cache sampled expression poses inside `CatExpressionAnim`. When changing `ExpressionAnim`, the controller invalidates that private pose cache so Angry, Awe, Happy, Sad, and Scared can be triggered independently instead of reusing the first sampled pose.
 
 ### Per-Frame Update
 

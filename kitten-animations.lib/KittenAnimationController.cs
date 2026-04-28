@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using KSA;
 
 namespace MeowSci.KittenAnimationsLib;
@@ -10,6 +11,9 @@ public class KittenAnimationController
     public enum ExpressionType { None, Angry, Awe, Happy, Sad, Scared }
 
     private const float ExpressionEaseInDuration = 0.25f;
+    private static readonly FieldInfo? ExpressionPoseField = typeof(CatExpressionAnim).GetField(
+        "_expressionPose",
+        BindingFlags.Instance | BindingFlags.NonPublic);
 
     private ExpressionType _currentExpression = ExpressionType.None;
     private AnimationAssetRef? _currentExpressionAnim = null;
@@ -38,9 +42,7 @@ public class KittenAnimationController
 
             if (avatar != null && _currentExpressionAnim != null)
             {
-                var expressionProcessor = avatar.Core.CharacterModel.AnimProcessors
-                    .OfType<CatExpressionAnim>()
-                    .FirstOrDefault();
+                var expressionProcessor = GetExpressionProcessor(avatar);
 
                 if (expressionProcessor != null)
                     expressionProcessor.ExpressionWeight = easedWeight;
@@ -89,13 +91,12 @@ public class KittenAnimationController
 
         try
         {
-            var expressionProcessor = avatar.Core.CharacterModel.AnimProcessors
-                .OfType<CatExpressionAnim>()
-                .FirstOrDefault();
+            var expressionProcessor = GetExpressionProcessor(avatar);
 
             if (expressionProcessor != null)
             {
                 expressionProcessor.ExpressionAnim = animation;
+                ClearExpressionPoseCache(expressionProcessor);
                 expressionProcessor.ExpressionWeight = 0f; // Will be eased in by Update
             }
             else
@@ -107,5 +108,23 @@ public class KittenAnimationController
         {
             Console.WriteLine($"[EXPR] Error setting expression animation: {ex.Message}");
         }
+    }
+
+    private static CatExpressionAnim? GetExpressionProcessor(CharacterAvatar avatar)
+    {
+        return avatar.Core.CharacterModel.AnimProcessors
+            .OfType<CatExpressionAnim>()
+            .LastOrDefault();
+    }
+
+    private static void ClearExpressionPoseCache(CatExpressionAnim expressionProcessor)
+    {
+        if (ExpressionPoseField == null)
+        {
+            Console.WriteLine("[EXPR] Warning: CatExpressionAnim._expressionPose field not found");
+            return;
+        }
+
+        ExpressionPoseField.SetValue(expressionProcessor, null);
     }
 }

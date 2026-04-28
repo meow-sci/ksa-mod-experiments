@@ -14,3 +14,4 @@
     - ✅ when false (unchecked), disable the weld from having any impact.  the intent is to allow the player to temporarily disable the weld without destroying it
 - fix self-menu versus ModMenu
 - rename grant to Unscience
+- "Auto save enabled" menu item is disabled by default, fix this, we want it enabled by default

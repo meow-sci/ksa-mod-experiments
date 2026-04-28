@@ -161,6 +161,7 @@ Kitten avatar animation controller. Manages MMU body animations, facial expressi
 - 5 facial expressions (angry, awe, happy, sad, scared) with configurable duration (1–5s)
 - 2 walking animations (running, walking)
 - Smooth 250ms quadratic ease-in for expression weight blending
+- Clears KSA's cached `CatExpressionAnim` pose when switching expression assets so each expression triggers independently on current game builds
 - **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — owns KittenAnimationController and all animation UI in RenderContent), `KittenAnimationController` (expression state + timers + playback), `KittenAvatarAccessor` (reflection-based avatar access)
 
 ### [byo-music](byo-music) / [byo-music.lib](byo-music.lib)
