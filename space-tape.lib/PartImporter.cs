@@ -173,7 +173,7 @@ public static class PartImporter
     {
         var state = new TankState
         {
-            WallMaterialId = tank.Material?.Id ?? "Aluminum.2014(s)",
+            WallMaterialId = tank.Material?.Id ?? "Aluminum.2014",
         };
 
         if (tank is CylindricalTankTemplate cyl)

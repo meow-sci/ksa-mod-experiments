@@ -828,42 +828,46 @@ public sealed class PartEditorUi
       ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
       ImGui.TableNextRow();
-      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg):");
+      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg)");
       ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
       double mass = gd.CustomMass ?? 0.0;
       if (ImGui.InputDouble("##st_mass", ref mass, 0.5)) gd.CustomMass = mass > 0 ? mass : (double?)null;
 
+      // Editor Tags — combo row
+      ImGui.TableNextRow();
+      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Editor Tags");
+      ImGui.TableNextColumn();
+      float addBtnW = ImGui.CalcTextSize(" Add Tag ").X + ImGui.GetStyle().FramePadding.X * 2;
+      ImGui.SetNextItemWidth(-addBtnW - ImGui.GetStyle().ItemSpacing.X);
+      ImGui.Combo("##st_newtag", ref _selectedNewTagIndex, KnownEditorTags, KnownEditorTags.Length);
+      ImGui.SameLine();
+      if (ImGui.Button(" Add Tag ##st_addtag"))
+      {
+        string tag = KnownEditorTags[_selectedNewTagIndex];
+        if (!gd.EditorTags.Contains(tag))
+          gd.EditorTags.Add(tag);
+      }
+
+      // One row per existing tag
+      for (int i = 0; i < gd.EditorTags.Count; i++)
+      {
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn(); // blank label
+        ImGui.TableNextColumn();
+        if (ImGui.Button($" x ##st_tag{i}"))
+        {
+          gd.EditorTags.RemoveAt(i);
+          i--;
+          continue;
+        }
+        ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text(gd.EditorTags[i]);
+      }
+
       ImGui.EndTable();
     }
     ImGui.PopStyleVar();
-
-    // Editor Tags
-    ImGui.Spacing();
-    ImGui.Text("Editor Tags:");
-    for (int i = 0; i < gd.EditorTags.Count; i++)
-    {
-      ImGui.BulletText(gd.EditorTags[i]);
-      ImGui.SameLine();
-      if (ImGui.SmallButton($" x ##st_tag{i}"))
-      {
-        gd.EditorTags.RemoveAt(i);
-        i--;
-      }
-    }
-
-    if (gd.EditorTags.Count == 0)
-      ImGui.TextDisabled("No tags.");
-
-    ImGui.Spacing();
-    ImGui.SetNextItemWidth(160f);
-    ImGui.Combo("##st_newtag", ref _selectedNewTagIndex, KnownEditorTags, KnownEditorTags.Length);
-    ImGui.SameLine();
-    if (ImGui.Button(" Add Tag ##st_addtag"))
-    {
-      string tag = KnownEditorTags[_selectedNewTagIndex];
-      if (!gd.EditorTags.Contains(tag))
-        gd.EditorTags.Add(tag);
-    }
 
     // --- Tank ---
     ImGui.Spacing();

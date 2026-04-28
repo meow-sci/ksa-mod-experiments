@@ -248,7 +248,7 @@ public sealed class PartModWriter
             };
             tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
                                 ?? tankEl.Element("Material")?.Attribute("Value")?.Value
-                                ?? "Aluminum.2014(s)";
+                                ?? "Aluminum.2014";
             if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
                 tank.OuterRadiusM = outerR;
             if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))

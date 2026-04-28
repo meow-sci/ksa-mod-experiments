@@ -9,7 +9,7 @@ public enum TankShape { Cylindrical, Spherical }
 public sealed class TankState
 {
     public TankShape Shape { get; set; } = TankShape.Cylindrical;
-    public string WallMaterialId { get; set; } = "Aluminum.2014(s)";
+    public string WallMaterialId { get; set; } = "Aluminum.2014";
     public double LengthM { get; set; } = 2.0;
     public double OuterRadiusM { get; set; } = 0.5;
     public double WallThicknessMm { get; set; } = 2.0;
