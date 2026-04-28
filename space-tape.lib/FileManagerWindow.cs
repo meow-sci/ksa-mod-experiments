@@ -131,7 +131,7 @@ public sealed class FileManagerWindow
             ImGui.Text("File");
             ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
-            string preview = hasFile ? writer.ExistingFiles[_selectedFileIndex] : "(select file)";
+            ImString preview = hasFile ? writer.ExistingFiles[_selectedFileIndex] : "(select file)"u8;
             if (ImGui.BeginCombo("##fm_file_combo", preview))
             {
                 if (ImGui.IsWindowAppearing())
@@ -140,7 +140,7 @@ public sealed class FileManagerWindow
                     _fileFilter.Clear();
                 }
                 ImGui.SetNextItemWidth(-1);
-                ImGui.InputText("##fm_file_filter", _fileFilter);
+                ImGui.InputTextWithHint("##fm_file_filter", "filter..."u8, _fileFilter);
 
                 string filterText = _fileFilter.ToString().Trim();
 

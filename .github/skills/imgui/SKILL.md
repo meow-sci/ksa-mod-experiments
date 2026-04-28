@@ -24,6 +24,24 @@ if (ImGui.Button("Click me!")) {
 }
 ```
 
+# Display String data types
+
+VERY IMPORTANT! ALWAYS OBEY THIS!
+
+All the BRUTAL ImGui display strings take `ImString` types.
+
+A C# `string` can be used but is NOT preferable
+
+For static strings use the utf-8 string syntax like `"some string"u8` for better performance to avoid UTF-16 to UTF-8 conversions.
+
+Interpolated strings like `$"val: {val}"` can be used but should be assigned to an `ImString` variable first to avoid unnecessary conversions and allocations.  For example:
+
+```csharp
+float val = 123.45f;
+ImString valStr = $"val: {val}"u8; // assign to ImString variable first to avoid multiple conversions
+ImGui.Text(valStr);
+```
+
 ## Full ImGui API Reference
 
 The entire ImGui API should be exposed via this Brutal C# wrapper, so use your knowledge of the official ImGui
