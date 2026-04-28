@@ -3,6 +3,6 @@
   - N SubParts loaded
   - 64 images each at 256
 - Load SubParts for image count drag float slider should have a configured max of 180 (currently 32)
-- the windows are still broken when in part editor mode, when the editor is entered, all windows are hidden.  if i open the grant supermod window, it shows all windows (grant + editor windows), but if i close grant supermod, it hides the editor windows. this needs fixes.
-  - when opening the part editor, the grant supermod window should be hidden and the editor windows shown
+- the windows are still broken when in part editor mode, when the editor is entered, all windows are hidden.  if i open the unscience supermod window, it shows all windows (unscience + editor windows), but if i close unscience supermod, it hides the editor windows. this needs fixes.
+  - when opening the part editor, the unscience supermod window should be hidden and the editor windows shown
   - when exiting the editor, hide the editor windows

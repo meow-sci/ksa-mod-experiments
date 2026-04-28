@@ -9,7 +9,7 @@ namespace MeowSci.KiwisMarblesLib;
 
 public sealed class KiwisMarblesSubmod : ISubmod
 {
-    public string Name => "Kiwi's Marbles";
+    public string Name => "Kiwi's Marbles - Destroyer of Worlds";
     public string Tooltip => "Weld celestials onto one another.  For science.";
 
     private readonly List<CelestialWeldEntry> _welds = new();
@@ -20,8 +20,8 @@ public sealed class KiwisMarblesSubmod : ISubmod
     private string? _weldError;
     private readonly Dictionary<int, (float3 proxy, int scaleIndex)> _weldEditState = new();
     private readonly Dictionary<int, (float lon, float lat, float radialKm, bool surfaceMode)> _weldSurfaceState = new();
-    private ImGuiTextFilter _sourceFilter = new();
-    private ImGuiTextFilter _targetFilter = new();
+    private readonly ImInputString _sourceFilter = new(128);
+    private readonly ImInputString _targetFilter = new(128);
 
     private static readonly string[] OffsetScaleLabels = { "m", "km", "Mm", "Gm" };
     private static readonly double[] OffsetScaleFactors = { 1.0, 1_000.0, 1_000_000.0, 1_000_000_000.0 };
@@ -94,10 +94,12 @@ public sealed class KiwisMarblesSubmod : ISubmod
             if (ImGui.BeginCombo("##kmsrc", celestialIds[_pendingSourceIndex]))
             {
                 if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _sourceFilter.Clear(); }
-                _sourceFilter.Draw("##kmsrcfilter", -1f);
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.InputTextWithHint("##kmsrcfilter", "filter..."u8, _sourceFilter);
+                string srcFilterText = _sourceFilter.ToString().Trim();
                 for (int i = 0; i < celestials.Count; i++)
                 {
-                    if (_sourceFilter.PassFilter(celestialIds[i]))
+                    if (srcFilterText.Length == 0 || celestialIds[i].Contains(srcFilterText, StringComparison.OrdinalIgnoreCase))
                     {
                         bool sel = _pendingSourceIndex == i;
                         if (ImGui.Selectable(celestialIds[i], sel)) _pendingSourceIndex = i;
@@ -117,10 +119,12 @@ public sealed class KiwisMarblesSubmod : ISubmod
             if (ImGui.BeginCombo("##kmtgt", orbiterIds[_pendingTargetIndex]))
             {
                 if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _targetFilter.Clear(); }
-                _targetFilter.Draw("##kmtgtfilter", -1f);
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.InputTextWithHint("##kmtgtfilter", "filter..."u8, _targetFilter);
+                string tgtFilterText = _targetFilter.ToString().Trim();
                 for (int i = 0; i < orbiters.Count; i++)
                 {
-                    if (_targetFilter.PassFilter(orbiterIds[i]))
+                    if (tgtFilterText.Length == 0 || orbiterIds[i].Contains(tgtFilterText, StringComparison.OrdinalIgnoreCase))
                     {
                         bool sel = _pendingTargetIndex == i;
                         if (ImGui.Selectable(orbiterIds[i], sel)) _pendingTargetIndex = i;
@@ -418,7 +422,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
         _welds.Add(new CelestialWeldEntry { Source = source, Target = target, Offset = offset, OriginalOrbit = source.Orbit });
         _pendingOffset = new float3(0f, 0f, 0f);
         SortWelds();
-        Console.WriteLine($"grant/kiwis-marbles: Welded {source.Id} to {target.Id}");
+        Console.WriteLine($"unscience/kiwis-marbles: Welded {source.Id} to {target.Id}");
     }
 
     private void RemoveWeld(CelestialWeldEntry entry)
@@ -432,11 +436,11 @@ public sealed class KiwisMarblesSubmod : ISubmod
             {
                 entry.Source.SetOrbit(entry.OriginalOrbit);
                 entry.Source.UpdatePerFrameData();
-                Console.WriteLine($"grant/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+                Console.WriteLine($"unscience/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"grant/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+                Console.WriteLine($"unscience/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
             }
         }
 
@@ -462,7 +466,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
         foreach (var kv in shiftedSurf)
             _weldSurfaceState[kv.Key] = kv.Value;
 
-        Console.WriteLine($"grant/kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
+        Console.WriteLine($"unscience/kiwis-marbles: Unwelded {entry.Source.Id} from {entry.Target.Id}");
     }
 
     private void SortWelds()

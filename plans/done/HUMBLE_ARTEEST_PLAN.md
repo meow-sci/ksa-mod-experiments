@@ -414,9 +414,9 @@ if (paintStrength > 0.001) {
 - Custom palette editor
 - "Paint bucket" mode: click parts to paint in 3D viewport (if feasible)
 
-#### Step 2.3: Grant Supermod Integration
+#### Step 2.3: Unscience Supermod Integration
 - Create `HumbleArteestSubmod` implementing `ISubmod`
-- Register in grant's submod list
+- Register in unscience's submod list
 - Shader files managed/installed by the mod
 
 ### Phase 3: Advanced Features (Future)
@@ -652,7 +652,7 @@ humble-arteest/
 └── README.md                 — Mod documentation
 
 humble-arteest.lib/
-├── HumbleArteestSubmod.cs    — ISubmod implementation for grant integration
+├── HumbleArteestSubmod.cs    — ISubmod implementation for unscience integration
 ├── PaintManager.cs           — Per-part color state management
 ├── PaintPatches.cs           — Harmony patches for UpdateRenderData (all 3 paths)
 ├── ShaderInstaller.cs        — Copies modified shaders to Content/Core/Shaders/

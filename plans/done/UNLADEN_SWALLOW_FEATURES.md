@@ -60,7 +60,7 @@ public static class VehicleLookup
 - `skittles.lib`
 - `byo-music.lib`
 
-Each reference should be added only when implementing its corresponding feature set. Also update `unladen-swallow.csproj` (the mod entry assembly) to include matching DLL copy targets in `CopyCustomContent`, and update `mod.toml` `ImportedAssemblies` entries so the shared `.lib` assembly instances are the same between `grant` and `unladen-swallow`.
+Each reference should be added only when implementing its corresponding feature set. Also update `unladen-swallow.csproj` (the mod entry assembly) to include matching DLL copy targets in `CopyCustomContent`, and update `mod.toml` `ImportedAssemblies` entries so the shared `.lib` assembly instances are the same between `unscience` and `unladen-swallow`.
 
 ---
 
@@ -858,7 +858,7 @@ This requires embedding the YAML files as resources in the assembly or reading t
 
 ## Submod Instance Access Pattern
 
-Many feature sets require accessing the `.lib` submod instances (e.g., `EternalFlameSubmod.FuelManager`, `GarrysTorchSubmod._welds`). Since `grant` instantiates all submods and `unladen-swallow.lib` runs in the same process, we need a cross-submod access pattern.
+Many feature sets require accessing the `.lib` submod instances (e.g., `EternalFlameSubmod.FuelManager`, `GarrysTorchSubmod._welds`). Since `unscience` instantiates all submods and `unladen-swallow.lib` runs in the same process, we need a cross-submod access pattern.
 
 ### Recommended Approach: Static Singleton on Manager/Submod
 

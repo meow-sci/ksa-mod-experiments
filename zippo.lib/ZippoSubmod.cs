@@ -43,12 +43,12 @@ public sealed class ZippoSubmod : ISubmod
     private float _animPowerEnd = 3.0f;
     private string _animStartXkcdName = "";
     private string _animEndXkcdName = "";
-    private ImGuiTextFilter _animStartColorFilter = new();
-    private ImGuiTextFilter _animEndColorFilter = new();
+    private readonly ImInputString _animStartColorFilter = new(128);
+    private readonly ImInputString _animEndColorFilter = new(128);
     private string? _animQueueError;
 
-    private ImGuiTextFilter _vehicleFilter = new();
-    private ImGuiTextFilter _lightPartFilter = new();
+    private readonly ImInputString _vehicleFilter = new(128);
+    private readonly ImInputString _lightPartFilter = new(128);
 
     public void Initialize() { Instance = this; }
     public void Update(double dt) { _animationManager.Update(dt, ResolvePartById); }
@@ -74,16 +74,17 @@ public sealed class ZippoSubmod : ISubmod
             ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(-1);
             int prevVehicleIdx = _vehicleComboIdx;
-            if (ImGui.BeginCombo("##zp_vehicle", _vehicleComboItems[_vehicleComboIdx]))
-            {
-                if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _vehicleFilter.Clear(); }
-                _vehicleFilter.Draw("##zp_vflt", -1f);
-                for (int i = 0; i < _vehicleComboItems.Length; i++)
+                if (ImGui.BeginCombo("##zp_vehicle", _vehicleComboItems[_vehicleComboIdx]))
                 {
-                    if (_vehicleFilter.PassFilter(_vehicleComboItems[i]))
+                    if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _vehicleFilter.Clear(); }
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.InputTextWithHint("##zp_vflt", "filter..."u8, _vehicleFilter);
+                    for (int i = 0; i < _vehicleComboItems.Length; i++)
                     {
-                        bool sel = _vehicleComboIdx == i;
-                        if (ImGui.Selectable(_vehicleComboItems[i], sel)) _vehicleComboIdx = i;
+                        if (MatchesFilter(_vehicleFilter, _vehicleComboItems[i]))
+                        {
+                            bool sel = _vehicleComboIdx == i;
+                            if (ImGui.Selectable(_vehicleComboItems[i], sel)) _vehicleComboIdx = i;
                         if (sel) ImGui.SetItemDefaultFocus();
                     }
                 }
@@ -108,10 +109,11 @@ public sealed class ZippoSubmod : ISubmod
                 if (ImGui.BeginCombo("##zp_lightpart", _lightPartComboItems[_lightPartComboIdx]))
                 {
                     if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _lightPartFilter.Clear(); }
-                    _lightPartFilter.Draw("##zp_pflt", -1f);
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.InputTextWithHint("##zp_pflt", "filter..."u8, _lightPartFilter);
                     for (int i = 0; i < _lightPartComboItems.Length; i++)
                     {
-                        if (_lightPartFilter.PassFilter(_lightPartComboItems[i]))
+                        if (MatchesFilter(_lightPartFilter, _lightPartComboItems[i]))
                         {
                             bool sel = _lightPartComboIdx == i;
                             if (ImGui.Selectable(_lightPartComboItems[i], sel)) _lightPartComboIdx = i;
@@ -246,11 +248,12 @@ public sealed class ZippoSubmod : ISubmod
                 if (ImGui.BeginCombo("##zp_animstart_xkcd", xkcdStartPreview))
                 {
                     if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _animStartColorFilter.Clear(); }
-                    _animStartColorFilter.Draw("##zp_animstart_xflt", -1f);
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.InputTextWithHint("##zp_animstart_xflt", "filter..."u8, _animStartColorFilter);
                     var allStartColors = XkcdColorHelper.GetAll();
                     foreach (var (name, color) in allStartColors)
                     {
-                        if (!_animStartColorFilter.PassFilter(name)) continue;
+                        if (!MatchesFilter(_animStartColorFilter, name)) continue;
                         bool sel = name == _animStartXkcdName;
                         if (ImGui.Selectable(name, sel))
                         {
@@ -276,11 +279,12 @@ public sealed class ZippoSubmod : ISubmod
                 if (ImGui.BeginCombo("##zp_animend_xkcd", xkcdEndPreview))
                 {
                     if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _animEndColorFilter.Clear(); }
-                    _animEndColorFilter.Draw("##zp_animend_xflt", -1f);
+                    ImGui.SetNextItemWidth(-1);
+                    ImGui.InputTextWithHint("##zp_animend_xflt", "filter..."u8, _animEndColorFilter);
                     var allEndColors = XkcdColorHelper.GetAll();
                     foreach (var (name, color) in allEndColors)
                     {
-                        if (!_animEndColorFilter.PassFilter(name)) continue;
+                        if (!MatchesFilter(_animEndColorFilter, name)) continue;
                         bool sel = name == _animEndXkcdName;
                         if (ImGui.Selectable(name, sel))
                         {
@@ -397,7 +401,7 @@ public sealed class ZippoSubmod : ISubmod
                 var v = SelectedVehicle;
                 if (v != null)
                 {
-                    Console.WriteLine("grant/zippo: === debug dump (parts with Components > 0) ===");
+                    Console.WriteLine("unscience/zippo: === debug dump (parts with Components > 0) ===");
                     var parts = v.Parts.Parts;
                     for (int i = 0; i < parts.Length; i++)
                         LightController.DumpPartsWithComponents(parts[i]);
@@ -578,5 +582,11 @@ public sealed class ZippoSubmod : ISubmod
         _animStartIntensity = _intensity;
         _animStartXkcdName = "";
         _animQueueError = null;
+    }
+
+    private static bool MatchesFilter(ImInputString filter, string value)
+    {
+        var filterText = filter.ToString().Trim();
+        return filterText.Length == 0 || value.Contains(filterText, StringComparison.OrdinalIgnoreCase);
     }
 }

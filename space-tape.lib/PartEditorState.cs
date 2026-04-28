@@ -41,7 +41,7 @@ public sealed class PartGameDataState
     public List<BatteryState> Batteries { get; set; } = new();
     public List<GeneratorState> Generators { get; set; } = new();
     public List<PowerConsumerState> PowerConsumers { get; set; } = new();
-    public TankState? Tank { get; set; }
+    public List<TankState> Tanks { get; set; } = new();
     public List<ConnectorState> Connectors { get; set; } = new();
     public DecouplerState? Decoupler { get; set; }
     public DockingPortState? DockingPort { get; set; }
@@ -53,8 +53,8 @@ public sealed class PartGameDataState
 /// </summary>
 public sealed class EditingPart
 {
-    /// <summary>The Part ID used in XML (must be unique, e.g. "MyMod.MyPart").</summary>
-    public string PartId { get; set; } = "MyMod.NewPart";
+    /// <summary>The Part ID used in XML (must be unique, e.g. "fixme_part_id").</summary>
+    public string PartId { get; set; } = "fixme_part_id";
 
     /// <summary>All placed SubPart instances.</summary>
     public List<SubPartPlacement> Placements { get; set; } = new();
@@ -72,7 +72,7 @@ public sealed class EditingPart
         foreach (var b in GameData.Batteries) clone.GameData.Batteries.Add(b.Clone());
         foreach (var g in GameData.Generators) clone.GameData.Generators.Add(g.Clone());
         foreach (var pc in GameData.PowerConsumers) clone.GameData.PowerConsumers.Add(pc.Clone());
-        clone.GameData.Tank = GameData.Tank?.Clone();
+        foreach (var t in GameData.Tanks) clone.GameData.Tanks.Add(t.Clone());
         foreach (var c in GameData.Connectors) clone.GameData.Connectors.Add(c.Clone());
         clone.GameData.Decoupler = GameData.Decoupler?.Clone();
         clone.GameData.DockingPort = GameData.DockingPort?.Clone();

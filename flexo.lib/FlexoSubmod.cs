@@ -11,7 +11,7 @@ namespace MeowSci.FlexoLib;
 
 public sealed class FlexoSubmod : ISubmod
 {
-    public string Name => "Flexo";
+    public string Name => "Flexo - Robotics";
     public string Tooltip => "Robotics — hinges, rotors, and articulated parts.";
 
     public static FlexoSubmod? Current { get; private set; }

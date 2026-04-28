@@ -23,7 +23,7 @@
     <Project Path="zippo.lib/zippo.lib.csproj" />
     <Project Path="i-feel-seen/i-feel-seen.csproj" />
     <Project Path="i-feel-seen.lib/i-feel-seen.lib.csproj" />
-    <Project Path="grant/grant.csproj" />
+    <Project Path="unscience/unscience.csproj" />
     <Project Path="ksa-abstractions.lib/ksa-abstractions.lib.csproj" />
     <Project Path="kiwis-marbles/kiwis-marbles.csproj" />
     <Project Path="kiwis-marbles.lib/kiwis-marbles.lib.csproj" />

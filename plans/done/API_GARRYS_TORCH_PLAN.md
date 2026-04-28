@@ -16,7 +16,7 @@ Add HTTP RPC endpoints for the Garry's Torch vehicle welding system to the unlad
 - **Animation scope**: Interpolate position, rotation, and scale (not lockRotation)
 - **Concurrent animations**: Queue new animation after current one finishes
 - **Animation status polling**: Not needed (fire and forget)
-- **Static API pattern**: No separate static class needed — `GarrysTorchSubmod` already holds global state and is instantiated once inside the grant supermod. Unladen-swallow endpoint code can reference `garrys-torch.lib` types directly since they share the same assembly loader at runtime.
+- **Static API pattern**: No separate static class needed — `GarrysTorchSubmod` already holds global state and is instantiated once inside the unscience supermod. Unladen-swallow endpoint code can reference `garrys-torch.lib` types directly since they share the same assembly loader at runtime.
 
 ---
 

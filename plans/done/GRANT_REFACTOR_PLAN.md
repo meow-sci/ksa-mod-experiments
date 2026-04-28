@@ -1,4 +1,4 @@
-# Grant Refactor Plan
+# Unscience Refactor Plan
 
 ## Overview
 
@@ -8,7 +8,7 @@ This document defines a sequenced set of refactoring tasks to restructure the `k
 2. **Extract mod logic into companion `.lib` projects** — each mod gets a `[modname].lib` library containing reusable, stateless-preferred logic
 3. **Standardize naming** — all projects use `MeowSci.*` assembly names and namespaces
 4. **Standardize build/dist** — all mod csproj files use the zippo-style `CopyCustomContent` pattern for `MeowSci.*.dll` auto-copy
-5. **Update `grant` supermod** — references all `.lib` projects for compile-time linkage
+5. **Update `unscience` supermod** — references all `.lib` projects for compile-time linkage
 
 ---
 
@@ -723,19 +723,19 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 ---
 
-### TASK 10: Update `grant` Supermod with All Lib References
+### TASK 10: Update `unscience` Supermod with All Lib References
 
-**Goal:** Update the `grant` mod project to reference all `.lib` projects, making it an all-in-one supermod with compile-time access to all mod features.
+**Goal:** Update the `unscience` mod project to reference all `.lib` projects, making it an all-in-one supermod with compile-time access to all mod features.
 
 **Context:**
-- `grant` is already a working mod project with skeleton `Mod.cs` (has a basic ImGui window with F11 toggle) and `Patcher.cs` (boilerplate).
-- Current namespace: `mod`, AssemblyName: `grant`
-- The goal is ONLY to update the csproj for compile-time linkage. Do NOT implement any new mod code in `grant`'s `Mod.cs` — just ensure it compiles with access to all lib types.
+- `unscience` is already a working mod project with skeleton `Mod.cs` (has a basic ImGui window with F11 toggle) and `Patcher.cs` (boilerplate).
+- Current namespace: `mod`, AssemblyName: `unscience`
+- The goal is ONLY to update the csproj for compile-time linkage. Do NOT implement any new mod code in `unscience`'s `Mod.cs` — just ensure it compiles with access to all lib types.
 
 **Steps:**
 
-1. **Update `grant/grant.csproj`:**
-   - Set `AssemblyName=MeowSci.Grant`, `RootNamespace=MeowSci.Grant`
+1. **Update `unscience/unscience.csproj`:**
+   - Set `AssemblyName=MeowSci.Unscience`, `RootNamespace=MeowSci.Unscience`
    - Add `<ProjectReference>` entries for ALL lib projects:
      ```xml
      <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
@@ -751,14 +751,14 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
      <ProjectReference Include="..\example-lib-project\example-lib-project.csproj" />
      ```
    - Add `MeowSci.*.dll/pdb` auto-copy to `CopyCustomContent` (zippo pattern)
-   - Update `DistDir` to use `$(SelectedDistModDir)grant\` if not already
+   - Update `DistDir` to use `$(SelectedDistModDir)unscience\` if not already
 
-2. **Update `grant/Mod.cs`:**
-   - Change namespace from `mod` to `MeowSci.Grant`
+2. **Update `unscience/Mod.cs`:**
+   - Change namespace from `mod` to `MeowSci.Unscience`
    - No other code changes — keep existing skeleton
 
-3. **Update `grant/Patcher.cs`:**
-   - Change namespace from `mod` to `MeowSci.Grant`
+3. **Update `unscience/Patcher.cs`:**
+   - Change namespace from `mod` to `MeowSci.Unscience`
 
 4. **Verify:** `dotnet build`
 
@@ -785,7 +785,7 @@ These KSA game APIs are used by **3 or more mods** and are prime candidates for 
 
 2. **Verify all `DistDir` consistency:**
    - All mod projects should use `$(SelectedDistModDir)modname\` pattern (from `Directory.Build.props`) rather than hardcoded paths where possible
-   - Current state: some use `$(SelectedDistModDir)` (average-twr, blinken), others use hardcoded `C:\Program Files\...` paths (byo-music, camera-controller-override, garrys-torch, geeforce, i-feel-seen, grant, zippo) — standardize all to use `$(SelectedDistModDir)`
+   - Current state: some use `$(SelectedDistModDir)` (average-twr, blinken), others use hardcoded `C:\Program Files\...` paths (byo-music, camera-controller-override, garrys-torch, geeforce, i-feel-seen, unscience, zippo) — standardize all to use `$(SelectedDistModDir)`
 
 3. **Verify all `CopyCustomContent` targets:**
    - Every mod project must include the `MeowSci.*.dll;MeowSci.*.pdb` auto-copy block
@@ -816,7 +816,7 @@ TASK 0 (ksa-abstractions.lib)
   ├──> TASK 8 (kitten-animations)
   ├──> TASK 9 (zippo)
   │
-  └──> TASK 10 (grant) ──depends on──> TASKS 1-9
+  └──> TASK 10 (unscience) ──depends on──> TASKS 1-9
                 │
                 └──> TASK 11 (cleanup/verification) ──depends on──> ALL
 ```
@@ -842,7 +842,7 @@ Task 11 is final verification after everything is complete.
 | `i-feel-seen` + `i-feel-seen.lib` | `MeowSci.IFeelSeen` | `MeowSci.IFeelSeenLib` | `MeowSci.IFeelSeen` | `MeowSci.IFeelSeenLib` |
 | `kitten-animations` + `.lib` | `MeowSci.KittenAnimations` | `MeowSci.KittenAnimationsLib` | `MeowSci.KittenAnimations` | `MeowSci.KittenAnimationsLib` |
 | `zippo` + `zippo.lib` | `MeowSci.Zippo` | `MeowSci.ZippoLib` | `MeowSci.Zippo` | `MeowSci.ZippoLib` |
-| `grant` | `MeowSci.Grant` | — | `MeowSci.Grant` | — |
+| `unscience` | `MeowSci.Unscience` | — | `MeowSci.Unscience` | — |
 
 ## Reference: CopyCustomContent Template (Zippo Pattern)
 

@@ -9,7 +9,7 @@ namespace MeowSci.SkittlesLib;
 
 public sealed class SkittlesSubmod : ISubmod
 {
-    public string Name => "Skittles - ImGui Themes";
+    public string Name => "Skittles - UI Themes";
     public string Tooltip => "Manages and applies ImGui theme configurations for UI customization.";
 
     private ThemeManager _themeManager = null!;
@@ -68,7 +68,7 @@ public sealed class SkittlesSubmod : ISubmod
                     _filterInput.Clear();
 
                 ImGui.SetNextItemWidth(-1);
-                ImGui.InputText("##sk_filter", _filterInput);
+                ImGui.InputTextWithHint("##sk_filter", "filter..."u8, _filterInput);
                 ImGui.Separator();
 
                 string filterText = _filterInput.ToString();
@@ -171,7 +171,7 @@ public sealed class SkittlesSubmod : ISubmod
                     if (ImGui.Button($"Save \"{activeEntry!.Name}\"##sk"))
                     {
                         _themeManager.SaveCurrentAsTheme(activeEntry.Name);
-                        Console.WriteLine($"grant/skittles: Saved theme '{activeEntry.Name}'");
+                        Console.WriteLine($"unscience/skittles: Saved theme '{activeEntry.Name}'");
                         UpdateSelectedIndex();
                     }
                     ImGui.SameLine();
@@ -205,7 +205,7 @@ public sealed class SkittlesSubmod : ISubmod
                 if (ImGui.Button("Save##sk_save"))
                 {
                     _themeManager.SaveCurrentAsTheme(nameStr);
-                    Console.WriteLine($"grant/skittles: Saved theme '{nameStr}'");
+                    Console.WriteLine($"unscience/skittles: Saved theme '{nameStr}'");
                     _showSaveInput = false;
                     _themeNameInput.Clear();
                     UpdateSelectedIndex();

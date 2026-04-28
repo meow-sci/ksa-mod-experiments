@@ -2,24 +2,24 @@
 
 using "mod-a"/"mod-a.lib" as an example mod name for illustrative purposes which represents all mods and their libs
 
-- the IGrantSubmod interface should've been put into ksa-abstractions.lib as a generic interface pattern (not tied to "grant" at all), and the submods should've been defined in each mod-a.lib csproj and reused from both mod-a's ImGui code and grant supermod ImGui code so that we're not largely duplicating the ImGui code per mod ui behavior
-- the the harmony patch behavior should be defined in mod-a.lib and reused and called from mod-a and grant supermod
+- the IUnscienceSubmod interface should've been put into ksa-abstractions.lib as a generic interface pattern (not tied to "unscience" at all), and the submods should've been defined in each mod-a.lib csproj and reused from both mod-a's ImGui code and unscience supermod ImGui code so that we're not largely duplicating the ImGui code per mod ui behavior
+- the the harmony patch behavior should be defined in mod-a.lib and reused and called from mod-a and unscience supermod
 
 the goal here is that each mod-a and mod-a.lib pair largely contain all the logic for that mod, and mod-a + mod-a.lib can still be used standalone where mod-a provides a ImGui window that includes the mod-a.lib ui code
 
-but grant supermod contains *all* of the submod functionality together in a single ImGui window collected under collapsible headers that can be toggled on/off for visibility
+but unscience supermod contains *all* of the submod functionality together in a single ImGui window collected under collapsible headers that can be toggled on/off for visibility
 
 # plan
 
 ## overview
 
-There are 10 grant submods (files in `grant/Submods/`) that each implement `IGrantSubmod` and contain ImGui UI code. This same ImGui code is **largely duplicated** in each standalone mod's `Mod.cs`. The goal is to define that ImGui UI code **once** in each `mod.lib` project, then reuse it from both the standalone mod and the grant supermod.
+There are 10 unscience submods (files in `unscience/Submods/`) that each implement `IUnscienceSubmod` and contain ImGui UI code. This same ImGui code is **largely duplicated** in each standalone mod's `Mod.cs`. The goal is to define that ImGui UI code **once** in each `mod.lib` project, then reuse it from both the standalone mod and the unscience supermod.
 
-Similarly, 4 mods have Harmony patches that are defined in both the standalone mod's `Patcher.cs` AND duplicated in `grant/Patcher.cs`. Those should be defined once in each `mod.lib` and called from both places.
+Similarly, 4 mods have Harmony patches that are defined in both the standalone mod's `Patcher.cs` AND duplicated in `unscience/Patcher.cs`. Those should be defined once in each `mod.lib` and called from both places.
 
 ### current duplication map
 
-| Mod | grant/Submods/*Submod.cs (lines) | standalone Mod.cs ImGui (lines) | Harmony in standalone Patcher.cs | Harmony in grant/Patcher.cs |
+| Mod | unscience/Submods/*Submod.cs (lines) | standalone Mod.cs ImGui (lines) | Harmony in standalone Patcher.cs | Harmony in unscience/Patcher.cs |
 |-----|----------------------------------|--------------------------------|----------------------------------|---------------------------|
 | average-twr | AverageTwrSubmod.cs (~90) | average-twr/Mod.cs (~90) | No real patches | No |
 | blinky | BlinkySubmod.cs (~480) | blinky/Mod.cs (~480) | render-skip (3 patches) | render-skip (3 patches) |
@@ -36,7 +36,7 @@ Similarly, 4 mods have Harmony patches that are defined in both the standalone m
 
 ```
 ksa-abstractions.lib/
-  ISubmod.cs              <-- generic submod interface (renamed from IGrantSubmod, NOT grant-specific)
+  ISubmod.cs              <-- generic submod interface (renamed from IUnscienceSubmod, NOT unscience-specific)
 
 each-mod.lib/
   [existing lib code]     <-- business logic (already exists)
@@ -47,11 +47,11 @@ each-mod/
   Mod.cs                  <-- SIMPLIFIED: creates submod instance, wraps in ImGui.Begin/End window
   Patcher.cs              <-- SIMPLIFIED: calls into mod.lib patch registration
 
-grant/
+unscience/
   Mod.cs                  <-- UNCHANGED conceptually: creates all submod instances, orchestrates
   Patcher.cs              <-- SIMPLIFIED: calls into each mod.lib patch registration
   Submods/                <-- DELETED entirely (all 10 files)
-  IGrantSubmod.cs         <-- DELETED (replaced by ksa-abstractions.lib/ISubmod.cs)
+  IUnscienceSubmod.cs         <-- DELETED (replaced by ksa-abstractions.lib/ISubmod.cs)
 ```
 
 ---
@@ -93,12 +93,12 @@ public interface ISubmod
 }
 ```
 
-**why public:** every `.lib` project implements it; every mod project and grant references it.
+**why public:** every `.lib` project implements it; every mod project and unscience references it.
 
-**note:** this interface is intentionally identical to the current `IGrantSubmod` but:
+**note:** this interface is intentionally identical to the current `IUnscienceSubmod` but:
 - lives in `ksa-abstractions.lib` (available everywhere)
 - is `public` not `internal`
-- is named generically (`ISubmod` not `IGrantSubmod`)
+- is named generically (`ISubmod` not `IUnscienceSubmod`)
 - namespace is `MeowSci.KsaAbstractions`
 
 **csproj change:** none needed — `ksa-abstractions.lib.csproj` already has ImGui references.
@@ -107,7 +107,7 @@ public interface ISubmod
 
 ## phase 2: create submod classes in each `.lib` project
 
-For each of the 10 mods, move the submod implementation from `grant/Submods/*Submod.cs` into the corresponding `.lib` project. The class becomes `public` so both the standalone mod and grant can instantiate it.
+For each of the 10 mods, move the submod implementation from `unscience/Submods/*Submod.cs` into the corresponding `.lib` project. The class becomes `public` so both the standalone mod and unscience can instantiate it.
 
 ### general pattern for each mod.lib submod
 
@@ -117,15 +117,15 @@ Each new file follows this pattern (using average-twr as an example):
 **namespace:** `MeowSci.AverageTwrLib` (matches existing lib namespace)
 **class:** `public sealed class AverageTwrSubmod : ISubmod`
 
-The implementation is a **direct copy** of the code from `grant/Submods/AverageTwrSubmod.cs` with these changes:
-1. namespace changes from `MeowSci.Grant.Submods` → `MeowSci.AverageTwrLib`
-2. `using MeowSci.Grant;` removed; `using MeowSci.KsaAbstractions;` added (for `ISubmod`)
+The implementation is a **direct copy** of the code from `unscience/Submods/AverageTwrSubmod.cs` with these changes:
+1. namespace changes from `MeowSci.Unscience.Submods` → `MeowSci.AverageTwrLib`
+2. `using MeowSci.Unscience;` removed; `using MeowSci.KsaAbstractions;` added (for `ISubmod`)
 3. `internal sealed class` → `public sealed class`
-4. implements `ISubmod` instead of `IGrantSubmod`
+4. implements `ISubmod` instead of `IUnscienceSubmod`
 
 ### task 2.1: `average-twr.lib/AverageTwrSubmod.cs`
 
-- **source:** copy content from `grant/Submods/AverageTwrSubmod.cs`
+- **source:** copy content from `unscience/Submods/AverageTwrSubmod.cs`
 - **namespace:** `MeowSci.AverageTwrLib`
 - **class:** `public sealed class AverageTwrSubmod : ISubmod`
 - **csproj change to `average-twr.lib.csproj`:** already has `ksa-abstractions.lib` dependency — no change needed
@@ -133,7 +133,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.2: `blinky.lib/BlinkySubmod.cs`
 
-- **source:** copy content from `grant/Submods/BlinkySubmod.cs` (~480 lines)
+- **source:** copy content from `unscience/Submods/BlinkySubmod.cs` (~480 lines)
 - **namespace:** `MeowSci.BlinkyLib`
 - **class:** `public sealed class BlinkySubmod : ISubmod`
 - **csproj change to `blinky.lib.csproj`:** already has `ksa-abstractions.lib` dependency — no change needed
@@ -141,11 +141,11 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
   - this is the largest submod (~480 lines) with complex grid builder UI
   - references `BlinkyGridManager`, `LcdGridBuilder`, `LcdGridConfig`, `PixelGrid`, `ScrollAnimation`, `BuiltInScrollPixels` — all in `blinky.lib`
   - references `VehicleProvider`, `PartHelpers` from `ksa-abstractions.lib`
-  - also contains a reference to `grant/Patcher.RenderPixelParts` static bool. This needs to move to `blinky.lib` as a static field e.g. `BlinkyPatchState.RenderPixelParts` in a new file `blinky.lib/BlinkyPatchState.cs`
+  - also contains a reference to `unscience/Patcher.RenderPixelParts` static bool. This needs to move to `blinky.lib` as a static field e.g. `BlinkyPatchState.RenderPixelParts` in a new file `blinky.lib/BlinkyPatchState.cs`
 
 ### task 2.3: `eternal-flame.lib/EternalFlameSubmod.cs`
 
-- **source:** copy content from `grant/Submods/EternalFlameSubmod.cs`
+- **source:** copy content from `unscience/Submods/EternalFlameSubmod.cs`
 - **namespace:** `MeowSci.EternalFlameLib`
 - **class:** `public sealed class EternalFlameSubmod : ISubmod`
 - **csproj change to `eternal-flame.lib.csproj`:** add `<ProjectReference>` to `ksa-abstractions.lib` (currently missing). Also needs ImGui + KSA dll references added matching other lib csprojs
@@ -153,7 +153,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.4: `garrys-torch.lib/GarrysTorchSubmod.cs`
 
-- **source:** copy content from `grant/Submods/GarrysTorchSubmod.cs` (~230 lines)
+- **source:** copy content from `unscience/Submods/GarrysTorchSubmod.cs` (~230 lines)
 - **namespace:** `MeowSci.GarrysTorchLib`
 - **class:** `public sealed class GarrysTorchSubmod : ISubmod`
 - **csproj change to `garrys-torch.lib.csproj`:** already has `ksa-abstractions.lib` — no change needed
@@ -161,7 +161,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.5: `glass.lib/GlassSubmod.cs`
 
-- **source:** copy content from `grant/Submods/GlassSubmod.cs`
+- **source:** copy content from `unscience/Submods/GlassSubmod.cs`
 - **namespace:** `MeowSci.GlassLib`
 - **class:** `public sealed class GlassSubmod : ISubmod`
 - **csproj change to `glass.lib.csproj`:** add `<ProjectReference>` to `ksa-abstractions.lib` (currently missing). Also needs ImGui + Numerics dll references added
@@ -169,16 +169,16 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.6: `i-feel-seen.lib/IFeelSeenSubmod.cs`
 
-- **source:** copy content from `grant/Submods/IFeelSeenSubmod.cs`
+- **source:** copy content from `unscience/Submods/IFeelSeenSubmod.cs`
 - **namespace:** `MeowSci.IFeelSeenLib`
 - **class:** `public sealed class IFeelSeenSubmod : ISubmod`
-- **public property:** `public VehicleTracker Tracker => _tracker;` (needed by Patcher wiring in both standalone & grant)
+- **public property:** `public VehicleTracker Tracker => _tracker;` (needed by Patcher wiring in both standalone & unscience)
 - **csproj change to `i-feel-seen.lib.csproj`:** already has `ksa-abstractions.lib` — no change needed
 - **special notes:** `VehicleTracker`, `TrackedVehicle` already in this lib
 
 ### task 2.7: `kiwis-marbles.lib/KiwisMarblesSubmod.cs`
 
-- **source:** copy content from `grant/Submods/KiwisMarblesSubmod.cs` (~350 lines)
+- **source:** copy content from `unscience/Submods/KiwisMarblesSubmod.cs` (~350 lines)
 - **namespace:** `MeowSci.KiwisMarblesLib`
 - **class:** `public sealed class KiwisMarblesSubmod : ISubmod`
 - **csproj change to `kiwis-marbles.lib.csproj`:** already has `ksa-abstractions.lib` — needs ImGui dll references added (for ImGui calls in submod)
@@ -186,10 +186,10 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.8: `skittles.lib/SkittlesSubmod.cs`
 
-- **source:** copy content from `grant/Submods/SkittlesSubmod.cs` (~320 lines)
+- **source:** copy content from `unscience/Submods/SkittlesSubmod.cs` (~320 lines)
 - **namespace:** `MeowSci.SkittlesLib`
 - **class:** `public sealed class SkittlesSubmod : ISubmod`
-- **public property:** `public bool HasFocusedTextInput` (needed by Patcher wiring in grant)
+- **public property:** `public bool HasFocusedTextInput` (needed by Patcher wiring in unscience)
 - **csproj change to `skittles.lib.csproj`:** add `<ProjectReference>` to `ksa-abstractions.lib`. already has ImGui references.
 - **special notes:** 
   - has a separate theme editor window (calls ImGui.Begin/End for the editor popup — this is allowed per the interface contract)
@@ -197,7 +197,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.9: `unladen-swallow.lib/UnladenSwallowSubmod.cs`
 
-- **source:** copy content from `grant/Submods/UnladenSwallowSubmod.cs`
+- **source:** copy content from `unscience/Submods/UnladenSwallowSubmod.cs`
 - **namespace:** `MeowSci.UnladenSwallowLib`
 - **class:** `public sealed class UnladenSwallowSubmod : ISubmod`
 - **csproj change to `unladen-swallow.lib.csproj`:** add `<ProjectReference>` to `ksa-abstractions.lib` (already has it). Needs ImGui dll references if not already present (it already has KSA ref, needs ImGui)
@@ -205,7 +205,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ### task 2.10: `zippo.lib/ZippoSubmod.cs`
 
-- **source:** copy content from `grant/Submods/ZippoSubmod.cs` (~280 lines)
+- **source:** copy content from `unscience/Submods/ZippoSubmod.cs` (~280 lines)
 - **namespace:** `MeowSci.ZippoLib`
 - **class:** `public sealed class ZippoSubmod : ISubmod`
 - **csproj change to `zippo.lib.csproj`:** already has `ksa-abstractions.lib` and ImGui — no change needed
@@ -215,7 +215,7 @@ The implementation is a **direct copy** of the code from `grant/Submods/AverageT
 
 ## phase 3: move Harmony patch logic to `.lib` projects (4 mods only)
 
-Only 4 mods have real Harmony patches that are duplicated between the standalone mod and grant:
+Only 4 mods have real Harmony patches that are duplicated between the standalone mod and unscience:
 - **blinky** — 3 render-skip patches
 - **glass** — 2 FOV override patches
 - **i-feel-seen** — 2 vehicle render distance patches
@@ -237,7 +237,7 @@ public static class SomePatches
 }
 ```
 
-The standalone mod's `Patcher.cs` and grant's `Patcher.cs` both call `SomePatches.Apply(harmony)`.
+The standalone mod's `Patcher.cs` and unscience's `Patcher.cs` both call `SomePatches.Apply(harmony)`.
 
 ### task 3.1: `blinky.lib/BlinkyPatchState.cs` + `blinky.lib/BlinkyPatches.cs`
 
@@ -404,12 +404,12 @@ public class Mod
 
 ---
 
-## phase 5: update grant supermod
+## phase 5: update unscience supermod
 
-### task 5.1: update `grant/Mod.cs`
+### task 5.1: update `unscience/Mod.cs`
 
-- change `using MeowSci.Grant.Submods;` → usings for each lib namespace
-- change `IGrantSubmod` → `ISubmod` (from `MeowSci.KsaAbstractions`)
+- change `using MeowSci.Unscience.Submods;` → usings for each lib namespace
+- change `IUnscienceSubmod` → `ISubmod` (from `MeowSci.KsaAbstractions`)
 - change `new AverageTwrSubmod()` → `new MeowSci.AverageTwrLib.AverageTwrSubmod()` (or use namespace aliases)
 - add `using MeowSci.AverageTwrLib;` etc. for each lib (using fully qualified names or aliases to avoid ambiguity between types with same name from different libs)
 - rest of orchestration logic stays identical (visibility toggles, collapse/expand, etc.)
@@ -417,7 +417,7 @@ public class Mod
   - `Patcher.IFeelSeenTracker = iFeelSeen.Tracker;`
   - `Patcher.SkittlesHasFocusedTextInput = () => skittles.HasFocusedTextInput;`
 
-### task 5.2: update `grant/Patcher.cs`
+### task 5.2: update `unscience/Patcher.cs`
 
 - remove all `[HarmonyPatch]` inner classes (Blinky, Glass, IFeelSeen, Skittles patch classes)
 - keep the `Patch()` / `Unload()` methods but simplify them to call each lib's patches:
@@ -425,7 +425,7 @@ public class Mod
 ```csharp
 public static void Patch()
 {
-    _harmony = new Harmony("MeowSci.Grant");
+    _harmony = new Harmony("MeowSci.Unscience");
     BlinkyPatches.Apply(_harmony);
     GlassPatches.Apply(_harmony);
     IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
@@ -448,27 +448,27 @@ public static void Unload()
 - remove `RenderPixelParts` static (moved to `BlinkyPatchState`)
 - remove `_fovRadiansField` (moved to `GlassPatches`)
 
-### task 5.3: delete `grant/IGrantSubmod.cs`
+### task 5.3: delete `unscience/IUnscienceSubmod.cs`
 
 This file is fully replaced by `ksa-abstractions.lib/ISubmod.cs`.
 
-### task 5.4: delete `grant/Submods/` directory (all 10 files)
+### task 5.4: delete `unscience/Submods/` directory (all 10 files)
 
 All submod implementations now live in their respective `.lib` projects:
-- delete `grant/Submods/AverageTwrSubmod.cs`
-- delete `grant/Submods/BlinkySubmod.cs`
-- delete `grant/Submods/EternalFlameSubmod.cs`
-- delete `grant/Submods/GarrysTorchSubmod.cs`
-- delete `grant/Submods/GlassSubmod.cs`
-- delete `grant/Submods/IFeelSeenSubmod.cs`
-- delete `grant/Submods/KiwisMarblesSubmod.cs`
-- delete `grant/Submods/SkittlesSubmod.cs`
-- delete `grant/Submods/UnladenSwallowSubmod.cs`
-- delete `grant/Submods/ZippoSubmod.cs`
+- delete `unscience/Submods/AverageTwrSubmod.cs`
+- delete `unscience/Submods/BlinkySubmod.cs`
+- delete `unscience/Submods/EternalFlameSubmod.cs`
+- delete `unscience/Submods/GarrysTorchSubmod.cs`
+- delete `unscience/Submods/GlassSubmod.cs`
+- delete `unscience/Submods/IFeelSeenSubmod.cs`
+- delete `unscience/Submods/KiwisMarblesSubmod.cs`
+- delete `unscience/Submods/SkittlesSubmod.cs`
+- delete `unscience/Submods/UnladenSwallowSubmod.cs`
+- delete `unscience/Submods/ZippoSubmod.cs`
 
-### task 5.5: update `grant/grant.csproj`
+### task 5.5: update `unscience/unscience.csproj`
 
-No new project references needed — grant already references all `.lib` projects and `ksa-abstractions.lib`.
+No new project references needed — unscience already references all `.lib` projects and `ksa-abstractions.lib`.
 
 ---
 
@@ -503,9 +503,9 @@ Run `dotnet build` from the repo root and fix any compilation errors. Common exp
 
 ### task 7.2: update `REPOSITORY_INDEX.md`
 
-Update the grant section to reflect the new architecture — submods now live in `.lib` projects, grant references them directly.
+Update the unscience section to reflect the new architecture — submods now live in `.lib` projects, unscience references them directly.
 
-### task 7.3: update `grant/README.md`
+### task 7.3: update `unscience/README.md`
 
 Update architecture section to describe the new pattern.
 
@@ -526,7 +526,7 @@ phase 3 (Harmony helpers in .lib) — depends on phase 2 (some submods reference
   ↓
 phase 4 (simplify standalone mods) — depends on phases 2 + 3
   ↓
-phase 5 (update grant) — depends on phases 2 + 3
+phase 5 (update unscience) — depends on phases 2 + 3
   ↓
 phase 6 (csproj fixups) — can be done incrementally during phases 2-5
   ↓
@@ -539,12 +539,12 @@ phases 4 and 5 are **independent** of each other and can be done in parallel.
 
 ## key design decisions
 
-1. **`ISubmod` not `IGrantSubmod`** — the interface is generic and reusable, not tied to grant
-2. **submod classes are `public sealed`** — both standalone mod and grant need to instantiate them
+1. **`ISubmod` not `IUnscienceSubmod`** — the interface is generic and reusable, not tied to unscience
+2. **submod classes are `public sealed`** — both standalone mod and unscience need to instantiate them
 3. **Harmony patches use manual registration** — `.lib` projects provide `Apply(Harmony)` / `Remove(Harmony)` static methods because attribute-based auto-patching is assembly-scoped
-4. **Harmony state is static in lib** — e.g., `BlinkyPatchState.RenderPixelParts`, `IFeelSeenPatches._tracker` — so both standalone and grant can reference the same state
+4. **Harmony state is static in lib** — e.g., `BlinkyPatchState.RenderPixelParts`, `IFeelSeenPatches._tracker` — so both standalone and unscience can reference the same state
 5. **standalone mods remain fully functional** — each mod still creates its own `ImGui.Begin/End` window, but delegates all content rendering to its `.lib` submod
-6. **grant remains the orchestrator** — creates all submod instances, manages visibility, renders collapsible headers, consolidates patches
+6. **unscience remains the orchestrator** — creates all submod instances, manages visibility, renders collapsible headers, consolidates patches
 7. **no behavior changes** — the refactor is purely structural; all UI and logic behavior must be preserved exactly
 
 ---
@@ -595,24 +595,24 @@ phases 4 and 5 are **independent** of each other and can be done in parallel.
 | `unladen-swallow/Mod.cs` | simplify to delegate to submod |
 | `unladen-swallow.lib/unladen-swallow.lib.csproj` | add ImGui refs |
 | `zippo/Mod.cs` | simplify to delegate to submod |
-| `grant/Mod.cs` | update usings, use `ISubmod`, reference lib submods |
-| `grant/Patcher.cs` | remove inline patches, call lib patches |
+| `unscience/Mod.cs` | update usings, use `ISubmod`, reference lib submods |
+| `unscience/Patcher.cs` | remove inline patches, call lib patches |
 | `eternal-flame.lib/eternal-flame.lib.csproj` | add ImGui + ksa-abstractions refs |
-| `REPOSITORY_INDEX.md` | update grant architecture description |
-| `grant/README.md` | update architecture description |
+| `REPOSITORY_INDEX.md` | update unscience architecture description |
+| `unscience/README.md` | update architecture description |
 
 ## files deleted
 
 | file | reason |
 |------|--------|
-| `grant/IGrantSubmod.cs` | replaced by `ksa-abstractions.lib/ISubmod.cs` |
-| `grant/Submods/AverageTwrSubmod.cs` | moved to `average-twr.lib` |
-| `grant/Submods/BlinkySubmod.cs` | moved to `blinky.lib` |
-| `grant/Submods/EternalFlameSubmod.cs` | moved to `eternal-flame.lib` |
-| `grant/Submods/GarrysTorchSubmod.cs` | moved to `garrys-torch.lib` |
-| `grant/Submods/GlassSubmod.cs` | moved to `glass.lib` |
-| `grant/Submods/IFeelSeenSubmod.cs` | moved to `i-feel-seen.lib` |
-| `grant/Submods/KiwisMarblesSubmod.cs` | moved to `kiwis-marbles.lib` |
-| `grant/Submods/SkittlesSubmod.cs` | moved to `skittles.lib` |
-| `grant/Submods/UnladenSwallowSubmod.cs` | moved to `unladen-swallow.lib` |
-| `grant/Submods/ZippoSubmod.cs` | moved to `zippo.lib` |
+| `unscience/IUnscienceSubmod.cs` | replaced by `ksa-abstractions.lib/ISubmod.cs` |
+| `unscience/Submods/AverageTwrSubmod.cs` | moved to `average-twr.lib` |
+| `unscience/Submods/BlinkySubmod.cs` | moved to `blinky.lib` |
+| `unscience/Submods/EternalFlameSubmod.cs` | moved to `eternal-flame.lib` |
+| `unscience/Submods/GarrysTorchSubmod.cs` | moved to `garrys-torch.lib` |
+| `unscience/Submods/GlassSubmod.cs` | moved to `glass.lib` |
+| `unscience/Submods/IFeelSeenSubmod.cs` | moved to `i-feel-seen.lib` |
+| `unscience/Submods/KiwisMarblesSubmod.cs` | moved to `kiwis-marbles.lib` |
+| `unscience/Submods/SkittlesSubmod.cs` | moved to `skittles.lib` |
+| `unscience/Submods/UnladenSwallowSubmod.cs` | moved to `unladen-swallow.lib` |
+| `unscience/Submods/ZippoSubmod.cs` | moved to `zippo.lib` |

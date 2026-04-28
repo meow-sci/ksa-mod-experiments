@@ -7,7 +7,7 @@ The KSA vehicle editor displays 128×128 icon thumbnails for every selectable pa
 
 Subparts (`IsSubPart == true`) are explicitly skipped during thumbnail generation. We want to generate
 thumbnails for subparts at runtime using the same infrastructure, so they can be displayed in mod UIs
-(e.g., a subpart picker panel in the **grant** supermod).
+(e.g., a subpart picker panel in the **unscience** supermod).
 
 ---
 
@@ -249,12 +249,12 @@ ksa-mod-experiments/
 │   ├── SubpartThumbnailBuilder.cs ← BuildSubpartThumbnailPart, CreateSubpartThumbnailImage, etc.
 │   └── SubpartThumbnailCache.cs ← Dictionary<string, ThumbnailReference> + access API
 │
-└── subpart-thumbs/              ← Thin mod wrapper (or integrate into grant)
+└── subpart-thumbs/              ← Thin mod wrapper (or integrate into unscience)
     ├── subpart-thumbs.csproj
     └── SubpartThumbsMod.cs      ← StarMap mod entry point, loads the lib
 ```
 
-Alternatively, integrate `subpart-thumbs.lib` directly into the **grant** supermod — any submod
+Alternatively, integrate `subpart-thumbs.lib` directly into the **unscience** supermod — any submod
 needing subpart thumbnails references `subpart-thumbs.lib` as a project dependency.
 
 ---
@@ -305,7 +305,7 @@ needing subpart thumbnails references `subpart-thumbs.lib` as a project dependen
 
 ### Phase 3: Mod Wrapper
 
-11. **Create `subpart-thumbs` mod project** or add to `grant`.
+11. **Create `subpart-thumbs` mod project** or add to `unscience`.
 
 12. Add `[HarmonyPatch]` setup in the mod's `Initialize()`.
 

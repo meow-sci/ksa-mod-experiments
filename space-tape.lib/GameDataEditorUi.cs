@@ -16,144 +16,225 @@ public static class GameDataEditorUi
     private static int _selectedConnectorIndex = -1;
     private static readonly ImInputString _connectorIdInput = new ImInputString(64);
     private static string _lastConnectorId = "";
+
+    // Tank editor state
+    private static int _selectedTankIndex = -1;
     private static readonly ImInputString _tankMaterialInput = new ImInputString(128);
     private static string _lastTankMaterial = "";
 
     public static int SelectedConnectorIndex => _selectedConnectorIndex;
 
-    /// <summary>Renders the Tank section.</summary>
+    /// <summary>Renders the Tank section supporting multiple tanks.</summary>
     public static void RenderTankSection(PartGameDataState gd)
     {
-        bool hasTank = gd.Tank != null;
-        if (ImGui.Checkbox("Enable Tank##st_gd_tank_en", ref hasTank))
+        ImGui.SeparatorText($"Tanks ({gd.Tanks.Count})");
+
+        // Tank list
+        ImGui.BeginChild("##st_tank_list", new float2(0, 100),
+            ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY);
+        for (int i = 0; i < gd.Tanks.Count; i++)
         {
-            gd.Tank = hasTank ? new TankState() : null;
+            var t = gd.Tanks[i];
+            string label = t.Shape == TankShape.Cylindrical
+                ? $"[{i + 1}] Cylindrical  r={t.OuterRadiusM:G4} m  L={t.LengthM:G4} m"
+                : $"[{i + 1}] Spherical    r={t.OuterRadiusM:G4} m";
+            bool sel = _selectedTankIndex == i;
+            if (ImGui.Selectable($"{label}##st_tk{i}", sel))
+                _selectedTankIndex = sel ? -1 : i;
         }
+        if (gd.Tanks.Count == 0)
+            ImGui.TextDisabled("No tanks. Click + to add.");
+        ImGui.EndChild();
 
-        if (gd.Tank == null) return;
-        var tank = gd.Tank;
-
-        ImGui.Indent(8f);
-
-        // Shape selector
-        int shapeIdx = (int)tank.Shape;
-        ImGui.SetNextItemWidth(160f);
-        if (ImGui.Combo("Shape##st_tank_shape", ref shapeIdx, "Cylindrical\0Spherical\0"))
-            tank.Shape = (TankShape)shapeIdx;
-
-        ImGui.Spacing();
-
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        if (ImGui.BeginTable("##st_tank_tbl", 2,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+        if (ImGui.SmallButton(" + Tank ##st_tk_add"))
         {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 300f);
-            ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 1f);
-
-            // Material ID row -- sync input buffer when tank changes
-            if (tank.WallMaterialId != _lastTankMaterial)
-            {
-                _tankMaterialInput.SetValue(tank.WallMaterialId.AsSpan());
-                _lastTankMaterial = tank.WallMaterialId;
-            }
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.Text("Material");
-            ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(-1f);
-            if (ImGui.InputText("##st_tank_mat", _tankMaterialInput))
-            {
-                tank.WallMaterialId = _tankMaterialInput.ToString();
-                _lastTankMaterial = tank.WallMaterialId;
-            }
-
-            if (tank.Shape == TankShape.Cylindrical)
-            {
-                double length = tank.LengthM;
-                TableInputDouble("Length (m)", "##st_tank_len", ref length, 0.1);
-                tank.LengthM = length;
-            }
-
-            double outerR = tank.OuterRadiusM;
-            TableInputDouble("Outer Radius (m)", "##st_tank_or", ref outerR, 0.01);
-            tank.OuterRadiusM = outerR;
-
-            double wallT = tank.WallThicknessMm;
-            TableInputDouble("Wall Thick (mm)", "##st_tank_wt", ref wallT, 0.1);
-            tank.WallThicknessMm = wallT;
-
-            ImGui.EndTable();
+            gd.Tanks.Add(new TankState());
+            _selectedTankIndex = gd.Tanks.Count - 1;
         }
-        ImGui.PopStyleVar();
+        ImGui.SameLine();
+        bool canRemoveTank = _selectedTankIndex >= 0 && _selectedTankIndex < gd.Tanks.Count;
+        if (!canRemoveTank) ImGui.BeginDisabled();
+        if (ImGui.SmallButton(" - Remove ##st_tk_rm") && canRemoveTank)
+        {
+            gd.Tanks.RemoveAt(_selectedTankIndex);
+            if (_selectedTankIndex >= gd.Tanks.Count)
+                _selectedTankIndex = gd.Tanks.Count - 1;
+            _lastTankMaterial = "";
+        }
+        if (!canRemoveTank) ImGui.EndDisabled();
 
-        ImGui.Unindent(8f);
+        // Detail editor for selected tank
+        if (_selectedTankIndex >= 0 && _selectedTankIndex < gd.Tanks.Count)
+        {
+            var tank = gd.Tanks[_selectedTankIndex];
+
+            ImGui.Spacing();
+            ImGui.SeparatorText($"Tank {_selectedTankIndex + 1}");
+
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
+            if (ImGui.BeginTable("##st_tank_tbl", 2,
+                ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+            {
+                ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthFixed, 330f);
+                ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 1f);
+
+                // Shape row
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Shape");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+                int shapeIdx = (int)tank.Shape;
+                if (ImGui.Combo("##st_tank_shape", ref shapeIdx, "Cylindrical\0Spherical\0"))
+                {
+                    tank.Shape = (TankShape)shapeIdx;
+                    _lastTankMaterial = "";  // force buffer resync if tank identity changes
+                }
+
+                // Material ID row
+                if (tank.WallMaterialId != _lastTankMaterial)
+                {
+                    _tankMaterialInput.SetValue(tank.WallMaterialId.AsSpan());
+                    _lastTankMaterial = tank.WallMaterialId;
+                }
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Material");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+                if (ImGui.InputText("##st_tank_mat", _tankMaterialInput))
+                {
+                    tank.WallMaterialId = _tankMaterialInput.ToString();
+                    _lastTankMaterial = tank.WallMaterialId;
+                }
+
+                if (tank.Shape == TankShape.Cylindrical)
+                {
+                    double length = tank.LengthM;
+                    TableInputDouble("Length (m)", "##st_tank_len", ref length, 0.1);
+                    tank.LengthM = length;
+                }
+
+                double outerR = tank.OuterRadiusM;
+                TableInputDouble("Outer Radius (m)", "##st_tank_or", ref outerR, 0.01);
+                tank.OuterRadiusM = outerR;
+
+                double wallT = tank.WallThicknessMm;
+                TableInputDouble("Wall Thick (mm)", "##st_tank_wt", ref wallT, 0.1);
+                tank.WallThicknessMm = wallT;
+
+                ImGui.EndTable();
+            }
+            ImGui.PopStyleVar();
+        }
     }
 
     /// <summary>Renders the Power section (Batteries, Generators, PowerConsumers).</summary>
     public static void RenderPowerSection(PartGameDataState gd)
     {
-        // Batteries
-        ImGui.TextDisabled($"Batteries ({gd.Batteries.Count})");
-        for (int i = 0; i < gd.Batteries.Count; i++)
+        const float UnitColW = 52f;
+        const float RemoveColW = 58f;
+        var tableFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
+
+        // --- Batteries ---
+        ImGui.SeparatorText($"Batteries ({gd.Batteries.Count})");
+        if (gd.Batteries.Count > 0)
         {
-            double val = gd.Batteries[i].CapacityKWh;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.InputDouble($"##st_bat{i}", ref val, 0.001))
-                gd.Batteries[i].CapacityKWh = val;
-            ImGui.SameLine();
-            ImGui.Text("kWh");
-            ImGui.SameLine();
-            if (ImGui.SmallButton($" x ##st_bat_rm{i}"))
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+            if (ImGui.BeginTable("##st_bat_tbl", 3, tableFlags))
             {
-                gd.Batteries.RemoveAt(i);
-                i--;
+                ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("##unit", ImGuiTableColumnFlags.WidthFixed, UnitColW);
+                ImGui.TableSetupColumn("##rm", ImGuiTableColumnFlags.WidthFixed, RemoveColW);
+                for (int i = 0; i < gd.Batteries.Count; i++)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1f);
+                    double val = gd.Batteries[i].CapacityKWh;
+                    if (ImGui.InputDouble($"##st_bat{i}", ref val, 0.001))
+                        gd.Batteries[i].CapacityKWh = val;
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.Text("kWh");
+                    ImGui.TableNextColumn();
+                    if (ImGui.Button($" x ##st_bat_rm{i}"))
+                    {
+                        gd.Batteries.RemoveAt(i);
+                        i--;
+                    }
+                }
+                ImGui.EndTable();
             }
+            ImGui.PopStyleVar();
         }
-        if (ImGui.SmallButton("+ Battery##st_bat_add"))
+        if (ImGui.Button(" + Battery ##st_bat_add"))
             gd.Batteries.Add(new BatteryState());
 
-        ImGui.Spacing();
-
-        // Generators
-        ImGui.TextDisabled($"Generators ({gd.Generators.Count})");
-        for (int i = 0; i < gd.Generators.Count; i++)
+        // --- Generators ---
+        ImGui.SeparatorText($"Generators ({gd.Generators.Count})");
+        if (gd.Generators.Count > 0)
         {
-            double val = gd.Generators[i].OutputWatts;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.InputDouble($"##st_gen{i}", ref val, 0.5))
-                gd.Generators[i].OutputWatts = val;
-            ImGui.SameLine();
-            ImGui.Text("W");
-            ImGui.SameLine();
-            if (ImGui.SmallButton($" x ##st_gen_rm{i}"))
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+            if (ImGui.BeginTable("##st_gen_tbl", 3, tableFlags))
             {
-                gd.Generators.RemoveAt(i);
-                i--;
+                ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("##unit", ImGuiTableColumnFlags.WidthFixed, UnitColW);
+                ImGui.TableSetupColumn("##rm", ImGuiTableColumnFlags.WidthFixed, RemoveColW);
+                for (int i = 0; i < gd.Generators.Count; i++)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1f);
+                    double val = gd.Generators[i].OutputWatts;
+                    if (ImGui.InputDouble($"##st_gen{i}", ref val, 0.5))
+                        gd.Generators[i].OutputWatts = val;
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.Text("W");
+                    ImGui.TableNextColumn();
+                    if (ImGui.Button($" x ##st_gen_rm{i}"))
+                    {
+                        gd.Generators.RemoveAt(i);
+                        i--;
+                    }
+                }
+                ImGui.EndTable();
             }
+            ImGui.PopStyleVar();
         }
-        if (ImGui.SmallButton("+ Generator##st_gen_add"))
+        if (ImGui.Button(" + Generator ##st_gen_add"))
             gd.Generators.Add(new GeneratorState());
 
-        ImGui.Spacing();
-
-        // Power Consumers
-        ImGui.TextDisabled($"Power Consumers ({gd.PowerConsumers.Count})");
-        for (int i = 0; i < gd.PowerConsumers.Count; i++)
+        // --- Power Consumers ---
+        ImGui.SeparatorText($"Power Consumers ({gd.PowerConsumers.Count})");
+        if (gd.PowerConsumers.Count > 0)
         {
-            double val = gd.PowerConsumers[i].ConsumedWatts;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.InputDouble($"##st_pc{i}", ref val, 0.5))
-                gd.PowerConsumers[i].ConsumedWatts = val;
-            ImGui.SameLine();
-            ImGui.Text("W");
-            ImGui.SameLine();
-            if (ImGui.SmallButton($" x ##st_pc_rm{i}"))
+            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+            if (ImGui.BeginTable("##st_pc_tbl", 3, tableFlags))
             {
-                gd.PowerConsumers.RemoveAt(i);
-                i--;
+                ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("##unit", ImGuiTableColumnFlags.WidthFixed, UnitColW);
+                ImGui.TableSetupColumn("##rm", ImGuiTableColumnFlags.WidthFixed, RemoveColW);
+                for (int i = 0; i < gd.PowerConsumers.Count; i++)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.SetNextItemWidth(-1f);
+                    double val = gd.PowerConsumers[i].ConsumedWatts;
+                    if (ImGui.InputDouble($"##st_pc{i}", ref val, 0.5))
+                        gd.PowerConsumers[i].ConsumedWatts = val;
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.Text("W");
+                    ImGui.TableNextColumn();
+                    if (ImGui.Button($" x ##st_pc_rm{i}"))
+                    {
+                        gd.PowerConsumers.RemoveAt(i);
+                        i--;
+                    }
+                }
+                ImGui.EndTable();
             }
+            ImGui.PopStyleVar();
         }
-        if (ImGui.SmallButton("+ Consumer##st_pc_add"))
+        if (ImGui.Button(" + Consumer ##st_pc_add"))
             gd.PowerConsumers.Add(new PowerConsumerState());
     }
 
@@ -264,15 +345,11 @@ public static class GameDataEditorUi
 
         if (gd.Decoupler != null)
         {
-            ImGui.Indent(8f);
-            string decConnId = gd.Decoupler.ConnectorId;
-            RenderConnectorCombo("Connector##st_dec_cn", connectorIds, ref decConnId);
-            gd.Decoupler.ConnectorId = decConnId;
+            string connId = gd.Decoupler.ConnectorId;
             double force = gd.Decoupler.Force;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.InputDouble("Force (N)##st_dec_f", ref force, 10.0))
-                gd.Decoupler.Force = force;
-            ImGui.Unindent(8f);
+            RenderCouplingFields("st_dec", connectorIds, ref connId, hasForce: true, ref force);
+            gd.Decoupler.ConnectorId = connId;
+            gd.Decoupler.Force = force;
         }
 
         // DockingPort
@@ -282,15 +359,11 @@ public static class GameDataEditorUi
 
         if (gd.DockingPort != null)
         {
-            ImGui.Indent(8f);
-            string dpConnId = gd.DockingPort.ConnectorId;
-            RenderConnectorCombo("Connector##st_dp_cn", connectorIds, ref dpConnId);
-            gd.DockingPort.ConnectorId = dpConnId;
+            string connId = gd.DockingPort.ConnectorId;
             double force = gd.DockingPort.Force;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.InputDouble("Force (N)##st_dp_f", ref force, 10.0))
-                gd.DockingPort.Force = force;
-            ImGui.Unindent(8f);
+            RenderCouplingFields("st_dp", connectorIds, ref connId, hasForce: true, ref force);
+            gd.DockingPort.ConnectorId = connId;
+            gd.DockingPort.Force = force;
         }
 
         // EVADoor
@@ -300,12 +373,40 @@ public static class GameDataEditorUi
 
         if (gd.EVADoor != null)
         {
-            ImGui.Indent(8f);
-            string evaConnId = gd.EVADoor.ConnectorId;
-            RenderConnectorCombo("Connector##st_eva_cn", connectorIds, ref evaConnId);
-            gd.EVADoor.ConnectorId = evaConnId;
-            ImGui.Unindent(8f);
+            string connId = gd.EVADoor.ConnectorId;
+            double unused = 0;
+            RenderCouplingFields("st_eva", connectorIds, ref connId, hasForce: false, ref unused);
+            gd.EVADoor.ConnectorId = connId;
         }
+    }
+
+    /// <summary>Renders the Connector combo (and optionally the Force input) for a coupling sub-type.</summary>
+    private static void RenderCouplingFields(string prefix, string[] connectorIds,
+        ref string connectorId, bool hasForce, ref double force)
+    {
+        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
+        if (ImGui.BeginTable($"##{prefix}_tbl", 2, tableFlags))
+        {
+            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Connector");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+            RenderConnectorCombo($"##{prefix}_cn", connectorIds, ref connectorId);
+
+            if (hasForce)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Force (N)");
+                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+                ImGui.InputDouble($"##{prefix}_f", ref force, 10.0);
+            }
+
+            ImGui.EndTable();
+        }
+        ImGui.PopStyleVar();
     }
 
     // --- Helpers ---
@@ -360,7 +461,6 @@ public static class GameDataEditorUi
     {
         int idx = Array.IndexOf(connectorIds, connectorId);
         if (idx < 0) idx = 0;
-        ImGui.SetNextItemWidth(160f);
         if (ImGui.Combo(label, ref idx, connectorIds, connectorIds.Length))
             connectorId = connectorIds[idx];
     }

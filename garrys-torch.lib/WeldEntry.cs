@@ -16,4 +16,6 @@ public class WeldEntry
     public float Scale = 1f;
     /// <summary>When false, only position is locked; source can rotate freely.</summary>
     public bool LockRotation = true;
+    /// <summary>When false, the weld is suspended (no physics applied) but kept in the list.</summary>
+    public bool WeldEnabled = true;
 }

@@ -246,6 +246,6 @@ Check for compilation errors before continuing with implementation.
 ## Related Mods
 
 See similar template mods:
-- [grant](../grant) - Minimal template without .lib
+- [unscience](../unscience) - Minimal template without .lib
 - [stampy](../stampy) - Another template example
 - Other mods for inspiration on complete implementations

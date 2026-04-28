@@ -139,6 +139,122 @@ public sealed class PartModWriter
         return results;
     }
 
+    /// <summary>Returns the list of Part IDs stored in a single asset file.</summary>
+    public List<string> ListPartsInFile(string fileName)
+    {
+        var partIds = new List<string>();
+        string path = Path.Combine(ModDir, fileName + ".xml");
+        if (!File.Exists(path)) return partIds;
+        try
+        {
+            var doc = XDocument.Load(path);
+            foreach (var partEl in doc.Root?.Elements("Part") ?? Enumerable.Empty<XElement>())
+            {
+                string partId = partEl.Attribute("Id")?.Value ?? "";
+                if (!string.IsNullOrEmpty(partId))
+                    partIds.Add(partId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"space-tape: ListPartsInFile failed for '{fileName}': {ex.Message}");
+        }
+        return partIds;
+    }
+
+    /// <summary>
+    /// Removes a single Part (and its PartGameData) from its file.
+    /// The file is left on disk even if it becomes empty.
+    /// </summary>
+    /// <returns>True on success; false on failure (check <see cref="LastError"/>).</returns>
+    public bool DeletePartFromFile(string partId, string fileName)
+    {
+        LastError = null;
+        try
+        {
+            string assetsPath = Path.Combine(ModDir, fileName + ".xml");
+            string gameDataPath = Path.Combine(ModDir, fileName + ".gamedata.xml");
+
+            if (File.Exists(assetsPath))
+            {
+                var doc = XDocument.Load(assetsPath);
+                doc.Root?.Elements("Part")
+                    .FirstOrDefault(e => e.Attribute("Id")?.Value == partId)
+                    ?.Remove();
+                doc.Save(assetsPath);
+            }
+
+            if (File.Exists(gameDataPath))
+            {
+                var doc = XDocument.Load(gameDataPath);
+                doc.Root?.Elements("PartGameData")
+                    .FirstOrDefault(e => e.Attribute("Id")?.Value == partId)
+                    ?.Remove();
+                doc.Save(gameDataPath);
+            }
+
+            Console.WriteLine($"space-tape: Deleted part '{partId}' from '{fileName}'");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            Console.WriteLine($"space-tape: DeletePartFromFile failed: {ex}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Deletes both XML files for a given file base name and removes them from mod.toml.
+    /// </summary>
+    /// <returns>True on success; false on failure (check <see cref="LastError"/>).</returns>
+    public bool DeleteFile(string fileName)
+    {
+        LastError = null;
+        try
+        {
+            string assetsPath = Path.Combine(ModDir, fileName + ".xml");
+            string gameDataPath = Path.Combine(ModDir, fileName + ".gamedata.xml");
+
+            if (File.Exists(assetsPath)) File.Delete(assetsPath);
+            if (File.Exists(gameDataPath)) File.Delete(gameDataPath);
+
+            RemoveFileFromModToml(fileName);
+            RefreshFileList();
+
+            Console.WriteLine($"space-tape: Deleted file '{fileName}'");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            Console.WriteLine($"space-tape: DeleteFile failed: {ex}");
+            return false;
+        }
+    }
+
+    private void RemoveFileFromModToml(string fileBaseName)
+    {
+        string tomlPath = Path.Combine(ModDir, "mod.toml");
+        if (!File.Exists(tomlPath)) return;
+
+        var root = Toml.ToModel(File.ReadAllText(tomlPath));
+        var assetsList = new List<string>();
+        if (root.TryGetValue("assets", out var existing) && existing is TomlArray existingArr)
+            foreach (var item in existingArr)
+                if (item is string s) assetsList.Add(s);
+
+        assetsList.Remove(fileBaseName + ".xml");
+        assetsList.Remove(fileBaseName + ".gamedata.xml");
+
+        var assetsArray = new TomlArray();
+        foreach (var entry in assetsList)
+            assetsArray.Add(entry);
+        root["assets"] = assetsArray;
+
+        File.WriteAllText(tomlPath, Toml.FromModel(root));
+    }
+
     /// <summary>Loads a specific Part from a file by partId. Returns null if not found or on error.</summary>
     public EditingPart? LoadPart(string partId, string fileName)
     {
@@ -234,31 +350,32 @@ public sealed class PartModWriter
         if (massEl != null && TryParseDouble(massEl, "Kg", out double mass))
             part.GameData.CustomMass = mass;
 
-        // Tank (CylindricalTank or SphericalTank)
-        // Look inside <Tank> wrapper first (correct KSA format), then fall back to direct children
-        var tankWrapper = gdEl.Element("Tank");
-        var cylEl = tankWrapper?.Element("CylindricalTank") ?? gdEl.Element("CylindricalTank");
-        var sphEl = tankWrapper?.Element("SphericalTank") ?? gdEl.Element("SphericalTank");
-        var tankEl = cylEl ?? sphEl;
-        if (tankEl != null)
+        // Tanks (multiple) — each wrapped in <Tank><CylindricalTank/> or <Tank><SphericalTank/>
+        foreach (var tankWrapper in gdEl.Elements("Tank"))
         {
-            var tank = new TankState
+            var cylEl = tankWrapper.Element("CylindricalTank");
+            var sphEl = tankWrapper.Element("SphericalTank");
+            var tankEl = cylEl ?? sphEl;
+            if (tankEl != null)
             {
-                Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
-            };
-            tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
-                                ?? tankEl.Element("Material")?.Attribute("Value")?.Value
-                                ?? "Aluminum.2014(s)";
-            if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
-                tank.OuterRadiusM = outerR;
-            if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
-                tank.WallThicknessMm = wallMm;
-            if (cylEl != null)
-            {
-                if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
-                    tank.LengthM = length;
+                var tank = new TankState
+                {
+                    Shape = cylEl != null ? TankShape.Cylindrical : TankShape.Spherical,
+                };
+                tank.WallMaterialId = tankEl.Element("Material")?.Attribute("Id")?.Value
+                                    ?? tankEl.Element("Material")?.Attribute("Value")?.Value
+                                    ?? "Aluminum.2014(s)";
+                if (TryParseDouble(tankEl.Element("OuterRadius"), "M", out double outerR))
+                    tank.OuterRadiusM = outerR;
+                if (TryParseDouble(tankEl.Element("WallThickness"), "Mm", out double wallMm))
+                    tank.WallThicknessMm = wallMm;
+                if (cylEl != null)
+                {
+                    if (TryParseDouble(tankEl.Element("Length"), "M", out double length))
+                        tank.LengthM = length;
+                }
+                part.GameData.Tanks.Add(tank);
             }
-            part.GameData.Tank = tank;
         }
 
         // Batteries (multiple)

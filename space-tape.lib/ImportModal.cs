@@ -128,7 +128,7 @@ public sealed class ImportModal
                 ImGui.SetKeyboardFocusHere();
             }
 
-            ImGui.InputText("##st_imp_load_filter", _loadFilter);
+            ImGui.InputTextWithHint("##st_imp_load_filter", "filter..."u8, _loadFilter);
             string filterText = _loadFilter.ToString().Trim();
 
             for (int i = 0; i < _savedParts.Count; i++)
@@ -168,7 +168,7 @@ public sealed class ImportModal
                 ImGui.SetKeyboardFocusHere();
             }
 
-            ImGui.InputText("##st_imp_import_filter", _gamePartFilter);
+            ImGui.InputTextWithHint("##st_imp_import_filter", "filter..."u8, _gamePartFilter);
             string filterText = _gamePartFilter.ToString().Trim();
 
             if (_gameParts.IsLoaded)

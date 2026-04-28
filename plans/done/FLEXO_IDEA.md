@@ -38,7 +38,7 @@ But our flexo editor will do something like the following:
     - saves a regular Part XML, GameData XML, etc (copies the existing Part data, with new ID and editor metadata tags, other things if needed)
     - saves a new `$HOME/Documents/My Games/Kitten Space Agency/.flexo/flexo_part_[part_id].toml` TOML file which encodes the flexo specific data for that part (the Part ID its associated with, the type of robotic part, the attributes for that part like the subpart IDs for the behaviors, degree settings etc etc)
 - the robotic movement should, i think, be rotating subparts.  which i hope will make things attached with connectors to them
-- we'll need a "flexo" grant submod which allows opening the editor decsribed above, but also provides the runtime functionality to trigger flexo parts to activate and do things (move)
+- we'll need a "flexo" unscience submod which allows opening the editor decsribed above, but also provides the runtime functionality to trigger flexo parts to activate and do things (move)
     - at startup, read all flexo part data from `$HOME/Documents/My Games/Kitten Space Agency/.flexo/flexo_part_*.toml`
     - this panel should have a "scan" button that when pressed will scan the active vehicle for any matching flexo parts, if found, generate dynamic collapsible header section for each.  there should be a unique implementation of this sub panel per robotic part type (e.g. a hinge will have different control requirements then a rotor)
     - the flexo part sub panels should have imgui widgets to play with the part, for hinge:

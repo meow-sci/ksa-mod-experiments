@@ -13,7 +13,7 @@ namespace MeowSci.MarqueLib;
 /// </summary>
 public sealed class MarqueLib
 {
-  private static ImGuiTextFilter _everythingFilter = new ImGuiTextFilter();
+  private static readonly ImInputString _everythingFilter = new(128);
 
   public static void DrawMarqueMenus()
   {
@@ -203,12 +203,14 @@ public sealed class MarqueLib
       return;
     }
 
-    _everythingFilter.Draw("##filter", -1);
+    ImGui.SetNextItemWidth(-1);
+    ImGui.InputTextWithHint("##filter", "filter..."u8, _everythingFilter);
+    string filterText = _everythingFilter.ToString().Trim();
 
     foreach (var orbiter in allOrbiters)
     {
       var id = (orbiter as Astronomical)?.Id ?? "";
-      if (!_everythingFilter.PassFilter(id)) continue;
+      if (filterText.Length > 0 && !id.Contains(filterText, StringComparison.OrdinalIgnoreCase)) continue;
 
       bool show = orbiter.ShowOrbit;
       if (ImGui.MenuItem(id, default(ImString), show))

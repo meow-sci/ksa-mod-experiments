@@ -11,7 +11,7 @@ using MeowSci.HumbleArteestLib;
 using MeowSci.KsaAbstractions;
 using MeowSci.FlexoLib;
 
-namespace MeowSci.Grant;
+namespace MeowSci.Unscience;
 
 internal static class Patcher
 {
@@ -25,7 +25,7 @@ internal static class Patcher
     {
         try
         {
-            _harmony = new Harmony("MeowSci.Grant");
+            _harmony = new Harmony("MeowSci.Unscience");
             HotkeyGuard.Patch(_harmony);
             MenuBarPatch.ToggleWindow = MenuBarToggle;
             MenuBarPatch.Apply(_harmony);
@@ -38,11 +38,11 @@ internal static class Patcher
             VehiclePaintPatches.Apply(_harmony);
             EngineEmissivePatches.Apply(_harmony);
             FlexoPatches.Apply(_harmony);
-            Console.WriteLine("grant: Harmony patches applied");
+            Console.WriteLine("unscience: Harmony patches applied");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Error applying patches: {ex.Message}");
+            Console.WriteLine($"unscience: Error applying patches: {ex.Message}");
         }
     }
 
@@ -71,7 +71,7 @@ internal static class Patcher
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant: Error removing patches: {ex.Message}");
+            Console.WriteLine($"unscience: Error removing patches: {ex.Message}");
         }
     }
 }
@@ -102,7 +102,7 @@ internal static class GarrysTorchPatches
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"grant/garrys-torch: Error updating welds before vehicle solvers: {ex.Message}");
+            Console.WriteLine($"garrys-torch: Error updating welds before vehicle solvers: {ex.Message}");
         }
     }
 }

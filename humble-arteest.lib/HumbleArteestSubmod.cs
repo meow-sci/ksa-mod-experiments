@@ -5,11 +5,11 @@ namespace MeowSci.HumbleArteestLib;
 
 /// <summary>
 /// Composite ISubmod that groups Vehicle Paint, Kitten Color, and Engine Emissive
-/// under a single "Humble Arteest" collapsing section in the Grant toolbox.
+/// under a single "Humble Arteest" collapsing section in the Unscience Toolbox.
 /// </summary>
 public sealed class HumbleArteestSubmod : ISubmod
 {
-    public string Name => "Humble Arteest";
+    public string Name => "Humble Arteest - Paint Stuff";
     public string Tooltip => "Vehicle paint, Kitten color, and engine emissive paint brushes";
 
     private readonly VehiclePaintSubmod _vehiclePaint = new();

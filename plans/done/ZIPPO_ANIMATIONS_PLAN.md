@@ -45,7 +45,7 @@ Add a queue-based light animation system to the existing zippo mod. Animations i
 | `unladen-swallow.lib/unladen-swallow.lib.csproj` | **MODIFY** | Add `<ProjectReference>` to `zippo.lib` |
 | `unladen-swallow.lib/openapi/zippo.yml` | **CREATE** | OpenAPI 3.1.0 spec for all zippo endpoints |
 | `unladen-swallow/mod.toml` | **MODIFY** | Add `MeowSci.ZippoLib` to `ImportedAssemblies` |
-| `grant/grant.csproj` | **CHECK** | Already references `zippo.lib` — no change needed |
+| `unscience/unscience.csproj` | **CHECK** | Already references `zippo.lib` — no change needed |
 | `REPOSITORY_INDEX.md` | **MODIFY** | Update zippo entry with animation features and RPC endpoints |
 | `zippo/README.md` | **MODIFY** | Document new animation system and RPC API |
 

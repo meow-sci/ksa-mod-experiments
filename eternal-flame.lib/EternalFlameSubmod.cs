@@ -9,11 +9,11 @@ namespace MeowSci.EternalFlameLib;
 
 public sealed class EternalFlameSubmod : ISubmod
 {
-    public string Name => "Eternal Flame";
+    public string Name => "Eternal Flame - Infinite Fuel";
     public string Tooltip => "Automatically refills fuel tanks on the selected vehicle at regular intervals.";
 
     private FuelManager _fuelManager = null!;
-    private ImGuiTextFilter _vehicleFilter = new ImGuiTextFilter();
+    private readonly ImInputString _vehicleFilter = new ImInputString(128);
     private int _selectedVehicleIndex = -1;
     private int _refillIntervalMs = 100;
 
@@ -78,11 +78,14 @@ public sealed class EternalFlameSubmod : ISubmod
                 ImGui.SetKeyboardFocusHere();
                 _vehicleFilter.Clear();
             }
-            _vehicleFilter.Draw("##ef_VehicleFilter", -1);
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextWithHint("##ef_VehicleFilter", "filter..."u8, _vehicleFilter);
+            string vehicleFilterText = _vehicleFilter.ToString().Trim();
 
             for (int i = 0; i < vehicleNames.Length; i++)
             {
-                if (!_vehicleFilter.PassFilter(vehicleNames[i]))
+                if (vehicleFilterText.Length > 0
+                    && !vehicleNames[i].Contains(vehicleFilterText, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 bool isSelected = _selectedVehicleIndex == i;

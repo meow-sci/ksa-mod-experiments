@@ -21,6 +21,7 @@ Kitten Animations lets you:
 - **Weight-based fading** - Expressions fade naturally
 - **Avatar reflex access** - Safe reflection-based avatar retrieval
 - **Per-frame updates** - Expression state updated every frame
+- **KSA animation cache compatibility** - Clears KSA's cached expression pose when swapping expression assets so each expression button samples its own animation
 
 ## Architecture
 
@@ -54,7 +55,7 @@ ISubmod implementation that owns the animation controller and all animation UI.
 - Implements `ISubmod` (from `ksa-abstractions.lib`): `Name="Kitten Animations"`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Owns `KittenAnimationController` instance; calls `Update(dt, avatar)` in `Update()`
 - `RenderContent()` renders MMU Animations, Expressions, and Walking Animations collapsible headers — no window framing
-- Used standalone via `kitten-animations/Mod.cs` (which wraps in its own ImGui window) and embedded in grant's collapsible header
+- Used standalone via `kitten-animations/Mod.cs` (which wraps in its own ImGui window) and embedded in unscience's collapsible header
 
 #### KittenAvatarAccessor
 Reflection-based access to KSA's kitten avatar system.
@@ -181,6 +182,8 @@ public void TriggerExpression(ExpressionType type, AnimationAssetRef asset, Char
     ExpressionDuration = configuredDuration;
 }
 ```
+
+Current KSA builds cache sampled expression poses inside `CatExpressionAnim`. When changing `ExpressionAnim`, the controller invalidates that private pose cache so Angry, Awe, Happy, Sad, and Scared can be triggered independently instead of reusing the first sampled pose.
 
 ### Per-Frame Update
 

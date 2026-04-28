@@ -4,7 +4,7 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 
 ## Features
 
-- **Grant submod minimal panel** — two-button flow for `Load SubParts` and `Open/Close Part Editor`
+- **Unscience submod minimal panel** — two-button flow for `Load SubParts` and `Open/Close Part Editor`
 - **Load SubParts modal** — configure `Images per SubPart` + thumbnail image size, run Generate/Re-generate, and monitor progress/error state
 - **SubParts floating window** — dedicated browser with thumbnail size, animation delay, filter, and view-subparts toggle
 - **Large SubPart viewer** — open a higher-detail floating preview from the SubParts window
@@ -41,16 +41,16 @@ In-game Part editor for KSA. Compose new Parts by placing existing SubParts into
 
 ## Integration
 
-Space Tape is integrated into the **grant** supermod as `SpaceTapeSubmod`. It appears as a collapsible panel in the Grant Toolbox window alongside other submods. It can also run standalone via `Mod.cs` (F11 toggle).
+Space Tape is integrated into the **unscience** supermod as `SpaceTapeSubmod`. It appears as a collapsible panel in the Unscience Toolbox window alongside other submods. It can also run standalone via `Mod.cs` (F11 toggle).
 
-## Grant Submod Panel
+## Unscience Submod Panel
 
-When running inside grant, the Space Tape panel is intentionally minimal:
+When running inside unscience, the Space Tape panel is intentionally minimal:
 
 - `Load SubParts` opens the generation modal
 - `Open Part Editor` / `Close Part Editor` toggles the editor lifecycle
 
-All catalog browsing and SubPart placement controls are moved out of the grant panel and into floating editor windows.
+All catalog browsing and SubPart placement controls are moved out of the unscience panel and into floating editor windows.
 
 ## Load SubParts Modal
 
@@ -113,7 +113,7 @@ Thumbnail generation temporarily reconfigures the rendered viewport camera for o
 
 | File | Purpose |
 |------|---------|
-| `SpaceTapeSubmod.cs` | ISubmod entry point for grant integration |
+| `SpaceTapeSubmod.cs` | ISubmod entry point for unscience integration |
 | `EditorLighting.cs` | Manages helper point lights around the editor workspace (Box Corners / Sphere modes) |
 | `CameraSnapController.cs` | Camera snap-to-view state machine and grid plane drawing via OrbitLinePass |
 | `PartEditorState.cs` | Core state models — EditingPart, SubPartPlacement, PartGameDataState |
@@ -187,6 +187,6 @@ Check for compilation errors before continuing with implementation.
 ## Related Mods
 
 See similar template mods:
-- [grant](../grant) - Minimal template without .lib
+- [unscience](../unscience) - Minimal template without .lib
 - [stampy](../stampy) - Another template example
 - Other mods for inspiration on complete implementations

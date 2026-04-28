@@ -23,6 +23,7 @@ public sealed class PartEditorUi
 
   private readonly SavePartModal _savePartModal = new();
   private readonly ImportModal _importModal = new();
+  private readonly FileManagerWindow _fileManagerWindow = new();
   private bool _openSaveModal;
   private bool _openImportModal;
 
@@ -92,6 +93,8 @@ public sealed class PartEditorUi
         controller.MarkSaved();
       });
 
+      _fileManagerWindow.Render(writer);
+
       ImGui.Spacing();
       RenderEditorStuffSection(gizmos, interaction, scene, cameraSnap, lighting);
       ImGui.Spacing();
@@ -114,7 +117,7 @@ public sealed class PartEditorUi
     bool canSave = controller.CurrentPart.Placements.Count > 0;
 
     ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-    if (ImGui.BeginTable("##st_btn_tbl", 3, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
+    if (ImGui.BeginTable("##st_btn_tbl", 4, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
     {
       ImGui.TableNextRow();
 
@@ -149,6 +152,11 @@ public sealed class PartEditorUi
       }
       if (ImGui.IsItemHovered())
         ImGui.SetItemTooltip("Danger Will Robinson!\n\nThis will clear out all SubParts in the workspace!");
+
+      // Files
+      ImGui.TableNextColumn();
+      if (ImGui.Button(" Files... ##st_files_btn", new float2(-1, 0)))
+        _fileManagerWindow.OnOpen(writer);
 
       ImGui.EndTable();
     }
@@ -828,42 +836,46 @@ public sealed class PartEditorUi
       ImGui.TableSetupColumn("##val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
       ImGui.TableNextRow();
-      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg):");
+      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mass (kg)");
       ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
       double mass = gd.CustomMass ?? 0.0;
       if (ImGui.InputDouble("##st_mass", ref mass, 0.5)) gd.CustomMass = mass > 0 ? mass : (double?)null;
 
+      // Editor Tags — combo row
+      ImGui.TableNextRow();
+      ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Editor Tags");
+      ImGui.TableNextColumn();
+      float addBtnW = ImGui.CalcTextSize(" Add Tag ").X + ImGui.GetStyle().FramePadding.X * 2;
+      ImGui.SetNextItemWidth(-addBtnW - ImGui.GetStyle().ItemSpacing.X);
+      ImGui.Combo("##st_newtag", ref _selectedNewTagIndex, KnownEditorTags, KnownEditorTags.Length);
+      ImGui.SameLine();
+      if (ImGui.Button(" Add Tag ##st_addtag"))
+      {
+        string tag = KnownEditorTags[_selectedNewTagIndex];
+        if (!gd.EditorTags.Contains(tag))
+          gd.EditorTags.Add(tag);
+      }
+
+      // One row per existing tag
+      for (int i = 0; i < gd.EditorTags.Count; i++)
+      {
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn(); // blank label
+        ImGui.TableNextColumn();
+        if (ImGui.Button($" x ##st_tag{i}"))
+        {
+          gd.EditorTags.RemoveAt(i);
+          i--;
+          continue;
+        }
+        ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text(gd.EditorTags[i]);
+      }
+
       ImGui.EndTable();
     }
     ImGui.PopStyleVar();
-
-    // Editor Tags
-    ImGui.Spacing();
-    ImGui.Text("Editor Tags:");
-    for (int i = 0; i < gd.EditorTags.Count; i++)
-    {
-      ImGui.BulletText(gd.EditorTags[i]);
-      ImGui.SameLine();
-      if (ImGui.SmallButton($" x ##st_tag{i}"))
-      {
-        gd.EditorTags.RemoveAt(i);
-        i--;
-      }
-    }
-
-    if (gd.EditorTags.Count == 0)
-      ImGui.TextDisabled("No tags.");
-
-    ImGui.Spacing();
-    ImGui.SetNextItemWidth(160f);
-    ImGui.Combo("##st_newtag", ref _selectedNewTagIndex, KnownEditorTags, KnownEditorTags.Length);
-    ImGui.SameLine();
-    if (ImGui.Button(" Add Tag ##st_addtag"))
-    {
-      string tag = KnownEditorTags[_selectedNewTagIndex];
-      if (!gd.EditorTags.Contains(tag))
-        gd.EditorTags.Add(tag);
-    }
 
     // --- Tank ---
     ImGui.Spacing();

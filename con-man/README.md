@@ -45,9 +45,9 @@ Con-man uses reflection (via `GaugeStateAccessor`) to read and write these field
 
 - **F11** — Toggle window visibility (standalone mode)
 
-## Usage in Grant Supermod
+## Usage in Unscience Supermod
 
-Con-man is available as a submod in the Grant unified toolbox. All functionality lives in `con-man.lib` and is shared between the standalone mod and the grant supermod via the `ISubmod` interface.
+Con-man is available as a submod in the Unscience unified toolbox. All functionality lives in `con-man.lib` and is shared between the standalone mod and the unscience supermod via the `ISubmod` interface.
 5. Update this README with your mod's actual purpose and features
 
 ## Testing
@@ -77,6 +77,6 @@ Check for compilation errors before continuing with implementation.
 ## Related Mods
 
 See similar template mods:
-- [grant](../grant) - Minimal template without .lib
+- [unscience](../unscience) - Minimal template without .lib
 - [stampy](../stampy) - Another template example
 - Other mods for inspiration on complete implementations

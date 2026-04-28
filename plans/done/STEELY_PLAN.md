@@ -31,9 +31,9 @@
 2. **Passive Monitoring** — The monitor samples telemetry at a configurable rate (default 500 ms) and compares state snapshots to detect events. No Harmony patches needed for data reading.
 3. **All Vehicles** — The system monitors every vehicle in `Universe.CurrentSystem.Vehicles` simultaneously, each with its own telemetry snapshot and event history.
 4. **Event-Driven Architecture** — Detected events are published through a simple `Action<FlightEvent>` delegate. Consumers (SQLite writer, mission evaluator, UI) subscribe independently.
-5. **Local Persistence** — Events and mission progress are persisted to a SQLite database in the mod's data directory (`~/.iryr/steely-eyed-missile-kitten/`).
+5. **Local Persistence** — Events and mission progress are persisted to a SQLite database in the mod's data directory (`~/.unscience/steely-eyed-missile-kitten/`).
 6. **YAML Missions** — Mission definitions are loaded from `.yaml` files with JSON Schema support for IDE validation.
-7. **Standalone Mod** — Runs independently with its own F11 ImGui window. No ISubmod/grant integration for now.
+7. **Standalone Mod** — Runs independently with its own F11 ImGui window. No ISubmod/unscience integration for now.
 
 ### High-Level Architecture
 

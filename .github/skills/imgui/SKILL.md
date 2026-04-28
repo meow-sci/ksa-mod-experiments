@@ -24,6 +24,24 @@ if (ImGui.Button("Click me!")) {
 }
 ```
 
+# Display String data types
+
+VERY IMPORTANT! ALWAYS OBEY THIS!
+
+All the BRUTAL ImGui display strings take `ImString` types.
+
+A C# `string` can be used but is NOT preferable
+
+For static strings use the utf-8 string syntax like `"some string"u8` for better performance to avoid UTF-16 to UTF-8 conversions.
+
+Interpolated strings like `$"val: {val}"` can be used but should be assigned to an `ImString` variable first to avoid unnecessary conversions and allocations.  For example:
+
+```csharp
+float val = 123.45f;
+ImString valStr = $"val: {val}"u8; // assign to ImString variable first to avoid multiple conversions
+ImGui.Text(valStr);
+```
+
 ## Full ImGui API Reference
 
 The entire ImGui API should be exposed via this Brutal C# wrapper, so use your knowledge of the official ImGui
@@ -136,32 +154,39 @@ if (ImGui.Combo("Easing##ZoomOut", ref _selectedValue, easingNames, easingNames.
 
 ### Combobox with filter example
 
+The preferred pattern uses `ImInputString` as a class-level field for the filter input, `InputTextWithHint` with a utf-8 hint string, and `string.Contains` with `OrdinalIgnoreCase` for filtering.
+
 ```csharp
-// Note: _itemFilter should be a class-level field initialized as: private ImGuiTextFilter _itemFilter = new ImGuiTextFilter(); or some stateful field that has a lifetime scoped to the combo box usage or broader
+// Class-level field — survives across frames while the combo is open
+private readonly ImInputString _itemFilter = new(128);
+
+// In your render method:
 string[] items = { "Item 1", "Item 2", "Item 3" };
 int selectedItemIndex = 0;
-string previewValue = items[selectedItemIndex];
+string previewValue = selectedItemIndex >= 0 ? items[selectedItemIndex] : "Select...";
 
-if (ImGui.BeginCombo("Select Item##combo", previewValue))
+if (ImGui.BeginCombo("##combo", previewValue))
 {
+    // Auto-focus the filter box and clear it each time the combo opens
     if (ImGui.IsWindowAppearing())
     {
         ImGui.SetKeyboardFocusHere();
         _itemFilter.Clear();
     }
-    ImGui.SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F);
-    _itemFilter.Draw("##Filter", -1);
 
-    for (int n = 0; n < items.Length; n++)
+    ImGui.SetNextItemWidth(-1f);
+    ImGui.InputTextWithHint("##combo_filter", "filter..."u8, _itemFilter);
+    string filterText = _itemFilter.ToString().Trim();
+
+    for (int i = 0; i < items.Length; i++)
     {
-        bool isSelected = selectedItemIndex == n;
-        if (_itemFilter.PassFilter(items[n]))
-        {
-            if (ImGui.Selectable(items[n], isSelected))
-            {
-                selectedItemIndex = n;
-            }
-        }
+        if (filterText.Length > 0 && !items[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        bool sel = selectedItemIndex == i;
+        if (ImGui.Selectable(items[i], sel))
+            selectedItemIndex = i;
+        if (sel) ImGui.SetItemDefaultFocus();
     }
     ImGui.EndCombo();
 }
