@@ -23,6 +23,7 @@ public sealed class PartEditorUi
 
   private readonly SavePartModal _savePartModal = new();
   private readonly ImportModal _importModal = new();
+  private readonly FileManagerWindow _fileManagerWindow = new();
   private bool _openSaveModal;
   private bool _openImportModal;
 
@@ -92,6 +93,8 @@ public sealed class PartEditorUi
         controller.MarkSaved();
       });
 
+      _fileManagerWindow.Render(writer);
+
       ImGui.Spacing();
       RenderEditorStuffSection(gizmos, interaction, scene, cameraSnap, lighting);
       ImGui.Spacing();
@@ -114,7 +117,7 @@ public sealed class PartEditorUi
     bool canSave = controller.CurrentPart.Placements.Count > 0;
 
     ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-    if (ImGui.BeginTable("##st_btn_tbl", 3, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
+    if (ImGui.BeginTable("##st_btn_tbl", 4, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
     {
       ImGui.TableNextRow();
 
@@ -149,6 +152,11 @@ public sealed class PartEditorUi
       }
       if (ImGui.IsItemHovered())
         ImGui.SetItemTooltip("Danger Will Robinson!\n\nThis will clear out all SubParts in the workspace!");
+
+      // Files
+      ImGui.TableNextColumn();
+      if (ImGui.Button(" Files... ##st_files_btn", new float2(-1, 0)))
+        _fileManagerWindow.OnOpen(writer);
 
       ImGui.EndTable();
     }
