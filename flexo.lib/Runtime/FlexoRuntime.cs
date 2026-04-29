@@ -92,7 +92,7 @@ public sealed class FlexoRuntime
         _activeHinges.Clear();
     }
 
-    public void Update(double dt)
+    public void UpdateBeforeVehicleSolvers(double dt)
     {
         foreach (var hinge in _activeHinges)
         {
