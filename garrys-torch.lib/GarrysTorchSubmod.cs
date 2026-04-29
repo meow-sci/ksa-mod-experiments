@@ -374,8 +374,10 @@ public sealed class GarrysTorchSubmod : ISubmod
         {
             if (filterText.Length > 0 && !items[i].Contains(filterText, StringComparison.OrdinalIgnoreCase)) continue;
             bool sel = selectedIndex == i;
+            ImGui.PushID(i);
             if (ImGui.Selectable(items[i], sel))
                 selectedIndex = i;
+            ImGui.PopID();
             if (sel) ImGui.SetItemDefaultFocus();
         }
         ImGui.EndCombo();
