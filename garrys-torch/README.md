@@ -6,8 +6,9 @@ A vehicle docking/attached system that welds one vehicle to another with full su
 
 Garry's Torch allows you to:
 - **Weld two vehicles together** - Attach a source vehicle to a target vehicle
-- **Configure relative position** - Separate the vehicles on XYZ axes in the target's body frame
-- **Rotate freely** - Apply pitch/yaw/roll rotations independently
+- **Anchor to a specific part** - Pick any part on the target vehicle as the anchor point; offsets are relative to that part, not the vehicle CoM
+- **Configure relative position** - Separate the vehicles on XYZ axes in the target part's local frame
+- **Rotate freely** - Apply pitch/yaw/roll rotations relative to the target part's orientation
 - **Scale uniformly** - Resize the source vehicle (supports avatar scaling)
 - **Manage multiple welds** - A vehicle can have multiple welds simultaneously
 - **Use presets** - Built-in configurations for common docking scenarios
@@ -15,8 +16,9 @@ Garry's Torch allows you to:
 ## Features
 
 - **Real-time vehicle positioning** - Welds update every frame to maintain relative position/rotation
+- **Part-anchored welding** - Anchor to any part on the target vehicle; the weld tracks that part, not the vehicle CoM. Immune to CoM drift as fuel burns, and naturally follows robotics-moved parts
 - **Physics-loop safe updates** - Welds run immediately before KSA queues vehicle solver jobs, avoiding worker-thread state races in the refactored physics loop
-- **Body-frame coordinates** - Positions specified in the target vehicle's local coordinate system
+- **Part-frame coordinates** - Positions and rotations specified in the target part's local coordinate system
 - **Rotation locking** - Option to prevent source vehicle from rotating relative to target
 - **Parent validation** - Welds automatically break if vehicles cross celestial body boundaries
 - **Quaternion-based math** - Proper 3D rotation handling with Euler angle conversion
@@ -54,8 +56,9 @@ public class WeldEntry
 {
     public Vehicle Source { get; set; }           // Vehicle being welded
     public Vehicle Target { get; set; }           // Vehicle being welded to
-    public float3 RelativePosition { get; set; }  // Offset in target's body frame (XYZ)
-    public float3 RelativeRotation { get; set; }  // Pitch/Yaw/Roll in degrees
+    public Part? TargetPart { get; set; }         // Anchor part on target (null = vehicle CoM fallback)
+    public float3 RelativePosition { get; set; }  // Offset relative to anchor (part frame or body frame)
+    public float3 RelativeRotation { get; set; }  // Pitch/Yaw/Roll relative to anchor orientation (degrees)
     public float UniformScale { get; set; }       // Scaling factor (0.05 to 20.0)
     public bool LockRotation { get; set; }        // Prevent relative rotation
 }
@@ -101,10 +104,14 @@ Conversion to quaternion:
 
 ### Position Calculation
 ```
-worldPosition = targetPosition + targetRotation * (relativePosition + scale adjustment)
+anchorPosCci   = targetVehicleCoM + (targetPart.PositionVehicleAsmb - vehicleCoMInAsmb).Transform(body2Cci)
+anchorOrientation = targetPart.Asmb2VehicleAsmb * vehicleBody2Cci
+worldPosition  = anchorPosCci + relativePosition.Transform(anchorOrientation)
 ```
 
-The relative position is in the **target vehicle's body frame**, so a +10 offset on Z moves the source vehicle upward relative to the target, regardless of the target's world orientation.
+When no `TargetPart` is set (legacy path), `anchorPosCci = vehicleCoMPosCci` and `anchorOrientation = vehicleBody2Cci`.
+
+The part anchor means a +10 offset on Z moves the source vehicle along the target **part's** local Z axis, tracking changes in that part's orientation (e.g., from robotics).
 
 ### Parent Body Validation
 Welds automatically break if:

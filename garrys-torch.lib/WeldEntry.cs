@@ -8,9 +8,15 @@ public class WeldEntry
 {
     public Vehicle Source = null!;
     public Vehicle Target = null!;
-    /// <summary>Offset in target's body frame (metres).</summary>
+    /// <summary>
+    /// Specific part on the target vehicle to use as the weld anchor.
+    /// When set, position and rotation are relative to this part's local frame.
+    /// When null, falls back to the target vehicle's body frame (CoM origin).
+    /// </summary>
+    public Part? TargetPart;
+    /// <summary>Offset relative to the anchor — the target part's frame when set, otherwise the target vehicle's body frame (metres).</summary>
     public float3 Position;
-    /// <summary>Euler pitch/yaw/roll relative to target orientation (degrees).</summary>
+    /// <summary>Euler pitch/yaw/roll relative to the anchor orientation (degrees).</summary>
     public float3 Rotation;
     /// <summary>Uniform scale factor applied to all source parts.</summary>
     public float Scale = 1f;

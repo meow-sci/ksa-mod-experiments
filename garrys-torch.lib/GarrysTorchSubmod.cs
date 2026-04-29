@@ -37,6 +37,12 @@ public sealed class GarrysTorchSubmod : ISubmod
     private readonly ImInputString _sourceFilter = new(128);
     private readonly ImInputString _targetFilter = new(128);
     private readonly ImInputString _presetFilter = new(128);
+    private readonly ImInputString _targetPartFilter = new(128);
+
+    // Target part selection (create form)
+    private readonly List<Part> _targetParts = new();
+    private int _targetPartIndex = -1;
+    private int _prevTargetIndex = -1;
 
     // Deferred modal open flags (popups must be opened at matching ID scope)
     private bool _openDeleteModal;
@@ -138,11 +144,29 @@ public sealed class GarrysTorchSubmod : ISubmod
         if (_pendingSourceIndex >= vehicles.Count) _pendingSourceIndex = -1;
         if (_pendingTargetIndex >= vehicles.Count) _pendingTargetIndex = -1;
 
+        // Rebuild target parts list whenever the selected target vehicle changes
+        if (_pendingTargetIndex != _prevTargetIndex)
+        {
+            _prevTargetIndex = _pendingTargetIndex;
+            _targetParts.Clear();
+            _targetPartIndex = -1;
+            if (_pendingTargetIndex >= 0 && _pendingTargetIndex < vehicles.Count)
+            {
+                foreach (var p in vehicles[_pendingTargetIndex].Parts.Parts)
+                    _targetParts.Add(p);
+            }
+        }
+        if (_targetPartIndex >= _targetParts.Count) _targetPartIndex = -1;
+
+        var targetPartLabels = new string[_targetParts.Count];
+        for (int i = 0; i < _targetParts.Count; i++)
+            targetPartLabels[i] = $"{_targetParts[i].Template.Id}  [{_targetParts[i].Id}]";
+
         var presetNames = _presetManager.GetPresetNames();
 
-        // Source / Target / Preset table
+        // Source / Target / Target Part / Preset table
         var style = ImGui.GetStyle();
-        float labelW = ImGui.CalcTextSize("Preset").X + style.ItemSpacing.X;
+        float labelW = ImGui.CalcTextSize("Target Part").X + style.ItemSpacing.X;
         float delW = ImGui.CalcTextSize(" del ").X + style.FramePadding.X * 2f;
 
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
@@ -165,6 +189,16 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Target");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
             RenderFilteredCombo("##gt_tgt", vehicleIds, ref _pendingTargetIndex, _targetFilter);
+            ImGui.TableNextColumn();
+
+            // Target Part
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Target Part");
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
+            bool noTarget = _pendingTargetIndex < 0 || _targetParts.Count == 0;
+            if (noTarget) ImGui.BeginDisabled();
+            RenderFilteredCombo("##gt_tpart", targetPartLabels, ref _targetPartIndex, _targetPartFilter);
+            if (noTarget) ImGui.EndDisabled();
             ImGui.TableNextColumn();
 
             // Preset
@@ -193,11 +227,13 @@ public sealed class GarrysTorchSubmod : ISubmod
         // Create button
         ImGui.Spacing();
         bool canCreate = _pendingSourceIndex >= 0 && _pendingTargetIndex >= 0
-            && _pendingSourceIndex != _pendingTargetIndex;
+            && _pendingSourceIndex != _pendingTargetIndex
+            && _targetPartIndex >= 0;
         if (!canCreate) ImGui.BeginDisabled();
         if (ImGui.Button(" Create Weld ##gt_addweld"))
         {
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex],
+                _targetParts[_targetPartIndex],
                 _pendingPosition, _pendingRotation, _pendingScale, _pendingLockRotation);
         }
         if (!canCreate) ImGui.EndDisabled();
@@ -208,6 +244,11 @@ public sealed class GarrysTorchSubmod : ISubmod
         {
             ImGui.Spacing();
             ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), "Source and target must differ.");
+        }
+        if (_pendingTargetIndex >= 0 && _targetParts.Count > 0 && _targetPartIndex < 0)
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), "Select a target part to anchor the weld.");
         }
         if (!string.IsNullOrEmpty(_weldError))
         {
@@ -220,7 +261,8 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     private void RenderWeldSection(WeldEntry weld, int index, ref WeldEntry? toRemove)
     {
-        if (!ImGui.CollapsingHeader($"Weld: {weld.Source.Id} -> {weld.Target.Id}##gt_weld_{index}",
+        string partSuffix = weld.TargetPart != null ? $"/{weld.TargetPart.Id}" : "";
+        if (!ImGui.CollapsingHeader($"Weld: {weld.Source.Id} -> {weld.Target.Id}{partSuffix}##gt_weld_{index}",
             ImGuiTreeNodeFlags.DefaultOpen))
             return;
 
@@ -234,7 +276,10 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGuiWindowFlags.NoScrollbar);
         ImGui.PopStyleVar();
 
-        ImGui.Text($"{weld.Source.Id} welded to {weld.Target.Id}");
+        string anchorDesc = weld.TargetPart != null
+            ? $"{weld.Source.Id}  →  {weld.Target.Id} / {weld.TargetPart.Id}"
+            : $"{weld.Source.Id}  →  {weld.Target.Id}  (vehicle body frame)";
+        ImGui.Text(anchorDesc);
 
         float prevScale = weld.Scale;
         RenderDataFields($"##gt_w{index}", ref weld.Position, ref weld.Rotation,
@@ -446,7 +491,8 @@ public sealed class GarrysTorchSubmod : ISubmod
     /// <summary>Creates a weld between two vehicles by their IDs.</summary>
     public (WeldEntry? Weld, string? Error) CreateWeld(
         string sourceVehicleId, string targetVehicleId,
-        float3 position, float3 rotation, float scale, bool lockRotation)
+        float3 position, float3 rotation, float scale, bool lockRotation,
+        Part? targetPart = null)
     {
         if (sourceVehicleId == targetVehicleId)
             return (null, "Source and target must be different vehicles.");
@@ -470,6 +516,7 @@ public sealed class GarrysTorchSubmod : ISubmod
         {
             Source = source,
             Target = target,
+            TargetPart = targetPart,
             Position = position,
             Rotation = rotation,
             Scale = scale,
@@ -557,10 +604,10 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     // ---- Weld Logic (Internal) ----
 
-    private void InitiateWeld(Vehicle source, Vehicle target, float3 position, float3 rotation,
+    private void InitiateWeld(Vehicle source, Vehicle target, Part targetPart, float3 position, float3 rotation,
         float scale, bool lockRotation)
     {
-        var (_, error) = CreateWeld(source.Id, target.Id, position, rotation, scale, lockRotation);
+        var (_, error) = CreateWeld(source.Id, target.Id, position, rotation, scale, lockRotation, targetPart);
         if (error != null)
         {
             _weldError = error;
