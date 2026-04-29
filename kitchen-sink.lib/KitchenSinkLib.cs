@@ -17,6 +17,7 @@ public sealed class KitchenSinkSubmod : ISubmod
     public static KitchenSinkSubmod? Instance { get; private set; }
 
     private readonly FlexoSubpartTest _flexoSubpartTest = new();
+    private readonly FlexoPartTest _flexoPartTest = new();
 
     public void Initialize() { Instance = this; }
 
@@ -31,6 +32,7 @@ public sealed class KitchenSinkSubmod : ISubmod
     public void UpdateBeforeVehicleSolvers(double dt)
     {
         _flexoSubpartTest.UpdateBeforeVehicleSolvers(dt);
+        _flexoPartTest.UpdateBeforeVehicleSolvers(dt);
     }
 
     public void RenderContent()
@@ -39,6 +41,7 @@ public sealed class KitchenSinkSubmod : ISubmod
         RenderIvaForceRender();
         RenderFixInvisibleSubparts();
         _flexoSubpartTest.RenderContent();
+        _flexoPartTest.RenderContent();
         SubmodUI.EndContentArea();
     }
 
