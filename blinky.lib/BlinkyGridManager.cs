@@ -109,6 +109,7 @@ public static class BlinkyGridManager
 
         state.Scroll.Stop();
         TurnOffAllPixels(state);
+        EnsureVehicleIgnited(state.Vehicle);
 
         state.Scroll.Start(state.BlinkyGrid.Grid, pixels, speed);
         return true;
@@ -124,6 +125,7 @@ public static class BlinkyGridManager
 
         state.Scroll.Stop();
         TurnOffAllPixels(state);
+        EnsureVehicleIgnited(state.Vehicle);
 
         state.Scroll.StartBuiltIn(state.BlinkyGrid.Grid, speed);
         return true;
@@ -150,6 +152,7 @@ public static class BlinkyGridManager
         if (state == null) return false;
 
         state.Scroll.Stop();
+        EnsureVehicleIgnited(state.Vehicle);
 
         var grid = state.BlinkyGrid.Grid;
         var newPixels = new HashSet<(int row, int col)>();
@@ -211,6 +214,7 @@ public static class BlinkyGridManager
 
         state.Scroll.Stop();
         state.ActivePixels.Clear();
+        EnsureVehicleIgnited(state.Vehicle);
 
         foreach (var (key, controllers) in state.BlinkyGrid.Grid.Engines)
         {
@@ -247,6 +251,11 @@ public static class BlinkyGridManager
             for (int i = 0; i < controllers.Length; i++)
                 controllers[i].SetIsActive(null, on);
         }
+    }
+
+    private static void EnsureVehicleIgnited(Vehicle vehicle)
+    {
+        vehicle.SetEnum(VehicleEngine.MainIgnite);
     }
 
     private static void TurnOffAllPixels(GridState state)

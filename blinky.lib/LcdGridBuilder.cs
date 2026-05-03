@@ -109,12 +109,23 @@ public static class LcdGridBuilder
         // Each engine is assigned to exactly one fuel part (by index mod K).
         // This creates K isolated subgraphs of ~N/K engines each, reducing the
         // O(N³) PopulateGraph cost to O(N³/K²).
+        //
+        // Stage alignment: pixel parts default to stage 0. KSA's resource managers
+        // use FlowRule.NearestToFurtherestSameStage, so they only find tanks whose
+        // stage matches the engine's stage. We set each pixel part's stage to match
+        // its fuel anchor before the PartTree rebuild so resource managers are
+        // created with correct stage filtering.
         if (fuelParts.Count > 0)
         {
             sw.Restart();
             for (int i = 0; i < createdParts.Count; i++)
-                ConnectToFuel(createdParts[i], fuelParts[i % fuelParts.Count]);
-            timings.Add(($"Fuel connections ({createdParts.Count} parts, {fuelParts.Count} anchors)", sw.ElapsedMilliseconds));
+            {
+                var fuelPart = fuelParts[i % fuelParts.Count];
+                createdParts[i].SetStage(fuelPart.Stage);
+                ConnectToFuel(createdParts[i], fuelPart);
+            }
+            Console.WriteLine($"blinky: stage-aligned {createdParts.Count} pixel parts to stage {fuelParts[0].Stage} (fuel anchor: '{fuelParts[0].Id}')");
+            timings.Add(($"Fuel connections + stage align ({createdParts.Count} parts, {fuelParts.Count} anchors)", sw.ElapsedMilliseconds));
         }
 
         // ── PartTree rebuild — CreateFromNewPartTree ─────────────────────────────
@@ -124,13 +135,19 @@ public static class LcdGridBuilder
         vehicle.Parts = PartTree.CreateFromNewPartTree(root);
         timings.Add(("PartTree.CreateFromNewPartTree", sw.ElapsedMilliseconds));
 
-        // ── UpdateAfterPartTreeModification — resync FlightComputer ─────────────
-        // Rebuilds FlightComputer.VehicleConfig (Gimbals, Engines, etc.) from the
-        // new part tree.  Without this the flight computer holds stale GimbalController
-        // references and crashes with an index-out-of-range in UpdateTvcParams.
+        // ── UpdateVehicleConfiguration — reinitialise solver state + resync FlightComputer ──
+        // UpdateAfterPartTreeModification alone only calls FlightComputer.ReadUpdatedVehicleConfiguration,
+        // which rebuilds VehicleConfig.Gimbals from the new PartTree. But
+        // _threadWorkerUpdateState (which holds FlightComputerOutput, including the
+        // Gimbals StateList accessed by UpdateTvcParams on the worker thread) is not
+        // resized for the new gimbal count. UpdateVehicleConfiguration calls
+        // _threadWorkerUpdateState.InitializeUpdateData() first, which reallocates all
+        // output state lists to match the new PartTree, then calls
+        // UpdateAfterPartTreeModification. Without this the solver crashes with
+        // ArgumentOutOfRangeException in UpdateTvcParams on the first frame after build.
         sw.Restart();
-        vehicle.UpdateAfterPartTreeModification();
-        timings.Add(("UpdateAfterPartTreeModification", sw.ElapsedMilliseconds));
+        vehicle.UpdateVehicleConfiguration();
+        timings.Add(("UpdateVehicleConfiguration", sw.ElapsedMilliseconds));
 
         // ── SetMinimumThrottle — iterate EngineControllers ──────────────────────
         sw.Restart();
@@ -222,12 +239,13 @@ public static class LcdGridBuilder
         vehicle.Parts = PartTree.CreateFromNewPartTree(root);
         timings.Add(("PartTree.CreateFromNewPartTree", sw.ElapsedMilliseconds));
 
-        // ── UpdateAfterPartTreeModification — resync FlightComputer ─────────────
-        // Same reason as BuildGrid: rebuilds FlightComputer.VehicleConfig so it no
-        // longer references the now-removed pixel engine GimbalControllers.
+        // ── UpdateVehicleConfiguration — reinitialise solver state + resync FlightComputer ──
+        // Same reason as BuildGrid — must use UpdateVehicleConfiguration (not just
+        // UpdateAfterPartTreeModification) so _threadWorkerUpdateState output state lists
+        // are resized for the reduced gimbal count after pixel parts are removed.
         sw.Restart();
-        vehicle.UpdateAfterPartTreeModification();
-        timings.Add(("UpdateAfterPartTreeModification", sw.ElapsedMilliseconds));
+        vehicle.UpdateVehicleConfiguration();
+        timings.Add(("UpdateVehicleConfiguration", sw.ElapsedMilliseconds));
 
         swTotal.Stop();
         Console.WriteLine($"blinky: DestroyGrid timing ({partCount} parts, total={swTotal.ElapsedMilliseconds}ms):");
