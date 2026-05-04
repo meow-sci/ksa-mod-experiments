@@ -4,6 +4,7 @@ using KSA;
 using MeowSci.BlinkyLib;
 using MeowSci.CameraControllerOverrideLib;
 using MeowSci.CameraControllerOverrideLib.Animation;
+using MeowSci.EternalFlameLib;
 using MeowSci.GlassLib;
 using MeowSci.GarrysTorchLib;
 using MeowSci.IFeelSeenLib;
@@ -32,6 +33,7 @@ internal static class Patcher
             BlinkyPatches.Apply(_harmony);
             CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
             CameraControllerOverridePatches.Apply(_harmony);
+            EternalFlamePatches.Apply(_harmony);
             GarrysTorchPatches.Apply(_harmony);
             GlassPatches.Apply(_harmony);
             IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
@@ -56,6 +58,7 @@ internal static class Patcher
                 MenuBarPatch.Remove(_harmony);
                 BlinkyPatches.Remove(_harmony);
                 CameraControllerOverridePatches.Remove(_harmony);
+                EternalFlamePatches.Remove(_harmony);
                 GarrysTorchPatches.Remove(_harmony);
                 GlassPatches.Remove(_harmony);
                 IFeelSeenPatches.Remove(_harmony);
@@ -72,6 +75,42 @@ internal static class Patcher
         catch (Exception ex)
         {
             Console.WriteLine($"unscience: Error removing patches: {ex.Message}");
+        }
+    }
+}
+
+internal static class EternalFlamePatches
+{
+    public static void Apply(Harmony harmony)
+    {
+        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
+        var prefixMethod = AccessTools.Method(typeof(EternalFlamePatches), nameof(BeforeVehicleSolvers));
+
+        if (original == null)
+            throw new MissingMethodException(typeof(Universe).FullName, nameof(Universe.ExecuteNextVehicleSolvers));
+        if (prefixMethod == null)
+            throw new MissingMethodException(typeof(EternalFlamePatches).FullName, nameof(BeforeVehicleSolvers));
+
+        harmony.Patch(original, prefix: new HarmonyMethod(prefixMethod) { priority = Priority.First });
+    }
+
+    public static void Remove(Harmony harmony)
+    {
+        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
+        var prefixMethod = AccessTools.Method(typeof(EternalFlamePatches), nameof(BeforeVehicleSolvers));
+        if (original != null && prefixMethod != null)
+            harmony.Unpatch(original, prefixMethod);
+    }
+
+    private static void BeforeVehicleSolvers()
+    {
+        try
+        {
+            EternalFlameSubmod.Instance?.UpdateBeforeVehicleSolvers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"eternal-flame: Error in solver prefix: {ex.Message}\n{ex}");
         }
     }
 }

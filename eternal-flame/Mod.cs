@@ -25,13 +25,13 @@ public class Mod
         try
         {
             _submod = new EternalFlameSubmod();
-            Patcher.Patch();
             _submod.Initialize();
+            Patcher.Patch();
             _isInitialized = true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"eternal-flame: Error during initialization: {ex.Message}");
+            Console.WriteLine($"eternal-flame: Error during initialization: {ex.Message}\n{ex}");
         }
     }
 
@@ -45,7 +45,7 @@ public class Mod
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"eternal-flame: Error in OnBeforeUi: {ex.Message}");
+            Console.WriteLine($"eternal-flame: Error in OnBeforeUi: {ex.Message}\n{ex}");
         }
     }
 
@@ -55,7 +55,11 @@ public class Mod
         try
         {
             if (!_isInitialized || _isDisposed) return;
-            if (ImGui.IsKeyPressed(ImGuiKey.F11)) _windowVisible = !_windowVisible;
+            if (ImGui.IsKeyPressed(ImGuiKey.F11))
+            {
+                _windowVisible = !_windowVisible;
+                Console.WriteLine($"eternal-flame: window visibility toggled - visible={_windowVisible}");
+            }
             if (_windowVisible) RenderWindow();
         }
         catch (Exception ex)
@@ -69,13 +73,16 @@ public class Mod
     {
         try
         {
-            _submod.Dispose();
+            Console.WriteLine("eternal-flame: Unload - begin");
+            if (_submod != null)
+                _submod.Dispose();
             Patcher.Unload();
             _isDisposed = true;
+            Console.WriteLine("eternal-flame: Unload - complete");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"eternal-flame: Error during unload: {ex.Message}");
+            Console.WriteLine($"eternal-flame: Error during unload: {ex.Message}\n{ex}");
         }
     }
 

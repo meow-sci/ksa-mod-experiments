@@ -1,21 +1,23 @@
-# Eternal Flame - Infinite Fuel Hack
+# Eternal Flame - Infinite Fuel and Power Hack
 
-Keeps selected vehicles topped up by periodically calling `RefillConsumables()` at a configurable interval. Toggle the mod window with **F11**.
+Keeps selected vehicles topped up by periodically refilling fuel tanks and battery charge at a configurable interval. Toggle the mod window with **F11**.
 
 ## Features
 
 - **Filterable vehicle selector** — searchable combo box listing all vehicles in the current system
-- **Monitored vehicle table** — shows all tracked vehicles with an active/inactive checkbox and a remove button
-- **Refill interval slider** — drag slider (0–1000ms) controlling how often consumables are refilled
-- **Background refill loop** — runs every frame regardless of window visibility; only does work when monitored vehicles exist and the accumulated delta time exceeds the configured interval
-- **Per-vehicle toggle** — unchecking a vehicle in the table keeps it in the list but skips refills until re-enabled
+- **Monitored vehicle table** — shows all tracked vehicles with per-vehicle **Fuel** and **Elec** checkboxes and a remove button
+- **Fuel refill** — periodically calls `RefillConsumables()` to top up all resource tanks; toggle per vehicle with the **Fuel** checkbox
+- **Electricity refill** — periodically sets all `Battery` module charges to `MaximumCapacity`; toggle per vehicle with the **Elec** checkbox
+- **Refill interval slider** — drag slider (0–5000ms) controlling how often refills run
+- **Solver-timed electric refill loop** — runs from a Harmony prefix before vehicle solver preparation so battery changes are copied into the next electrical simulation step
+- **Throttled electric diagnostics** — logs solver-loop vehicle, monitored, matched, and battery counts every few seconds while electric refill is enabled
 
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `Mod.cs` | StarMap mod class — UI rendering & game loop hook |
-| `Patcher.cs` | Harmony patcher setup/teardown |
+| `Patcher.cs` | Harmony patcher setup/teardown and vehicle solver hook |
 | `eternal-flame.csproj` | Main mod project |
 | `../eternal-flame.lib/EternalFlameLib.cs` | Core refill logic (`FuelManager`, `MonitoredVehicle`) |
 
@@ -23,9 +25,9 @@ Keeps selected vehicles topped up by periodically calling `RefillConsumables()` 
 
 1. Press **F11** to open the Eternal Flame window
 2. Select a vehicle from the filterable dropdown and click **Add**
-3. The vehicle appears in the monitored table with its checkbox enabled
+3. The vehicle appears in the monitored table with **Fuel** and **Elec** checkboxes enabled
 4. Adjust the refill interval slider as desired (lower = more frequent refills)
-5. Uncheck a vehicle to pause refills without removing it
+5. Uncheck **Fuel** or **Elec** to pause that refill type without removing the vehicle
 6. Click **X** to remove a vehicle from monitoring entirely
 
 ## Harmony Patching Pattern

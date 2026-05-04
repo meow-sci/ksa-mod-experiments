@@ -22,12 +22,12 @@ Shared library with common abstractions used across multiple mods. Provides util
 ## Vehicle Manipulation Mods
 
 ### [eternal-flame](eternal-flame) / [eternal-flame.lib](eternal-flame.lib)
-Infinite fuel hack. Monitors selected vehicles and periodically refills their consumables at a configurable interval.
+Infinite fuel and electricity hack. Monitors selected vehicles and periodically refills fuel tanks and battery charge at a configurable interval.
 - Filterable vehicle combo box for selection
 - Add/remove vehicles to a monitored list
-- Per-vehicle active/inactive toggle
-- Configurable refill interval (0–1000ms drag slider)
-- Background refill loop runs independently of UI visibility
+- Per-vehicle **Fuel** and **Elec** toggles
+- Configurable refill interval (0–5000ms drag slider)
+- Refill loop runs from a Harmony vehicle solver hook so electrical state updates feed into simulation
 - F11 window toggle
 
 ### [garrys-torch](garrys-torch) / [garrys-torch.lib](garrys-torch.lib)
