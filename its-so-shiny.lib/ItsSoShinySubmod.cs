@@ -75,7 +75,7 @@ public sealed class ItsSoShinySubmod : ISubmod
             ShinyPatchState.RenderShinyParts = renderMeshes;
         ImGui.SameLine(0, 4);
         ImGui.TextDisabled("(?)");
-        ImGui.SetItemTooltip("Disable for a performance boost.\nLight part meshes are visible even when emitting no light — hiding them\nkeeps the grid functional without rendering the mesh geometry.");
+        ImGui.SetItemTooltip("When off (default): meshes render only while the light is active, so the emissive\nappears and disappears with the light. When on: meshes always render regardless of state.");
 
         foreach (var state in grids.Values.ToList())
             RenderGridSection(state);

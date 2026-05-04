@@ -52,22 +52,23 @@ public static class ShinyPatches
         Console.WriteLine("its-so-shiny.lib: render-skip patches removed");
     }
 
-    // Prefix returns false to skip UpdateRenderData for shiny_ light parts when mesh rendering is disabled.
-    private static bool PartModelModulePrefix(PartModelModule __instance)
+    // For shiny_ parts: always render if RenderShinyParts is set, or if the light is currently active.
+    // This lets the emissive mesh appear exactly when the light is on and hide when it's off.
+    private static bool ShouldRenderShinyPart(Part fullPart)
     {
+        if (!fullPart.Id.StartsWith("shiny_")) return true;
         if (ShinyPatchState.RenderShinyParts) return true;
-        return !__instance.Parent.FullPart.Id.StartsWith("shiny_");
+        var ls = fullPart.LightSwitch;
+        if (ls == null) return true; // no switch — can't determine state, render to be safe
+        return ls.LightIsActive;
     }
+
+    private static bool PartModelModulePrefix(PartModelModule __instance)
+        => ShouldRenderShinyPart(__instance.Parent.FullPart);
 
     private static bool PartModelDynamicModulePrefix(PartModelDynamicModule __instance)
-    {
-        if (ShinyPatchState.RenderShinyParts) return true;
-        return !__instance.Parent.FullPart.Id.StartsWith("shiny_");
-    }
+        => ShouldRenderShinyPart(__instance.Parent.FullPart);
 
     private static bool PartModelGlassModulePrefix(PartModelGlassModule __instance)
-    {
-        if (ShinyPatchState.RenderShinyParts) return true;
-        return !__instance.Parent.FullPart.Id.StartsWith("shiny_");
-    }
+        => ShouldRenderShinyPart(__instance.Parent.FullPart);
 }
