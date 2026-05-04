@@ -12,6 +12,7 @@ using MeowSci.GarrysTorchLib;
 using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
+using MeowSci.ItsSoShinyLib;
 using MeowSci.CameraControllerOverrideLib;
 using MeowSci.ConManLib;
 using MeowSci.KittenAnimationsLib;
@@ -70,6 +71,7 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new HumbleArteestSubmod());
             _submods.Add(iFeelSeen);
+            _submods.Add(new ItsSoShinySubmod());
             _submods.Add(new KitchenSinkSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());

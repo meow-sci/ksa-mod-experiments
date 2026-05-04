@@ -14,6 +14,7 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 | G-Force Monitor | Records and displays g-forces at 40 Hz with history, peak detection, and jerk analysis |
 | Glass — Camera Lens | Overrides camera FOV with presets or manual control |
 | I Feel Seen | Forces vehicle render data updates at any distance |
+| Its So Shiny | Builds and controls Blinky-style pixel grids from built-in light parts |
 | Kitten Animations | Plays kitten avatar MMU animations, expressions, and walking animations |
 | Kiwi's Marbles | Welds celestial bodies to other orbiters with CCI offsets |
 | Skittles — Theme Manager | Applies and saves ImGui themes with a built-in style editor |
@@ -39,4 +40,4 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 
 ## Dependencies
 
-All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.
+All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, its-so-shiny.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.

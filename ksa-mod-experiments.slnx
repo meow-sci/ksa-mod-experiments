@@ -31,6 +31,8 @@
     <Project Path="skittles.lib/skittles.lib.csproj" />
     <Project Path="blinky/blinky.csproj" />
     <Project Path="blinky.lib/blinky.lib.csproj" />
+    <Project Path="its-so-shiny/its-so-shiny.csproj" />
+    <Project Path="its-so-shiny.lib/its-so-shiny.lib.csproj" />
     <Project Path="eternal-flame/eternal-flame.csproj" />
     <Project Path="eternal-flame.lib/eternal-flame.lib.csproj" />
     <Project Path="unladen-swallow/unladen-swallow.csproj" />

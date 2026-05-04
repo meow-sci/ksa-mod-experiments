@@ -156,6 +156,17 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - Menu bar with Debug menu for global grid scanning
 - **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
+### [its-so-shiny](its-so-shiny) / [its-so-shiny.lib](its-so-shiny.lib)
+Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-in `LightPart` instead of engine parts, avoiding engine ignition, thrust cancellation, and fuel/resource graph complexity.
+- Runtime `LightPart` creation via manual `TreeParent`/`TreeChildren` wiring and a single part-tree rebuild
+- One light part per pixel, named `shiny_{gridName}_{row}_{col}`
+- Flat and cylindrical layouts with configurable grid size, spacing, offset, light scale, color, and intensity
+- Connects created light parts to battery-bearing parts when available so stock `PowerConsumer` light switches can receive power
+- Pattern controls: off, all on, alternating rows, alternating columns, checkerboard
+- Global scan discovers existing `shiny_*` grids across loaded vehicles
+- Standalone F11 ImGui window plus direct unscience submod integration
+- **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`.
+
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.
 - 7 MMU body movement animations (idle, move in 6 directions)
