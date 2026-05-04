@@ -181,7 +181,7 @@ public static class ShinyGridManager
     private static void ApplyAppearance(ShinyGridState state, float3 color, float intensity)
     {
         state.Color = color;
-        state.Intensity = Math.Clamp(intensity, 0f, 1f);
+        state.Intensity = Math.Clamp(intensity, 0f, 25f);
         foreach (var cell in state.ShinyGrid.Grid.Cells.Values)
             cell.ApplyAppearance(state.Color, state.Intensity);
     }

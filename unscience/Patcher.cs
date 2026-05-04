@@ -9,6 +9,7 @@ using MeowSci.GlassLib;
 using MeowSci.GarrysTorchLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.HumbleArteestLib;
+using MeowSci.ItsSoShinyLib;
 using MeowSci.KsaAbstractions;
 using MeowSci.FlexoLib;
 
@@ -31,6 +32,7 @@ internal static class Patcher
             MenuBarPatch.ToggleWindow = MenuBarToggle;
             MenuBarPatch.Apply(_harmony);
             BlinkyPatches.Apply(_harmony);
+            ShinyPatches.Apply(_harmony);
             CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
             CameraControllerOverridePatches.Apply(_harmony);
             EternalFlamePatches.Apply(_harmony);
@@ -57,6 +59,7 @@ internal static class Patcher
                 HotkeyGuard.Unpatch(_harmony);
                 MenuBarPatch.Remove(_harmony);
                 BlinkyPatches.Remove(_harmony);
+                ShinyPatches.Remove(_harmony);
                 CameraControllerOverridePatches.Remove(_harmony);
                 EternalFlamePatches.Remove(_harmony);
                 GarrysTorchPatches.Remove(_harmony);

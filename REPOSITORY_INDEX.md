@@ -165,7 +165,7 @@ Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-i
 - Pattern controls: off, all on, alternating rows, alternating columns, checkerboard
 - Global scan discovers existing `shiny_*` grids across loaded vehicles
 - Standalone F11 ImGui window plus direct unscience submod integration
-- **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`.
+- **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.
@@ -212,7 +212,7 @@ Game UI layout manager for gauge canvases. Saves and restores HUD gauge visibili
 ## HTTP RPC Mods
 
 ### [unladen-swallow](unladen-swallow) / [unladen-swallow.lib](unladen-swallow.lib)
-HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib`, blinky pixel grid control via `blinky.lib`, and camera animation sequencing via `camera-controller-override.lib`.
+HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib`, blinky pixel grid control via `blinky.lib`, its-so-shiny light grid control via `its-so-shiny.lib`, and camera animation sequencing via `camera-controller-override.lib`.
 - F11 toggle ImGui window
 - Enable/disable HTTP server via checkbox
 - Live server status indicator (Running/Stopped)
@@ -233,6 +233,19 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `POST /blinky/off` — turn all pixels off and stop scroll
 - `GET /blinky/render` / `POST /blinky/render` — get/set pixel part mesh rendering toggle
 - `POST /blinky/engines/deactivate` — deactivate non-LCD engines on a vehicle
+- Expanded its-so-shiny API (9 endpoints) covering light grid lifecycle, animation control, and appearance:
+- `GET /shiny/grids` — list registered light grids (optional `vehicleId` filter)
+- `POST /shiny/grids` — build and register a new light grid on a vehicle (with color/intensity)
+- `DELETE /shiny/grids` — destroy/unregister a light grid (`vehicleId` and `gridName` query params)
+- `POST /shiny/grids/scan` — scan a specific vehicle for an existing named light grid
+- `POST /shiny/grids/scan-all` — discover and register light grids across all vehicles (with default color/intensity)
+- `POST /shiny/animate` — start scrolling animation from client-supplied pixels
+- `DELETE /shiny/animate` — stop an active scroll without clearing current pixels
+- `POST /shiny/static` — display a static pixel pattern
+- `POST /shiny/pattern` — apply built-in patterns (`allOn`, `allOff`, `checkerboard`, `altRows`, `altCols`)
+- `POST /shiny/off` — turn all pixels off and stop scroll
+- `GET /shiny/appearance` — get current color/intensity for a light grid (`vehicleId` and `gridName` query params)
+- `POST /shiny/appearance` — set color and intensity for a light grid
 - `POST /camera/animate` — runs a camera animation sequence (zoom, orbit, spiral, shake, pan, rotate, groups, return-to-start)
 - `GET /camera/status` — returns current playback state (Playing/Stopped/Paused, keyframe index, elapsed time)
 - `DELETE /camera/stop` — stops any running camera animation
@@ -244,7 +257,7 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /torch/presets` — list all named weld presets
 - `POST /torch/presets` — save or update a named preset (`{ "name": "...", "data": {...} }`)
 - `DELETE /torch/presets` — delete a named preset (`{ "name": "..." }`)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `ShinyListEndpoint`, `ShinyGridsEndpoint`, `ShinyGridScanEndpoint`, `ShinyGridScanAllEndpoint`, `ShinyAnimateEndpoint`, `ShinyStaticEndpoint`, `ShinyPatternEndpoint`, `ShinyOffEndpoint`, `ShinyAppearanceEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `its-so-shiny.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
 
 ---
 

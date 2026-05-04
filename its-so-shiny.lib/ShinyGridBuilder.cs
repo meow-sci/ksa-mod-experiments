@@ -159,7 +159,9 @@ public static class ShinyGridBuilder
 
             part.PositionParentAsmb = new double3(px, py, pz);
             double halfAngle = rotY / 2.0;
-            part.Asmb2ParentAsmb = new doubleQuat(0, Math.Sin(halfAngle), 0, Math.Cos(halfAngle));
+            var qY    = new doubleQuat(0, Math.Sin(halfAngle), 0, Math.Cos(halfAngle));
+            var qXNeg = new doubleQuat(-Math.Sin(Math.PI / 4.0), 0, 0, Math.Cos(Math.PI / 4.0));
+            part.Asmb2ParentAsmb = doubleQuat.Concatenate(qY, qXNeg);
             part.Scale = new double3(config.PartScale, config.PartScale, config.PartScale);
             return part;
         }

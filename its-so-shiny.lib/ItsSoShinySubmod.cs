@@ -70,6 +70,13 @@ public sealed class ItsSoShinySubmod : ISubmod
         ImGui.Spacing();
         ImGui.SeparatorText($"shiny grids ( {vehicleCount} vehicle(s), {grids.Count} grid(s) )");
 
+        bool renderMeshes = ShinyPatchState.RenderShinyParts;
+        if (ImGui.Checkbox("Render light meshes", ref renderMeshes))
+            ShinyPatchState.RenderShinyParts = renderMeshes;
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip("Disable for a performance boost.\nLight part meshes are visible even when emitting no light — hiding them\nkeeps the grid functional without rendering the mesh geometry.");
+
         foreach (var state in grids.Values.ToList())
             RenderGridSection(state);
 
@@ -151,7 +158,7 @@ public sealed class ItsSoShinySubmod : ISubmod
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Intensity");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##iss_intensity", ref _configIntensity, 0.005f, 0f, 1f);
+            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.DragFloat("##iss_intensity", ref _configIntensity, 0.1f, 0f, 25f);
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Color");
@@ -254,7 +261,7 @@ public sealed class ItsSoShinySubmod : ISubmod
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Intensity");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1);
-            if (ImGui.DragFloat($"##iss_grid_intensity_{gridId}", ref intensity, 0.005f, 0f, 1f))
+            if (ImGui.DragFloat($"##iss_grid_intensity_{gridId}", ref intensity, 0.1f, 0f, 25f))
                 ShinyGridManager.SetAppearance(state.VehicleId, state.GridName, state.Color, intensity);
 
             ImGui.TableNextRow();
