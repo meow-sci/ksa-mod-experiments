@@ -1,0 +1,1000 @@
+openapi: 3.1.0
+
+info:
+  title: Unladen Swallow — Its-So-Shiny API
+  version: 1.0.0
+  description: >
+    Its-So-Shiny light-part pixel grid control and management endpoints for the
+    Unladen Swallow RPC server. Covers grid lifecycle (build, scan, destroy),
+    display control (scroll, static, patterns, off), and per-grid light
+    appearance (color and intensity).
+
+
+    Its-So-Shiny is the light-part equivalent of the Blinky engine-pixel API.
+    Each pixel is a KSA LightPart instance rather than an engine pair, which
+    means grids support per-grid RGB color and intensity settings in addition
+    to the same on/off pixel display control surface as Blinky.
+
+
+    Listens on http://localhost:7887.
+
+servers:
+  - url: http://localhost:7887
+    description: Local KSA mod server
+
+paths:
+
+  # ── Grid Management ─────────────────────────────────────────────────────────
+
+  /shiny/grids:
+
+    get:
+      summary: List registered light grids
+      description: >
+        Returns every currently registered its-so-shiny light grid across all
+        vehicles. An optional `vehicleId` query parameter narrows the result to
+        grids on that vehicle. Each entry includes dimensions, ownership, scroll
+        state, and current color/intensity.
+      operationId: shinyListGrids
+      parameters:
+        - name: vehicleId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: When provided, only grids belonging to this vehicle are returned.
+          example: "rocket-1"
+      responses:
+        '200':
+          description: Array of registered light grids (may be empty).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyGridListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Build a new light grid on a vehicle
+      description: >
+        Creates a new named its-so-shiny light grid on the specified vehicle.
+        Each pixel is a single KSA `LightPart` instance. Created parts are
+        named `shiny_{gridName}_{row}_{col}`. The grid is automatically
+        registered with the grid manager after creation.
+
+
+        If a grid with the same name already exists for the vehicle, the request
+        is rejected with 409 Conflict.
+      operationId: shinyBuildGrid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyBuildGridRequest'
+      responses:
+        '200':
+          description: Grid built and registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyGridInfoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Destroy a light grid
+      description: >
+        Destroys the named its-so-shiny light grid on the specified vehicle.
+        Owned grids (built via API) have their light parts removed from the
+        vehicle. Scanned grids are only unregistered — their parts remain.
+        The response `action` field indicates which occurred: `"grid_destroyed"`
+        or `"grid_unregistered"`.
+      operationId: shinyDestroyGrid
+      parameters:
+        - name: vehicleId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        - name: gridName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the grid to destroy.
+          example: "main"
+      responses:
+        '200':
+          description: Grid destroyed or unregistered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /shiny/grids/scan:
+    post:
+      summary: Scan a vehicle for an existing light grid
+      description: >
+        Scans the specified vehicle for an existing light grid and registers it
+        under the given name. Finds parts whose IDs match the
+        `shiny_{gridName}_{row}_{col}` naming convention.
+
+
+        The grid is registered with default white color (1, 1, 1) and full
+        intensity (1.0). Use `POST /shiny/appearance` afterwards to change
+        color and intensity.
+
+
+        Returns 404 if no matching grid is found on the vehicle.
+      operationId: shinyScanGrid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyScanGridRequest'
+      responses:
+        '200':
+          description: Grid found and registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyGridInfoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /shiny/grids/scan-all:
+    post:
+      summary: Scan all vehicles for light grids
+      description: >
+        Discovers its-so-shiny light grids across every vehicle in the current
+        system. Uses ID-based scanning (parts named
+        `shiny_{gridName}_{row}_{col}`) and registers all found grids
+        automatically.
+
+
+        Optional `colorR/G/B` and `intensity` fields set the initial appearance
+        for all discovered grids. Defaults to white (1, 1, 1) at full intensity
+        when omitted.
+
+
+        Returns a summary with the total number of discovered grids and their
+        names.
+      operationId: shinyScanAllGrids
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyScanAllRequest'
+      responses:
+        '200':
+          description: Scan completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyScanAllResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── Display Control ──────────────────────────────────────────────────────────
+
+  /shiny/animate:
+
+    post:
+      summary: Start scroll animation
+      description: >
+        Starts a scrolling pixel animation on the named light grid. The pixel
+        array defines the pattern that scrolls across the grid. `speed` controls
+        the rate in pixels per second (must be > 0). Any existing scroll is
+        stopped and all pixels are turned off before the new animation starts.
+      operationId: shinyAnimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyScrollRequest'
+      responses:
+        '200':
+          description: Scroll started. `data.action` = `"scroll_started"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Stop scroll animation
+      description: >
+        Stops any running scroll animation on the named light grid without
+        turning off pixels. Pixels remain in their last-rendered state. Use
+        `POST /shiny/off` to also clear all pixels.
+      operationId: shinyStopScroll
+      parameters:
+        - name: vehicleId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        - name: gridName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the grid.
+          example: "main"
+      responses:
+        '200':
+          description: Scroll stopped. `data.action` = `"scroll_stopped"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /shiny/static:
+    post:
+      summary: Display static pixels
+      description: >
+        Displays a static set of lit pixels on the named light grid. Stops any
+        running scroll animation first.
+
+
+        When `reset` is `true`, the grid performs an intelligent diff — turning
+        off pixels that are no longer needed and turning on new ones (replace
+        mode). When `false`, supplied pixels are OR-ed onto the current state
+        (additive mode).
+      operationId: shinyStatic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyStaticRequest'
+      responses:
+        '200':
+          description: >
+            Pixels applied. `data.action` = `"static_reset"` or
+            `"static_additive"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /shiny/pattern:
+    post:
+      summary: Apply a named pattern
+      description: >
+        Applies a built-in pixel pattern to the named light grid. Stops any
+        running scroll animation before applying.
+      operationId: shinyPattern
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyPatternRequest'
+      responses:
+        '200':
+          description: >
+            Pattern applied. `data.action` = `"pattern_<name>"` (e.g.
+            `"pattern_checkerboard"`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /shiny/off:
+    post:
+      summary: Turn off all pixels
+      description: >
+        Turns off every pixel on the named light grid and stops any running
+        scroll animation.
+      operationId: shinyOff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyOffRequest'
+      responses:
+        '200':
+          description: All pixels off. `data.action` = `"off"`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── Appearance ───────────────────────────────────────────────────────────────
+
+  /shiny/appearance:
+
+    get:
+      summary: Get light appearance for a grid
+      description: >
+        Returns the current RGB color and intensity for the named light grid.
+        These values apply uniformly to all pixels in the grid. Individual
+        pixel on/off state is controlled by the display endpoints.
+      operationId: shinyGetAppearance
+      parameters:
+        - name: vehicleId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        - name: gridName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the grid.
+          example: "main"
+      responses:
+        '200':
+          description: Current appearance settings for the grid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyAppearanceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Set light appearance for a grid
+      description: >
+        Updates the RGB color and intensity for every light in the named grid.
+        Color channels and intensity are in the range 0–1. The new appearance is
+        applied immediately to all pixels, regardless of their on/off state.
+      operationId: shinySetAppearance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShinyAppearanceRequest'
+      responses:
+        '200':
+          description: Appearance updated. Returns the new state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShinyAppearanceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  schemas:
+
+    # ── Shared types ───────────────────────────────────────────────────────────
+
+    PixelCoord:
+      type: object
+      description: >
+        A single pixel coordinate on the light grid. `x` is the column index,
+        `y` is the row index, both zero-based.
+      properties:
+        x:
+          type: integer
+          description: Column index (zero-based).
+          example: 3
+        y:
+          type: integer
+          description: Row index (zero-based).
+          example: 7
+      required: [x, y]
+
+    ShinyGridLayout:
+      type: string
+      description: >
+        Grid geometry mode. `"flat"` arranges pixels in a plane (columns along
+        X, rows along -Y). `"cylinder"` wraps columns around a cylindrical
+        surface with rows stacking along Y.
+      enum: [flat, cylinder]
+      example: "flat"
+
+    ShinyPattern:
+      type: string
+      description: >
+        Named pixel pattern. `"allOn"` lights every pixel, `"allOff"` clears
+        the grid, `"checkerboard"` alternates on/off in a checkerboard,
+        `"altRows"` lights even rows, `"altCols"` lights even columns.
+      enum: [allOn, allOff, checkerboard, altRows, altCols]
+      example: "checkerboard"
+
+    # ── Grid management request types ─────────────────────────────────────────
+
+    ShinyBuildGridRequest:
+      type: object
+      description: >
+        Request body for building a new light grid. Only `vehicleId` and
+        `gridName` are required; all other fields default to sensible values
+        when omitted.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: >
+            Name for the new grid. Allowed characters: `a-z`, `A-Z`, `0-9`,
+            `-` (hyphen). Underscores are reserved.
+          pattern: '^[a-zA-Z0-9-]+$'
+          example: "main"
+        width:
+          type: integer
+          description: Number of pixel columns.
+          minimum: 1
+          maximum: 256
+          default: 8
+          example: 8
+        height:
+          type: integer
+          description: Number of pixel rows.
+          minimum: 1
+          maximum: 256
+          default: 8
+          example: 8
+        layout:
+          $ref: '#/components/schemas/ShinyGridLayout'
+          default: "flat"
+        spacing:
+          type: number
+          format: float
+          description: Distance in metres between pixel centres.
+          minimum: 0.1
+          maximum: 100.0
+          default: 0.75
+          example: 0.75
+        offsetX:
+          type: number
+          format: float
+          description: X offset from vehicle root (metres, right).
+          default: 0.0
+          example: 0.0
+        offsetY:
+          type: number
+          format: float
+          description: Y offset from vehicle root (metres, up).
+          default: 3.0
+          example: 3.0
+        offsetZ:
+          type: number
+          format: float
+          description: Z offset from vehicle root (metres, forward).
+          default: 2.0
+          example: 2.0
+        lightPartId:
+          type: string
+          description: >
+            KSA part template ID for the light part. Defaults to `"LightPart"`.
+          default: "LightPart"
+          example: "LightPart"
+        partScale:
+          type: number
+          format: double
+          description: Scale multiplier for light parts.
+          minimum: 0.001
+          maximum: 10.0
+          default: 0.5
+          example: 0.5
+        colorR:
+          type: number
+          format: float
+          description: Red channel of initial light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        colorG:
+          type: number
+          format: float
+          description: Green channel of initial light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        colorB:
+          type: number
+          format: float
+          description: Blue channel of initial light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        intensity:
+          type: number
+          format: float
+          description: Initial light intensity (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+      required: [vehicleId, gridName]
+
+    ShinyScanGridRequest:
+      type: object
+      description: >
+        Request body for scanning a single vehicle for an existing light grid.
+        Finds parts whose IDs match `shiny_{gridName}_{row}_{col}`.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Name to register the scanned grid under.
+          pattern: '^[a-zA-Z0-9-]+$'
+          example: "main"
+      required: [vehicleId, gridName]
+
+    ShinyScanAllRequest:
+      type: object
+      description: >
+        Optional body for scan-all. Specifies default color and intensity to
+        apply to all discovered grids. All fields are optional; omitting them
+        applies white (1, 1, 1) at full intensity (1.0).
+      properties:
+        colorR:
+          type: number
+          format: float
+          description: Red channel of default light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        colorG:
+          type: number
+          format: float
+          description: Green channel of default light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        colorB:
+          type: number
+          format: float
+          description: Blue channel of default light color (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+        intensity:
+          type: number
+          format: float
+          description: Default light intensity (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          default: 1.0
+          example: 1.0
+
+    # ── Display control request types ─────────────────────────────────────────
+
+    ShinyScrollRequest:
+      type: object
+      description: Start a scrolling pixel animation on a light grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        pixels:
+          type: array
+          description: Pixel coordinates that form the scroll pattern.
+          items:
+            $ref: '#/components/schemas/PixelCoord'
+          minItems: 1
+        speed:
+          type: number
+          format: float
+          description: Scroll speed in pixels per second (must be > 0).
+          exclusiveMinimum: 0
+          example: 2.5
+      required: [vehicleId, gridName, pixels, speed]
+
+    ShinyStaticRequest:
+      type: object
+      description: Display a static set of lit pixels on a light grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        pixels:
+          type: array
+          description: Pixel coordinates to light up.
+          items:
+            $ref: '#/components/schemas/PixelCoord'
+        reset:
+          type: boolean
+          description: >
+            `true` = replace mode (diff against current state).
+            `false` = additive mode (OR onto current state).
+          example: true
+      required: [vehicleId, gridName, pixels, reset]
+
+    ShinyPatternRequest:
+      type: object
+      description: Apply a named built-in pattern to a light grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        pattern:
+          $ref: '#/components/schemas/ShinyPattern'
+      required: [vehicleId, gridName, pattern]
+
+    ShinyOffRequest:
+      type: object
+      description: Turn off all pixels on a light grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+      required: [vehicleId, gridName]
+
+    # ── Appearance request/response types ─────────────────────────────────────
+
+    ShinyAppearanceRequest:
+      type: object
+      description: >
+        Sets the RGB color and intensity for every light in the grid. All
+        channels are in the range 0–1 and applied immediately to all pixels.
+      properties:
+        vehicleId:
+          type: string
+          description: Target vehicle identifier.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Target grid name.
+          example: "main"
+        colorR:
+          type: number
+          format: float
+          description: Red channel (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          example: 1.0
+        colorG:
+          type: number
+          format: float
+          description: Green channel (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.5
+        colorB:
+          type: number
+          format: float
+          description: Blue channel (0–1).
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.0
+        intensity:
+          type: number
+          format: float
+          description: Light intensity (0–1, clamped server-side).
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.8
+      required: [vehicleId, gridName, colorR, colorG, colorB, intensity]
+
+    ShinyAppearance:
+      type: object
+      description: Current appearance state of a light grid.
+      properties:
+        vehicleId:
+          type: string
+          example: "rocket-1"
+        gridName:
+          type: string
+          example: "main"
+        colorR:
+          type: number
+          format: float
+          description: Current red channel (0–1).
+          example: 1.0
+        colorG:
+          type: number
+          format: float
+          description: Current green channel (0–1).
+          example: 0.5
+        colorB:
+          type: number
+          format: float
+          description: Current blue channel (0–1).
+          example: 0.0
+        intensity:
+          type: number
+          format: float
+          description: Current intensity (0–1).
+          example: 0.8
+      required: [vehicleId, gridName, colorR, colorG, colorB, intensity]
+
+    # ── Response data types ────────────────────────────────────────────────────
+
+    ShinyResult:
+      type: object
+      description: Result of an its-so-shiny operation.
+      properties:
+        vehicleId:
+          type: string
+          example: "rocket-1"
+        gridName:
+          type: string
+          example: "main"
+        action:
+          type: string
+          description: >
+            Describes what happened. Values: `"scroll_started"`,
+            `"scroll_stopped"`, `"static_reset"`, `"static_additive"`,
+            `"off"`, `"pattern_<name>"` (e.g. `"pattern_checkerboard"`),
+            `"grid_destroyed"`, `"grid_unregistered"`.
+          example: "scroll_started"
+      required: [vehicleId, gridName, action]
+
+    ShinyGridInfo:
+      type: object
+      description: Detailed information about a registered its-so-shiny light grid.
+      properties:
+        vehicleId:
+          type: string
+          description: Vehicle that owns the grid.
+          example: "rocket-1"
+        gridName:
+          type: string
+          description: Registered grid name.
+          example: "main"
+        rows:
+          type: integer
+          description: Number of pixel rows.
+          example: 8
+        cols:
+          type: integer
+          description: Number of pixel columns.
+          example: 8
+        pixelCount:
+          type: integer
+          description: Total light parts (rows × cols).
+          example: 64
+        isOwned:
+          type: boolean
+          description: >
+            `true` if built dynamically (parts will be removed on destroy).
+            `false` if scanned from existing parts.
+          example: true
+        isScrolling:
+          type: boolean
+          description: Whether a scroll animation is running.
+          example: false
+        scrollSpeed:
+          type: number
+          format: float
+          description: Current scroll speed (0 when not scrolling).
+          example: 0.0
+        colorR:
+          type: number
+          format: float
+          description: Current red channel of grid light color (0–1).
+          example: 1.0
+        colorG:
+          type: number
+          format: float
+          description: Current green channel of grid light color (0–1).
+          example: 1.0
+        colorB:
+          type: number
+          format: float
+          description: Current blue channel of grid light color (0–1).
+          example: 1.0
+        intensity:
+          type: number
+          format: float
+          description: Current light intensity (0–1).
+          example: 1.0
+      required:
+        - vehicleId
+        - gridName
+        - rows
+        - cols
+        - pixelCount
+        - isOwned
+        - isScrolling
+        - scrollSpeed
+        - colorR
+        - colorG
+        - colorB
+        - intensity
+
+    ShinyScanAllResult:
+      type: object
+      description: Summary of a scan-all-vehicles operation.
+      properties:
+        discovered:
+          type: integer
+          description: Total number of newly discovered and registered grids.
+          example: 3
+        grids:
+          type: array
+          description: >
+            Human-readable labels for each discovered grid (e.g.
+            `"main on rocket-1"`).
+          items:
+            type: string
+          example: ["main on rocket-1", "display on sat-2"]
+      required: [discovered, grids]
+
+    # ── Response wrappers ──────────────────────────────────────────────────────
+
+    ApiResponseBase:
+      type: object
+      description: Standard API envelope for successful responses.
+      properties:
+        status:
+          type: string
+          description: Always `"ok"`.
+          example: "ok"
+        data:
+          description: Endpoint-specific payload.
+      required: [status, data]
+
+    ShinyResultResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ShinyResult'
+
+    ShinyGridInfoResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ShinyGridInfo'
+
+    ShinyGridListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShinyGridInfo'
+
+    ShinyScanAllResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ShinyScanAllResult'
+
+    ShinyAppearanceResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ShinyAppearance'
+
+    ErrorResponse:
+      type: object
+      description: Error envelope for 4xx/5xx responses.
+      properties:
+        status:
+          type: string
+          example: "error"
+        message:
+          type: string
+          description: Human-readable error description.
+          example: "Vehicle not found: rocket-1."
+      required: [status, message]
+
+  responses:
+    BadRequest:
+      description: Missing or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found (vehicle, grid, etc.).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Grid already exists for this vehicle and name.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected server-side error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

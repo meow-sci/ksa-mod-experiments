@@ -196,6 +196,81 @@ public record ZippoClearAnimationResult(
 /// <summary>Request body for POST /blinky/engines/deactivate.</summary>
 public record BlinkyEngineDeactivateRequest(string VehicleId);
 
+// ── Its-So-Shiny API Types ──────────────────────────────────────────────────
+
+/// <summary>Information about a registered its-so-shiny light grid.</summary>
+public record ShinyGridInfo(
+    string VehicleId,
+    string GridName,
+    int Rows,
+    int Cols,
+    int PixelCount,
+    bool IsOwned,
+    bool IsScrolling,
+    float ScrollSpeed,
+    float ColorR,
+    float ColorG,
+    float ColorB,
+    float Intensity
+);
+
+/// <summary>Result returned by GET /shiny/grids.</summary>
+public record ShinyGridListResult(ShinyGridInfo[] Grids);
+
+/// <summary>Request body for POST /shiny/grids — builds a new light grid.</summary>
+public record ShinyBuildGridRequest(
+    string VehicleId,
+    string GridName,
+    int? Width,
+    int? Height,
+    string? Layout,
+    float? Spacing,
+    float? OffsetX,
+    float? OffsetY,
+    float? OffsetZ,
+    string? LightPartId,
+    double? PartScale,
+    float? ColorR,
+    float? ColorG,
+    float? ColorB,
+    float? Intensity
+);
+
+/// <summary>Request body for POST /shiny/grids/scan — scans a vehicle for an existing light grid.</summary>
+public record ShinyScanGridRequest(string VehicleId, string GridName);
+
+/// <summary>Request body for POST /shiny/grids/scan-all — scans all vehicles for light grids.</summary>
+public record ShinyScanAllRequest(
+    float? ColorR,
+    float? ColorG,
+    float? ColorB,
+    float? Intensity
+);
+
+/// <summary>Result for POST /shiny/grids/scan-all.</summary>
+public record ShinyScanAllResult(int Discovered, string[] Grids);
+
+/// <summary>Request body for POST /shiny/static — displays a static set of pixels.</summary>
+public record ShinyStaticRequest(string VehicleId, string GridName, PixelCoord[] Pixels, bool Reset);
+
+/// <summary>Request body for POST /shiny/off — turns off all pixels.</summary>
+public record ShinyOffRequest(string VehicleId, string GridName);
+
+/// <summary>Request body for POST /shiny/animate — starts a scrolling animation.</summary>
+public record ShinyScrollRequest(string VehicleId, string GridName, PixelCoord[] Pixels, float Speed);
+
+/// <summary>Request body for POST /shiny/pattern — applies a named built-in pattern.</summary>
+public record ShinyPatternRequest(string VehicleId, string GridName, string Pattern);
+
+/// <summary>Result returned by its-so-shiny action endpoints.</summary>
+public record ShinyResult(string VehicleId, string GridName, string Action);
+
+/// <summary>Request body for POST /shiny/appearance — sets light color and intensity for a grid.</summary>
+public record ShinyAppearanceRequest(string VehicleId, string GridName, float ColorR, float ColorG, float ColorB, float Intensity);
+
+/// <summary>Current light appearance returned by GET /shiny/appearance.</summary>
+public record ShinyAppearance(string VehicleId, string GridName, float ColorR, float ColorG, float ColorB, float Intensity);
+
 // ── Camera Animation API Types ──────────────────────────────────────────────
 
 /// <summary>
