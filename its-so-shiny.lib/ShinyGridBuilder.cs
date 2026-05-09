@@ -4,13 +4,12 @@ using System.Diagnostics;
 using System.Linq;
 using Brutal.Numerics;
 using KSA;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.ItsSoShinyLib;
 
 public static class ShinyGridBuilder
 {
-    public static ShinyBuiltGrid? BuildGrid(Vehicle vehicle, string gridName, ShinyGridConfig config, float3 color, float intensity)
+    public static ShinyBuiltGrid? BuildGrid(Vehicle vehicle, string gridName, ShinyGridConfig config)
     {
         if (vehicle == null) throw new ArgumentNullException(nameof(vehicle));
         if (config == null) throw new ArgumentNullException(nameof(config));
@@ -33,10 +32,27 @@ public static class ShinyGridBuilder
             return null;
         }
 
-        Console.WriteLine($"its-so-shiny: building {config.Width}x{config.Height} {config.Layout} grid using '{config.LightPartId}'");
+        Console.WriteLine($"its-so-shiny: building {config.Width}x{config.Height} {config.Layout} grid using '{config.LightPartId}' — {config.TotalParts} total parts");
+        var swTotal = Stopwatch.StartNew();
+        var timings = new List<(string Label, long Ms)>();
         var sw = Stopwatch.StartNew();
+
+        // Find every battery anchor on the vehicle BEFORE creating new parts so that
+        // round-robin partitioning across all available batteries is maximised. With K
+        // distinct battery anchors the per-PowerConsumer DFS in PowerManager.PopulateGraph
+        // and CreateOrders only sees ~N/K consumers, taking total cost from O(N^3) to
+        // ~O(N^3/K^2). Enumerating Modules.Get<Battery>() picks up batteries that live
+        // on sub-parts too, not just top-level parts.
+        var batteryParts = FindBatteryParts(vehicle);
+        timings.Add(($"FindBatteryParts ({batteryParts.Count} found)", sw.ElapsedMilliseconds));
+        if (batteryParts.Count > 0)
+            Console.WriteLine($"its-so-shiny: found {batteryParts.Count} battery anchor(s) for partitioned connections: {string.Join(", ", batteryParts.Select(p => p.Id))}");
+        else
+            Console.WriteLine("its-so-shiny: WARNING - no battery parts found; light switches may not receive power");
+
         var createdParts = new List<Part>(config.TotalParts);
 
+        sw.Restart();
         for (int row = 0; row < config.Height; row++)
         {
             for (int col = 0; col < config.Width; col++)
@@ -46,6 +62,7 @@ public static class ShinyGridBuilder
                     createdParts.Add(part);
             }
         }
+        timings.Add(($"Part instantiation ({createdParts.Count} parts)", sw.ElapsedMilliseconds));
 
         if (createdParts.Count == 0)
         {
@@ -53,40 +70,44 @@ public static class ShinyGridBuilder
             return null;
         }
 
+        sw.Restart();
         foreach (var part in createdParts)
         {
             part.TreeParent = root;
             root.TreeChildren.Add(part);
         }
+        timings.Add(($"Tree wiring ({createdParts.Count} parts)", sw.ElapsedMilliseconds));
 
-        var batteryParts = FindBatteryParts(vehicle);
         if (batteryParts.Count > 0)
         {
+            sw.Restart();
             for (int i = 0; i < createdParts.Count; i++)
             {
                 var batteryPart = batteryParts[i % batteryParts.Count];
                 createdParts[i].SetStage(batteryPart.Stage);
                 ConnectToPower(createdParts[i], batteryPart);
             }
-            Console.WriteLine($"its-so-shiny: connected {createdParts.Count} light parts to {batteryParts.Count} battery anchor(s)");
-        }
-        else
-        {
-            Console.WriteLine("its-so-shiny: WARNING - no battery parts found; light switches may not receive power");
+            timings.Add(($"Power connections + stage align ({createdParts.Count} parts, {batteryParts.Count} anchors)", sw.ElapsedMilliseconds));
         }
 
+        sw.Restart();
         vehicle.Parts = PartTree.CreateFromNewPartTree(root);
+        timings.Add(("PartTree.CreateFromNewPartTree", sw.ElapsedMilliseconds));
+
+        sw.Restart();
         vehicle.UpdateVehicleConfiguration();
+        timings.Add(("UpdateVehicleConfiguration", sw.ElapsedMilliseconds));
 
-        var grid = ShinyPixelGrid.ScanFromVehicle(vehicle, gridName);
-        foreach (var cell in grid.Cells.Values)
-        {
-            cell.ApplyAppearance(color, intensity);
-            cell.SetEnabled(false, intensity);
-        }
+        sw.Restart();
+        var grid = ShinyPixelGrid.CreateFromParts(createdParts, gridName);
+        TurnOffLights(grid);
+        timings.Add(($"CreateFromParts + TurnOffLights ({grid.Count} pixels)", sw.ElapsedMilliseconds));
 
-        sw.Stop();
-        Console.WriteLine($"its-so-shiny: built grid '{gridName}' with {grid.Count} pixels in {sw.ElapsedMilliseconds}ms");
+        swTotal.Stop();
+        Console.WriteLine($"its-so-shiny: BuildGrid timing ({config.Width}x{config.Height}, {createdParts.Count} parts, total={swTotal.ElapsedMilliseconds}ms):");
+        foreach (var (label, ms) in timings)
+            Console.WriteLine($"its-so-shiny:   {label,-55} {ms,6}ms");
+
         return new ShinyBuiltGrid(grid, createdParts);
     }
 
@@ -172,23 +193,24 @@ public static class ShinyGridBuilder
         }
     }
 
+    // Collects every distinct top-level Part on the vehicle that contains at least one
+    // Battery module (directly or via a sub-part). Enumerating Modules.Get<Battery>() and
+    // resolving each module's owner to its FullPart is the most thorough way to discover
+    // battery anchors — it picks up batteries on sub-parts that a top-level-only walk
+    // would miss, and it deduplicates parts that contain multiple battery modules.
     private static List<Part> FindBatteryParts(Vehicle vehicle)
     {
         var result = new List<Part>();
-        foreach (var part in vehicle.Parts.Parts)
+        var seen = new HashSet<Part>();
+        var batteries = vehicle.Parts.Modules.Get<Battery>();
+        for (int i = 0; i < batteries.Length; i++)
         {
-            if (part.IsSubPart) continue;
-            if (part.SubtreeModules.Get<Battery>().Length > 0)
-                result.Add(part);
+            var battery = batteries[i];
+            if (battery?.Parent == null) continue;
+            var anchor = battery.Parent.FullPart;
+            if (anchor != null && seen.Add(anchor))
+                result.Add(anchor);
         }
-
-        if (result.Count == 0)
-        {
-            foreach (var part in PartHelpers.GetAllParts(vehicle))
-                if (part.SubtreeModules.Get<Battery>().Length > 0)
-                    result.Add(part);
-        }
-
         return result;
     }
 
@@ -202,6 +224,16 @@ public static class ShinyGridBuilder
         catch (Exception ex)
         {
             Console.WriteLine($"its-so-shiny: error connecting '{lightPart.Id}' to power: {ex.Message}");
+        }
+    }
+
+    private static void TurnOffLights(ShinyPixelGrid grid)
+    {
+        foreach (var cell in grid.Cells.Values)
+        {
+            var lightSwitch = cell.LightPart.LightSwitch ?? cell.LightPart.FullPart.LightSwitch;
+            if (lightSwitch != null)
+                lightSwitch.LightIsActive = false;
         }
     }
 }

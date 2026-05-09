@@ -24,5 +24,7 @@ The mod uses the built-in `LightPart` template. Light parts consume electrical p
 
 - `its-so-shiny` hosts the standalone StarMap entry point and applies the required hotkey guard.
 - `its-so-shiny.lib` contains all reusable behavior: grid creation/destruction, scanning, pattern control, scroll support, and ImGui submod UI.
-- `ShinyGridBuilder` creates one `LightPart` per pixel and connects created lights to battery-bearing parts when available so KSA's `PowerConsumer` state can update normally.
+- `ShinyGridBuilder` creates one `LightPart` per pixel, wires the new subtree first, then rebuilds the vehicle once instead of mutating the live vehicle per part.
+- New grids are registered directly from the freshly created parts, avoiding a post-build whole-vehicle rescan.
+- `ShinyGridManager` deduplicates color and intensity writes by underlying `PartTemplate`, which cuts repeated reflection work when large grids are created or recolored.
 - `ShinyGridManager` is the public control surface for registered grids and can be reused by aggregate mods or future RPC endpoints.

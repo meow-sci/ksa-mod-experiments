@@ -182,8 +182,45 @@ public static class ShinyGridManager
     {
         state.Color = color;
         state.Intensity = Math.Clamp(intensity, 0f, 25f);
+
+        foreach (var template in GetDistinctLightTemplates(state))
+            ApplyAppearance(template, state.Color, state.Intensity);
+    }
+
+    private static IEnumerable<PartTemplate> GetDistinctLightTemplates(ShinyGridState state)
+    {
+        var templates = new List<PartTemplate>();
         foreach (var cell in state.ShinyGrid.Grid.Cells.Values)
-            cell.ApplyAppearance(state.Color, state.Intensity);
+        {
+            var template = cell.LightPart.Template;
+            if (template == null || ContainsTemplate(templates, template))
+                continue;
+
+            templates.Add(template);
+        }
+
+        return templates;
+    }
+
+    private static bool ContainsTemplate(List<PartTemplate> templates, PartTemplate candidate)
+    {
+        foreach (var template in templates)
+        {
+            if (ReferenceEquals(template, candidate))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void ApplyAppearance(PartTemplate template, float3 color, float intensity)
+    {
+        var lights = MeowSci.ZippoLib.LightController.GetLightComponents(template);
+        if (lights.Count == 0)
+            return;
+
+        MeowSci.ZippoLib.LightController.WriteColor(lights, color);
+        MeowSci.ZippoLib.LightController.WriteIntensity(lights, intensity);
     }
 
     private static void SetPixel(ShinyGridState state, int row, int col, bool on)

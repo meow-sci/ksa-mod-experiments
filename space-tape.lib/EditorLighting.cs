@@ -40,7 +40,7 @@ public sealed class EditorLighting
         {
             double3 posEgo = posAsmb.Transform(matrixAsmb2Ego);
             Program.LightSystem.CreateLightInstance(
-                new PointLight(posEgo, Range, lightColor, Intensity));
+                Light.CreatePointLight(posEgo, Range, lightColor, Intensity));
         }
     }
 

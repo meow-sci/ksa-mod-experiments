@@ -355,7 +355,7 @@ public sealed class ItsSoShinySubmod : ISubmod
                 Layout = _configLayoutIndex == 1 ? ShinyGridLayout.Cylinder : ShinyGridLayout.Flat,
             };
             var color = new float3(_configColor.X, _configColor.Y, _configColor.Z);
-            var grid = ShinyGridBuilder.BuildGrid(vehicle, gridName, config, color, _configIntensity);
+            var grid = ShinyGridBuilder.BuildGrid(vehicle, gridName, config);
             if (grid == null)
             {
                 SetCreateMessage("Build failed; check console log", true);

@@ -162,6 +162,7 @@ Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-i
 - One light part per pixel, named `shiny_{gridName}_{row}_{col}`
 - Flat and cylindrical layouts with configurable grid size, spacing, offset, light scale, color, and intensity
 - Connects created light parts to battery-bearing parts when available so stock `PowerConsumer` light switches can receive power
+- Reuses freshly created parts for grid registration and deduplicates template-backed appearance writes to reduce large-grid build overhead
 - Pattern controls: off, all on, alternating rows, alternating columns, checkerboard
 - Global scan discovers existing `shiny_*` grids across loaded vehicles
 - Standalone F11 ImGui window plus direct unscience submod integration

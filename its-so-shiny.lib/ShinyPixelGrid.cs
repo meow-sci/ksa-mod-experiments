@@ -18,6 +18,27 @@ public sealed class ShinyPixelGrid
     public int Cols { get; private set; }
     public IReadOnlyDictionary<(int row, int col), ShinyPixelCell> Cells => _cells;
 
+    public static ShinyPixelGrid CreateFromParts(IEnumerable<Part> parts, string gridName)
+    {
+        var grid = new ShinyPixelGrid();
+
+        foreach (var part in parts)
+        {
+            if (!TryParseCellId(part.Id, gridName, out int row, out int col))
+                continue;
+
+            var lightPart = FindLightPart(part);
+            if (lightPart == null)
+                continue;
+
+            grid._cells[(row, col)] = new ShinyPixelCell(row, col, part, lightPart);
+        }
+
+        grid.RecomputeSize();
+        Console.WriteLine($"its-so-shiny: created {grid._cells.Count} light pixels for grid '{gridName}' from new parts");
+        return grid;
+    }
+
     public static ShinyPixelGrid ScanFromVehicle(Vehicle vehicle, string gridName)
     {
         var grid = new ShinyPixelGrid();

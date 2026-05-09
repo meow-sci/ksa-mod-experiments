@@ -59,7 +59,7 @@ public static class ShinyGridsEndpoint
                             PartScale = body.PartScale ?? 0.5,
                         };
 
-                        var shinyGrid = ShinyGridBuilder.BuildGrid(vehicle, body.GridName, config, color, intensity);
+                        var shinyGrid = ShinyGridBuilder.BuildGrid(vehicle, body.GridName, config);
                         if (shinyGrid == null)
                             throw new ProviderException(ResponseStatus.InternalServerError,
                                 "Grid build failed. Check server logs for details.");
