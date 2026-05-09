@@ -6,7 +6,8 @@
       "Bash(git *)",
       "Bash(grep -i \"\\\\.cs$\")",
       "Bash(xargs grep -l \"Battery\")",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(grep -E \"\\\\.\\(cs|xml\\)$\")"
     ]
   }
 }

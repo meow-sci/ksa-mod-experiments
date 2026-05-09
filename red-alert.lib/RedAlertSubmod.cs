@@ -19,23 +19,10 @@ public sealed class RedAlertSubmod : ISubmod
 
     // ---- Create-plan form state ----
     private readonly ImInputString _newPlanName = new(64);
-
-    // ---- Add-action form state ----
-    private int _selectedPlanIndex = -1;
-    private int _addVehicleIndex = -1;
-    private int _addPartIndex = -1;
-    private int _addActionTypeIndex = -1;
-    private float4 _addColor = new(1f, 1f, 1f, 1f);
-    private float _addActuate = 0.5f;
-
-    private readonly ImInputString _vehicleFilter = new(64);
-    private readonly ImInputString _partFilter = new(64);
-
-    // Cached part-scan results — refreshed when the selected vehicle changes
-    private readonly List<ActionablePart> _scannedParts = new();
-    private int _prevVehicleIndex = -2;
-
     private string? _formError;
+
+    // ---- Per-plan add-action form state (one entry per ActionPlan) ----
+    private readonly Dictionary<ActionPlan, PlanFormState> _planForms = new();
 
     public void Initialize() { Instance = this; }
     public void Update(double dt) { }
@@ -59,7 +46,10 @@ public sealed class RedAlertSubmod : ISubmod
             for (int i = 0; i < _plans.Count; i++)
                 RenderPlanSection(_plans[i], i, ref toDelete);
             if (toDelete != null)
+            {
+                _planForms.Remove(toDelete);
                 _plans.Remove(toDelete);
+            }
         }
 
         SubmodUI.EndContentArea();
@@ -104,7 +94,6 @@ public sealed class RedAlertSubmod : ISubmod
                 _plans.Add(new ActionPlan { Name = name });
                 _newPlanName.Clear();
                 _formError = null;
-                _selectedPlanIndex = _plans.Count - 1;
             }
         }
         if (!canCreate) ImGui.EndDisabled();
@@ -190,7 +179,7 @@ public sealed class RedAlertSubmod : ISubmod
                 var a = plan.Actions[i];
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text(a.VehicleId);
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text(a.PartDisplayName);
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text($"{a.PartDisplayName}  #{a.PartInstanceId}");
                 ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text(ActionLabels.Short(a.Type));
                 ImGui.TableNextColumn();
                 RenderActionDetail(a);
@@ -237,50 +226,44 @@ public sealed class RedAlertSubmod : ISubmod
             return;
         }
 
+        if (!_planForms.TryGetValue(plan, out var form))
+        {
+            form = new PlanFormState();
+            _planForms[plan] = form;
+        }
+
         var vehicleIds = new string[vehicles.Count];
         for (int i = 0; i < vehicles.Count; i++) vehicleIds[i] = vehicles[i].Id;
 
-        // Bind this form to this plan: when switching plans, reset form
-        bool planChanged = _selectedPlanIndex != planIndex;
-        if (planChanged)
+        if (form.VehicleIndex >= vehicles.Count) form.VehicleIndex = -1;
+
+        // Rescan when this plan's selected vehicle changes
+        if (form.VehicleIndex != form.PrevVehicleIndex)
         {
-            _selectedPlanIndex = planIndex;
-            _addVehicleIndex = -1;
-            _addPartIndex = -1;
-            _addActionTypeIndex = -1;
-            _scannedParts.Clear();
-            _prevVehicleIndex = -2;
+            form.PrevVehicleIndex = form.VehicleIndex;
+            form.ScannedParts.Clear();
+            form.PartIndex = -1;
+            form.ActionTypeIndex = -1;
+            if (form.VehicleIndex >= 0)
+                form.ScannedParts.AddRange(ActionScanner.Scan(vehicles[form.VehicleIndex]));
         }
 
-        if (_addVehicleIndex >= vehicles.Count) _addVehicleIndex = -1;
-
-        // Rescan when vehicle changes
-        if (_addVehicleIndex != _prevVehicleIndex)
+        // Part labels — include InstanceId since Part.Id can collide between instances
+        var partLabels = new string[form.ScannedParts.Count];
+        for (int i = 0; i < form.ScannedParts.Count; i++)
         {
-            _prevVehicleIndex = _addVehicleIndex;
-            _scannedParts.Clear();
-            _addPartIndex = -1;
-            _addActionTypeIndex = -1;
-            if (_addVehicleIndex >= 0)
-                _scannedParts.AddRange(ActionScanner.Scan(vehicles[_addVehicleIndex]));
+            var p = form.ScannedParts[i];
+            partLabels[i] = $"{p.DisplayName}  #{p.PartInstanceId}  ({CapabilitiesShort(p.Capabilities)})";
         }
+        if (form.PartIndex >= form.ScannedParts.Count) form.PartIndex = -1;
 
-        // Build part labels
-        var partLabels = new string[_scannedParts.Count];
-        for (int i = 0; i < _scannedParts.Count; i++)
-        {
-            var p = _scannedParts[i];
-            partLabels[i] = $"{p.DisplayName}  [{p.PartId}]  ({CapabilitiesShort(p.Capabilities)})";
-        }
-        if (_addPartIndex >= _scannedParts.Count) _addPartIndex = -1;
-
-        // Determine which action types are available for the chosen part
-        ActionablePart? selPart = (_addPartIndex >= 0 && _addPartIndex < _scannedParts.Count)
-            ? _scannedParts[_addPartIndex] : null;
+        // Available actions for the selected part
+        ActionablePart? selPart = (form.PartIndex >= 0 && form.PartIndex < form.ScannedParts.Count)
+            ? form.ScannedParts[form.PartIndex] : null;
         var availableActions = AvailableActions(selPart);
         var actionLabels = new string[availableActions.Count];
         for (int i = 0; i < availableActions.Count; i++) actionLabels[i] = ActionLabels.Long(availableActions[i]);
-        if (_addActionTypeIndex >= availableActions.Count) _addActionTypeIndex = -1;
+        if (form.ActionTypeIndex >= availableActions.Count) form.ActionTypeIndex = -1;
 
         // Form table — Vehicle / Part / Action / Detail
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
@@ -293,41 +276,51 @@ public sealed class RedAlertSubmod : ISubmod
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            RenderFilteredCombo($"##ra_v_{planIndex}", vehicleIds, ref _addVehicleIndex, _vehicleFilter);
+            RenderFilteredCombo($"##ra_v_{planIndex}", vehicleIds, ref form.VehicleIndex, form.VehicleFilter);
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noVehicle = _addVehicleIndex < 0;
-            if (noVehicle) ImGui.BeginDisabled();
-            RenderFilteredCombo($"##ra_p_{planIndex}", partLabels, ref _addPartIndex, _partFilter);
-            if (noVehicle) ImGui.EndDisabled();
+            if (form.VehicleIndex < 0)
+            {
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextDisabled("(select a vehicle)");
+            }
+            else
+            {
+                RenderFilteredCombo($"##ra_p_{planIndex}", partLabels, ref form.PartIndex, form.PartFilter);
+            }
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Action");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noPart = selPart == null;
-            if (noPart) ImGui.BeginDisabled();
-            ImGui.Combo($"##ra_a_{planIndex}", ref _addActionTypeIndex, actionLabels, actionLabels.Length);
-            if (noPart) ImGui.EndDisabled();
+            if (actionLabels.Length == 0)
+            {
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextDisabled("(select a part)");
+            }
+            else
+            {
+                ImGui.Combo($"##ra_a_{planIndex}", ref form.ActionTypeIndex, actionLabels, actionLabels.Length);
+            }
 
             // Detail row, varies by action type
-            if (_addActionTypeIndex >= 0 && _addActionTypeIndex < availableActions.Count)
+            if (form.ActionTypeIndex >= 0 && form.ActionTypeIndex < availableActions.Count)
             {
-                var t = availableActions[_addActionTypeIndex];
+                var t = availableActions[form.ActionTypeIndex];
                 if (t == ActionType.LightColor)
                 {
                     ImGui.TableNextRow();
                     ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Color");
                     ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-                    ImGui.ColorEdit4($"##ra_addcolor_{planIndex}", ref _addColor, ImGuiColorEditFlags.NoLabel);
+                    ImGui.ColorEdit4($"##ra_addcolor_{planIndex}", ref form.Color, ImGuiColorEditFlags.NoLabel);
                 }
                 else if (t == ActionType.LightActuate || t == ActionType.SolarPanelActuate)
                 {
                     ImGui.TableNextRow();
                     ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Actuate (0..1)");
                     ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-                    ImGui.DragFloat($"##ra_addactuate_{planIndex}", ref _addActuate, 0.005f, 0f, 1f);
+                    ImGui.DragFloat($"##ra_addactuate_{planIndex}", ref form.Actuate, 0.005f, 0f, 1f);
                 }
             }
 
@@ -336,23 +329,43 @@ public sealed class RedAlertSubmod : ISubmod
         ImGui.PopStyleVar();
 
         ImGui.Spacing();
-        bool canAdd = selPart != null && _addActionTypeIndex >= 0 && _addActionTypeIndex < availableActions.Count;
+        bool hasSelection = selPart != null && form.ActionTypeIndex >= 0 && form.ActionTypeIndex < availableActions.Count;
+        ActionType? selectedType = hasSelection ? availableActions[form.ActionTypeIndex] : null;
+        bool isDuplicate = hasSelection && PlanContains(plan, selPart!.PartInstanceId, selectedType!.Value);
+        bool canAdd = hasSelection && !isDuplicate;
+
         if (!canAdd) ImGui.BeginDisabled();
         if (ImGui.Button($" Add Action ##ra_add_{planIndex}"))
         {
-            var t = availableActions[_addActionTypeIndex];
-            var pa = new PlannedAction
+            plan.Actions.Add(new PlannedAction
             {
                 VehicleId = selPart!.VehicleId,
+                PartInstanceId = selPart.PartInstanceId,
                 PartId = selPart.PartId,
                 PartDisplayName = selPart.DisplayName,
-                Type = t,
-                Color = new float3(_addColor.X, _addColor.Y, _addColor.Z),
-                Actuate = _addActuate,
-            };
-            plan.Actions.Add(pa);
+                Type = selectedType!.Value,
+                Color = new float3(form.Color.X, form.Color.Y, form.Color.Z),
+                Actuate = form.Actuate,
+            });
         }
         if (!canAdd) ImGui.EndDisabled();
+
+        if (isDuplicate)
+        {
+            ImGui.SameLine(0, 12);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextDisabled("(this part instance already has this action in the plan)");
+        }
+    }
+
+    private static bool PlanContains(ActionPlan plan, uint partInstanceId, ActionType type)
+    {
+        for (int i = 0; i < plan.Actions.Count; i++)
+        {
+            var a = plan.Actions[i];
+            if (a.PartInstanceId == partInstanceId && a.Type == type) return true;
+        }
+        return false;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

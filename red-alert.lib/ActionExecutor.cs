@@ -11,6 +11,7 @@ public static class ActionExecutor
     /// <summary>Runs every action in the plan in order, swallowing per-action errors.</summary>
     public static void Execute(ActionPlan plan)
     {
+        Console.WriteLine($"red-alert: engaging plan '{plan.Name}' ({plan.Actions.Count} actions)");
         foreach (var action in plan.Actions)
         {
             try { Execute(action); }
@@ -23,12 +24,13 @@ public static class ActionExecutor
 
     public static void Execute(PlannedAction action)
     {
-        var part = ResolvePart(action.VehicleId, action.PartId);
+        var part = ResolvePart(action.VehicleId, action.PartInstanceId);
         if (part == null)
         {
-            Console.WriteLine($"red-alert: skipped — part '{action.PartId}' not found on vehicle '{action.VehicleId}'");
+            Console.WriteLine($"red-alert: skipped — part instance {action.PartInstanceId} ('{action.PartId}') not found on vehicle '{action.VehicleId}'");
             return;
         }
+        Console.WriteLine($"red-alert:   {action.Type}  vehicle={action.VehicleId}  part={part.Id}  instanceId={part.InstanceId}");
 
         switch (action.Type)
         {
@@ -43,7 +45,7 @@ public static class ActionExecutor
                 LightActions.SetEnabled(part, !current);
                 break;
             case ActionType.LightColor:
-                LightActions.ApplyColor(part, action.Color);
+                LightActions.ApplyColorToSubtree(part, action.Color);
                 break;
             case ActionType.LightActuate:
                 SetActuate(part, action.Actuate);
@@ -63,13 +65,13 @@ public static class ActionExecutor
         }
     }
 
-    private static Part? ResolvePart(string vehicleId, string partId)
+    private static Part? ResolvePart(string vehicleId, uint partInstanceId)
     {
         foreach (var v in VehicleProvider.GetAllVehicles())
         {
             if (v.Id != vehicleId) continue;
-            foreach (var p in PartHelpers.GetAllParts(v))
-                if (p.Id == partId) return p;
+            foreach (var p in v.Parts.Parts)
+                if (p.InstanceId == partInstanceId) return p;
         }
         return null;
     }

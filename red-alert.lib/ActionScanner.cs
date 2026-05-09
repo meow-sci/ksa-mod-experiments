@@ -1,30 +1,28 @@
 using System.Collections.Generic;
 using KSA;
-using MeowSci.KsaAbstractions;
 
 namespace MeowSci.RedAlertLib;
 
-/// <summary>Scans a vehicle's part tree to find parts that support red-alert actions.</summary>
+/// <summary>
+/// Scans a vehicle's top-level parts to find those that support red-alert actions.
+/// Capabilities are aggregated across each top-level part's full subpart subtree —
+/// e.g. a `LightSmallA` is one user-facing entry even though its `LightModule` lives on
+/// an inner `Subpart_SpotlightA`. This keeps the part picker at the right granularity.
+/// </summary>
 public static class ActionScanner
 {
-    /// <summary>Returns all parts on the vehicle that have at least one supported capability.</summary>
     public static List<ActionablePart> Scan(Vehicle vehicle)
     {
         var result = new List<ActionablePart>();
-        var seen = new HashSet<string>();
-
-        foreach (var part in PartHelpers.GetAllParts(vehicle))
+        foreach (var part in vehicle.Parts.Parts)
         {
             if (part.Template == null) continue;
-            if (seen.Contains(part.Id)) continue;
-
             var caps = DetectCapabilities(part);
             if (caps == PartCapability.None) continue;
-
-            seen.Add(part.Id);
             result.Add(new ActionablePart
             {
                 VehicleId = vehicle.Id,
+                PartInstanceId = part.InstanceId,
                 PartId = part.Id,
                 DisplayName = part.DisplayName ?? part.Id,
                 TemplateId = part.Template.Id ?? "",
@@ -34,26 +32,23 @@ public static class ActionScanner
         return result;
     }
 
-    /// <summary>Inspects a single part for supported red-alert capabilities.</summary>
+    /// <summary>Inspects a top-level part (and its subpart subtree) for supported capabilities.</summary>
     public static PartCapability DetectCapabilities(Part part)
     {
         var caps = PartCapability.None;
         if (part.Template == null) return caps;
 
-        bool hasLights = HasLightModule(part.Template);
+        bool hasLights = SubtreeHasLightModule(part);
         if (hasLights)
         {
             caps |= PartCapability.LightColor;
-            var ls = part.LightSwitch ?? part.FullPart?.LightSwitch;
-            if (ls != null) caps |= PartCapability.LightOnOff;
+            if (part.LightSwitch != null) caps |= PartCapability.LightOnOff;
         }
 
-        var owner = part.FullPart ?? part;
-        var animSpan = owner.SubtreeModules.Get<KeyframeAnimationModule>();
+        var animSpan = part.SubtreeModules.Get<KeyframeAnimationModule>();
         bool hasAnim = animSpan.Length > 0;
         bool showsDeployRetract = hasAnim && animSpan[0].ShowDeployRetract;
-
-        bool isSolarPanel = owner.SubtreeModules.Get<SolarPanel>().Length > 0;
+        bool isSolarPanel = part.SubtreeModules.Get<SolarPanel>().Length > 0;
 
         if (isSolarPanel && hasAnim)
         {
@@ -67,15 +62,12 @@ public static class ActionScanner
         return caps;
     }
 
-    private static bool HasLightModule(PartTemplate template)
+    /// <summary>True if `part` or any subpart in its subtree carries a runtime `LightModule`.</summary>
+    public static bool SubtreeHasLightModule(Part part)
     {
-        var comps = ReflectionHelpers.GetFieldValue(template, "Components") as System.Collections.IList;
-        if (comps == null) return false;
-        for (int i = 0; i < comps.Count; i++)
-        {
-            var c = comps[i];
-            if (c?.GetType().FullName == "KSA.LightModule+TemplateData") return true;
-        }
+        if (part.Modules.Get<LightModule>().Length > 0) return true;
+        foreach (var sub in part.SubParts)
+            if (SubtreeHasLightModule(sub)) return true;
         return false;
     }
 }

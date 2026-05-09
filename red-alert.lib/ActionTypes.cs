@@ -33,6 +33,11 @@ public enum PartCapability
 public sealed class ActionablePart
 {
     public required string VehicleId;
+    /// <summary>Runtime-unique identifier for this Part instance (Part.InstanceId).
+    /// Use this — not <see cref="PartId"/> — to address a specific instance.</summary>
+    public required uint PartInstanceId;
+    /// <summary>Persisted Part.Id string. May collide between instances of the same template.
+    /// Display only; never use as a key.</summary>
     public required string PartId;
     public required string DisplayName;
     public required string TemplateId;
@@ -53,6 +58,9 @@ public sealed class ActionablePart
 public sealed class PlannedAction
 {
     public required string VehicleId;
+    /// <summary>Runtime-unique Part.InstanceId — addresses a specific Part instance.</summary>
+    public required uint PartInstanceId;
+    /// <summary>Persisted Part.Id (may collide across instances). Display only.</summary>
     public required string PartId;
     public required string PartDisplayName;
     public required ActionType Type;
