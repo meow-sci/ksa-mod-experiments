@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls C:\\\\Users\\\\Alex\\\\.claude\\\\skills)",
+      "Bash(ls C:\\\\Users\\\\Alex\\\\repos\\\\meow-sci\\\\grant_space-tape\\\\.claude\\\\skills)",
+      "Bash(git *)",
+      "Bash(grep -i \"\\\\.cs$\")",
+      "Bash(xargs grep -l \"Battery\")",
+      "Bash(dotnet build *)"
+    ]
+  }
+}
