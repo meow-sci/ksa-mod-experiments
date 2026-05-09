@@ -135,6 +135,17 @@ Mission monitoring, event detection, and achievement tracking mod. Passively sam
 
 ---
 
+### [red-alert](red-alert) / [red-alert.lib](red-alert.lib)
+Vehicle action plan builder. Composes reusable lists of light and solar-panel actions across one or more vehicles. Each plan has a single **Engage** button that fires every action in order.
+- Discovers per-part capabilities by scanning each vehicle's part tree (`LightModule` template components, `LightSwitch`, `SolarPanel`, `KeyframeAnimationModule`)
+- Action picker only shows actions the selected part supports (e.g. only solar parts get Deploy/Retract)
+- Action types: light off / on / toggle, light color, light actuate (animation 0..1), solar deploy / retract / toggle, solar actuate
+- Standalone F11 ImGui window plus `ISubmod` integration with unscience supermod
+- ImGui UI follows the standard submod layout: padded content area, Create form + collapsible plan sections with bordered child windows, filterable Vehicle/Part combos
+- **red-alert.lib**: `RedAlertSubmod` (ISubmod UI), `ActionPlan` / `PlannedAction` / `ActionablePart` / `ActionType` / `PartCapability` (data model), `ActionScanner` (capability discovery), `ActionExecutor` (live execution via `KeyframeAnimationModule.TimeGoal`), `LightActions` (light color + on/off via reflection)
+
+---
+
 ## Animation & Visual Effects Mods
 
 ### [blinky](blinky) / [blinky.lib](blinky.lib)
@@ -300,13 +311,13 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Kitten Animations, Kiwi's Marbles, Skittles, Space Tape, Unladen Swallow, Zippo
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Kitten Animations, Kiwi's Marbles, Red Alert, Skittles, Space Tape, Unladen Swallow, Zippo
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, space-tape.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, red-alert.lib, skittles.lib, space-tape.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

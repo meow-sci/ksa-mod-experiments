@@ -35,6 +35,7 @@
     <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
     <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
     <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
+    <ProjectReference Include="..\red-alert.lib\red-alert.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

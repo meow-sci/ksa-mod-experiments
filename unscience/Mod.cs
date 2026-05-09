@@ -25,6 +25,7 @@ using MeowSci.DohLib;
 using MeowSci.SpaceTapeLib;
 using MeowSci.FlexoLib;
 using MeowSci.KitchenSinkLib;
+using MeowSci.RedAlertLib;
 
 namespace MeowSci.Unscience;
 
@@ -75,6 +76,7 @@ public class Mod
             _submods.Add(new KitchenSinkSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
+            _submods.Add(new RedAlertSubmod());
             _submods.Add(skittles);
             _submods.Add(new SpaceTapeSubmod());
             _submods.Add(new UnladenSwallowSubmod());

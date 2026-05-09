@@ -1,0 +1,7 @@
+name = "red-alert"
+description = "Builds reusable action plans for vehicle light and solar-panel parts."
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.RedAlert"
