@@ -99,9 +99,28 @@ public static class WeldEngine
             }
         }
 
+        // Stamp the orbit with the time that the just-completed vehicle worker
+        // tick advanced to, NOT Universe.GetElapsedSimTime() (which is the
+        // PREVIOUS tick's end time — _lastSimStep doesn't roll forward until
+        // the next PrepareFrame's ApplyVehicleSolvers).
+        //
+        // Vehicle.Teleport calls _kinematicStates.OverwriteFromLeaderAnalytic
+        // which sets body.Time = orbit.StateVectors.StateTime. The target
+        // vehicle's task.Origin.Time has been propagated forward by the workers
+        // we just Wait()-ed on, so if we used the stale GetElapsedSimTime() the
+        // source's body.Time would land one frame behind the task's Origin.Time
+        // and the worker would log:
+        //   "Called SnapToLeader with body time X but origin time Y"
+        // (Y - X ≈ dtPlayer * achievedSpeed * simSpeed)
+        //
+        // GetJobSimStep is the same pure helper the game itself calls in
+        // PrepareFrame to build the SimStep that's about to be queued, so this
+        // value matches what the next-tick workers will be aligned to.
+        SimTime tickEndTime = Universe.GetJobSimStep(Program.GetPlayerDeltaTime()).NextTime;
+
         Orbit newOrbit = Orbit.CreateFromStateCci(
             entry.Source.Parent,
-            SimTimeProvider.GetElapsedTime(),
+            tickEndTime,
             newSrcPosCci,
             newSrcVelCci,
             entry.Source.Orbit.OrbitLineColor

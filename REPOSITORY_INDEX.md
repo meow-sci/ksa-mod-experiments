@@ -37,7 +37,7 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Per-weld rotation offset (pitch/yaw/roll)
 - Uniform vehicle scaling with KittenEva avatar support
 - Rotation lock toggle and auto-unweld on parent mismatch
-- Weld updates run from a Harmony prefix on `Universe.ExecuteNextVehicleSolvers`, before KSA queues vehicle solver jobs; this avoids refactored physics-loop kinematic/analytic state races
+- Weld updates run from `Mod.OnAfterUi` (and unscience's `OnAfterUi`); `GarrysTorchSubmod.UpdateWelds(dt)` calls `KSA.JobSystems.VehicleSolvers.Wait()` before any `Vehicle.Teleport` to drain worker threads — required to avoid `Collection was modified` (from `_vehicleStates.Remove` racing worker iteration) and `SnapToLeader body/origin time mismatch` errors
 - Multiple simultaneous welds with topological sort for correct ordering
 - User-defined presets persisted to TOML (`~/.unscience/garrys-torch-presets.toml`)
 - Save weld settings as named presets, load presets into create form

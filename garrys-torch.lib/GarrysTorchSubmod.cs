@@ -66,9 +66,31 @@ public sealed class GarrysTorchSubmod : ISubmod
     {
     }
 
-    public void UpdateBeforeVehicleSolvers(double dt)
+    /// <summary>
+    /// Runs animation + weld teleports for the current frame. Safe to call from a
+    /// StarMap UI hook because we explicitly synchronise with the vehicle solver
+    /// workers first: <see cref="KSA.JobSystems.VehicleSolvers"/>.Wait() blocks until
+    /// any in-flight vehicle worker jobs finish, eliminating the two races we get
+    /// when calling Vehicle.Teleport from an arbitrary main-thread callback:
+    ///   1. `Collection was modified` inside VehicleUpdateTask.DoWorkAndStageResults
+    ///      (we mutate the task's _vehicleStates via RemoveFromTask while a worker
+    ///      iterates it).
+    ///   2. `SnapToLeader body/origin time mismatch` (we advance the vehicle's
+    ///      Origin.Time past the worker's snapshotted body.Time).
+    /// After Vehicle.Teleport runs, the source is removed from its task. The next
+    /// frame's ApplyVehicleSolvers therefore won't overwrite the teleport, and
+    /// ExecuteNextVehicleSolvers' AddVehiclesToTasks re-attaches the source using
+    /// our teleported _kinematicStates as the starting point.
+    /// </summary>
+    public void UpdateWelds(double dt)
     {
         _animationManager.Update(dt);
+
+        if (_welds.Count == 0) return;
+
+        // Drain in-flight vehicle solver workers before touching vehicle state.
+        // Cheap when nothing is running (just polls runner state).
+        KSA.JobSystems.VehicleSolvers.Wait();
 
         var toRemove = new List<WeldEntry>();
         foreach (var weld in _welds)
@@ -76,6 +98,9 @@ public sealed class GarrysTorchSubmod : ISubmod
         foreach (var weld in toRemove)
             RemoveWeld(weld);
     }
+
+    /// <summary>Back-compat shim. Old name; new code should call <see cref="UpdateWelds"/>.</summary>
+    public void UpdateBeforeVehicleSolvers(double dt) => UpdateWelds(dt);
 
     public void RenderContent()
     {

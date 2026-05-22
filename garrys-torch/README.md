@@ -29,11 +29,18 @@ Garry's Torch allows you to:
 
 ### Core Classes
 
-#### Solver Hook
+#### Weld update timing
 
-The standalone mod applies a Harmony prefix to `Universe.ExecuteNextVehicleSolvers`. This prefix calls `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` after the previous solver results and input events have been applied, but before KSA snapshots vehicle state for the next vehicle update task.
+The mod runs all weld physics from the StarMap `OnAfterUi` callback in `Mod.cs` (and from unscience's `OnAfterUi` when bundled in the supermod). That callback fires after the current frame's render, by which point the vehicle solver workers queued at the end of `Universe.ExecuteNextVehicleSolvers` have usually finished naturally.
 
-This timing is required by newer KSA builds: updating welds from the StarMap UI callbacks can race the vehicle worker jobs and produce `Populating analytic states from outdated kinematic states` errors.
+To make the timing safe regardless of how long workers take, `GarrysTorchSubmod.UpdateWelds(dt)` explicitly calls `KSA.JobSystems.VehicleSolvers.Wait()` before touching any vehicle state. That blocks until all in-flight vehicle worker jobs complete, eliminating the two races that any uncoordinated `Vehicle.Teleport` call from a UI callback produces:
+
+- **`Called SnapToLeader with body time X but origin time Y`** — `Vehicle.Teleport` advances the source's `_kinematicStates.Origin.Time` past `body.Time` while a worker still holds the old body snapshot.
+- **`System.InvalidOperationException: Collection was modified`** thrown from `VehicleUpdateTask.DoWorkAndStageResults` — `Vehicle.Teleport` → `RemoveFromTask` → `_vehicleStates.Remove(...)` while a worker iterates that list.
+
+After our `Wait()` returns, the workers are done; we can call `Vehicle.Teleport` safely. The teleport itself calls `RemoveFromTask`, so the next frame's `Universe.ApplyVehicleSolvers` doesn't overwrite our teleport (the source is no longer in any task). The next `Universe.ExecuteNextVehicleSolvers` then calls `AddVehiclesToTasks` which re-attaches the source to a task and copies our teleported `_kinematicStates` into the worker state — so the following physics tick starts from the welded position.
+
+Earlier versions of this mod tried a Harmony prefix on `Universe.ExecuteNextVehicleSolvers` and later a postfix on `Universe.ApplyVehicleSolvers`. Both approaches silently stopped firing after the recent KSA build (root cause not pinned down — other mods' Harmony patches on `ExecuteNextVehicleSolvers` still work, suggesting a build-specific quirk), so the mod no longer relies on Harmony for weld timing.
 
 #### WeldEngine
 Stateless computation engine for vehicle welding. Contains all physics/math logic.
@@ -75,7 +82,7 @@ Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/
 
 ### UI (Mod.cs / GarrysTorchSubmod)
 
-`Mod.OnBeforeUi` intentionally does not run weld physics. UI callbacks occur after KSA has already queued vehicle solver jobs for the next frame, so vehicle state mutations happen through the solver hook instead.
+`Mod.OnBeforeUi` intentionally does **not** run weld physics. Weld physics runs from `Mod.OnAfterUi` (or unscience's `OnAfterUi` when bundled) via `GarrysTorchSubmod.UpdateWelds(dt)`, which calls `KSA.JobSystems.VehicleSolvers.Wait()` first to synchronise with the vehicle worker threads.
 
 ImGui window with:
 - **Create Weld section** - Collapsible header with filterable source/target vehicle combos

@@ -40,7 +40,10 @@ internal static class Patcher
             CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
             CameraControllerOverridePatches.Apply(_harmony);
             EternalFlamePatches.Apply(_harmony);
-            GarrysTorchPatches.Apply(_harmony);
+            // garrys-torch no longer registers a Harmony patch — its weld physics
+            // runs from unscience/Mod.cs OnAfterUi via GarrysTorchSubmod.UpdateWelds,
+            // which internally calls JobSystems.VehicleSolvers.Wait() to avoid the
+            // worker-thread races that any other timing produces.
             GlassPatches.Apply(_harmony);
             IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
             VehiclePaintPatches.Apply(_harmony);
@@ -66,7 +69,6 @@ internal static class Patcher
                 ShinyPatches.Remove(_harmony);
                 CameraControllerOverridePatches.Remove(_harmony);
                 EternalFlamePatches.Remove(_harmony);
-                GarrysTorchPatches.Remove(_harmony);
                 GlassPatches.Remove(_harmony);
                 IFeelSeenPatches.Remove(_harmony);
                 EngineEmissivePatches.Remove(_harmony);
@@ -123,33 +125,3 @@ internal static class EternalFlamePatches
     }
 }
 
-internal static class GarrysTorchPatches
-{
-    public static void Apply(Harmony harmony)
-    {
-        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
-        var prefix = new HarmonyMethod(typeof(GarrysTorchPatches), nameof(BeforeVehicleSolvers))
-        {
-            priority = Priority.First
-        };
-        harmony.Patch(original, prefix: prefix);
-    }
-
-    public static void Remove(Harmony harmony)
-    {
-        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
-        harmony.Unpatch(original, AccessTools.Method(typeof(GarrysTorchPatches), nameof(BeforeVehicleSolvers)));
-    }
-
-    private static void BeforeVehicleSolvers(double dtPlayer)
-    {
-        try
-        {
-            GarrysTorchSubmod.Instance?.UpdateBeforeVehicleSolvers(dtPlayer);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"garrys-torch: Error updating welds before vehicle solvers: {ex.Message}");
-        }
-    }
-}

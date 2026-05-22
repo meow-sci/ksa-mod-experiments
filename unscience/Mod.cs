@@ -164,6 +164,14 @@ public class Mod
                 try { submod.RenderFloatingWindows(); }
                 catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
             }
+
+            // Run garrys-torch weld physics here, AFTER UI and AFTER the vehicle
+            // solver workers (queued at the end of PrepareFrame, likely finished
+            // during render). UpdateWelds internally calls
+            // JobSystems.VehicleSolvers.Wait() before touching vehicle state to
+            // eliminate the worker-iteration race that any other timing produces.
+            try { MeowSci.GarrysTorchLib.GarrysTorchSubmod.Instance?.UpdateWelds(dt); }
+            catch (Exception ex) { Console.WriteLine($"unscience: garrys-torch weld update error: {ex.Message}"); }
         }
         catch (Exception ex)
         {
