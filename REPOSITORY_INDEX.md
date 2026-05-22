@@ -195,6 +195,16 @@ Bring Your Own Music - Custom music player. Plays audio playlists from defined a
 - ImGui music control panel
 - Multi-sound support
 
+### [thug-life](thug-life) / [thug-life.lib](thug-life.lib)
+Apply the "thug life" pixel-art sunglasses meme as a 2D textured quad anchored to any vehicle's part or subpart in 3D space.
+- Programmatic 15x4 R8G8B8A8UNorm texture (no PNG asset shipped) built from an ASCII pattern in `ThugLifeTexturePattern.cs`
+- Quad drawn in the offscreen MSAA pass via a Harmony postfix on `SuperMeshRenderSystem.RenderMainPass` using KSA's stock `UnlitMeshVert`/`UnlitMeshFrag` shaders
+- Per-entry vehicle / part / subpart pickers with filtered combos
+- Per-entry position offset, rotation (pitch/yaw/roll), and width/height — all in the anchor part's local frame
+- Multiple simultaneous sunglasses; visible toggle and remove per entry
+- F12 toggle for the standalone window; **also bundled into the unscience supermod**
+- **thug-life.lib**: `ThugLifeSubmod` (ISubmod UI), `ThugLifeRenderManager` (static `Active`/`Instance` for the render postfix, owns entry list + GPU resources), `ThugLifeQuadRenderer` (pipeline + descriptor + VB/IB + per-frame ego-space MVP draw), `ThugLifeTextureFactory` (`SimpleVkTexture` + sampler upload), `ThugLifeRenderPatches` (shared `Apply`/`Remove` Harmony postfix used by both standalone Patcher and unscience Patcher), `ThugLifeEntry`, `ThugLifeTexturePattern`
+
 ---
 
 ## UI & Customization Mods

@@ -29,7 +29,8 @@ public sealed class FlexoEditorLighting
         {
             double3 posEgo = posAsmb.Transform(matrixAsmb2Ego);
             Program.LightSystem.CreateLightInstance(
-                Light.CreatePointLight(posEgo, Range, lightColor, Intensity));
+                Light.CreatePointLight(posEgo, Range, lightColor, Intensity),
+                Program.MainViewport);
         }
     }
 

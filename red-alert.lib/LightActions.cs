@@ -12,8 +12,8 @@ namespace MeowSci.RedAlertLib;
 ///
 /// <para>Per-instance color requires cloning <see cref="LightModule.TemplateData"/>: by default
 /// every <see cref="LightModule"/> instance shares one TemplateData per <see cref="PartTemplate"/>,
-/// so writing to <c>Template.Color</c> changes every part using that template. We clone the
-/// TemplateData (and its <c>ColorReference</c>) on first write per LightModule and remember which
+/// so writing to <c>Template.ColorRgb</c> changes every part using that template. We clone the
+/// TemplateData (and its <c>ColorRgbReference</c>) on first write per LightModule and remember which
 /// modules have been "unshared" so subsequent edits target only the per-instance copy.</para>
 /// </summary>
 internal static class LightActions
@@ -53,7 +53,7 @@ internal static class LightActions
         {
             var lm = lights[i];
             EnsurePerInstanceTemplate(lm);
-            WriteColorReference(lm.Template?.Color, color);
+            WriteColorReference(lm.Template?.ColorRgb, color);
             written++;
         }
         foreach (var sub in part.SubParts)
@@ -67,8 +67,8 @@ internal static class LightActions
         if (orig == null) return;
 
         var cloneTd = ShallowClone(orig);
-        if (orig.Color != null)
-            cloneTd.Color = ShallowClone(orig.Color);
+        if (orig.ColorRgb != null)
+            cloneTd.ColorRgb = ShallowClone(orig.ColorRgb);
 
         lm.Template = cloneTd;
         _unsharedTemplates.Add(lm, _marker);

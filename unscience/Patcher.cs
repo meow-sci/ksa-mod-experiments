@@ -12,6 +12,7 @@ using MeowSci.HumbleArteestLib;
 using MeowSci.ItsSoShinyLib;
 using MeowSci.KsaAbstractions;
 using MeowSci.FlexoLib;
+using MeowSci.ThugLifeLib;
 
 namespace MeowSci.Unscience;
 
@@ -29,6 +30,9 @@ internal static class Patcher
         {
             _harmony = new Harmony("MeowSci.Unscience");
             HotkeyGuard.Patch(_harmony);
+            // Apply our render postfix FIRST so a failure further down the chain
+            // doesn't prevent thug-life from registering.
+            ThugLifeRenderPatches.Apply(_harmony);
             MenuBarPatch.ToggleWindow = MenuBarToggle;
             MenuBarPatch.Apply(_harmony);
             BlinkyPatches.Apply(_harmony);
@@ -68,6 +72,7 @@ internal static class Patcher
                 EngineEmissivePatches.Remove(_harmony);
                 FlexoPatches.Remove(_harmony);
                 VehiclePaintPatches.Remove(_harmony);
+                ThugLifeRenderPatches.Remove(_harmony);
             }
             VehiclePaint.Cleanup();
             EngineEmissive.Cleanup();
