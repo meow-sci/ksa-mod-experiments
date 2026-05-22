@@ -13,16 +13,13 @@ internal static class Patcher
     {
         try
         {
-            Console.WriteLine("thug-life: standalone Patcher.Patch() entered");
             _harmony = new Harmony("thug-life");
             HotkeyGuard.Patch(_harmony);
-            Console.WriteLine("thug-life: HotkeyGuard patched, about to apply render patches");
             ThugLifeRenderPatches.Apply(_harmony);
-            Console.WriteLine("thug-life: standalone Patcher.Patch() completed");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"thug-life: Error applying patches: {ex.GetType().Name}: {ex.Message}\n{ex}");
+            Console.WriteLine($"thug-life: Error applying patches: {ex.Message}");
         }
     }
 

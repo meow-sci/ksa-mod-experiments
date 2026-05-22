@@ -28,8 +28,8 @@ public sealed class ThugLifeSubmod : ISubmod
     private int _prevPartIndex = -2;
     private float3 _pendingPosition = new(0f, 0f, 0f);
     private float3 _pendingRotation = new(0f, 0f, 0f);
-    private float _pendingWidth = 0.6f;
-    private float _pendingHeight = 0.16f;
+    private float _pendingWidth = 0.975f;
+    private float _pendingHeight = 0.1875f;
     private string? _createError;
 
     // Cached lists for the selected target
@@ -72,7 +72,6 @@ public sealed class ThugLifeSubmod : ISubmod
             return;
         }
 
-        RenderDebugSection();
         RenderCreateSection();
 
         var entries = _manager.Entries;
@@ -89,66 +88,6 @@ public sealed class ThugLifeSubmod : ISubmod
         }
 
         SubmodUI.EndContentArea();
-    }
-
-    // ---- Debug Section ----
-
-    private void RenderDebugSection()
-    {
-        if (_manager == null) return;
-
-        bool open = ImGui.CollapsingHeader("Debug (?)", ImGuiTreeNodeFlags.DefaultOpen);
-        ImGui.SetItemTooltip("Render a quad directly in camera (ego) space, independent of any\nvehicle/part anchor. Use this to verify the render pipeline is alive.\nIf the debug quad doesn't show, try flipping the sign on the Z offset —\nthe forward axis depends on the camera convention.");
-        if (!open) return;
-
-        bool debug = _manager.DebugCameraMode;
-        if (ImGui.Checkbox("Debug camera-space quad##tl_dbg_on", ref debug))
-            _manager.DebugCameraMode = debug;
-
-        ImGui.SameLine(0, 12);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextDisabled($"frames drawn: {_manager.FramesDrawn}");
-
-        ImGui.Spacing();
-        ImGui.Text("Ego-space offset (x, y, z) in meters");
-        ImGui.SetNextItemWidth(-1f);
-        float3 offset = _manager.DebugEgoOffset;
-        if (ImGui.DragFloat3("##tl_dbg_offset", ref offset, 0.05f, -20f, 20f))
-            _manager.DebugEgoOffset = offset;
-
-        ImGui.Spacing();
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        var flags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##tl_dbg_size", 4, flags))
-        {
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Width");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            float w = _manager.DebugWidth;
-            if (ImGui.DragFloat("##tl_dbg_w", ref w, 0.01f, 0.01f, 50f))
-                _manager.DebugWidth = w;
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Height");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            float h = _manager.DebugHeight;
-            if (ImGui.DragFloat("##tl_dbg_h", ref h, 0.01f, 0.01f, 50f))
-                _manager.DebugHeight = h;
-            ImGui.EndTable();
-        }
-        ImGui.PopStyleVar();
-
-        ImGui.Spacing();
-        if (ImGui.Button(" -Z 3m ##tl_dbg_negz"))
-            _manager.DebugEgoOffset = new float3(0f, 0f, -3f);
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" +Z 3m ##tl_dbg_posz"))
-            _manager.DebugEgoOffset = new float3(0f, 0f, 3f);
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Reset ##tl_dbg_reset"))
-        {
-            _manager.DebugEgoOffset = new float3(0f, 0f, -3f);
-            _manager.DebugWidth = 1.5f;
-            _manager.DebugHeight = 0.4f;
-        }
     }
 
     // ---- Create Section ----

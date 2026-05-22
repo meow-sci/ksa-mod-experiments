@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Brutal;
 using Brutal.Numerics;
@@ -35,6 +36,7 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
     private readonly VkPipeline _pipeline;
     private readonly BufferEx _vb;
     private readonly BufferEx _ib;
+    private readonly int _indexCount;
 
     private bool _disposed;
 
@@ -102,7 +104,7 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
             null);
 
         _pipeline = BuildPipeline(device, renderer, _pipelineLayout);
-        (_vb, _ib) = BuildGeometry(renderer);
+        (_vb, _ib, _indexCount) = BuildGeometry(renderer);
     }
 
     private static VkPipeline BuildPipeline(DeviceEx device, Renderer renderer, VkPipelineLayout layout)
@@ -144,41 +146,84 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
         return device.CreateGraphicsPipeline(default(VkPipelineCache), info, null);
     }
 
-    private static (BufferEx vb, BufferEx ib) BuildGeometry(Renderer renderer)
+    /// <summary>
+    /// Builds geometry as one small quad per opaque pixel of <see cref="ThugLifeTexturePattern"/>.
+    /// Transparent pixels emit no geometry, which is what produces the cut-out blocky sunglasses
+    /// shape — the stock <c>UnlitMeshFrag</c> shader hard-writes <c>alpha = 1.0</c>, so alpha-blend
+    /// transparency is not available; cut-out-via-geometry is.
+    /// </summary>
+    private static (BufferEx vb, BufferEx ib, int indexCount) BuildGeometry(Renderer renderer)
     {
-        Span<QuadVertex> verts = stackalloc QuadVertex[4]
+        int w = ThugLifeTexturePattern.Width;
+        int h = ThugLifeTexturePattern.Height;
+
+        var verts = new List<QuadVertex>(capacity: w * h * 4);
+        var indices = new List<ushort>(capacity: w * h * 6);
+
+        // Tiny per-texel UV inset so a quad samples the centre of its texel and never
+        // bleeds into the next one under nearest-neighbour filtering.
+        const float uvInset = 0.001f;
+
+        for (int row = 0; row < h; row++)
         {
-            new QuadVertex { Pos = new float3(-0.5f, -0.5f, 0f), Uv = new float2(0f, 1f) },
-            new QuadVertex { Pos = new float3( 0.5f, -0.5f, 0f), Uv = new float2(1f, 1f) },
-            new QuadVertex { Pos = new float3( 0.5f,  0.5f, 0f), Uv = new float2(1f, 0f) },
-            new QuadVertex { Pos = new float3(-0.5f,  0.5f, 0f), Uv = new float2(0f, 0f) },
-        };
-        Span<ushort> indices = stackalloc ushort[6] { 0, 1, 2, 0, 2, 3 };
+            string rowStr = ThugLifeTexturePattern.Rows[row];
+            for (int col = 0; col < w; col++)
+            {
+                if (rowStr[col] == '.') continue; // transparent — skip
+
+                float x0 = -0.5f + (float)col / w;
+                float x1 = -0.5f + (float)(col + 1) / w;
+                // Flip Y so pattern row 0 maps to the top of the quad (+Y) and row N-1 to the bottom.
+                float y1 = 0.5f - (float)row / h;
+                float y0 = 0.5f - (float)(row + 1) / h;
+
+                float u0 = ((float)col + uvInset) / w;
+                float u1 = ((float)(col + 1) - uvInset) / w;
+                float v0 = ((float)row + uvInset) / h;
+                float v1 = ((float)(row + 1) - uvInset) / h;
+
+                ushort baseIdx = (ushort)verts.Count;
+                verts.Add(new QuadVertex { Pos = new float3(x0, y0, 0f), Uv = new float2(u0, v1) });
+                verts.Add(new QuadVertex { Pos = new float3(x1, y0, 0f), Uv = new float2(u1, v1) });
+                verts.Add(new QuadVertex { Pos = new float3(x1, y1, 0f), Uv = new float2(u1, v0) });
+                verts.Add(new QuadVertex { Pos = new float3(x0, y1, 0f), Uv = new float2(u0, v0) });
+
+                indices.Add((ushort)(baseIdx + 0));
+                indices.Add((ushort)(baseIdx + 1));
+                indices.Add((ushort)(baseIdx + 2));
+                indices.Add((ushort)(baseIdx + 0));
+                indices.Add((ushort)(baseIdx + 2));
+                indices.Add((ushort)(baseIdx + 3));
+            }
+        }
+
+        var vbSpan = CollectionsMarshal.AsSpan(verts);
+        var ibSpan = CollectionsMarshal.AsSpan(indices);
 
         var vb = renderer.Allocator.CreateBuffer(new BufferEx.CreateInfo
         {
             Name = "thug-life-vb",
             BufferUsage = VkBufferUsageFlags.VertexBufferBit | VkBufferUsageFlags.TransferDstBit,
-            BufferSize = ByteSize.Of<QuadVertex>(verts.Length),
+            BufferSize = ByteSize.Of<QuadVertex>(vbSpan.Length),
             AllocRequiredProperties = VkMemoryPropertyFlags.DeviceLocalBit,
         });
         var ib = renderer.Allocator.CreateBuffer(new BufferEx.CreateInfo
         {
             Name = "thug-life-ib",
             BufferUsage = VkBufferUsageFlags.IndexBufferBit | VkBufferUsageFlags.TransferDstBit,
-            BufferSize = ByteSize.Of<ushort>(indices.Length),
+            BufferSize = ByteSize.Of<ushort>(ibSpan.Length),
             AllocRequiredProperties = VkMemoryPropertyFlags.DeviceLocalBit,
         });
 
         using var staging = renderer.Allocator.CreateStagingPool(renderer.Graphics, 1);
         var cmd = staging.NextCommandBuffer();
         cmd.Begin(VkCommandBufferUsageFlags.OneTimeSubmitBit);
-        VkUtils.StageAndUploadToBuffer(staging, vb.VkBuffer, vb.BindOffset, verts, cmd);
-        VkUtils.StageAndUploadToBuffer(staging, ib.VkBuffer, ib.BindOffset, indices, cmd);
+        VkUtils.StageAndUploadToBuffer(staging, vb.VkBuffer, vb.BindOffset, vbSpan, cmd);
+        VkUtils.StageAndUploadToBuffer(staging, ib.VkBuffer, ib.BindOffset, ibSpan, cmd);
         cmd.End();
         staging.Submit().Wait();
 
-        return (vb, ib);
+        return (vb, ib, ibSpan.Length);
     }
 
     /// <summary>
@@ -189,37 +234,10 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
     {
         if (_disposed || !entry.Visible) return;
         if (!TryComputeModelEgo(entry, out float4x4 modelEgo)) return;
-        SubmitDraw(cmd, modelEgo);
-    }
 
-    /// <summary>
-    /// Debug helper: draws the quad at a fixed offset in ego-space (camera-centered) with no
-    /// rotation. Useful for proving the render pipeline actually works without depending on
-    /// any vehicle/part anchor math. The +Z normal makes the quad visible from the camera
-    /// side when the camera looks down -Z (so a positive Z offset puts the quad behind the
-    /// camera; try a negative offset).
-    /// </summary>
-    public void RecordDebugDraw(CommandBuffer cmd, float3 egoOffset, float width, float height)
-    {
-        if (_disposed) return;
-        float4x4 model = float4x4.CreateScale(width, height, 1f)
-                       * float4x4.CreateTranslation(egoOffset);
-        if (!TryProjectModel(model, out float4x4 mvp)) return;
-        SubmitDraw(cmd, mvp);
-    }
-
-    private static bool TryProjectModel(float4x4 modelEgo, out float4x4 mvp)
-    {
-        mvp = float4x4.Identity;
         var camera = Program.GetMainCamera();
-        if (camera == null) return false;
-        mvp = modelEgo * camera.MVP.viewProjection;
-        return true;
-    }
-
-    private void SubmitDraw(CommandBuffer cmd, float4x4 modelEgo)
-    {
-        if (!TryProjectModel(modelEgo, out float4x4 mvp)) return;
+        if (camera == null) return;
+        float4x4 mvp = modelEgo * camera.MVP.viewProjection;
 
         cmd.BindPipeline(VkPipelineBindPoint.Graphics, _pipeline);
         VkDescriptorSet setCopy = _descriptorSet;
@@ -236,7 +254,7 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
             new ReadOnlySpan<VkBuffer>(ref vbHandle),
             new ReadOnlySpan<ByteSize64>(ref vbOff));
         cmd.BindIndexBuffer(_ib.VkBuffer, (ByteSize64)_ib.BindOffset, VkIndexType.Uint16);
-        cmd.DrawIndexed(6, 1, 0, 0, 0);
+        cmd.DrawIndexed(_indexCount, 1, 0, 0, 0);
     }
 
     private static bool TryComputeModelEgo(ThugLifeEntry entry, out float4x4 model)
