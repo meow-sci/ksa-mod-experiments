@@ -1,4 +1,4 @@
-import { $ } from "bun";
+import { $, Glob } from "bun";
 import { join } from "node:path";
 
 const outDir = join(__dirname, "ksa");
@@ -45,6 +45,7 @@ const DLLS = [
 
 
 const CORE_ASSETS_FOLDERS = [
+  "Animations",
   "Characters",
   "defaultvehicles",
   "MeshCollections",
@@ -53,46 +54,18 @@ const CORE_ASSETS_FOLDERS = [
   "Textures",
 ];
 
-const CORE_ASSETS_FILES = [
-  "Astronomicals.xml",
-  "CharacterAssets.xml",
-  "Combustion.xml",
-  "CoreCommandAAssets.xml",
-  "CoreCommandAGameData.xml",
-  "CoreCouplingAAssets.xml",
-  "CoreCouplingAGameData.xml",
-  "CoreElectricalAAssets.xml",
-  "CoreElectricalAGameData.xml",
-  "CoreFairingAAssets.xml",
-  "CoreFairingAGameData.xml",
-  "CoreFuelTankAAssets.xml",
-  "CoreIVAPropAAssets.xml",
-  "CoreIVASpaceAAssets.xml",
-  "CoreIVASpaceAGameData.xml",
-  "CoreLandingAAssets.xml",
-  "CorePassageAAssets.xml",
-  "CorePassageAGameData.xml",
-  "CorePropulsionAAssets.xml",
-  "CorePropulsionBAssets.xml",
-  "CorePropulsionBGameData.xml",
-  "CoreServiceModuleAAssets.xml",
-  "CoreStructuralAAssets.xml",
-  "CoreStructuralAGameData.xml",
-  "DefaultAssets.xml",
-  "EarthOnly.xml",
-  "EarthSystem.xml",
-  "ExhaustAssets.xml",
-  "Gauges.xml",
-  "Languages.xml",
-  "PartAssets.xml",
-  "PartGameData.xml",
-  "ParticleEmitterAssets.xml",
-  "Situations.xml",
-  "SolSystem.xml",
-  "SolSystemDense.xml",
-  "Sounds.xml",
-  "Substances.xml",
-];
+const CORE_ASSETS_DIR = join("C:", "Program Files", "Kitten Space Agency", "Content", "Core");
+
+const xmlGlob = new Glob("*.xml");
+const CORE_ASSETS_FILES: string[] = [];
+for (const name of xmlGlob.scanSync({ cwd: CORE_ASSETS_DIR, onlyFiles: true })) {
+  const content = await Bun.file(join(CORE_ASSETS_DIR, name)).text();
+  if (content.includes("<Assets>")) {
+    CORE_ASSETS_FILES.push(name);
+  }
+}
+
+console.log(`Found ${CORE_ASSETS_FILES.length} asset XML files:`, CORE_ASSETS_FILES);
 
 
 for (const folder of CORE_ASSETS_FOLDERS) {
@@ -104,7 +77,7 @@ for (const folder of CORE_ASSETS_FOLDERS) {
 
 for (const asset of CORE_ASSETS_FILES) {
   console.log(`Copying ${asset}...`);
-  const assetPath = join("C:", "Program Files", "Kitten Space Agency", "Content", "Core", asset);
+  const assetPath = join(CORE_ASSETS_DIR, asset);
   await $`cp ${assetPath} ${join(outDir, "Content", "Core", asset)}`;
 }
 

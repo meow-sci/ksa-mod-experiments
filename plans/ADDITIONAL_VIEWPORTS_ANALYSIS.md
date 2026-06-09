@@ -24,7 +24,7 @@ There are two layers to the solution:
 
 1. **Use an existing secondary viewport** (zero engine risk). KSA builds **3** viewports at startup (`Program.ViewportCount = 3`): index 0 is the fullscreen main view; indexes **1 and 2** are 500×500 offscreen targets already wired for ImGui display. The shipping **"Docking Port Camera"** (`DockingPort.cs:223-251`) is a working precedent that grabs a spare viewport, points it via `FixedController`, and shows it. We can do the same but point at a `KittenEva` and draw the texture in our own panel.
 
-2. **Scale to N viewports** (what you asked for — "infinite"). The entire render system is **generalized over `Program.ViewportCount`** — every consumer reads that field dynamically (see §6). The per-viewport shader uniforms use a **dynamic uniform-buffer offset** keyed by viewport index (`GlobalShaderBindings.DynamicOffset(viewportIndex)`), *not* a fixed-size shader array, so **there is no GLSL-level cap on viewport count**. The only thing pinning it at 3 is the literal initializer `public static int ViewportCount = 3;` (`Program.cs:221`). If we can set that value *before* the engine allocates its per-viewport arrays, we get N fully-supported viewports. The cost is GPU time (each viewport is a full scene render) and one timing question (§6.3) that must be validated at runtime.
+2. **Scale to N viewports** (what you asked for — "infinite"). The entire render system is **generalized over `Program.ViewportCount`** — every consumer reads that field dynamically (see §6). The per-viewport shader uniforms use a **dynamic uniform-buffer offset** keyed by viewport index (`GlobalShaderBindings.DynamicOffset(viewportIndex)`), *not* a fixed-size shader array, so **there is no GLSL-level cap on viewport count**. The only thing pinning it at 3 is the literal initializer `public static int ViewportCount = 3;` (`Program.cs:221`). We need to set that value *before* the engine allocates its per-viewport arrays — and the StarMap sources (§6.3) **confirm we can**: a `[StarMapBeforeMain]` mod method runs before KSA's entry point is even invoked. The remaining cost is GPU/VRAM (each viewport pre-allocates render targets; each *visible* one is a full scene render), which bounds "infinite" to a sane max — see §6.3.
 
 **Recommended build:** a `crew-cam` mod (lib + `ISubmod`, per repo conventions) that (a) ensures enough viewports exist, (b) per crew member assigns a viewport in `Fixed` mode following that `KittenEva` with a recomputed head-framing offset, (c) suppresses the game's default window for those viewports, and (d) draws each viewport's image as a tile in a custom ImGui "crew" panel.
 
@@ -215,18 +215,53 @@ public static ByteSize DynamicOffset(int viewportIndex) => FrameOffset(viewportI
 ```
 The shader sees **one** UBO instance at a time, not an array indexed by viewport. So **adding viewports does not require shader changes and has no hardcoded `[3]` limit** — only the host-side buffer must be big enough, which is governed by `viewportCount` at `Initialize` time. This is the strongest evidence that "many viewports" is a supported, intended capability (consistent with the recent dev work you mentioned).
 
-### 6.3 The one real gate: set `ViewportCount` before engine init (TIMING — VERIFY)
-The arrays/buffers above are allocated during the game's startup (the big init method spanning ~`Program.cs:790-1180`, which contains the "Build Viewports" task at 876 and `GlobalShaderBindings.Initialize` at 925). To get N viewports cleanly, `Program.ViewportCount` must be **N before that init runs**.
+### 6.3 The one real gate: set `ViewportCount` before engine init (TIMING — RESOLVED via StarMap sources)
+The arrays/buffers above are allocated during the game's startup (the big init method spanning ~`Program.cs:790-1180`, which contains the "Build Viewports" task at 876 and `GlobalShaderBindings.Initialize` at 925). To get N viewports cleanly, `Program.ViewportCount` must be **N before that init runs**. The StarMap loader sources (`decomp/starmap`) confirm the boot order and give us a hook that is **structurally guaranteed to run before KSA's entry point**:
 
-- StarMap is **not** in the decompiled game sources (it's the external loader), so the decomp can't tell us whether `[StarMapImmediateLoad]` runs before or after this init. **This must be verified at runtime.** Probe: in `OnImmediateLoad`, log `Program.Viewports?.Count` and whether `Program.Instance` / the renderer already exist. If `Viewports` is still empty/null when `OnImmediateLoad` fires, we can set `Program.ViewportCount = N` there and the engine will build N viewports for us.
-- If `OnImmediateLoad` is **too early to be useful but still before viewport build**, that's the happy path: just `Program.ViewportCount = desiredCount;`.
-- If mod load happens **after** the engine already built 3 viewports, setting the field alone is insufficient — the arrays/buffers are already sized to 3. Options then:
-  - **(A) Round-robin over the 2 spares (guaranteed, recommended fallback).** Keep `ViewportCount = 3`, use viewports 1 & 2, and cycle which crew member each follows every few frames. We render at most 2 live feeds per frame but can present an N-tile grid where each tile holds the **last rendered frame** for its crew member (copy/keep its own `MainTarget`? no — they share 2 viewports, so each tile shows a periodically-refreshed snapshot). Simple, cheap, no engine surgery; tiles update at `2/N` of full rate.
-  - **(B) Force a full rebuild after raising the count (advanced).** Set `Program.ViewportCount = N`, then re-run the allocations: `GlobalShaderBindings.Destroy` + `Initialize`, rebuild `_cameraData/_compositeRenderer/...`, and `AddViewport` the extras. This touches a lot of private state (reflection + `device.WaitIdle()`), is fragile across builds, and is the highest-risk path. Document but prefer (A) or the early-set happy path.
-- **Performance ceiling regardless of mechanism:** each visible viewport is a *full* scene render (stars, planets, atmosphere, bloom, composite — §2.3). "Infinite" is bounded by GPU. Mitigations: tiny tile resolution (e.g. 128–192px), and optionally a Harmony short-circuit in `RenderViewport` for our viewports to **skip celestial/atmosphere/star passes** (we only need the kitten), which would massively cut cost. Treat that optimization as a phase-2 follow-up.
+**StarMap boot/lifecycle order (definitive):**
+1. `GameSurveyer.TryLoadCoreAndGame()` (`StarMap.Loader/GameSurveyer.cs:26-50`): loads the **KSA game assembly** (`_game = ...LoadFromAssemblyPath(_gameLocation)`, line 35), then calls `core.Init()` (line 48) — **but does not run the game yet**.
+2. `StarMapCore.Init()` → `ModLoader.PrepareMods()` → for each mod, `RuntimeMod.InitializeMod()` instantiates the `[StarMapMod]` class, registers its attributed methods, and **immediately invokes the `[StarMapBeforeMain]` method** (`RuntimeMod.cs:153-156`; the mapping `BeforeMainAttribute → BeforeMainAction` is in `ModRegistry.cs:46-47`).
+3. **Then** `GameSurveyer.RunGame()` (line 52-57) invokes KSA's entry point → constructs `Program` → runs the init that builds viewports/arrays.
+
+So **`[StarMapBeforeMain]` runs before `Program` is ever constructed.** Because the KSA assembly is already loaded by then, `KSA.Program.ViewportCount` (a static field) is fully addressable. Setting it there is bulletproof:
+```csharp
+[StarMapBeforeMain]
+public void BeforeMain()       // signature: void, no params (BaseAttributes.cs:38-45)
+{
+    KSA.Program.ViewportCount = desiredViewportCount;  // e.g. 1 main + N crew slots
+}
+```
+(Writing the field triggers `Program`'s static init first — which sets the literal `3` — then our assignment overwrites it to N. The instance-side array allocations run later in `RunGame`, reading the final N.)
+
+**Secondary confirmation:** even `[StarMapAllModsLoaded]` precedes the viewport build in the current decomp — it fires as a postfix on `ModLibrary.LoadAll()` (`StarMap.Core/Patches/ModLibraryPatches.cs`), and `LoadAll()` is at `Program.cs:873`, three lines *before* "Build Viewports" at `876` (and well before `GlobalShaderBindings.Initialize` @925 and the arrays @1022/1075). So setting `ViewportCount` in `[StarMapAllModsLoaded]` would also take effect today — but that ordering is incidental (same method, a few lines apart) and could drift, whereas `[StarMapBeforeMain]` is guaranteed by construction. **Prefer `[StarMapBeforeMain]`.**
+
+**This removes the need for a round-robin fallback as the primary plan.** (Round-robin over the 2 stock spares remains a valid *degrade* path if, in some future build, `[StarMapBeforeMain]` were unavailable or the count-set were rejected — keep it in mind but don't build for it first.)
+
+**Cost model (the real ceiling, now that timing is free):**
+- **Upfront VRAM ∝ N, paid whether or not a viewport is visible.** `AddViewport(..., buildRenderTarget:true)` builds an offscreen + main render target per viewport (default 500×500), and the init loops allocate `_compositeRenderer[N]`, sunbloom targets ×N (`SunbloomRenderer.cs:129/209`), orbit-line buffers ×N, etc. So raising `ViewportCount` to N pre-allocates N full sets of per-viewport render resources at startup. **Implication: don't pick a literally "infinite" N — pick a sane cap (e.g. 8–16) and/or use small target sizes.** We control size via `viewport.NewSize` / `Resize` after grabbing the viewport, so set crew tiles to something small (e.g. 128–192 px) to keep VRAM modest.
+- **Per-frame GPU cost ∝ number of *visible* viewports only.** `RenderGame` (`Program.cs:3844`) renders a secondary viewport only when `viewport.Visible`. Hidden pre-allocated viewports cost no render time. So you can pre-allocate a generous slot count and only pay render cost for the crew tiles actually shown.
+- **Per-visible-viewport cost is a full scene render** (stars, planets, atmosphere, bloom, composite — §2.3). Mitigations if many tiles are visible at once: tiny tile resolution, and optionally a Harmony short-circuit in `RenderViewport` for our managed viewports to **skip the celestial/atmosphere/star passes** (we only need the kitten + a clear/space background). Treat the skip as a phase-2 optimization.
 
 ### 6.4 Recommended scaling stance
-Lead with: **try the early `ViewportCount = N` set in `OnImmediateLoad` and verify it takes**. If it does, we get true simultaneous N viewports with full engine support — exactly your goal. Ship the **round-robin over 2 spares** as the always-works fallback so the feature is useful even if timing doesn't cooperate. Keep tile resolution small and consider the celestial-skip optimization once basic rendering is proven.
+Set `Program.ViewportCount` in `[StarMapBeforeMain]` to `1 + maxCrewSlots` (a fixed, configurable cap — not unbounded, because of the upfront VRAM in §6.3). The engine then builds that many viewport slots for free. Keep all crew viewports **hidden** until a crew tile is shown, set each to a small resolution, and only make visible the ones currently displayed. This gives genuine simultaneous multi-camera rendering (your goal) with cost that scales with *shown* tiles, not slot count. Add the `RenderViewport` celestial-skip optimization only if profiling shows it's needed.
+
+### 6.5 StarMap lifecycle hooks (corrected reference)
+From `decomp/starmap` (`StarMap.API/BaseAttributes.cs`, `OnFrameAttributes.cs`, `OnGuiAttributes.cs`, and the patch/registry classes), the actual hook semantics — **note these differ from the abbreviated template in the `ksa` skill**:
+
+| Attribute | When it fires | Signature | Invoked by |
+|---|---|---|---|
+| `[StarMapBeforeMain]` | **Before KSA entry point runs** (Program not yet constructed) | `void M()` | `RuntimeMod.InitializeMod` during `StarMapCore.Init` |
+| `[StarMapAllModsLoaded]` | Postfix of `ModLibrary.LoadAll()` (`Program.cs:873`, **before** viewport build @876) | `void M()` | `ModLibraryPatches.AfterLoad` |
+| `[StarMapImmediateLoad]` | Prefix of `KSA.Mod.PrepareSystems()` (per mod, on systems prepare) | `void M(KSA.Mod definingMod)` — **requires the `Mod` param** | `ModPatches.OnLoadMod` |
+| `[StarMapBeforeGui]` | Prefix of `Program.OnDrawUiFrame(dt)` (per frame) | `void M(double dt)` | `ProgramPatcher.BeforeOnDrawUi` |
+| `[StarMapAfterGui]` | Postfix of `Program.OnDrawUiViewports(dt)` (per frame) | `void M(double dt)` | `ProgramPatcher.AfterOnDrawUi` |
+| `[StarMapAfterOnFrame]` | Postfix of `Program.OnFrame(t, dt)` (per frame) | `void M(double t, double dt)` | `ProgramPatcher.AfterOnFrame` |
+| `[StarMapUnload]` | StarMap teardown | `void M()` | `ModLoader.Dispose` |
+
+Consequences for our mod:
+- **`[StarMapBeforeMain]`**: set `Program.ViewportCount`. Nothing else is alive yet — no renderer, no `Program.Instance`.
+- **`[StarMapAllModsLoaded]`**: renderer (`Program.GetRenderer()`) is live (samplers/ImGui backend created ~`Program.cs:790-807`), but **`Program.Viewports` is still empty** (built at 876, after the LoadAll@873 postfix). Safe place to `Harmony.PatchAll` (the repo convention `OnFullyLoaded`), but **do not try to grab viewport objects here** — they don't exist yet.
+- **`[StarMapBeforeGui]` (per frame)**: viewports exist and the renderer is fully live. **This is where to lazily one-time-init**: grab the extra viewport slots, size them small, point them at kittens, register their ImGui textures; and where to recompute per-frame head framing (it lands before `OnFrameViewports`/`RenderGame`).
 
 ---
 
@@ -238,11 +273,12 @@ Follow repo conventions (see `REPOSITORY_INDEX.md`, `mod-impl`/`mod-dev` rules):
   - `CrewCamManager` (static singleton, like `ThugLifeRenderManager`): owns the list of managed `(viewport, kitten, ImTextureRef)` bindings, the viewport-count strategy, per-frame offset recompute, and `IsManaged(Viewport)`.
   - `CrewCamSubmod : ISubmod` — `RenderContent()` draws the crew grid (one `ImGui.Image` tile per crew member, with name/expression label); `Update(dt)` keeps framing offsets fresh (or do that in the patcher's `OnBeforeUi`).
   - `KittenCamFraming` — the head-offset math (§4.2), with tunable constants and optional live sliders.
-- **`crew-cam` mod**
-  - `Mod.cs` with StarMap lifecycle. **If pursuing the early-count-set:** set `Program.ViewportCount` in `[StarMapImmediateLoad] OnImmediateLoad()` (guarded/VERIFYed). Do viewport acquisition/targeting and texture registration in/after `OnFullyLoaded` (renderer must be live — same rule as `quad.md`).
-  - `Patcher.cs`: Harmony prefix on `Viewport.DrawImGui` (§5.3). **MUST** also apply `HotkeyGuard.Patch/Unpatch` per the project CLAUDE.md hotkey-guard rule (the panel may have text inputs/sliders). Reference `ksa-abstractions.lib`.
-  - Recompute framing each frame in `[StarMapBeforeGui] OnBeforeUi(dt)` so it lands before the game's `OnFrameViewports`/`RenderGame`.
-- **Lifecycle/threading:** acquire/build viewports and register textures on the main thread after `OnFullyLoaded`; on unload, release follows (`Unfollow`), restore `Visible`/`Mode`/`AllowResize`/name, `RemoveTexture` our handles, unpatch Harmony, and (if we raised it) reset `Program.ViewportCount`. Use `IGameStateScheduler`/`GameThread` from `ksa-abstractions.lib` if anything is driven off-thread.
+- **`crew-cam` mod** (StarMap lifecycle — see the corrected hook table in §6.5)
+  - `[StarMapBeforeMain]`: set `Program.ViewportCount = 1 + maxCrewSlots` (fixed cap, §6.4). This is the *only* thing that can be done this early — no renderer/viewports exist yet.
+  - `[StarMapAllModsLoaded]` (the repo's `OnFullyLoaded` convention): `Harmony.PatchAll` here (apply the `Viewport.DrawImGui` prefix and `HotkeyGuard`). **Do not grab viewports here — `Program.Viewports` is still empty at this point** (built right after `ModLibrary.LoadAll@873`).
+  - `[StarMapBeforeGui] OnBeforeUi(double dt)`: **lazy one-time init on first call** — grab the pre-allocated extra viewport slots (`Program.Viewports[i]` for `i ≥ 1`), shrink them (`NewSize`/small `Resize`), `SetCameraMode(Fixed)`, `SetFollow(kitten, …, changeControl:false, alert:false)`, register each `MainTarget.ColorImage.ImageView` via `AddTexture`. On every call, recompute the head-framing `CameraOffset`/`CameraRotation` (§4.2) so it lands before `OnFrameViewports`/`RenderGame`.
+  - `Patcher.cs`: Harmony prefix on `Viewport.DrawImGui` (§5.3) to suppress the stock window for managed viewports. **MUST** also apply `HotkeyGuard.Patch/Unpatch` per the project CLAUDE.md hotkey-guard rule (the panel may have text inputs/sliders). Reference `ksa-abstractions.lib`.
+- **Lifecycle/threading:** all viewport/texture work happens on the main thread inside the per-frame `[StarMapBeforeGui]`/`[StarMapAfterGui]` hooks (which run inside KSA's `OnFrame`). On `[StarMapUnload]`: release follows (`Unfollow`), restore each managed viewport's `Visible`/`Mode`/`AllowResize`/name, `RemoveTexture` our handles (clear the managed-flag the `DrawImGui` prefix reads *before* removing), and unpatch Harmony. Note `Program.ViewportCount` is set once at `[StarMapBeforeMain]` and cannot be meaningfully lowered after the arrays are built — leaving the extra (hidden) slots allocated until process exit is the expected behavior. Use `IGameStateScheduler`/`GameThread` from `ksa-abstractions.lib` if anything is ever driven off-thread.
 
 ---
 
@@ -269,17 +305,24 @@ Follow repo conventions (see `REPOSITORY_INDEX.md`, `mod-impl`/`mod-dev` rules):
 | KittenEva avatar update | `KittenEva.UpdateRenderData` → `KittenRenderable.UpdateRenderData` | `KittenEva.cs`, `KittenRenderable.cs:143` |
 | Cull gate | `Vehicle.GetWorldMatrix(Camera)` returns null < 1px | `Vehicle.cs:2252` |
 | KittenEva access / expressions | `_renderable` → `_characterAvatar` → `CatExpressionAnim` | `kitten-eva.md`, `kitten-animations.lib` |
+| `[StarMapBeforeMain]` invoke (pre-Program) | `RuntimeMod.InitializeMod` → `BeforeMainAction` | `starmap/StarMap.Core/ModRepository/RuntimeMod.cs:153`, `ModRegistry.cs:46` |
+| Boot order (load game → Init mods → RunGame) | `GameSurveyer.TryLoadCoreAndGame` / `RunGame` | `starmap/StarMap.Loader/GameSurveyer.cs:26,52` |
+| `[StarMapAllModsLoaded]` invoke | postfix on `ModLibrary.LoadAll` (`Program.cs:873`) | `starmap/StarMap.Core/Patches/ModLibraryPatches.cs` |
+| `[StarMapImmediateLoad]` (needs `Mod` param) | prefix on `KSA.Mod.PrepareSystems` | `starmap/StarMap.Core/Patches/ModPatches.cs`, `StarMap.API/BaseAttributes.cs:72` |
+| Per-frame hooks (BeforeGui/AfterGui/AfterOnFrame) | patches on `OnDrawUiFrame`/`OnDrawUiViewports`/`OnFrame` | `starmap/StarMap.Core/Patches/ProgramPatcher.cs` |
 
 ---
 
 ## 9. Risks & runtime validation checklist (do these first)
 
-1. **Mod-load vs engine-init timing** (§6.3): in `OnImmediateLoad`, log whether `Program.Viewports` is already populated. Determines whether early `ViewportCount = N` is viable or we use the round-robin fallback. **Highest-impact unknown.**
-2. **Decomp vs binary drift:** confirm `Viewport.MainTarget`, `.ColorImage.ImageView`, `Viewport.DrawImGui`, `FixedController.CameraOffset/Rotation`, `ImGuiBackend.Vulkan.AddTexture`, and `Program.Viewports/ViewportCount` exist with these names/shapes (Dbg reflection dump per `debug.md`).
+> The mod-load-vs-init **timing question is now RESOLVED** via the StarMap sources (§6.3): `[StarMapBeforeMain]` runs before `Program` is constructed, so setting `Program.ViewportCount` there is guaranteed. The items below are the remaining things to confirm against the *running* binary.
+
+1. **`ViewportCount` actually scales the build:** set it (e.g. to 5) in `[StarMapBeforeMain]`, then in a first-frame hook log `Program.Viewports.Count`. Confirm the engine built that many and that frames still render (no broken array bound elsewhere). **Highest-impact remaining check.**
+2. **Decomp vs binary drift:** confirm `Viewport.MainTarget`, `.ColorImage.ImageView`, `Viewport.DrawImGui`, `FixedController.CameraOffset/Rotation`, `ImGuiBackend.Vulkan.AddTexture`, `Program.Viewports/ViewportCount`, and the StarMap hook signatures in §6.5 exist with these names/shapes (Dbg reflection dump per `debug.md`). In particular, verify `[StarMapImmediateLoad]` requires the `KSA.Mod` parameter in the deployed StarMap build.
 3. **KittenEva renders in a secondary viewport at all:** simplest possible test — make viewport 1 `Visible`, `SetCameraMode(Fixed)`, `SetFollow(kitten, …)`, with a crude offset; confirm the stock "Camera 1" window shows the kitten *and updates live* (validates §3 against the running build before we build any custom UI).
 4. **Kitten body axes / head height:** tune `CameraOffset`/`CameraRotation` constants live, then bake.
 5. **Texture handle lifetime:** confirm re-registering after a (rare) resize, and that `RemoveTexture` on unload doesn't crash an in-flight frame (clear the managed flag before removing, like `quad.md`'s ordering rule).
-6. **Performance:** measure frame cost with 1, 2, then 4+ small viewports before committing to "many".
+6. **VRAM & performance:** confirm the upfront VRAM cost of N pre-allocated viewport slots (§6.3) is acceptable at your chosen cap and tile size; measure per-frame cost with 1, 2, then 4+ *visible* small viewports before committing to a large cap.
 
 ---
 
@@ -289,5 +332,5 @@ Follow repo conventions (see `REPOSITORY_INDEX.md`, `mod-impl`/`mod-dev` rules):
 2. **Live framing:** recompute `CameraOffset/CameraRotation` each frame in `OnBeforeUi` for a stable headshot; add temporary sliders to dial in the constants.
 3. **Custom panel:** self-register `AddTexture` on the viewport's `MainTarget` image; Harmony-prefix `Viewport.DrawImGui` to suppress the stock window for managed viewports; draw the tile with `ImGui.Image` in `RenderContent`. Now it's a real crew tile.
 4. **Two crew members:** use both spare viewports (1 & 2). Add the round-robin scheduler so a crew list longer than the available viewports cycles refresh.
-5. **Scale-up attempt:** per §9.1 result, either set `ViewportCount = N` early (true simultaneous tiles) or finalize the round-robin presentation. Add expression label (read current expression from the kitten via `kitten-animations`/`CatExpressionAnim`).
+5. **Scale-up:** set `Program.ViewportCount = 1 + maxCrewSlots` in `[StarMapBeforeMain]` (§6.3/§6.4 — timing is guaranteed), confirm via §9.1, then drive one viewport per crew member (all small, only the shown ones `Visible`). Add an expression label per tile (read current expression from the kitten via `kitten-animations`/`CatExpressionAnim`).
 6. **Polish + perf:** small tile resolution, optional per-managed-viewport celestial/atmosphere skip in `RenderViewport` (Harmony) for big speedups; `unscience` `ISubmod` integration; `HotkeyGuard`; clean teardown; update `REPOSITORY_INDEX.md` + per-mod `README.md`.
