@@ -7,7 +7,328 @@ license: MIT
 
 # Overview
 
-Use HarmoneyLib effectively by following best practices for the library
+Use HarmonyLib effectively by following best practices for the library.
+
+This skill has two parts:
+
+1. **KSA Modding Patterns** — how Harmony is actually wielded in THIS repository's KSA game mods. Read this first; it reflects the conventions every mod here follows and the real game types/methods that get patched.
+2. **Harmony Library Reference** — a general AI-optimized reference for the library's full feature set.
+
+---
+
+# KSA Modding Patterns (this repo)
+
+> These are the conventions used across ~40 patch files in this project. Follow them when creating or modifying a KSA mod. The verbatim code below is quoted from real mods.
+
+## Mod lifecycle: the `Patcher.cs` contract
+
+Every top-level mod has a `Patcher.cs` with a static `Patcher` class exposing exactly two methods that the StarMap mod loader calls **by name** (not by attribute or interface):
+
+```csharp
+public static void Patch()    // called on mod load — apply all patches here
+public static void Unload()   // called on mod unload — remove all patches here
+```
+
+There is **no** `[Patch]`/`[Unpatch]`/`ModInfo` attribute on these methods. The loader invokes `Patch()` and `Unload()` by convention.
+
+### The Harmony instance
+
+- Stored as a single nullable **static field**: `private static Harmony? _harmony;`
+- The ID is a **string literal**, either the mod folder name (`"zippo"`, `"flexo"`, `"thug-life"`) or a fully-qualified namespace (`"MeowSci.Blinky"`, `"MeowSci.Unscience"`). Pick one and reuse the exact same string for `UnpatchAll`.
+- Created either inline (`= new Harmony("zippo")`) or lazily in `Patch()` (`_harmony = new Harmony("MeowSci.Blinky")`). Lazy creation pairs naturally with `_harmony = null` in `Unload()`.
+
+### HotkeyGuard is mandatory (see CLAUDE.md)
+
+Every top-level mod MUST apply `HotkeyGuard` from `MeowSci.KsaAbstractions`. Patch it in `Patch()`, unpatch it **first** in `Unload()`:
+
+```csharp
+HotkeyGuard.Patch(_harmony);    // in Patch()
+HotkeyGuard.Unpatch(_harmony);  // in Unload(), before other unpatches
+```
+
+### Two patching styles
+
+**Style A — attribute discovery via `PatchAll`** (use when patches are declared with `[HarmonyPatch]` attributes on classes/methods in the assembly). Put `[HarmonyPatch]` on the `Patcher` class to make its own annotated methods discoverable:
+
+```csharp
+[HarmonyPatch]
+internal static class Patcher
+{
+    private static Harmony? _harmony = new Harmony("zippo");
+
+    public static void Patch()
+    {
+        try
+        {
+            _harmony?.PatchAll(typeof(Patcher).Assembly);
+            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"zippo: Error applying patches: {ex.Message}");
+        }
+    }
+
+    public static void Unload()
+    {
+        try
+        {
+            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            _harmony?.UnpatchAll("zippo");   // same literal as the Harmony id
+            _harmony = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"zippo: Error removing patches: {ex.Message}");
+        }
+    }
+}
+```
+
+**Style B — manual `Apply(harmony)` / `Remove(harmony)` helpers** (the dominant style for `.lib` projects; gives precise control and clean unpatching). Each feature lives in a `*Patches.cs` static class with paired `Apply`/`Remove`:
+
+```csharp
+internal static class Patcher
+{
+    private static Harmony? _harmony;
+
+    public static void Patch()
+    {
+        _harmony = new Harmony("MeowSci.Blinky");
+        BlinkyPatches.Apply(_harmony);
+        HotkeyGuard.Patch(_harmony);
+    }
+
+    public static void Unload()
+    {
+        if (_harmony != null)
+        {
+            BlinkyPatches.Remove(_harmony);
+            HotkeyGuard.Unpatch(_harmony);
+        }
+        _harmony = null;
+    }
+}
+```
+
+The two styles compose: `flexo` calls `PatchAll(...)` AND `FlexoPatches.Apply(...)` (the latter needed because one patch requires a custom priority that attributes don't set here). The `unscience` supermod consolidates many `.lib` patch sets under **one** Harmony instance by calling each lib's `Apply`/`Remove` in turn.
+
+## The `*Patches.cs` manual-patch helper (Style B canonical form)
+
+This is the most important pattern in the repo. A static helper resolves the target `MethodInfo`s, stores them (plus the prefix/postfix `MethodInfo`s) in static fields, patches them, and unpatches by the **same stored references**:
+
+```csharp
+public static class IFeelSeenPatches
+{
+    private static VehicleTracker? _tracker;
+    private static MethodInfo? _vehicleGetWorldMatrix;
+    private static MethodInfo? _getWorldMatrixPrefix;
+
+    public static void Apply(Harmony harmony, VehicleTracker tracker)
+    {
+        _tracker = tracker;
+        // resolve our own private patch method by name
+        _getWorldMatrixPrefix = typeof(IFeelSeenPatches)
+            .GetMethod(nameof(GetWorldMatrixPrefix), BindingFlags.NonPublic | BindingFlags.Static)!;
+        // resolve the private game method by string name (AccessTools ignores visibility)
+        _vehicleGetWorldMatrix = AccessTools.Method(typeof(Vehicle), "GetWorldMatrix");
+        harmony.Patch(_vehicleGetWorldMatrix, prefix: new HarmonyMethod(_getWorldMatrixPrefix));
+        Console.WriteLine("i-feel-seen.lib: patches applied");
+    }
+
+    public static void Remove(Harmony harmony)
+    {
+        if (_vehicleGetWorldMatrix != null && _getWorldMatrixPrefix != null)
+            harmony.Unpatch(_vehicleGetWorldMatrix, _getWorldMatrixPrefix);  // targeted unpatch
+        _tracker = null;
+        _vehicleGetWorldMatrix = null;
+        _getWorldMatrixPrefix = null;
+        Console.WriteLine("i-feel-seen.lib: patches removed");
+    }
+
+    private static bool GetWorldMatrixPrefix(Vehicle __instance, Camera camera, ref float4x4? __result)
+    {
+        if (_tracker == null || !_tracker.IsTracked(__instance))
+            return true;                 // not ours — run the original
+        // ... compute custom matrix ...
+        __result = /* ... */;
+        return false;                    // skip original, our __result is returned
+    }
+}
+```
+
+Key points:
+- `harmony.Patch(original, prefix: new HarmonyMethod(methodInfo))` is the manual patch call. Use the `prefix:` or `postfix:` named arg.
+- `Remove` uses `harmony.Unpatch(original, prefixMethodInfo)` for a **targeted** unpatch (preferred in `.lib` helpers so it never touches another lib's patches). Top-level `Patcher.cs` files instead use `harmony.UnpatchAll("<id>")`.
+- `Apply` can take extra context args (e.g. a `VehicleTracker`) which the prefix reads from a static field.
+
+## HotkeyGuard — the canonical shared prefix (study this)
+
+`ksa-abstractions.lib/HotkeyGuard.cs` is the reference implementation of a clean, reusable, target-a-game-method patch. It blocks game hotkeys while ImGui has text focus by patching `GameSettings.OnKeyAll` and forcing its `bool` return value:
+
+```csharp
+public static void Patch(Harmony harmony)
+{
+    _original = AccessTools.Method(typeof(GameSettings), nameof(GameSettings.OnKeyAll));
+    _prefix = typeof(HotkeyGuard).GetMethod(nameof(Prefix), BindingFlags.NonPublic | BindingFlags.Static)!;
+    harmony.Patch(_original, prefix: new HarmonyMethod(_prefix));
+    Console.WriteLine("ksa-abstractions: HotkeyGuard patch applied");
+}
+
+private static bool Prefix(ref bool __result)
+{
+    if (!Program.ConsoleWindow.IsOpen && ImGui.GetIO().WantTextInput)
+    {
+        __result = true;   // tell the game "the key was handled"
+        return false;      // skip the real OnKeyAll → hotkeys don't fire
+    }
+    return true;           // otherwise let hotkeys work normally
+}
+```
+
+This is the textbook "conditionally skip original and substitute the return value" prefix: `ref bool __result` + `return false`.
+
+## Injected arguments seen in this repo
+
+| Injected | Real usage here |
+|----------|-----------------|
+| `__instance` | `Vehicle __instance`, `PartModel __instance`, `Camera __instance`, `PartModelModule __instance`, `Controller __instance` — the game object being patched |
+| `ref __result` | `ref bool __result` (HotkeyGuard), `ref float4x4? __result` (i-feel-seen) — write it then `return false` to override |
+| named original args | `Camera camera`, `Viewport viewport`, `int inFrameIndex`, `CommandBuffer commandBuffer` — match the game method's real parameter names |
+| `ref <param>` | `ref PartModel.PerInstanceData instanceData` — mutate a struct argument in place (paint, deform, emissive) |
+| `___PrivateField` | `Transform3D ___Transform` on `Controller.OnFrame` — triple-underscore reads a private game field directly into the patch |
+| positional | `PartModel.PerInstanceData __0`, `Viewport __1` (IvaForceRender) — by-index when you don't want to name them |
+
+## Holding patch state: static `*PatchState` / manager singletons
+
+Patch methods are static, so mutable config lives in a dedicated static class the prefix checks at runtime:
+
+```csharp
+// prefix gates rendering on a static flag toggled by the mod's UI
+private static bool PartModelModulePrefix(PartModelModule __instance)
+{
+    if (BlinkyPatchState.RenderPixelParts) return true;
+    return !__instance.Parent.FullPart.Id.StartsWith("pixel_");
+}
+```
+
+`BlinkyPatchState` / `ShinyPatchState` are plain static classes holding `bool` toggles. For render hooks that need GPU resources, the pattern is a **manager singleton** with static `Active`/`Instance` that the postfix dispatches into, e.g. `ThugLifeRenderManager`:
+
+```csharp
+private static void RenderMainPassPostfix(CommandBuffer commandBuffer)
+{
+    if (!ThugLifeRenderManager.Active) return;          // cheap guard first
+    try { ThugLifeRenderManager.Instance?.RecordDraws(commandBuffer); }
+    catch (Exception ex) { Console.WriteLine($"thug-life: render postfix error: {ex.Message}"); }
+}
+```
+
+Note: `Dispose()` on the manager sets `Active = false` **before** freeing GPU resources, so an in-flight render frame can't use-after-free.
+
+## KSA-specific techniques worth knowing
+
+**Render-data injection via `Unsafe.As` struct reinterpretation.** Several mods (humble-arteest paint & emissive, mesh-deform) write into the unused padding bytes of the game's per-instance GPU struct. Define an overlay struct with `[StructLayout(LayoutKind.Sequential)]` matching the real layout, reinterpret the `ref` param, and assign the named fields:
+
+```csharp
+private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerInstanceData instanceData)
+{
+    if (!VehiclePaint.TryGetEffectiveColor(__instance, out var color)) return;
+    ref var paintable = ref Unsafe.As<PartModel.PerInstanceData, PaintablePerInstanceData>(ref instanceData);
+    paintable.PaintR = color.X;   // PaintR/G/B overlay the struct's packing1/2/3 bytes
+    paintable.PaintG = color.Y;
+    paintable.PaintB = color.Z;
+}
+```
+
+**Two-patch coordination via `ThreadLocal<T>`.** When the data you need to inject (in a deep patch) isn't available in that method's args, capture it in an earlier patch and stash it thread-locally. mesh-deform captures the current `Part` in a prefix on `PartModelModule.UpdateRenderData`, then reads it in a prefix on `PartModel.AddInstance`. Safe because KSA renders single-threaded:
+
+```csharp
+public static readonly ThreadLocal<Part?> CurrentPart = new();
+// patch 1: CurrentPart.Value = __instance.Parent;
+// patch 2: var part = CapturePartPatch.CurrentPart.Value;  // who is being rendered right now
+```
+
+**Writing a private game field via `AccessTools.Field` + `SetValue`.** glass overrides the camera FOV by resolving `Camera._fovRadians` once in `Apply` and writing it in a prefix on `UpdateProjection`:
+
+```csharp
+_fovRadiansField = AccessTools.Field(typeof(Camera), "_fovRadians");   // once, in Apply
+// in prefix:
+_fovRadiansField.SetValue(__instance, targetRadians);
+```
+
+**Patching a constructor.** IvaForceRender patches `PartModel`'s constructor to mutate newly-created part templates:
+
+```csharp
+_ctorOriginal = AccessTools.Constructor(typeof(PartModel), new[] { typeof(PartModelModule.Template) });
+harmony.Patch(_ctorOriginal, postfix: new HarmonyMethod(_ctorPostfix));
+```
+
+**Setting patch priority for ordering.** When your prefix must run before everything else on a hot game method (flexo's solver on `Universe.ExecuteNextVehicleSolvers`), set priority on the `HarmonyMethod`:
+
+```csharp
+var prefix = new HarmonyMethod(typeof(FlexoSolverPatch), nameof(BeforeVehicleSolvers))
+{
+    priority = Priority.First
+};
+harmony.Patch(original, prefix: prefix);
+```
+
+**Calling a private game method via `Traverse`.** flexo invokes a private recompute after editing parts:
+
+```csharp
+Traverse.Create(vehicle.Parts).Method("RecomputeStaticMass").GetValue();
+```
+
+**Transpiler (rare — only jplrepo uses one).** Injects a call before a specific ImGui call inside a game method, with a fallback warning if the IL target isn't found:
+
+```csharp
+foreach (var instr in instructions)
+{
+    if (!injected && instr.Calls(setCursorPosY))
+    {
+        yield return new CodeInstruction(OpCodes.Call,
+            AccessTools.Method(typeof(Patcher), nameof(SaveMenuCursorPos)));
+        injected = true;
+    }
+    yield return instr;
+}
+```
+
+**Attribute-based menu-bar postfix.** UI mods append to the game menu by postfixing `Program.DrawProgramMenusHook` (or `GaugeCanvas.OnDrawMenuBar`), often applied with `harmony.CreateClassProcessor(typeof(MyMenuPatch)).Patch()`:
+
+```csharp
+[HarmonyPatch(typeof(Program), nameof(Program.DrawProgramMenusHook))]
+[HarmonyPostfix]
+private static void Postfix() { /* ImGui.BeginMenu(...) ... */ }
+```
+
+## Logging & error-handling conventions
+
+- Log with `Console.WriteLine` (per CLAUDE.md). Standard messages: `"<mod>: Harmony patches applied"` / `"<mod>: patches removed"`, and on failure `"<mod>: Error applying patches: {ex.Message}"`.
+- Wrap `Patch()`/`Unload()` bodies in try/catch so a failed patch can't take down mod loading.
+- Wrap the **body of render/hot-path prefixes & postfixes** in try/catch too — an exception thrown from inside a patch on a per-frame game method would otherwise spam or destabilize the game loop.
+
+## Real game types & methods patched in this repo (targeting reference)
+
+| Game type.method | Patch | What the mod does |
+|---|---|---|
+| `GameSettings.OnKeyAll` | prefix (skip) | HotkeyGuard — block hotkeys during ImGui text input |
+| `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` | prefix (skip) | i-feel-seen — override render transform/distance for tracked vehicles |
+| `Camera.ChangeFieldOfView` | prefix (skip) | glass — block stock FOV input when override active |
+| `Camera.UpdateProjection` | prefix + field write | glass — inject custom FOV via `Camera._fovRadians` |
+| `PartModel.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest paint, mesh-deform — inject GPU per-instance data |
+| `PartModelDynamic.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest engine emissive temperature/TFI |
+| `PartModel` ctor / `PartModel.AddInstance` | postfix | IvaForceRender — force interior meshes visible |
+| `PartModelModule.UpdateRenderData` (+ Dynamic/Glass variants) | prefix (skip) | blinky/shiny — conditionally skip rendering `pixel_`/`shiny_` parts; mesh-deform Part capture |
+| `PartModelRenderer.UpdateRenderData(Viewport, int)` | prefix | flexo — render editor parts in main pass (note arg-type overload match) |
+| `Universe.ExecuteNextVehicleSolvers` | prefix (`Priority.First`) | flexo — run hinge solver before vehicle solvers |
+| `SuperMeshRenderSystem.RenderMainPass` | postfix | thug-life — record extra quad draws into the command buffer |
+| `Controller.OnFrame` (Orbit/Fly) | prefix (`___Transform`) | camera-controller-override — keyframe camera playback |
+| `Program.DrawProgramMenusHook` / `GaugeCanvas.OnDrawMenuBar` | postfix | menu-bar UI injection |
+
+To find the real signatures of any of these, look in `decomp/ksa` (read strategically — those files are large).
+
+---
 
 # Harmony Library Reference (AI-Optimized)
 
