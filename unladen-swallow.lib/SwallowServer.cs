@@ -102,6 +102,26 @@ public sealed class SwallowServer
             .Add("engines", Layout.Create()
                 .Add("deactivate", BlinkyEngineDeactivateEndpoint.Create())));
 
+        // GET/POST/DELETE /shiny/grids
+        // POST            /shiny/grids/scan
+        // POST            /shiny/grids/scan-all
+        // POST/DELETE     /shiny/animate
+        // POST            /shiny/static
+        // POST            /shiny/pattern
+        // POST            /shiny/off
+        // GET/POST        /shiny/appearance
+        api.Add("shiny", Layout.Create()
+            .Add("grids", Layout.Create()
+                .Add(ShinyListEndpoint.Create())
+                .Add(ShinyGridsEndpoint.Create())
+                .Add("scan", ShinyGridScanEndpoint.Create())
+                .Add("scan-all", ShinyGridScanAllEndpoint.Create()))
+            .Add("animate", ShinyAnimateEndpoint.Create())
+            .Add("static", ShinyStaticEndpoint.Create())
+            .Add("pattern", ShinyPatternEndpoint.Create())
+            .Add("off", ShinyOffEndpoint.Create())
+            .Add("appearance", ShinyAppearanceEndpoint.Create()));
+
         // GET    /camera/status
         // POST   /camera/animate
         // DELETE /camera/stop

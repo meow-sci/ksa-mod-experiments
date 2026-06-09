@@ -12,6 +12,8 @@ public sealed class EternalFlameSubmod : ISubmod
     public string Name => "Eternal Flame - Infinite Fuel";
     public string Tooltip => "Automatically refills fuel tanks on the selected vehicle at regular intervals.";
 
+    public static EternalFlameSubmod? Instance { get; private set; }
+
     private FuelManager _fuelManager = null!;
     private readonly ImInputString _vehicleFilter = new ImInputString(128);
     private int _selectedVehicleIndex = -1;
@@ -19,14 +21,15 @@ public sealed class EternalFlameSubmod : ISubmod
 
     public void Initialize()
     {
+        Instance = this;
         _fuelManager = new FuelManager();
         _refillIntervalMs = _fuelManager.RefillIntervalMs;
+        Console.WriteLine("eternal-flame: submod Initialize");
     }
 
-    public void Update(double dt)
-    {
-        _fuelManager.Update(dt);
-    }
+    public void Update(double dt) => _fuelManager.Update(dt);
+
+    public void UpdateBeforeVehicleSolvers() => _fuelManager.UpdateElectricityBeforeVehicleSolvers();
 
     public void RenderContent()
     {
@@ -39,7 +42,12 @@ public sealed class EternalFlameSubmod : ISubmod
         SubmodUI.EndContentArea();
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        Console.WriteLine("eternal-flame: submod Dispose");
+        if (ReferenceEquals(Instance, this))
+            Instance = null;
+    }
 
     private void RenderVehicleSelector()
     {
@@ -137,6 +145,7 @@ public sealed class EternalFlameSubmod : ISubmod
         if (ImGui.DragInt("##ef_interval", ref _refillIntervalMs, 1, 0, 5000))
         {
             _fuelManager.RefillIntervalMs = _refillIntervalMs;
+            Console.WriteLine($"eternal-flame: interval changed - intervalMs={_refillIntervalMs}");
         }
         // ImGui.NewLine();
         ImGui.Spacing();
@@ -150,10 +159,11 @@ public sealed class EternalFlameSubmod : ISubmod
     {
         var monitored = _fuelManager.MonitoredVehicles;
 
-        if (ImGui.BeginTable("##ef_MonitoredVehicles", 3,
+        if (ImGui.BeginTable("##ef_MonitoredVehicles", 4,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
         {
-            ImGui.TableSetupColumn("##ef_Active", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoHeaderLabel, 38);
+            ImGui.TableSetupColumn("Fuel", ImGuiTableColumnFlags.WidthFixed, 45);
+            ImGui.TableSetupColumn("Elec", ImGuiTableColumnFlags.WidthFixed, 45);
             ImGui.TableSetupColumn("Vehicle", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableSetupColumn("##ef_Remove", ImGuiTableColumnFlags.WidthFixed, 40);
             ImGui.TableHeadersRow();
@@ -164,18 +174,32 @@ public sealed class EternalFlameSubmod : ISubmod
                 var entry = monitored[i];
                 ImGui.TableNextRow();
 
-                ImGui.TableSetColumnIndex(0);
-                bool active = entry.Active;
                 float checkboxSize = ImGui.GetFrameHeight();
-                float colWidth = ImGui.GetColumnWidth();
-                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (colWidth - checkboxSize) / 2f);
-                if (ImGui.Checkbox($"##ef_active_{i}", ref active))
-                    entry.Active = active;
+
+                ImGui.TableSetColumnIndex(0);
+                bool refillFuel = entry.RefillFuel;
+                float colWidth0 = ImGui.GetColumnWidth();
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (colWidth0 - checkboxSize) / 2f);
+                if (ImGui.Checkbox($"##ef_fuel_{i}", ref refillFuel))
+                {
+                    entry.RefillFuel = refillFuel;
+                    Console.WriteLine($"eternal-flame: fuel toggle - vehicle={entry.DisplayName}, enabled={entry.RefillFuel}");
+                }
 
                 ImGui.TableSetColumnIndex(1);
-                ImGui.Text(entry.DisplayName);
+                bool refillElec = entry.RefillElectricity;
+                float colWidth1 = ImGui.GetColumnWidth();
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (colWidth1 - checkboxSize) / 2f);
+                if (ImGui.Checkbox($"##ef_elec_{i}", ref refillElec))
+                {
+                    entry.RefillElectricity = refillElec;
+                    Console.WriteLine($"eternal-flame: electric toggle - vehicle={entry.DisplayName}, enabled={entry.RefillElectricity}");
+                }
 
                 ImGui.TableSetColumnIndex(2);
+                ImGui.Text(entry.DisplayName);
+
+                ImGui.TableSetColumnIndex(3);
                 float btnWidth = ImGui.CalcTextSize(" X ").X + ImGui.GetStyle().FramePadding.X * 2f;
                 float removeColWidth = ImGui.GetColumnWidth();
                 ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (removeColWidth - btnWidth) / 2f);

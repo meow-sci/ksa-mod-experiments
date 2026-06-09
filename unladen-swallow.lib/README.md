@@ -50,6 +50,27 @@ All responses use:
 - `POST /blinky/render`
 - `POST /blinky/engines/deactivate`
 
+### Its-So-Shiny Grid Management
+
+- `GET /shiny/grids`
+- `POST /shiny/grids`
+- `DELETE /shiny/grids?vehicleId=...&gridName=...`
+- `POST /shiny/grids/scan`
+- `POST /shiny/grids/scan-all`
+
+### Its-So-Shiny Display Control
+
+- `POST /shiny/animate`
+- `DELETE /shiny/animate?vehicleId=...&gridName=...`
+- `POST /shiny/static`
+- `POST /shiny/pattern`
+- `POST /shiny/off`
+
+### Its-So-Shiny Appearance
+
+- `GET /shiny/appearance?vehicleId=...&gridName=...`
+- `POST /shiny/appearance`
+
 ### Camera Animation
 
 - `POST /camera/animate`
@@ -70,7 +91,8 @@ All responses use:
 ## Dependencies
 
 - `ksa-abstractions.lib` for game-thread scheduling and providers.
-- `blinky.lib` for LCD grid and animation operations.
+- `blinky.lib` for LCD engine grid and animation operations.
+- `its-so-shiny.lib` for LCD light grid and animation operations.
 - `glass.lib` for FOV controls.
 - `camera-controller-override.lib` for camera sequencing.
 - `garrys-torch.lib` for weld management.

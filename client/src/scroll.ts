@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * scroll.ts — Render scrolling text to blinky LEDs via bitmap fonts.
+ * scroll.ts — Render scrolling text to its-so-shiny light grids via bitmap fonts.
  * Usage: bun run scroll.ts -v <vehicleId> -g <gridName> -h <height> -t <text> [-s <speed>]
  *
  * height snaps to: 5, 7, 8, 10, 14, 16, 20, 24, 32, 40, or 42 pixels tall.
@@ -110,7 +110,7 @@ const font5: FontMap = {
   d: ["001", "011", "101", "101", "011"],
   e: ["000", "010", "111", "100", "011"],
   f: ["001", "010", "111", "010", "010"],
-  g: ["000", "011", "101", "011", "001"], // descender goes to row 4
+  g: ["000", "011", "101", "011", "001"],
   h: ["100", "110", "101", "101", "101"],
   i: ["010", "000", "010", "010", "010"],
   j: ["001", "000", "001", "001", "110"],
@@ -498,12 +498,14 @@ function textToPixels(
 
   for (const ch of text) {
     const glyph = map[ch] ?? map[" "]!;
-    for (let row = 0; row < glyph.length; row++) {
+    const glyphHeight = glyph.length;
+    for (let row = 0; row < glyphHeight; row++) {
       const rowStr = glyph[row];
       if (!rowStr) continue;
+      const y = glyphHeight - 1 - row; // flip so row 0 (top) maps to highest y
       for (let col = 0; col < fontWidth; col++) {
         if (rowStr[col] === "1") {
-          pixels.push({ x: xOffset + col, y: row });
+          pixels.push({ x: xOffset + col, y });
         }
       }
     }
@@ -530,7 +532,7 @@ async function main() {
 
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/blinky/animate`, {
+    res = await fetch(`${BASE_URL}/shiny/animate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vehicleId, gridName, pixels, speed }),

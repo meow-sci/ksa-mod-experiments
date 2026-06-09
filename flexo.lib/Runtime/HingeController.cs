@@ -20,6 +20,7 @@ public sealed class HingeController
     private double _currentDegrees;
     private double _targetDegrees;
     private bool _isAnimating;
+    private bool _rotationDirty;
 
     public double CurrentDegrees => _currentDegrees;
     public double TargetDegrees => _targetDegrees;
@@ -63,28 +64,33 @@ public sealed class HingeController
         _currentDegrees = Math.Clamp(degrees, hinge.MinDegrees, hinge.MaxDegrees);
         _targetDegrees = _currentDegrees;
         _isAnimating = false;
-        ApplyRotation();
+        _rotationDirty = true;  // deferred to UpdateBeforeVehicleSolvers
     }
 
     public void Update(double dt)
     {
-        if (!_isAnimating) return;
-
-        var hinge = Definition.Hinge!;
-        double speed = hinge.SpeedDegreesPerSecond;
-        double delta = speed * dt;
-
-        if (_currentDegrees < _targetDegrees)
-            _currentDegrees = Math.Min(_currentDegrees + delta, _targetDegrees);
-        else
-            _currentDegrees = Math.Max(_currentDegrees - delta, _targetDegrees);
-
-        if (Math.Abs(_currentDegrees - _targetDegrees) < 0.01)
+        if (_isAnimating)
         {
-            _currentDegrees = _targetDegrees;
-            _isAnimating = false;
+            var hinge = Definition.Hinge!;
+            double speed = hinge.SpeedDegreesPerSecond;
+            double delta = speed * dt;
+
+            if (_currentDegrees < _targetDegrees)
+                _currentDegrees = Math.Min(_currentDegrees + delta, _targetDegrees);
+            else
+                _currentDegrees = Math.Max(_currentDegrees - delta, _targetDegrees);
+
+            if (Math.Abs(_currentDegrees - _targetDegrees) < 0.01)
+            {
+                _currentDegrees = _targetDegrees;
+                _isAnimating = false;
+            }
+
+            _rotationDirty = true;
         }
 
+        if (!_rotationDirty) return;
+        _rotationDirty = false;
         ApplyRotation();
     }
 

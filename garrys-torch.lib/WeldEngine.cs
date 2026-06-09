@@ -45,10 +45,31 @@ public static class WeldEngine
             return true;
         }
 
-        // Compute positional offset from the 3D body-frame position
-        double3 offsetInBodyFrame = new double3(entry.Position.X, entry.Position.Y, entry.Position.Z);
-        double3 offsetCci = offsetInBodyFrame.Transform(tgtBody2Cci);
-        double3 newSrcPosCci = tgtPosCci + offsetCci;
+        // Determine the anchor position and orientation.
+        // When a target part is specified, anchor to that part's live CCI position and orientation.
+        // This avoids the CoM drift issue (vehicle CoM shifts as fuel burns) and allows
+        // the weld to track robotics-moved parts naturally.
+        double3 anchorPosCci;
+        doubleQuat anchorBody2Cci;
+
+        if (entry.TargetPart != null)
+        {
+            // Offset from vehicle CoM to the target part, in vehicle assembly space
+            double3 partOffset = entry.TargetPart.PositionVehicleAsmb - entry.Target.CenterOfMassAsmb;
+            anchorPosCci = tgtPosCci + partOffset.Transform(tgtBody2Cci);
+            // Compose part-in-vehicle rotation with vehicle-to-CCI to get part world orientation
+            anchorBody2Cci = doubleQuat.Concatenate(entry.TargetPart.Asmb2VehicleAsmb, tgtBody2Cci).NormalizedOrZero();
+            if (anchorBody2Cci == default) anchorBody2Cci = tgtBody2Cci;
+        }
+        else
+        {
+            // Legacy path: anchor to vehicle CoM
+            anchorPosCci = tgtPosCci;
+            anchorBody2Cci = tgtBody2Cci;
+        }
+
+        double3 offsetCci = new double3(entry.Position.X, entry.Position.Y, entry.Position.Z).Transform(anchorBody2Cci);
+        double3 newSrcPosCci = anchorPosCci + offsetCci;
         double3 newSrcVelCci = tgtVelCci;
 
         doubleQuat cci2Cce = entry.Source.Parent.GetCci2Cce();
@@ -57,9 +78,9 @@ public static class WeldEngine
 
         if (entry.LockRotation)
         {
-            // Apply Euler rotation relative to target orientation
+            // Apply Euler rotation relative to the anchor's orientation
             doubleQuat deltaRot = EulerDegreesToQuat(entry.Rotation.X, entry.Rotation.Y, entry.Rotation.Z);
-            doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(deltaRot, tgtBody2Cci);
+            doubleQuat newSrcBody2Cci = doubleQuat.Concatenate(deltaRot, anchorBody2Cci);
             newSrcBody2Cce = doubleQuat.Concatenate(newSrcBody2Cci, cci2Cce).NormalizedOrZero();
             newBodyRates = entry.Target.BodyRates;
         }
@@ -78,9 +99,28 @@ public static class WeldEngine
             }
         }
 
+        // Stamp the orbit with the time that the just-completed vehicle worker
+        // tick advanced to, NOT Universe.GetElapsedSimTime() (which is the
+        // PREVIOUS tick's end time — _lastSimStep doesn't roll forward until
+        // the next PrepareFrame's ApplyVehicleSolvers).
+        //
+        // Vehicle.Teleport calls _kinematicStates.OverwriteFromLeaderAnalytic
+        // which sets body.Time = orbit.StateVectors.StateTime. The target
+        // vehicle's task.Origin.Time has been propagated forward by the workers
+        // we just Wait()-ed on, so if we used the stale GetElapsedSimTime() the
+        // source's body.Time would land one frame behind the task's Origin.Time
+        // and the worker would log:
+        //   "Called SnapToLeader with body time X but origin time Y"
+        // (Y - X ≈ dtPlayer * achievedSpeed * simSpeed)
+        //
+        // GetJobSimStep is the same pure helper the game itself calls in
+        // PrepareFrame to build the SimStep that's about to be queued, so this
+        // value matches what the next-tick workers will be aligned to.
+        SimTime tickEndTime = Universe.GetJobSimStep(Program.GetPlayerDeltaTime()).NextTime;
+
         Orbit newOrbit = Orbit.CreateFromStateCci(
             entry.Source.Parent,
-            SimTimeProvider.GetElapsedTime(),
+            tickEndTime,
             newSrcPosCci,
             newSrcVelCci,
             entry.Source.Orbit.OrbitLineColor

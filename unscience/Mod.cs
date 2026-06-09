@@ -12,6 +12,7 @@ using MeowSci.GarrysTorchLib;
 using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
+using MeowSci.ItsSoShinyLib;
 using MeowSci.CameraControllerOverrideLib;
 using MeowSci.ConManLib;
 using MeowSci.KittenAnimationsLib;
@@ -24,6 +25,8 @@ using MeowSci.DohLib;
 using MeowSci.SpaceTapeLib;
 using MeowSci.FlexoLib;
 using MeowSci.KitchenSinkLib;
+using MeowSci.RedAlertLib;
+using MeowSci.ThugLifeLib;
 
 namespace MeowSci.Unscience;
 
@@ -70,11 +73,14 @@ public class Mod
             _submods.Add(new GlassSubmod());
             _submods.Add(new HumbleArteestSubmod());
             _submods.Add(iFeelSeen);
+            _submods.Add(new ItsSoShinySubmod());
             _submods.Add(new KitchenSinkSubmod());
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
+            _submods.Add(new RedAlertSubmod());
             _submods.Add(skittles);
             _submods.Add(new SpaceTapeSubmod());
+            _submods.Add(new ThugLifeSubmod());
             _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new ZippoSubmod());
 
@@ -158,6 +164,14 @@ public class Mod
                 try { submod.RenderFloatingWindows(); }
                 catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
             }
+
+            // Run garrys-torch weld physics here, AFTER UI and AFTER the vehicle
+            // solver workers (queued at the end of PrepareFrame, likely finished
+            // during render). UpdateWelds internally calls
+            // JobSystems.VehicleSolvers.Wait() before touching vehicle state to
+            // eliminate the worker-iteration race that any other timing produces.
+            try { MeowSci.GarrysTorchLib.GarrysTorchSubmod.Instance?.UpdateWelds(dt); }
+            catch (Exception ex) { Console.WriteLine($"unscience: garrys-torch weld update error: {ex.Message}"); }
         }
         catch (Exception ex)
         {

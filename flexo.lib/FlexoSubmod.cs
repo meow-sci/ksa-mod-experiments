@@ -41,8 +41,6 @@ public sealed class FlexoSubmod : ISubmod
 
     public void Update(double dt)
     {
-        _runtime.Update(dt);
-
         if (_editorScene.IsActive)
         {
             Viewport viewport = Program.MainViewport;
@@ -52,6 +50,17 @@ public sealed class FlexoSubmod : ISubmod
             double4x4 matrixAsmb2Ego = _editorScene.GetMatrixAsmb2Ego(viewport);
             _lighting.UpdateLights(matrixAsmb2Ego);
         }
+    }
+
+    /// <summary>
+    /// Called from a Harmony prefix on Universe.ExecuteNextVehicleSolvers.
+    /// This is the only safe phase to mutate vehicle part trees and call
+    /// UpdateAfterPartTreeModification() — it runs before the solver task
+    /// is prepared, so kinematic and analytic state timestamps stay coherent.
+    /// </summary>
+    public void UpdateBeforeVehicleSolvers(double dt)
+    {
+        _runtime.UpdateBeforeVehicleSolvers(dt);
     }
 
     public void RenderContent()

@@ -46,6 +46,7 @@ public static class FlexoPatches
         try
         {
             harmony.PatchAll(typeof(FlexoPatches).Assembly);
+            FlexoSolverPatch.Apply(harmony);
             Console.WriteLine("flexo: Harmony patches applied");
         }
         catch (Exception ex)
@@ -64,6 +65,31 @@ public static class FlexoPatches
         catch (Exception ex)
         {
             Console.WriteLine($"flexo: Error removing patches: {ex.Message}");
+        }
+    }
+}
+
+internal static class FlexoSolverPatch
+{
+    public static void Apply(Harmony harmony)
+    {
+        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
+        var prefix = new HarmonyMethod(typeof(FlexoSolverPatch), nameof(BeforeVehicleSolvers))
+        {
+            priority = Priority.First
+        };
+        harmony.Patch(original, prefix: prefix);
+    }
+
+    private static void BeforeVehicleSolvers(double dtPlayer)
+    {
+        try
+        {
+            FlexoSubmod.Current?.UpdateBeforeVehicleSolvers(dtPlayer);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"flexo: Error in solver prefix: {ex.Message}");
         }
     }
 }

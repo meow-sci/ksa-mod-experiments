@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KitchenSinkLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.KitchenSink;
@@ -20,6 +21,7 @@ internal static class Patcher
             {
                 HotkeyGuard.Patch(_harmony);
                 IvaForceRender.Patch(_harmony);
+                KitchenSinkSolverPatch.Apply(_harmony);
             }
         }
         catch (Exception ex)
@@ -45,5 +47,29 @@ internal static class Patcher
             Console.WriteLine($"kitchen-sink: Error removing patches: {ex.Message}");
         }
     }
+}
 
+internal static class KitchenSinkSolverPatch
+{
+    public static void Apply(Harmony harmony)
+    {
+        var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));
+        var prefix = new HarmonyMethod(typeof(KitchenSinkSolverPatch), nameof(BeforeVehicleSolvers))
+        {
+            priority = Priority.First
+        };
+        harmony.Patch(original, prefix: prefix);
+    }
+
+    private static void BeforeVehicleSolvers(double dtPlayer)
+    {
+        try
+        {
+            KitchenSinkSubmod.Instance?.UpdateBeforeVehicleSolvers(dtPlayer);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"kitchen-sink: Error in solver prefix: {ex.Message}");
+        }
+    }
 }

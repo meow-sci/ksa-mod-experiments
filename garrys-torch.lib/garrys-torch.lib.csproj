@@ -16,6 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="BepuUtilities" Condition="Exists('$(KSAFolder)BepuUtilities.dll')">
+      <HintPath>$(KSAFolder)BepuUtilities.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Brutal.Concurrency" Condition="Exists('$(KSAFolder)Brutal.Concurrency.dll')">
+      <HintPath>$(KSAFolder)Brutal.Concurrency.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Brutal.Core.Common" Condition="Exists('$(KSAFolder)Brutal.Core.Common.dll')">
       <HintPath>$(KSAFolder)Brutal.Core.Common.dll</HintPath>
       <Private>false</Private>

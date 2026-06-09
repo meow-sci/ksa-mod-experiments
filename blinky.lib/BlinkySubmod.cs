@@ -344,6 +344,10 @@ public sealed class BlinkySubmod : ISubmod
 
         ImGui.PopStyleColor();
         ImGui.PopStyleColor();
+
+        ImGui.SameLine(0, 12);
+        if (ImGui.Button($"Diagnose##{gridId}"))
+            DiagnoseGrid(gs);
         
         ImGui.Spacing();
         ImGui.Spacing();
@@ -469,7 +473,7 @@ public sealed class BlinkySubmod : ISubmod
             }
             else
             {
-                SetCreateMessage("Build failed  check console log", true);
+                SetCreateMessage("Build failed — check console log", true);
             }
         }
         catch (Exception ex)
@@ -518,7 +522,7 @@ public sealed class BlinkySubmod : ISubmod
         {
             try
             {
-                Console.WriteLine($"blinky: destroy step 2  removing parts for grid '{capturedGridName}'");
+                Console.WriteLine($"blinky: destroy step 2 — removing parts for grid '{capturedGridName}'");
                 LcdGridBuilder.DestroyGrid(capturedVehicle, capturedGrid);
                 BlinkyGridManager.Unregister(capturedVehicleId, capturedGridName);
                 _pendingDestroy.Remove((capturedVehicleId, capturedGridName));
@@ -562,5 +566,87 @@ public sealed class BlinkySubmod : ISubmod
         _createMessage = msg;
         _createMessageIsError = isError;
         Console.WriteLine($"blinky: {msg}");
+    }
+
+    //  Ignition Diagnostics 
+
+    /// <summary>
+    /// Logs diagnostic information about a sample pixel engine in the grid to help
+    /// diagnose why engines might not be igniting. Output goes to Console.WriteLine
+    /// which surfaces in the game's log / debug console.
+    /// </summary>
+    private static void DiagnoseGrid(GridState gs)
+    {
+        Console.WriteLine($"blinky: ===== DIAGNOSE grid '{gs.GridName}' on '{gs.VehicleId}' =====");
+
+        var vehicle = gs.Vehicle;
+        var grid = gs.BlinkyGrid.Grid;
+
+        // Vehicle-level engine inputs
+        Console.WriteLine($"blinky:   vehicle.GetManualThrottle() = {vehicle.GetManualThrottle():F4}");
+        Console.WriteLine($"blinky:   vehicle.FlightComputer.BurnMode = {vehicle.FlightComputer.BurnMode}");
+
+        // Pixel engine count
+        int pairCount = grid.Engines.Count;
+        Console.WriteLine($"blinky:   pixel pairs (positions) in grid = {pairCount}");
+        if (pairCount == 0)
+        {
+            Console.WriteLine("blinky:   WARNING: grid has no pixel pairs — grid scan may have failed");
+            return;
+        }
+
+        // Sample the first pixel engine controller
+        var firstEntry = System.Linq.Enumerable.First(grid.Engines);
+        var (row, col) = firstEntry.Key;
+        var controllers = firstEntry.Value;
+        Console.WriteLine($"blinky:   sampling pixel ({row},{col}): {controllers.Length} controller(s)");
+
+        for (int ci = 0; ci < controllers.Length; ci++)
+        {
+            var ctrl = controllers[ci];
+            Console.WriteLine($"blinky:   controller[{ci}]:");
+            Console.WriteLine($"blinky:     IsActive          = {ctrl.IsActive}");
+            Console.WriteLine($"blinky:     Parent.FullPart.Id = {ctrl.Parent.FullPart.Id}");
+            Console.WriteLine($"blinky:     Part.Stage         = {ctrl.Parent.FullPart.Stage}");
+
+            if (ctrl.Cores != null && ctrl.Cores.Length > 0)
+            {
+                var core = ctrl.Cores[0];
+                var rm = core.ResourceManager;
+                if (rm != null)
+                {
+                    Console.WriteLine($"blinky:     ResourceManager.FlowRule = {rm.FlowRule}");
+                    // NearestToFurtherestNodeSameStage and NearestToFurtherestNode are
+                    // MemoryOwner<> types from CommunityToolkit.HighPerformance — use
+                    // reflection to check presence without adding a package dependency.
+                    var rmType = rm.GetType().BaseType ?? rm.GetType();
+                    var sameStageField = rmType.GetField("NearestToFurtherestNodeSameStage", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var nearestField = rmType.GetField("NearestToFurtherestNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var sameStageVal = sameStageField?.GetValue(rm);
+                    var nearestVal = nearestField?.GetValue(rm);
+                    Console.WriteLine($"blinky:     NearestToFurtherestNodeSameStage is null = {sameStageVal == null}");
+                    Console.WriteLine($"blinky:     NearestToFurtherestNode is null = {nearestVal == null}");
+                }
+                else
+                {
+                    Console.WriteLine("blinky:     ResourceManager is null");
+                }
+            }
+            else
+            {
+                Console.WriteLine("blinky:     Cores is null or empty");
+            }
+
+            // Check connections on the part
+            var partConns = ctrl.Parent.FullPart.Connections;
+            Console.WriteLine($"blinky:     Part.Connections.Count = {partConns.Count}");
+            foreach (var conn in partConns)
+            {
+                var other = conn.OtherPart(ctrl.Parent.FullPart);
+                Console.WriteLine($"blinky:       conn -> '{other?.Id}' stage={other?.Stage}");
+            }
+        }
+
+        Console.WriteLine("blinky: ===== END DIAGNOSE =====");
     }
 }

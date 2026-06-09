@@ -6,8 +6,9 @@ A vehicle docking/attached system that welds one vehicle to another with full su
 
 Garry's Torch allows you to:
 - **Weld two vehicles together** - Attach a source vehicle to a target vehicle
-- **Configure relative position** - Separate the vehicles on XYZ axes in the target's body frame
-- **Rotate freely** - Apply pitch/yaw/roll rotations independently
+- **Anchor to a specific part** - Pick any part on the target vehicle as the anchor point; offsets are relative to that part, not the vehicle CoM
+- **Configure relative position** - Separate the vehicles on XYZ axes in the target part's local frame
+- **Rotate freely** - Apply pitch/yaw/roll rotations relative to the target part's orientation
 - **Scale uniformly** - Resize the source vehicle (supports avatar scaling)
 - **Manage multiple welds** - A vehicle can have multiple welds simultaneously
 - **Use presets** - Built-in configurations for common docking scenarios
@@ -15,8 +16,9 @@ Garry's Torch allows you to:
 ## Features
 
 - **Real-time vehicle positioning** - Welds update every frame to maintain relative position/rotation
+- **Part-anchored welding** - Anchor to any part on the target vehicle; the weld tracks that part, not the vehicle CoM. Immune to CoM drift as fuel burns, and naturally follows robotics-moved parts
 - **Physics-loop safe updates** - Welds run immediately before KSA queues vehicle solver jobs, avoiding worker-thread state races in the refactored physics loop
-- **Body-frame coordinates** - Positions specified in the target vehicle's local coordinate system
+- **Part-frame coordinates** - Positions and rotations specified in the target part's local coordinate system
 - **Rotation locking** - Option to prevent source vehicle from rotating relative to target
 - **Parent validation** - Welds automatically break if vehicles cross celestial body boundaries
 - **Quaternion-based math** - Proper 3D rotation handling with Euler angle conversion
@@ -27,11 +29,18 @@ Garry's Torch allows you to:
 
 ### Core Classes
 
-#### Solver Hook
+#### Weld update timing
 
-The standalone mod applies a Harmony prefix to `Universe.ExecuteNextVehicleSolvers`. This prefix calls `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` after the previous solver results and input events have been applied, but before KSA snapshots vehicle state for the next vehicle update task.
+The mod runs all weld physics from the StarMap `OnAfterUi` callback in `Mod.cs` (and from unscience's `OnAfterUi` when bundled in the supermod). That callback fires after the current frame's render, by which point the vehicle solver workers queued at the end of `Universe.ExecuteNextVehicleSolvers` have usually finished naturally.
 
-This timing is required by newer KSA builds: updating welds from the StarMap UI callbacks can race the vehicle worker jobs and produce `Populating analytic states from outdated kinematic states` errors.
+To make the timing safe regardless of how long workers take, `GarrysTorchSubmod.UpdateWelds(dt)` explicitly calls `KSA.JobSystems.VehicleSolvers.Wait()` before touching any vehicle state. That blocks until all in-flight vehicle worker jobs complete, eliminating the two races that any uncoordinated `Vehicle.Teleport` call from a UI callback produces:
+
+- **`Called SnapToLeader with body time X but origin time Y`** — `Vehicle.Teleport` advances the source's `_kinematicStates.Origin.Time` past `body.Time` while a worker still holds the old body snapshot.
+- **`System.InvalidOperationException: Collection was modified`** thrown from `VehicleUpdateTask.DoWorkAndStageResults` — `Vehicle.Teleport` → `RemoveFromTask` → `_vehicleStates.Remove(...)` while a worker iterates that list.
+
+After our `Wait()` returns, the workers are done; we can call `Vehicle.Teleport` safely. The teleport itself calls `RemoveFromTask`, so the next frame's `Universe.ApplyVehicleSolvers` doesn't overwrite our teleport (the source is no longer in any task). The next `Universe.ExecuteNextVehicleSolvers` then calls `AddVehiclesToTasks` which re-attaches the source to a task and copies our teleported `_kinematicStates` into the worker state — so the following physics tick starts from the welded position.
+
+Earlier versions of this mod tried a Harmony prefix on `Universe.ExecuteNextVehicleSolvers` and later a postfix on `Universe.ApplyVehicleSolvers`. Both approaches silently stopped firing after the recent KSA build (root cause not pinned down — other mods' Harmony patches on `ExecuteNextVehicleSolvers` still work, suggesting a build-specific quirk), so the mod no longer relies on Harmony for weld timing.
 
 #### WeldEngine
 Stateless computation engine for vehicle welding. Contains all physics/math logic.
@@ -54,8 +63,9 @@ public class WeldEntry
 {
     public Vehicle Source { get; set; }           // Vehicle being welded
     public Vehicle Target { get; set; }           // Vehicle being welded to
-    public float3 RelativePosition { get; set; }  // Offset in target's body frame (XYZ)
-    public float3 RelativeRotation { get; set; }  // Pitch/Yaw/Roll in degrees
+    public Part? TargetPart { get; set; }         // Anchor part on target (null = vehicle CoM fallback)
+    public float3 RelativePosition { get; set; }  // Offset relative to anchor (part frame or body frame)
+    public float3 RelativeRotation { get; set; }  // Pitch/Yaw/Roll relative to anchor orientation (degrees)
     public float UniformScale { get; set; }       // Scaling factor (0.05 to 20.0)
     public bool LockRotation { get; set; }        // Prevent relative rotation
 }
@@ -72,7 +82,7 @@ Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/
 
 ### UI (Mod.cs / GarrysTorchSubmod)
 
-`Mod.OnBeforeUi` intentionally does not run weld physics. UI callbacks occur after KSA has already queued vehicle solver jobs for the next frame, so vehicle state mutations happen through the solver hook instead.
+`Mod.OnBeforeUi` intentionally does **not** run weld physics. Weld physics runs from `Mod.OnAfterUi` (or unscience's `OnAfterUi` when bundled) via `GarrysTorchSubmod.UpdateWelds(dt)`, which calls `KSA.JobSystems.VehicleSolvers.Wait()` first to synchronise with the vehicle worker threads.
 
 ImGui window with:
 - **Create Weld section** - Collapsible header with filterable source/target vehicle combos
@@ -101,10 +111,14 @@ Conversion to quaternion:
 
 ### Position Calculation
 ```
-worldPosition = targetPosition + targetRotation * (relativePosition + scale adjustment)
+anchorPosCci   = targetVehicleCoM + (targetPart.PositionVehicleAsmb - vehicleCoMInAsmb).Transform(body2Cci)
+anchorOrientation = targetPart.Asmb2VehicleAsmb * vehicleBody2Cci
+worldPosition  = anchorPosCci + relativePosition.Transform(anchorOrientation)
 ```
 
-The relative position is in the **target vehicle's body frame**, so a +10 offset on Z moves the source vehicle upward relative to the target, regardless of the target's world orientation.
+When no `TargetPart` is set (legacy path), `anchorPosCci = vehicleCoMPosCci` and `anchorOrientation = vehicleBody2Cci`.
+
+The part anchor means a +10 offset on Z moves the source vehicle along the target **part's** local Z axis, tracking changes in that part's orientation (e.g., from robotics).
 
 ### Parent Body Validation
 Welds automatically break if:

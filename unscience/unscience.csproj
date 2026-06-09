@@ -24,6 +24,7 @@
     <ProjectReference Include="..\geeforce.lib\geeforce.lib.csproj" />
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
+    <ProjectReference Include="..\its-so-shiny.lib\its-so-shiny.lib.csproj" />
     <ProjectReference Include="..\kitten-animations.lib\kitten-animations.lib.csproj" />
     <ProjectReference Include="..\kiwis-marbles.lib\kiwis-marbles.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
@@ -34,6 +35,8 @@
     <ProjectReference Include="..\space-tape.lib\space-tape.lib.csproj" />
     <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
     <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
+    <ProjectReference Include="..\red-alert.lib\red-alert.lib.csproj" />
+    <ProjectReference Include="..\thug-life.lib\thug-life.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -66,6 +69,10 @@
     </Reference>
     <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">
       <HintPath>$(KSAFolder)KSA.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Brutal.Vulkan" Condition="Exists('$(KSAFolder)Brutal.Vulkan.dll')">
+      <HintPath>$(KSAFolder)Brutal.Vulkan.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
