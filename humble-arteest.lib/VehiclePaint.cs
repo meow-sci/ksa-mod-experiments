@@ -34,11 +34,36 @@ public static class VehiclePaint
 
     private static bool _shadersActive;
     private static string? _lastError;
+    private static bool? _isSupported;
+    private static string? _unsupportedReason;
 
     // ---- Public properties ----
 
     public static bool ShadersActive => _shadersActive;
     public static string? LastError => _lastError;
+
+    /// <summary>
+    /// Whether this build of KSA still supports the runtime shader-swap paint mechanism.
+    /// Computed once by probing the on-disk part shader; see <see cref="DetectSupport"/>.
+    /// </summary>
+    public static bool IsSupported
+    {
+        get
+        {
+            _isSupported ??= DetectSupport(out _unsupportedReason);
+            return _isSupported.Value;
+        }
+    }
+
+    /// <summary>Human-readable reason paint is unavailable, when <see cref="IsSupported"/> is false.</summary>
+    public static string? UnsupportedReason
+    {
+        get
+        {
+            _ = IsSupported; // ensure the probe has run
+            return _unsupportedReason;
+        }
+    }
 
     /// <summary>When true, all parts receive <see cref="DefaultColor"/> unless overridden per-PartModel.</summary>
     public static bool PaintAllEnabled
@@ -113,6 +138,13 @@ public static class VehiclePaint
     {
         _lastError = null;
 
+        if (!IsSupported)
+        {
+            _lastError = UnsupportedReason;
+            Console.WriteLine($"humble-arteest: {_lastError}");
+            return false;
+        }
+
         try
         {
             var device = Program.GetRenderer().Device;
@@ -178,6 +210,59 @@ public static class VehiclePaint
         if (_shadersActive)
             DeactivateShaders();
         ClearAllPaint();
+    }
+
+    // ---- Capability detection ----
+
+    /// <summary>
+    /// Probes the on-disk MeshIndirect vertex shader to decide whether the legacy runtime
+    /// shader-swap can still drive paint on this game build.
+    ///
+    /// KSA rev 4693 rebuilt the part color pipeline: <c>PartModelRenderer.ColorData</c> now
+    /// compiles MeshIndirect per-pipeline through
+    /// <c>ShaderReference.CompileVariantWithCustomOptions()</c> — which re-reads the GLSL from
+    /// disk with <c>ENABLE_*</c> macro variants and destroys the compiled module immediately —
+    /// so it no longer consults <c>ShaderReference.Shader</c>. Swapping that module (this mod's
+    /// entire mechanism) therefore has no effect, and the feature-gated shader also dropped the
+    /// GLSL anchors this mod injects into. Both conditions are detected here so the feature can
+    /// fail visibly instead of silently doing nothing (and never clobbers EmissiveColor).
+    /// </summary>
+    private static bool DetectSupport(out string? reason)
+    {
+        reason = null;
+        try
+        {
+            var shaderRef = ModLibrary.Get<ShaderReference>("MeshIndirectVert");
+            var modPath = GetShaderModPath(shaderRef);
+            if (modPath == null || !File.Exists(modPath))
+            {
+                reason = "Vehicle Paint unavailable: MeshIndirect.vert could not be located on disk.";
+                return false;
+            }
+
+            var src = File.ReadAllText(modPath).Replace("\r\n", "\n");
+
+            bool featureGated = src.Contains("#ifdef ENABLE_EMISSIVE")
+                             || src.Contains("#ifdef ENABLE_TEMPERATURE");
+            bool anchorsPresent = src.Contains("    int Highlighted;\n};")
+                               && src.Contains("layout(location = 5) out flat int outHighlighted;");
+
+            if (featureGated || !anchorsPresent)
+            {
+                reason = "Vehicle Paint is unavailable on this KSA build. The part shader was rebuilt "
+                       + "(KSA 4693+) into feature-gated variants compiled per-pipeline from disk, so the "
+                       + "runtime shader-swap this feature depends on no longer affects rendering. "
+                       + "Kitten Color and Engine Emissive are unaffected.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = $"Vehicle Paint unavailable: could not verify shader compatibility ({ex.Message}).";
+            return false;
+        }
     }
 
     // ---- Shader modification logic ----

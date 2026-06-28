@@ -64,6 +64,13 @@ public static class VehiclePaintPatches
     /// </summary>
     private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerInstanceData instanceData)
     {
+        // Never touch the per-instance bytes unless paint shaders are genuinely active.
+        // On KSA 4693+ they can never activate (see VehiclePaint.IsSupported), so this
+        // guarantees the prefix is a no-op and never clobbers PerInstanceData.EmissiveColor
+        // (offset 68 — game-used in the current build).
+        if (!VehiclePaint.ShadersActive)
+            return;
+
         if (!VehiclePaint.TryGetEffectiveColor(__instance, out var color))
             return;
 

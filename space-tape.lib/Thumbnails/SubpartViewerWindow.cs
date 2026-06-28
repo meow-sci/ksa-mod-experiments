@@ -362,7 +362,7 @@ public sealed class SubpartViewerWindow
         var view = entry.Views[idx];
         if (view != null)
         {
-            view.CreateImGuiThumbnail(Program.LinearClampedSampler);
+            view.GetOrCreateImGuiTexture(Program.LinearClampedSampler);
             float size = (float)_displaySize;
             float regionW = ImGui.GetContentRegionAvail().X;
             if (size < regionW)
@@ -404,7 +404,7 @@ public sealed class SubpartViewerWindow
             var view = entry.Views[i];
             if (view == null) continue;
 
-            view.CreateImGuiThumbnail(Program.LinearClampedSampler);
+            view.GetOrCreateImGuiTexture(Program.LinearClampedSampler);
             ImGui.Image(view.ImGuiImageRef, new float2(thumbSize));
 
             float nextX = ImGui.GetItemRectMax().X + spacing + thumbSize;

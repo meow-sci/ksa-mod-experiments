@@ -59,8 +59,11 @@ public sealed class DecouplerState
 public sealed class DockingPortState
 {
     public string ConnectorId { get; set; } = "";
-    public double Force { get; set; } = 500.0;
-    public DockingPortState Clone() => new() { ConnectorId = ConnectorId, Force = Force };
+    // KSA 4750 (rev 4683): the docking pushoff value is an impulse (N·s), not a force.
+    // Game default is ImpulseReference(5000.0). LatchingKineticEnergy is not modeled here and
+    // falls back to the game template default (EnergyReference(50.0)) when the part is loaded.
+    public double PushoffImpulseNs { get; set; } = 5000.0;
+    public DockingPortState Clone() => new() { ConnectorId = ConnectorId, PushoffImpulseNs = PushoffImpulseNs };
 }
 
 /// <summary>EVA door state.</summary>

@@ -218,13 +218,13 @@ public sealed class SubPartsWindow
 
                 if (animView != null)
                 {
-                    animView.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    animView.GetOrCreateImGuiTexture(Program.LinearClampedSampler);
                     _registeredViews.Add(animView);
                     clicked = ImGui.ImageButton($"##st_sp_{template.Id}", animView.ImGuiImageRef, new float2(thumbSize));
                 }
                 else if (template.Thumbnail != null)
                 {
-                    template.Thumbnail.CreateImGuiThumbnail(Program.LinearClampedSampler);
+                    template.Thumbnail.GetOrCreateImGuiTexture(Program.LinearClampedSampler);
                     _registeredViews.Add(template.Thumbnail);
                     clicked = ImGui.ImageButton($"##st_sp_{template.Id}", template.Thumbnail.ImGuiImageRef, new float2(thumbSize));
                 }

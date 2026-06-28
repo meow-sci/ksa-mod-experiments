@@ -3,6 +3,15 @@
 Per-part GPU vertex-shader deformation for KSA vehicles. Applies radial dents/bulges
 by displacing vertices at render time using data injected into `PerInstanceData` padding.
 
+> ⚠️ **Availability: auto-disabled on KSA 4693+.** The "How it works" section below describes the
+> original (pre-4693) mechanism. As of KSA `2026.6.9.4750` deformation is **inert and self-guarded**:
+> `MeshDeformShaders.IsSupported` probes the on-disk shader and disables activation with a UI notice.
+> Two changes broke it: the `MeshIndirect.vert` struct anchor was wrapped in `#ifdef` guards, and the
+> part color pipeline now compiles via `ShaderReference.CompileVariantWithCustomOptions()` (recompiles
+> from disk, ignores the swapped `ShaderReference.Shader`). See
+> [`../scope/standalone-mods.md`](../scope/standalone-mods.md) and
+> [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md) (Phase 2b).
+
 ## How it works
 
 1. A Harmony prefix on `PartModelModule.UpdateRenderData` captures the current `Part`.

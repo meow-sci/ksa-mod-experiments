@@ -23,9 +23,34 @@ public static class MeshDeformShaders
 {
     private static bool _shadersActive;
     private static string? _lastError;
+    private static bool? _isSupported;
+    private static string? _unsupportedReason;
 
     public static bool ShadersActive => _shadersActive;
     public static string? LastError => _lastError;
+
+    /// <summary>
+    /// Whether this build of KSA still supports the runtime shader-swap deformation mechanism.
+    /// Computed once by probing the on-disk part shader; see <see cref="DetectSupport"/>.
+    /// </summary>
+    public static bool IsSupported
+    {
+        get
+        {
+            _isSupported ??= DetectSupport(out _unsupportedReason);
+            return _isSupported.Value;
+        }
+    }
+
+    /// <summary>Human-readable reason deformation is unavailable, when <see cref="IsSupported"/> is false.</summary>
+    public static string? UnsupportedReason
+    {
+        get
+        {
+            _ = IsSupported; // ensure the probe has run
+            return _unsupportedReason;
+        }
+    }
 
     /// <summary>
     /// Activates deformation by compiling a modified vertex shader and rebuilding pipelines.
@@ -33,6 +58,14 @@ public static class MeshDeformShaders
     public static bool Activate()
     {
         _lastError = null;
+
+        if (!IsSupported)
+        {
+            _lastError = UnsupportedReason;
+            Console.WriteLine($"mesh-deform: {_lastError}");
+            return false;
+        }
+
         try
         {
             var device = Program.GetRenderer().Device;
@@ -95,6 +128,58 @@ public static class MeshDeformShaders
     {
         if (_shadersActive)
             Deactivate();
+    }
+
+    // ---- Capability detection ----
+
+    /// <summary>
+    /// Probes the on-disk MeshIndirect vertex shader to decide whether the legacy runtime
+    /// shader-swap can still drive deformation on this game build.
+    ///
+    /// KSA rev 4693 rebuilt the part color pipeline: <c>PartModelRenderer.ColorData</c> now
+    /// compiles MeshIndirect per-pipeline through
+    /// <c>ShaderReference.CompileVariantWithCustomOptions()</c> — which re-reads the GLSL from
+    /// disk with <c>ENABLE_*</c> macro variants and destroys the compiled module immediately —
+    /// so it no longer consults <c>ShaderReference.Shader</c>. Swapping that module (this mod's
+    /// entire mechanism) therefore has no effect, and the feature-gated shader also wrapped the
+    /// <c>uint EmissiveColor;</c> struct anchor this mod injects after in <c>#ifdef</c> guards.
+    /// Both conditions are detected here so activation fails visibly instead of compiling a
+    /// broken shader.
+    /// </summary>
+    private static bool DetectSupport(out string? reason)
+    {
+        reason = null;
+        try
+        {
+            var shaderRef = ModLibrary.Get<ShaderReference>("MeshIndirectVert");
+            var modPath = GetShaderModPath(shaderRef);
+            if (modPath == null || !File.Exists(modPath))
+            {
+                reason = "Mesh Deform unavailable: MeshIndirect.vert could not be located on disk.";
+                return false;
+            }
+
+            var src = File.ReadAllText(modPath).Replace("\r\n", "\n");
+
+            bool featureGated = src.Contains("#ifdef ENABLE_EMISSIVE")
+                             || src.Contains("#ifdef ENABLE_TEMPERATURE");
+            bool anchorPresent = src.Contains("    uint EmissiveColor;\n};");
+
+            if (featureGated || !anchorPresent)
+            {
+                reason = "Mesh Deform is unavailable on this KSA build. The part shader was rebuilt "
+                       + "(KSA 4693+) into feature-gated variants compiled per-pipeline from disk, so the "
+                       + "runtime shader-swap this feature depends on no longer affects rendering.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = $"Mesh Deform unavailable: could not verify shader compatibility ({Unwrap(ex).Message}).";
+            return false;
+        }
     }
 
     /// <summary>

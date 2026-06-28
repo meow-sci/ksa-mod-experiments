@@ -32,14 +32,14 @@ Ring buffer for storing g-force samples with statistical analysis.
 
 **Key Data**:
 ```csharp
-public class GForceSample
+public struct GForceSample
 {
-    public double Time { get; set; }
-    public float Magnitude { get; set; }      // Overall g-force
-    public float X { get; set; }              // Longitudinal accel
-    public float Y { get; set; }              // Lateral accel
-    public float Z { get; set; }              // Normal (up/down) accel
-    public float Jerk { get; set; }           // Rate of change of g-force
+    public double TimeSec;
+    public double Magnitude;      // Overall g-force
+    public double Longitudinal;   // X-axis (thrust axis)
+    public double Lateral;        // Y-axis
+    public double Normal;         // Z-axis (up/down)
+    public double Jerk;           // Rate of change of g-force (g/s)
 }
 ```
 
@@ -78,15 +78,15 @@ ISubmod implementation that owns the sampling loop and delegates rendering to GF
 
 #### Acceleration Calculation
 ```csharp
-// Sample vehicle's body-frame acceleration
-var bodyAccel = vehicle.Velocity.GetBodyFrameAcceleration();
-var surfaceGravity = ComputeSurfaceGravity(vehicle);
+// Sample vehicle's body-frame proper acceleration (double3)
+double3 acc = vehicle.AccelerationBody;
 
-// Convert to g-forces
-var gX = bodyAccel.X / surfaceGravity;
-var gY = bodyAccel.Y / surfaceGravity;
-var gZ = bodyAccel.Z / surfaceGravity;
-var magnitude = Sqrt(gX² + gY² + gZ²);
+// Convert to g-forces using STANDARD gravity (9.80665 m/s²), not local surface gravity
+const double StandardGravity = 9.80665;
+var magnitude    = acc.Length() / StandardGravity;
+var longitudinal = acc.X / StandardGravity;
+var lateral      = acc.Y / StandardGravity;
+var normal       = acc.Z / StandardGravity;
 ```
 
 #### Jerk Computation

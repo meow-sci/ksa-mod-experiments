@@ -360,10 +360,10 @@ public static class GameDataEditorUi
         if (gd.DockingPort != null)
         {
             string connId = gd.DockingPort.ConnectorId;
-            double force = gd.DockingPort.Force;
-            RenderCouplingFields("st_dp", connectorIds, ref connId, hasForce: true, ref force);
+            double impulse = gd.DockingPort.PushoffImpulseNs;
+            RenderCouplingFields("st_dp", connectorIds, ref connId, hasForce: true, ref impulse, "Pushoff Impulse (Ns)");
             gd.DockingPort.ConnectorId = connId;
-            gd.DockingPort.Force = force;
+            gd.DockingPort.PushoffImpulseNs = impulse;
         }
 
         // EVADoor
@@ -382,7 +382,7 @@ public static class GameDataEditorUi
 
     /// <summary>Renders the Connector combo (and optionally the Force input) for a coupling sub-type.</summary>
     private static void RenderCouplingFields(string prefix, string[] connectorIds,
-        ref string connectorId, bool hasForce, ref double force)
+        ref string connectorId, bool hasForce, ref double force, string valueLabel = "Force (N)")
     {
         var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
@@ -399,7 +399,7 @@ public static class GameDataEditorUi
             if (hasForce)
             {
                 ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Force (N)");
+                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text(valueLabel);
                 ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
                 ImGui.InputDouble($"##{prefix}_f", ref force, 10.0);
             }

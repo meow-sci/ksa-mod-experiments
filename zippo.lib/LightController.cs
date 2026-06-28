@@ -56,7 +56,7 @@ public static class LightController
     {
         var lights = GetLightComponents(t);
         if (lights.Count == 0) return new float3(1f, 1f, 1f);
-        var colorRef = ReflectionHelpers.GetFieldValue(lights[0], "Color");
+        var colorRef = ReflectionHelpers.GetFieldValue(lights[0], "ColorRgb");
         if (colorRef == null) return new float3(1f, 1f, 1f);
         var r = ReflectionHelpers.GetFieldValue(colorRef, "R") is float rf ? rf : 1f;
         var g = ReflectionHelpers.GetFieldValue(colorRef, "G") is float gf ? gf : 1f;
@@ -77,11 +77,14 @@ public static class LightController
     {
         foreach (var light in lights)
         {
-            var colorRef = ReflectionHelpers.GetFieldValue(light, "Color");
+            var colorRef = ReflectionHelpers.GetFieldValue(light, "ColorRgb");
             if (colorRef == null) continue;
             ReflectionHelpers.SetFieldValue(colorRef, "R", color.X);
             ReflectionHelpers.SetFieldValue(colorRef, "G", color.Y);
             ReflectionHelpers.SetFieldValue(colorRef, "B", color.Z);
+            // Clear any named/indexed color: ColorRgbReference.OnDataLoad re-derives R/G/B from
+            // IndexedColor whenever it isn't Invalid, which would discard the RGB we just wrote.
+            ReflectionHelpers.SetFieldValue(colorRef, "IndexedColor", IndexedColor.Invalid);
             // OnDataLoad recomputes Value = new float3(R, G, B)
             try { colorRef.GetType().GetMethod("OnDataLoad", All)?.Invoke(colorRef, new object?[] { null }); }
             catch (Exception ex) { Console.WriteLine($"zippo: SetColor OnDataLoad error: {ex.Message}"); }

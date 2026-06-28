@@ -86,10 +86,13 @@ public static class GameDataXmlSerializer
             new XAttribute("ConnectorId", d.ConnectorId),
             new XAttribute("Force", d.Force.ToString("G6")));
 
+    // KSA 4750 (rev 4683): DockingPortTemplate uses child elements — a StringReference
+    // ConnectorId (<ConnectorId Value=".."/>) and an ImpulseReference PushoffImpulse
+    // (<PushoffImpulse Ns=".."/>). LatchingKineticEnergy is omitted (game default applies).
     private static XElement SerializeDockingPort(DockingPortState dp)
         => new XElement("DockingPort",
-            new XAttribute("ConnectorId", dp.ConnectorId),
-            new XAttribute("Force", dp.Force.ToString("G6")));
+            new XElement("ConnectorId", new XAttribute("Value", dp.ConnectorId)),
+            new XElement("PushoffImpulse", new XAttribute("Ns", dp.PushoffImpulseNs.ToString("G6"))));
 
     private static XElement SerializeEVADoor(EVADoorState e)
         => new XElement("EVADoor",

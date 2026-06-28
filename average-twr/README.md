@@ -31,20 +31,20 @@ Average TWR lets you:
 Static methods for reading TWR and computing acceleration from vehicle state.
 
 **Key Methods**:
-- `ReadTwr(Vehicle vehicle)` - Returns `vehicle.NavBallData.ThrustWeightRatio`
-- `ComputeSurfaceGravity(Vehicle vehicle)` - Gets gravity at vehicle altitude
-- `ComputeMaxAcceleration(Vehicle vehicle)` - Returns `TotalThrust / TotalMass` in m/s²
+- `ReadTwr(Vehicle vehicle)` - Returns `vehicle.NavBallData.ThrustWeightRatio` (a `double`)
+- `ComputeSurfaceGravity(Vehicle vehicle)` - Gets gravity at vehicle altitude (helper; not used on the sampling path)
+- `ComputeMaxAcceleration(Vehicle vehicle)` - Returns `FlightComputer.VehicleConfig.TotalEngineVacuumThrust / TotalMass` in m/s²
 
 **Implementation**:
 ```csharp
-public static float ReadTwr(Vehicle vehicle)
-{
-    return vehicle.NavBallData.ThrustWeightRatio;
-}
+public static double ReadTwr(Vehicle vehicle) => vehicle.NavBallData.ThrustWeightRatio;
 
-public static float ComputeMaxAcceleration(Vehicle vehicle)
+public static double ComputeMaxAcceleration(Vehicle vehicle)
 {
-    return vehicle.TotalThrust / vehicle.TotalMass;
+    // Vehicle has no `TotalThrust`; vacuum thrust lives on the flight computer's config.
+    double maxThrustN = (double)vehicle.FlightComputer.VehicleConfig.TotalEngineVacuumThrust;
+    double totalMass = (double)vehicle.TotalMass;
+    return totalMass > 0.0 ? maxThrustN / totalMass : 0.0;
 }
 ```
 

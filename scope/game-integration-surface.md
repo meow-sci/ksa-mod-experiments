@@ -1,0 +1,800 @@
+# Game Integration Surface — master index (unscience KSA mod suite)
+
+Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bearing game-shipped
+Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the 11 per-area `scope/`
+files. Use it on every KSA update to find which mods a changed game member puts at risk.
+
+**Verification baseline:** cataloged against KSA build **2026.6.9.4750**
+(`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`), diffed from **2026.6.8.4680**
+(`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`). Decomp paths are
+relative to the decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-row detail
+and the exact 4680↔4750 diff live in the linked area scope files.
+
+---
+
+## How to use on a game update
+
+- **Re-grep each row's Decomp path in the new build.** If a member moved only (line shift), it's fine;
+  if it was renamed / removed / re-signatured / moved namespace, every mod in that row's **Used by**
+  column is at risk — open the cited area scope file and the **Mod code ref** to assess.
+- **Prioritize the string-reflection watchlist (section 4) first.** Those lookups are NOT compile-checked,
+  so a game rename breaks them **silently at runtime** (no build error). They are the highest-value checks.
+- **Then rebuild the solution (`dotnet build`) to catch typed breaks.** Any row marked *direct API /
+  typed* that changed signature surfaces as a compile error; the build is the safety net for everything
+  in section 3 that is not string-based.
+- **Check the shaders & assets subtable (section 5) by reading the shipped files**, not just the C#:
+  several mods edit GLSL by anchor-string and depend on asset ids — a shader refactor breaks them with
+  no C# change (humble-arteest Vehicle Paint and mesh-deform are already broken this way).
+- **Watch the Harmony keystones** that fan out to many mods: `Universe.ExecuteNextVehicleSolvers`,
+  `GameSettings.OnKeyAll` (HotkeyGuard), the three `*Module.UpdateRenderData` render prefixes,
+  `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData`, and the `VehicleProvider` enumeration
+  chain — one change here breaks several mods at once.
+
+Status legend: **OK** unchanged 4680→4750 · **CHANGED** signature/shape changed · **BROKEN** non-functional
+against 4750 (compile or silent runtime) · **ADDITIVE** new in 4750, not yet consumed.
+
+---
+
+## 3. Master table — by game type
+
+> "Used by" lists every consuming mod (merged). Members reached through `ksa-abstractions.lib` helpers
+> (`VehicleProvider`/`CelestialProvider`/`SimTimeProvider`/`PartHelpers`/`HotkeyGuard`/`IvaForceRender`)
+> note the helper. Nested types are rows under their owner's subheader.
+
+### KSA.AnimatedRenderable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `SetAnimation(IAnimation, float blend=0.2f)` | direct API | `KSA/AnimatedRenderable.cs:97` | kitten-animations | `kitten-animations.lib/KittenAnimationController.cs:79` | OK | body/MMU/walk playback |
+| `AnimProcessors : List<IAnimProcessor>` | direct API | `KSA/AnimatedRenderable.cs:41` | kitten-animations | `KittenAnimationController.cs:115` | OK | `.OfType<CatExpressionAnim>().LastOrDefault()` |
+| `MaterialIndices : protected int[]` | reflection-field | `KSA/AnimatedRenderable.cs:33` | doh | `doh.lib/Spawning/KittenSpawner.cs:388-408` | OK | in-place handle swap (CharacterModel) |
+
+### KSA.AssetManager<T>
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AssetMap : protected ConcurrentDictionary<AssetName,T>` | reflection-field (hierarchy) | `KSA/AssetManager.cs:11` | doh, humble-arteest | `doh.lib/Materials/MaterialSystemAccessor.cs:68`; `humble-arteest.lib/KittenColor.cs:56-74` | OK | walks base types |
+| `GetOrLoad(AssetName) : T` | reflection-method | `KSA/AssetManager.cs:49` | doh | `MaterialSystemAccessor.cs:82,152` | OK | returns `GpuObjectAssetRef` |
+
+### KSA.Asteroid / KSA.Comet
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Asteroid : MinorBody` / `Comet : MinorBody` (type, `is not Asteroid and not Comet`) | direct API (typecheck) | `KSA/Asteroid.cs:3`, `KSA/Comet.cs:3` | marque | `marque.lib/MarqueLib.cs:56,114,157-159` | OK | "Planetoids" filter |
+
+### KSA.Astronomical
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Id : virtual string { get; protected set; }` (via `IObjectId`) | direct API | `KSA/Astronomical.cs:85` | VehicleProvider (→ most mods), eternal-flame, garrys-torch, i-feel-seen, kitchen-sink, marque, steely-eyed, unladen-swallow | `ksa-abstractions.lib/VehicleProvider.cs:22`; `eternal-flame.lib/EternalFlameLib.cs:74` | OK | `Vehicle.Id` resolves here (not declared on `Vehicle`) |
+
+### KSA.AtmosphereReference / KSA.PhysicalAtmosphereReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `IParentBody.GetAtmosphereReference() : AtmosphereReference?` | direct API | `KSA/Vehicle.cs:2221` (call site) | steely-eyed | `…lib/Telemetry/VehicleTelemetry.cs:50` | OK | null on airless bodies |
+| `PhysicalAtmosphereReference.Physical.Height : DistanceReference` | direct API | `KSA/PhysicalAtmosphereReference.cs:23` | steely-eyed | `VehicleTelemetry.cs:52` | OK | |
+| `GetAtmosphericPressureAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:80` | steely-eyed | `VehicleTelemetry.cs:101` | OK | in try/catch |
+| `GetAtmosphericDensityAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:85` | steely-eyed | `VehicleTelemetry.cs:102` | OK | |
+
+### KSA.Battery
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Battery` (type, `Get<Battery>()`) | direct API | `KSA/Battery.cs:7` | its-so-shiny | `its-so-shiny.lib/ShinyGridBuilder.cs:205,211` | OK | battery anchors for power partitioning |
+| `Refill(ref BatteryState state) : void` | direct API | `KSA/Battery.cs:59` | eternal-flame | `eternal-flame.lib/EternalFlameLib.cs:137` | OK | insulates mod from rev-4681 electrical refactor (body unchanged) |
+| `MaximumCapacity : required Joules` | direct API (indirect) | `KSA/Battery.cs:21` | eternal-flame | via `Refill` | OK | read only inside `Refill`; mod never names `Joules` |
+
+### KSA.Camera
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `_fovRadians : private float` | reflection-field (PRIVATE) | `KSA/Camera.cs:47` | glass | `glass.lib/GlassPatches.cs:20,62` | OK | **single highest-risk glass check — string private field; rename = silent FOV break.** PASSED 4750 |
+| `ChangeFieldOfView(float change) : void` | Harmony pre + reflection-method (string) | `KSA/Camera.cs:418` | glass | `GlassPatches.cs:25,28` | OK | prefix returns false (skip) when override active |
+| `UpdateProjection() : void` | Harmony pre + reflection-method (string) | `KSA/Camera.cs:434` | glass | `GlassPatches.cs:26,29` | OK | injects `_fovRadians`, then original rebuilds projection |
+| `GetFieldOfView() : float` (RADIANS) | direct API | `KSA/Camera.cs:702` | glass | `glass.lib/FovController.cs:42` | OK | getter returns radians; setter takes degrees (asymmetry) |
+| `SetFieldOfView(float fovDegrees) : void` | direct API | `KSA/Camera.cs:402` | glass | `FovController.cs:55` | OK | |
+| `GetPositionEgo(IPosition) : double3` | direct API | `KSA/Camera.cs:213` | i-feel-seen | `i-feel-seen.lib/IFeelSeenPatches.cs:57` | OK | |
+| `Following : IFollowable? { get; }` | direct API | `KSA/Camera.cs:140` | camera-controller-override, space-tape | `…/Animation/AnimationHelpers.cs:33`; `space-tape.lib/PartEditorScene.cs:106-107` | OK | |
+| `LookAtRotation(double3 fwdEcl, double3 upEcl) : doubleQuat` (static) | direct API | `KSA/Camera.cs:180` | camera-controller-override | `AnimationHelpers.cs:46`; `Animation/Animations/Spiral*Animation.cs` | OK | |
+| `SetFollow(IFollowable, bool, bool, bool alert) : void` | direct API | `KSA/Camera.cs` | space-tape | `space-tape.lib/PartEditorScene.cs:106-107` | OK | `alert:false` avoids "Following…" spam |
+| `ScreenToEgoRay(double2) : Ray` | direct API | `KSA/Camera.cs` | space-tape | `space-tape.lib/PartEditorInteraction.cs:86` | OK | hover/click select |
+| `MVP.viewProjection` | direct (render) | `KSA/Camera.cs` (used `Program.cs:2394`) | thug-life | `thug-life.lib/ThugLifeQuadRenderer.cs:238,263` | OK | per-frame quad MVP |
+
+### KSA.CameraMode
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CameraMode.IVA` (enum) | enum | `KSA/CameraMode.cs:14` | IvaForceRender (kitchen-sink, space-tape) | `ksa-abstractions.lib/IvaForceRender.cs:102` | OK | compared vs `Viewport.Mode` |
+
+### KSA.CatExpressionAnim
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CatExpressionAnim : CatPostAnim` (type) | direct API | `KSA/CatExpressionAnim.cs:8` | kitten-animations | `KittenAnimationController.cs:48,98,100` | OK | file byte-identical 4680↔4750 |
+| `ExpressionAnim : AnimationAssetRef?` | direct API | `KSA/CatExpressionAnim.cs:14` | kitten-animations | `KittenAnimationController.cs:98` | OK | |
+| `ExpressionWeight : float` | direct API | `KSA/CatExpressionAnim.cs:12` | kitten-animations | `KittenAnimationController.cs:100` | OK | eased per frame |
+| `_expressionPose : TransformTRS[]? (private)` | reflection-field (cached FieldInfo) | `KSA/CatExpressionAnim.cs:16` | kitten-animations | `KittenAnimationController.cs:14-16,120-128` | OK | set null to bust sampled-pose cache |
+
+### KSA.CatFurRenderable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `MaterialIndices : protected int[]` | reflection-field | `KSA/CatFurRenderable.cs:22` | doh | `KittenSpawner.cs:388-408,523-537` | OK | fur material handle swap |
+
+### KSA.Celestial
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Celestial : Astronomical, IOrbiter,…` (type) | direct API | `KSA/Celestial.cs:19` | CelestialProvider (→ kiwis-marbles, marque) | `ksa-abstractions.lib/CelestialProvider.cs:12` | OK | `OfType<Celestial>()` |
+| `SetOrbit(Orbit newOrbit)` | direct API | `KSA/Celestial.cs:139` | kiwis-marbles | `kiwis-marbles…/CelestialWeldEngine.cs:39` | OK | core re-parent + reposition |
+| `UpdatePerFrameData() : void` (override) | direct API | `KSA/Celestial.cs:509` | kiwis-marbles | `CelestialWeldEngine.cs:40` | OK | refresh CCI/CCE after SetOrbit |
+| `OrbitColor : byte4 { get; protected set; }` (via IOrbiter) | direct API | `KSA/Celestial.cs:63`; `KSA/IOrbiter.cs:24` | kiwis-marbles | `CelestialWeldEngine.cs:36` | OK | orbit line color |
+| `Orbit : Orbit { get; set; }` | direct API | `KSA/Celestial.cs:57` | kiwis-marbles | `KiwisMarblesSubmod.cs:422` | OK | saved for restore |
+| `MeanRadius : double` (override) | direct API | `KSA/Celestial.cs:77` | kiwis-marbles | `KiwisMarblesSubmod.cs:146,321,334` | OK | surface placement only |
+
+### KSA.CelestialSystem
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `All : LookupCollection<Astronomical>` | direct API | `KSA/CelestialSystem.cs:57` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11-12` | OK | shared enumerator root |
+| `GetWorldSun() : StellarBody` | direct API | `KSA/CelestialSystem.cs` (call `Universe.cs:173`) | marque | `marque.lib/MarqueLib.cs:93` | OK | root of celestial tree |
+| `Deregister(Vehicle)` | direct API | `KSA/CelestialSystem.cs` | doh | `KittenSpawner.cs:62,67,68` | OK | despawn |
+| `All.TryGet(string, out Astronomical)` (LookupCollection) | direct API | `KSA/CelestialSystem.cs` | doh | `KittenSpawner.cs:62` | OK | despawn lookup |
+
+### KSA.CharacterAvatar (+ nested CharacterCore)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Core : CharacterCore` (public **struct** field) | reflection-field | `KSA/CharacterAvatar.cs:204` | garrys-torch, doh, kitten-animations | `garrys-torch.lib/WeldEngine.cs:172-173,182`; `KittenSpawner.cs:388-408`; `KittenAnimationController.cs:79` | OK | garrys uses `GetField("Core")` + `SetValue` — correct only while `Core` is a value-type field |
+| `CharacterCore.Scale : float = 0.01f` (field) | reflection-field | `KSA/CharacterAvatar.cs:33` | garrys-torch | `WeldEngine.cs:176-188` | OK | avatar uniform scale (`factor*0.01f`) |
+| `Core.CharacterModel : AnimatedRenderable` | direct API | `KSA/CharacterAvatar.cs:31` | doh, kitten-animations | `KittenSpawner.cs:388-408`; `KittenAnimationController.cs:79` | OK | `.MaterialIndices` (doh), `.SetAnimation` (kitten) |
+| `Core.Fur.CatFurRenderable` / `Core.Attachments.{Helmet,Mmu}` (field path) | reflection-field path | `KSA/CharacterAvatar.cs` | doh | `KittenSpawner.cs:388-408,523-537` | OK | helmet/visor/mmu mesh `MaterialIndices` |
+| `Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | direct API | `KSA/CharacterAvatar.cs:187-195` | kitten-animations | `KittenAnimationsSubmod.cs:75-102` | OK | random pick per click |
+| `Animations.MmuAnimations.{MmuIdleDefault, MmuMove L/R/Fwd/Back/Up/Down LoopAnim} : AnimationAssetRef?` | direct API | `KSA/CharacterAvatar.cs:155-172` | kitten-animations | `KittenAnimationsSubmod.cs:127-149` | OK | |
+| `Animations.WalkingAnimations.{RunningAnim, WalkingAnim} : AnimationAssetRef?` | direct API | `KSA/CharacterAvatar.cs:174-179` | kitten-animations | `KittenAnimationsSubmod.cs:174,180` | OK | |
+
+### KSA.CharacterReference / KSA.CharacterTexturesReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CharacterReference.CharacterTextures : CharacterTexturesReference` | direct API | `KSA/CharacterReference.cs:32` | doh | `doh.lib/Materials/MaterialFactory.cs:382,390` | OK | file byte-identical |
+| `CharacterTexturesReference.{CharacterBodyMaterial, CharacterHeadMaterial, CharacterEyeMaterial} : PbrMaterialReference` | reflection-field | `KSA/CharacterTexturesReference.cs:9,12,15` | doh | `MaterialFactory.cs:406-408` | OK | file byte-identical |
+
+### KSA.CharacterRenderSystem / KSA.CharacterRenderResources
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Program.CharacterRenderSystem` → `_resources : CharacterRenderResources` → `.FurTexture/.CatFurMaskTexture` (`.BindlessHandle`), `.FurSampler` (`.BindlessIndex`) | reflection-field | `KSA/CharacterRenderSystem.cs:7`; `KSA/CharacterRenderResources.cs:24-30` | doh | `MaterialFactory.cs:504-525` | OK | fur `ExtraData` handles; file diff is internal shader wiring only (rev 4745) |
+
+### KSA.ColorRgbReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `R / G / B : float` | reflection-field (string) | `KSA/ColorRgbReference.cs:10,13,16` | zippo (unreachable, see Color bug), red-alert | `LightController.cs:61-63,82-86`; `red-alert.lib/LightActions.cs:83-86` | OK | red-alert path works; zippo path dead due to `Color` bug |
+| `OnDataLoad(Mod) : void` | reflection-method (string) | `KSA/ColorRgbReference.cs:35` | zippo, red-alert | `LightController.cs:82-86`; `LightActions.cs:83-86` | OK | 1-arg (`new object?[]{null}`); recomputes `Value` |
+
+### KSA.Connection (nested in Part)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Connection.Connect(IConnector, IConnector)` | direct API | `KSA/Part.cs:285` | blinky, its-so-shiny | `blinky.lib/LcdGridBuilder.cs:352`; `its-so-shiny.lib/ShinyGridBuilder.cs:221` | OK | takes `IConnector` (Part implements), not `(Part,Part)` |
+| `Connection.Disconnect()` | direct API | `KSA/Part.cs:301` | blinky, its-so-shiny | `LcdGridBuilder.cs:216`; `ShinyGridBuilder.cs:131` | OK | |
+| `Connection.OtherPart(Part)` | direct API | `KSA/Part.cs:264` | blinky (debug), flexo | `BlinkySubmod.cs:645`; `flexo.lib/Runtime/FlexoRuntime.cs:114-117` | OK | |
+
+### KSA.Controller (+ OrbitController / FlyController)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OrbitController.OnFrame(Viewport, double inDeltaTime) : override void` | Harmony pre + reflection-method (string "OnFrame") | `KSA/OrbitController.cs:375` | camera-controller-override | `camera-controller-override.lib/CameraControllerOverridePatches.cs:25,29` | OK | bound to `KSA.OrbitController` via `using KSA;` (NOT RenderCore family) |
+| `FlyController.OnFrame(Viewport, double inDeltaTime) : override void` | Harmony pre + reflection-method (string) | `KSA/FlyController.cs:417` | camera-controller-override | `CameraControllerOverridePatches.cs:26,31` | OK | |
+| `Controller` (base, `__instance`) | direct API | `KSA/Controller.cs:8` | camera-controller-override | `CameraControllerOverridePatches.cs:42` | OK | |
+| `Controller.Camera : Camera` (field) | direct API (read chain) | `KSA/Controller.cs:12` | camera-controller-override | `AnimationHelpers.cs:33` | OK | the real camera field (NOT `Transform`) |
+| **field `Transform` (`___Transform` injector)** | Harmony field-injection (by name) | `KSA/Controller.cs` (NO such field) | camera-controller-override | `CameraControllerOverridePatches.cs:42,48` | **BROKEN** | no `Transform` field on KSA controllers in 4680 OR 4750 → `Apply` throws (swallowed) → animation prefix never attaches. Pre-existing, not a 4750 regression. Fix: inject `Camera ___Camera` |
+
+### KSA.DistanceReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `InMeters() : double` | direct API | `KSA/DistanceReference.cs:148` | steely-eyed | `VehicleTelemetry.cs:52` | OK | atmosphere height |
+| `PartTemplate.Diameter : DistanceReference` (rev 4721) | direct API | `KSA/PartTemplate.cs:76-77` | space-tape (R3, not written) | — | ADDITIVE | mod never writes `<Diameter>`; mod-built parts miss size-filtered lists |
+
+### KSA.EVADoor
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CreateKittenEva(Vehicle)` (pattern mirrored, not called) | direct API (pattern) | `KSA/EVADoor.cs:84` | doh | `doh.lib/Spawning/KittenSpawner.cs:13-21` | OK | doh replicates this spawn shape |
+
+### KSA.EditorTag
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `EditorTag.Tag : readonly string` (record struct) | direct API | `KSA/EditorTag.cs` | space-tape | `space-tape.lib/PartImporter.cs` | OK | still compiles; but registered-tag set drifted (rev 4731/4741 — "Interstage" removed as category; R2) |
+
+### KSA.EngineController
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `SetIsActive(Vehicle?, bool)` | direct API | `KSA/EngineController.cs:46` | blinky | `blinky.lib/BlinkyGridManager.cs:224,252,266` | OK | pixel on/off (called with `null` vehicle) |
+| `IsActive : bool { get; }` | direct API | `KSA/EngineController.cs:24` | blinky | `blinky.lib/NonLcdEngineCache.cs:36` | OK | |
+| `MinimumThrottle : float (settable)` | direct API | `KSA/EngineController.cs` | blinky | `LcdGridBuilder.cs:472` | OK | |
+| `Cores : RocketCore[]` | direct API (debug) | `KSA/EngineController.cs:18` | blinky | `BlinkySubmod.cs:612-618` | OK | diagnose button only |
+
+### KSA.FlightComputer (+ nested VehicleConfigInfo)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Vehicle.FlightComputer : FlightComputer { get; private set; }` | direct API | `KSA/Vehicle.cs:415` | average-twr, blinky (debug) | `average-twr.lib/TwrDataReader.cs:17`; `BlinkySubmod.cs:612-618` | OK | |
+| `FlightComputer.VehicleConfig : VehicleConfigInfo { get; private set; }` | direct API | `KSA/FlightComputer.cs:101` | average-twr | `TwrDataReader.cs:17` | OK | |
+| `VehicleConfigInfo.TotalEngineVacuumThrust : float` (field) | direct API | `KSA/FlightComputer.cs:19` | average-twr | `TwrDataReader.cs:17` | OK | sum of engine vacuum thrust (N) |
+
+### KSA.FloatReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Value : float` | reflection-field (string) | `KSA/FloatReference.cs:9` | zippo | `zippo.lib/LightController.cs:50,71` | OK | light `Intensity.Value` read/write — works |
+
+### KSA.FlowRule
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `FlowRule` (enum) + `ResourceManager.FlowRule` | direct API (debug) | `KSA/FlowRule.cs` | blinky | `BlinkySubmod.cs:612-618` | OK | diagnose button only |
+
+### KSA.GameSettings
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OnKeyAll(GlfwKeyEvent) : static bool` | Harmony pre (HotkeyGuard) + reflection-method (`nameof`) | `KSA/GameSettings.cs:2379` | **ALL top-level mods via HotkeyGuard** (marque ships a local copy) | `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | OK | suite-wide chokepoint; prefix `ref bool __result` swallows key while typing |
+| `GameSettings.Current.Graphics.PartThumbnailSize : ushort` | direct API | `KSA/GameSettings.cs` | space-tape | `space-tape.lib/Thumbnails/*` | OK | thumbnail size (rev 4696) |
+
+### KSA.GaugeCanvas
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OnDrawMenuBar() : static void` | Harmony pre | `KSA/GaugeCanvas.cs:809` | marque | `marque/Patcher.cs:39-44` | OK | renders View-menu "Marque" submenu |
+| `_canvases : static List<GaugeCanvas>` (NonPublic+Static) | reflection-field (string) | `KSA/GaugeCanvas.cs:20` | con-man | `con-man.lib/GaugeStateAccessor.cs:28` | OK | **required** (IsValid gate) |
+| `_enabled : bool` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:63` | con-man | `GaugeStateAccessor.cs:29` | OK | **required** |
+| `_customOffset : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:54` | con-man | `GaugeStateAccessor.cs:30` | OK | **required** |
+| `_customScale : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:56` | con-man | `GaugeStateAccessor.cs:31` | OK | **required** |
+| `_windowPosition : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:50` | con-man | `GaugeStateAccessor.cs:32` | OK | optional (degrades to Zero) |
+| `_windowSize : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:52` | con-man | `GaugeStateAccessor.cs:33` | OK | optional (degrades to (100,100)) |
+| `_windowTitle : string` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:37` | con-man | `GaugeStateAccessor.cs:34` | OK | optional (skips reposition if null) |
+
+### KSA.GenericGizmo
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GenericGizmo(MeshReference, IGizmoRenderData, int)` ctor; `.GetSegmentDataByViewport(Viewport) : PerSegmentData[]`; `Static.GenericGizmoRenderData`; `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | render-pass | `KSA/GenericGizmo.cs:208,277,15,170` | space-tape, flexo | `space-tape.lib/ConnectorGizmo.cs:27-34`; `flexo.lib/Editor/FlexoEditorScene.cs` | OK | connector cubes/arrows + transform gizmos |
+
+### KSA.GltfPbrSystem
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `SuperMeshRenderSystem.GltfSystem`; `GltfPbrSystem.BlankMaterialTexture.BindlessHandle` | reflection-field | `KSA/GltfPbrSystem.cs:31` | doh | `MaterialFactory.cs:541-577,592-593` | OK | default-texture fallback |
+
+### KSA.GpuObjectAssetRef
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `.Handle : int` | reflection-field | `KSA/GpuObjectAssetRef.cs` | doh | `MaterialSystemAccessor.cs:155,184,250` | OK | map name→buffer index |
+
+### KSA.GpuObjectSystem<T>
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `BigBuffer : BufferEx` (public get/protected set) | reflection-field | `KSA/GpuObjectSystem.cs:18` | doh, humble-arteest | `MaterialSystemAccessor.cs:72`; `KittenColor.cs:192-216` | OK | GPU material buffer |
+| `DeviceCtx : IVulkanContext` (protected) | reflection-field (hierarchy) | `KSA/GpuObjectSystem.cs:16` | doh, humble-arteest | `MaterialSystemAccessor.cs:76`; `KittenColor.cs:56-74` | OK | |
+| `CreateObject(AssetName, T) : bool` | reflection-method (hierarchy) | `KSA/GpuObjectSystem.cs:45` | doh | `MaterialSystemAccessor.cs:79,124` | OK | clone material |
+
+### KSA.GpuTextureSystem
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GetOrLoad`; `{SamplerRepeatHandle, DefaultWhiteTexture, DefaultBlackTexture}` | reflection-field/method | `KSA/GpuTextureSystem.cs:26,32,34` | doh | `MaterialSystemAccessor.cs:85-91`; `MaterialFactory.cs:541-577` | OK | texture bindless lookup; file byte-identical |
+
+### KSA.IFollowable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OrbitView` → `OrbitView.Azimuth/Elevation` | direct API | `KSA/OrbitView.cs`; `KSA/IFollowable.cs` | space-tape | `space-tape.lib/CameraSnapController.cs:75-86` | OK | snap views write azimuth/elevation |
+
+### KSA.IOrbiter
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `IOrbiter` (type) | direct API | `KSA/IOrbiter.cs:10` | CelestialProvider (→ kiwis-marbles, marque) | `CelestialProvider.cs:16` | OK | celestials + vehicles |
+| `Parent : IParentBody { get; }` | direct API | `KSA/IOrbiter.cs:18` | kiwis-marbles | `CelestialWeldEngine.cs:21,26` | OK | null-checked |
+| `Orbit : Orbit { get; }` | direct API | `KSA/IOrbiter.cs:16` | kiwis-marbles | `CelestialWeldEngine.cs:21` | OK | |
+| `GetPositionCci() : double3` | direct API | `KSA/IOrbiter.cs:52` | kiwis-marbles | `CelestialWeldEngine.cs:24` | OK | (concrete `Vehicle.GetPositionCci` is a separate row) |
+| `GetVelocityCci() : double3` | direct API | `KSA/IOrbiter.cs:66` | kiwis-marbles | `CelestialWeldEngine.cs:25` | OK | |
+| `ShowOrbit : ref bool { get; }` (set) | direct API | `KSA/IOrbiter.cs:20` | marque | `marque.lib/MarqueLib.cs:49,84` | OK | `ref bool` property assignment |
+
+### KSA.IParentBody
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GetCci2Cce() : doubleQuat` | direct API | `KSA/IParentBody.cs:47` | garrys-torch | `garrys-torch.lib/WeldEngine.cs:75` | OK | called on `Vehicle.Parent` |
+| `Mass : double { get; }` | direct API (dead path) | `KSA/IParentBody.cs:11` | average-twr (dead) | `average-twr.lib/TwrDataReader.cs:12` | OK | `ComputeSurfaceGravity` not on sampling path |
+| `MeanRadius : double` (via IRadius) | direct API | `KSA/IRadius.cs:5` (steely cite `Vehicle.cs:482`) | average-twr (dead), steely-eyed | `TwrDataReader.cs:11`; `VehicleTelemetry.cs:47` | OK | Ap/Pe altitude (steely); dead path (average-twr) |
+| `Children` (add/enumerate) | direct API | `KSA/IParentBody.cs` | doh, marque | `KittenSpawner.cs:174`; `MarqueLib.cs:99,126-135` | OK | spawn parent / SOI tree walk |
+| `Id` (via IObjectId) | direct API | `KSA/IParentBody.cs`, `KSA/Astronomical.cs` | steely-eyed | `VehicleTelemetry.cs:46` | OK | SOI-change key |
+
+### KSA.IPosition
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GetPositionEcl() : double3` (base of IFollowable) | direct API | `KSA/IPosition.cs:7` | camera-controller-override | `AnimationHelpers.cs:33` | OK | target-tracking; reached only when `___Transform` fixed (dead) |
+
+### KSA.JobSystems
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `VehicleSolvers : static JobScheduler` → `JobScheduler.Wait()` | direct API | `KSA/JobSystems.cs:11` | garrys-torch | `garrys-torch.lib/GarrysTorchSubmod.cs:93` | OK | drains in-flight vehicle workers before teleport (race-avoidance) |
+
+### KSA.KSAColor
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Xkcd` (nested static class, reflected `GetProperties`) → `Color.Preset` | reflection-type | `KSA/KSAColor.cs:23` | XkcdColorHelper (→ zippo, doh palettes) | `ksa-abstractions.lib/XkcdColorHelper.cs:22,29` | OK | breaks only if `Xkcd` removed or `Color.Preset→float4` conversion dropped |
+| `Xkcd.Scarlet`, `Xkcd.PaleGrey : Color.Preset` | direct API | `KSA/KSAColor.cs:1561,837` | garrys-torch, red-alert, skittles, con-man | `GarrysTorchSubmod.cs:333-334`; `red-alert…RedAlertSubmod.cs:128,129`; `skittles…SkittlesSubmod.cs:108-109`; `ConManSubmod.cs:125-126` | OK | button accents (cosmetic) |
+
+### KSA.KeyframeAnimationModule
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `ShowDeployRetract : bool` (field) | direct API | `KSA/KeyframeAnimationModule.cs:82` | red-alert | `red-alert.lib/ActionScanner.cs:51` | OK | deploy/retract vs continuous actuate |
+| `TimeGoal : float` (field) | direct API | `KSA/KeyframeAnimationModule.cs:76` | red-alert | `ActionExecutor.cs:92,101` | OK | actuation driver |
+| `Shared : KeyframeAnimationData` (field) → `.Duration` | direct API | `KSA/KeyframeAnimationModule.cs:74` | red-alert | `ActionExecutor.cs:92,101` | OK | |
+
+### KSA.KinematicMeasurements
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AccelerationBody : double3` (field, backs `Vehicle.AccelerationBody`) | direct API | `KSA/KinematicMeasurements.cs:9` | geeforce, steely-eyed | `geeforce.lib/GForceRecorder.cs:96`; `VehicleTelemetry.cs:81` | OK | body-frame proper accel |
+
+### KSA.KittenEva
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `KittenEva` (type; `GetType().Name=="KittenEva"` / `is KittenEva`) | reflection-type (string, garrys) | `KSA/KittenEva.cs:7` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:161`; `KittenSpawner.cs`; `KittenAvatarAccessor.cs:11` | OK | garrys string-compares the type name (silent break if renamed) |
+| `_renderable : private KittenRenderable` | reflection-field (string) | `KSA/KittenEva.cs:9` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:165`; `KittenSpawner.cs:506`; `KittenAvatarAccessor.cs:24-25` | OK | avatar root chain |
+| `new KittenEva(CelestialSystem, string, doubleQuat, double3, IParentBody, string, Part, Orbit)` | direct API (ctor) | `KSA/KittenEva.cs:27` | doh | `KittenSpawner.cs:156` | OK | 8-arg ctor |
+| `Teleport(Orbit?, doubleQuat?, double3?)` (inherited Vehicle) | direct API | `KSA/Vehicle.cs:1594` | doh | `KittenSpawner.cs:171` | OK | (shared with `Vehicle.Teleport`) |
+| `IsControllable => true` (override) | enum/behavioral | `KSA/KittenEva.cs:15` | (informational) | — | ADDITIVE | new rev 4699; spawned/controlled kittens now controllable |
+
+### KSA.KittenRenderable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `_characterAvatar : private CharacterAvatar` | reflection-field (string) | `KSA/KittenRenderable.cs:10` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:168`; `KittenSpawner.cs:513`; `KittenAvatarAccessor.cs:24-25` | OK | second link in avatar chain |
+
+### KSA.LightModule (+ nested TemplateData)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `"KSA.LightModule+TemplateData"` (nested type by full name) | reflection-type (string) | `KSA/LightModule.cs:12` | zippo | `zippo.lib/LightController.cs:39` | OK | hard-coded full name; rename → zero light parts |
+| `LightModule` (type, `Get<LightModule>()`) | direct API | `KSA/LightModule.cs` | red-alert, its-so-shiny (via ZippoLib) | `ActionScanner.cs:68`; `LightActions.cs:51` | OK | |
+| `LightModule.Template : TemplateData` (public field, assigned) | direct API | `KSA/LightModule.cs:59` | red-alert | `LightActions.cs:64,72,73` | OK | per-instance unshare swaps cloned TemplateData; must stay writable field |
+| `TemplateData.Intensity : FloatReference` (field) | reflection-field (string) | `KSA/LightModule.cs:30` | zippo | `LightController.cs:50,71` | OK | works |
+| `TemplateData.ColorRgb : ColorRgbReference` (field) | reflection-field (zippo) / direct (red-alert) | `KSA/LightModule.cs:33` | zippo (intended), red-alert | `LightController.cs` (intended); `LightActions.cs:58,71` | OK | red-alert uses it correctly |
+| `TemplateData` field **`"Color"`** (no such field) | reflection-field (string) | `KSA/LightModule.cs:33` (actual field is `ColorRgb`) | zippo | `LightController.cs:59,80` | **BROKEN** | `GetField("Color")`→null ⇒ color get/set silent no-op. Pre-existing in 4680 AND 4750 (not a regression). Fix: `"Color"`→`"ColorRgb"` |
+
+### KSA.LookupCollection<T>
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `UnsafeAsList() : List<T>` | direct API | `KSA/LookupCollection.cs:210` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15` | OK | then LINQ `OfType<Vehicle>/<Celestial>/<IOrbiter>` |
+
+### KSA.MaterialData
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `MaterialData` (`[StructLayout(Sequential,Pack=1)]`; `AlbedoColor` @offset **16**) | direct API + GPU write | `KSA/MaterialData.cs:6-23` | doh, humble-arteest (KittenColor) | `MaterialFactory.cs:247-257`; `KittenColor.cs:192-216` | OK | **byte-identical**; staged Vulkan write at `handle*80+16` stays correct |
+
+### KSA.MeshReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `MeshReference.{PositionCompare, BoundingSphereRadius}` | direct API | `KSA/MeshReference.cs` | space-tape | `space-tape.lib/PartEditorScene.cs:246-280` | OK | MeshView for raycasting |
+
+### KSA.MeshViewModule
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `new MeshViewModule(string, MeshReference)` | direct API (ctor) | `KSA/MeshViewModule.cs` | space-tape | `PartEditorScene.cs:246-280` | OK | ensures MeshView for raycast |
+
+### KSA.ModLibrary
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music, space-tape | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114`; `MaterialFactory.cs:219`; `VehiclePaint.cs:158`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8`; `ConnectorGizmo.cs:28` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
+| `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, space-tape | `KittenSpawner.cs:322`; `space-tape.lib/PartCatalog.cs:20-28` | OK | `.Find(KeyHash)` (doh) / `.GetList()` (space-tape) |
+| `AllCharacters : internal static SerializedCollection<CharacterReference>` | reflection-field (string) | `KSA/ModLibrary.cs:90` | doh | `KittenSpawner.cs:347,354,357` | OK | character enumeration |
+
+### KSA.Module
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Module.Parent : required Part` | direct API | `KSA/Module.cs:268` | blinky, its-so-shiny | `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `FullPart => PartParent ?? this` |
+
+### KSA.ModuleList
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Get<T>() : Span<T>` | direct API | `KSA/ModuleList.cs:112` | red-alert, blinky, its-so-shiny, doh, humble-arteest, space-tape | `ActionScanner.cs:68`; `LcdGridBuilder.cs:327`; `ShinyGridBuilder.cs:205`; `KittenSpawner.cs:278-289`; `EngineEmissive.cs:123`; `PartEditorScene.cs:246-280` | OK | generic module accessor |
+
+### KSA.ModuleStateful (StateList + ModuleAndAllMutableStatesRef)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `StateList.NumModules : int` | direct API | `KSA/ModuleStateful.cs:251` | eternal-flame | `EternalFlameLib.cs:129` | OK | early-out when 0 |
+| `StateList.Modules : Span<TModule>` | direct API | `KSA/ModuleStateful.cs:243` | eternal-flame | `EternalFlameLib.cs:132` | OK | iterates `Battery[]` |
+| `StateList.GetModuleAndAllMutableStatesForInitialization(TModule) : ModuleAndAllMutableStatesRef` | direct API | `KSA/ModuleStateful.cs:508` | eternal-flame | `EternalFlameLib.cs:136` | OK | ref struct with `.Module`+`.State` |
+| `ModuleAndAllMutableStatesRef.Module / .State` | direct API | `KSA/ModuleStateful.cs:516` | eternal-flame | `EternalFlameLib.cs:137` | OK | `.Module.Refill(ref .State)` |
+
+### KSA.MusicPlayList
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `MusicPlayList : SoundReference` (type) | direct API | `KSA/MusicPlayList.cs:6` | byo-music | `byo-music.lib/MusicPlayer.cs:8` | OK | |
+| `PlayMusic(out ChannelWrapper?, ulong delaySamples=0)` | direct API | `KSA/MusicPlayList.cs:21` | byo-music | `MusicPlayer.cs:10` | OK | routes through `GameAudio.System` (FMOD) |
+
+### KSA.NavBallData
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Vehicle.NavBallData : ref readonly NavBallData` | direct API | `KSA/Vehicle.cs:528` | average-twr | `average-twr.lib/TwrDataReader.cs:6` | OK | `ref readonly` accessor |
+| `NavBallData.ThrustWeightRatio : double` (field) | direct API | `KSA/NavBallData.cs:21` | average-twr | `TwrDataReader.cs:6` | OK | 0 until flight computer populates |
+
+### KSA.Orbit
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CreateFromStateCci(IParentBody, SimTime, double3, double3, byte4) : static Orbit` | direct API | `KSA/Orbit.cs:1396` | garrys-torch, kiwis-marbles, doh | `WeldEngine.cs:121`; `CelestialWeldEngine.cs:31`; `KittenSpawner.cs:169,258` | OK | 5-arg state-vector factory; arg order/types must hold |
+| `OrbitLineColor : byte4` (field) | direct API | `KSA/Orbit.cs:1062` | garrys-torch, doh | `WeldEngine.cs:126`; `KittenSpawner.cs` | OK | |
+| `{Apoapsis, Periapsis, Eccentricity, Inclination, Period, SemiMajorAxis} : double` | direct API | `KSA/Orbit.cs` (exercised `IOrbiter.cs:97-106`) | steely-eyed | `VehicleTelemetry.cs:64-73` | OK | all `double.IsFinite`-guarded |
+| `StateVectors.{PositionCci, VelocityCci}` | direct API | `KSA/Orbit.cs` | doh | `KittenSpawner.cs:231,239-242` | OK | spawn positioning |
+
+### KSA.OrbitLinePass
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AddLineVertex(Viewport, float3, byte4)` + `AddLineEnd(Viewport)` (static) | render-pass | `KSA/OrbitLinePass.cs:284,275` | space-tape, flexo | `CameraSnapController.cs:199-201`; `flexo.lib/Editor/FlexoCameraSnap.cs` | OK | editor grid via orbit-line renderer |
+
+### KSA.Part (+ nested Connector)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Part` (type) | direct API | `KSA/Part.cs` | PartHelpers (→ many), unladen-swallow, blinky, space-tape… | `PartHelpers.cs:11`; `BlinkyGridScanEndpoint.cs:58` | OK | |
+| `new Part(string inName, PartTemplate, PartInstance?=null, Part?=null)` (ctor) | direct API | `KSA/Part.cs:765` | blinky, its-so-shiny, doh, space-tape | `LcdGridBuilder.cs:268`; `ShinyGridBuilder.cs:157`; `KittenSpawner.cs:278`; `PartEditorScene.cs:246-280` | OK | |
+| `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, mesh-deform | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:126`; `MeshDeformSubmod.cs:317-319` | OK | combo labels / pixel-id parsing |
+| `DisplayName : string { get; init; }` | direct API | `KSA/Part.cs:413` | zippo, red-alert, mesh-deform | `ZippoSubmod.cs`; `ActionScanner.cs:27`; `MeshDeformSubmod.cs:282` | OK | |
+| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, doh | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:120`; `FlexoRuntime.cs:47` | OK | feeds reflection/labels; `Template.Id` (SerializedId) |
+| `InstanceId : uint` | direct API | `KSA/Part.cs:321` | red-alert | `ActionScanner.cs:27,30` | OK | instance addressing |
+| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh, flexo), garrys-torch, thug-life, kitchen-sink, mesh-deform | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302` | OK | recursion key |
+| `SubParts` (settable touch for cache invalidation) | direct API | `KSA/Part.cs:655` | flexo | `HingeController.cs:168` | OK | re-assign to force cache invalidation (fragile, R-flexo-2) |
+| `FullPart : Part { get; }` | direct API | `KSA/Part.cs:659` | zippo, red-alert, blinky, its-so-shiny | `ZippoSubmod.cs:152`; `ActionExecutor.cs:80`; `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `=> PartParent ?? this` |
+| `IsSubPart : bool` | direct API | `KSA/Part.cs:657` | blinky | `LcdGridBuilder.cs:326` | OK | |
+| `Modules : ModuleList` (field) | direct API | `KSA/Part.cs:401` | red-alert, space-tape, humble-arteest | `ActionScanner.cs:68`; `PartEditorScene.cs:246-280`; `EngineEmissive.cs:123` | OK | `.Get<T>()` / `.Add(...)` |
+| `SubtreeModules : ModuleList` (field) | direct API | `KSA/Part.cs:409` | red-alert, blinky, doh | `ActionScanner.cs:50`; `LcdGridBuilder.cs:327`; `KittenSpawner.cs:278-289` | OK | anim/solar/tank discovery |
+| `LightSwitch : PowerConsumer?` (field) | direct API | `KSA/Part.cs:407` | zippo, red-alert, its-so-shiny | `ZippoSubmod.cs:152`; `LightActions.cs:41`; `ShinyPixelCell.cs:24` | OK | light on/off path |
+| `Connection : (nested type)` → see KSA.Connection | — | `KSA/Part.cs` | blinky, its-so-shiny, flexo | — | OK | (Connect/Disconnect/OtherPart rows under KSA.Connection) |
+| `Connections : List<Connection>` (field) | direct API | `KSA/Part.cs:391` | blinky, its-so-shiny, flexo | `LcdGridBuilder.cs:214`; `ShinyGridBuilder.cs:133`; `FlexoRuntime.cs:114-117` | OK | |
+| `Scale : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:499` | garrys-torch, blinky, its-so-shiny, space-tape | `WeldEngine.cs:200`; `LcdGridBuilder.cs:305`; `ShinyGridBuilder.cs:186`; `PartEditorScene.cs:246-280` | OK | setter resets cached pos matrix |
+| `PositionParentAsmb : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:449` (kitchen-sink cites backing `:333`) | blinky, its-so-shiny, space-tape, flexo, kitchen-sink | `LcdGridBuilder.cs:299`; `HingeController.cs:35`; `FlexoPartTest.cs:216` | OK | prefer `:449` (property); kitchen-sink/flexo touch backing field |
+| `Asmb2ParentAsmb : doubleQuat { get; set; }` | direct API (write) | `KSA/Part.cs:463` (kitchen-sink cites backing `:337`) | blinky, its-so-shiny, space-tape, flexo, kitchen-sink | `LcdGridBuilder.cs:302`; `HingeController.cs:34`; `FlexoPartTest.cs:217` | OK | core hinge rotation write |
+| `PositionVehicleAsmb : double3` (computed) | direct API | `KSA/Part.cs:415` | garrys-torch | `WeldEngine.cs:58` | OK | part-anchor position |
+| `Asmb2VehicleAsmb : doubleQuat` (computed) | direct API | `KSA/Part.cs:431` | garrys-torch | `WeldEngine.cs:61` | OK | part-anchor orientation |
+| `PositionEgo(ref readonly double4x4) : double3` | direct (render) | `KSA/Part.cs:677` | thug-life | `ThugLifeQuadRenderer.cs:267` | OK | per-frame model-ego |
+| `Asmb2Ego(doubleQuat) : doubleQuat` | direct (render) | `KSA/Part.cs:682` | thug-life | `ThugLifeQuadRenderer.cs:268` | OK | |
+| `BoundingBoxVehicleAsmb : (double3,double3) { get; set; }` + `ComputeBoundingBoxVehicleAsmb()` | direct API | `KSA/Part.cs:515,853` | flexo, kitchen-sink | `HingeController.cs:124`; `FlexoPartTest.cs:253` | OK | keep cached bounds coherent after move |
+| `TreeParent : Part?` | direct API | `KSA/Part.cs:385` | blinky, its-so-shiny | `LcdGridBuilder.cs:103-104`; `ShinyGridBuilder.cs:76-77` | OK | manual tree wiring |
+| `TreeChildren : List<Part>` (field) | direct API | `KSA/Part.cs:387` | blinky, its-so-shiny, flexo, kitchen-sink | `LcdGridBuilder.cs:228-230`; `HingeController.cs:201`; `FlexoPartTest.cs:227` | OK | sub-tree collection |
+| `SetStage(int)` / `Stage` (get) | direct API | `KSA/Part.cs:731,517` | blinky, its-so-shiny | `LcdGridBuilder.cs:124,127`; `ShinyGridBuilder.cs:87` | OK | |
+| `RayCastEgoSubPart(in double4x4, Ray, out …)` / `RayCastEgo(...)` / `Selected` | direct API | `KSA/Part.cs` | space-tape | `PartEditorInteraction.cs:105,116` | OK | hover/click select + native highlight |
+| `_matrixAsmb : private double4x4` | reflection-field (string) | `KSA/Part.cs:325` | space-tape | `PartEditorInteraction.cs:48`, `PartEditorUi.cs:48` | OK | cache-invalidation safety |
+| `_matrixAsmb2Parent : private double4x4` | reflection-field (string) | `KSA/Part.cs:339` | space-tape | `PartEditorUi.cs:50` | OK | cache-invalidation safety |
+| `Connector.TemplateBase.{Id, Transform, Flags}` + `Connector.Flag.{Internal, ToSurface, FromSurface}` (nested) | direct API (import) | `KSA/Part.cs:95-111` | space-tape | `space-tape.lib/PartImporter.cs` | OK | connector import; face-snap semantics drifted (R4) |
+| `Tree : PartTree` → `.ReinitializeDerivedValues/.RefillConsumables` | direct API | `KSA/Part.cs` | doh | `KittenSpawner.cs:278-289` | OK | backpack/propellant init |
+
+### KSA.PartModel (+ nested PerInstanceData, ViewportData)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AddInstance(PerInstanceData, Viewport, int frameIndex) : void` | Harmony pre (humble vehicle-paint, mesh-deform) + post (IvaForceRender) | `KSA/PartModel.cs:375` | humble-arteest (VehiclePaint), mesh-deform, IvaForceRender (kitchen-sink, space-tape) | `VehiclePaintPatches.cs:36`; `MeshDeformPatches.cs:51-60`; `IvaForceRender.cs:46` | OK | `PartModel.cs` byte-identical; 3-arg single overload |
+| `..ctor(PartModelModule.Template) : protected` | Harmony post (ctor, `AccessTools.Constructor`) | `KSA/PartModel.cs:351` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:42` | OK | explicit param-type array |
+| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `packing2`@76) | direct API (struct reinterpret) | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint), mesh-deform | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs:25-32`; `MeshDeformManager.cs:127-134` | OK | ⚠ humble `PaintR`@68 overwrites real `EmissiveColor`; mesh-deform reuses `packing1/2`@72-79 |
+| `ViewportData.Get(PartModel, Viewport) : ViewportData` → `.InstanceList.Add(...)` | direct API | `KSA/PartModel.cs:281,277` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:105` | OK | re-add internal instance to per-viewport draw list (editor) |
+| `Instances : static List<PartModel>` | direct API | `KSA/PartModel.cs:325` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:111` | OK | enumerated by `Enabled` setter |
+| `Template : PartModelModule.Template` (field) | direct API | `KSA/PartModel.cs:329` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113` | OK | |
+
+### KSA.PartModelDynamic (+ nested PerInstanceData)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AddInstance(PerInstanceData inInstanceData, Viewport, int) : void` | Harmony pre | `KSA/PartModelDynamic.cs:379` | humble-arteest (EngineEmissive) | `EngineEmissivePatches.cs:40,51` | OK | file byte-identical; param name `inInstanceData` matches |
+| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `Temperature`@68 · `TfiThickness`@72 · `packing1`@76) | direct API (struct reinterpret) | `KSA/PartModelDynamic.cs:309-319` | humble-arteest (EngineEmissive) | `EngineEmissivePatches.cs:29-36` | OK | mirror struct matches exactly (`Temperature`@68, `TfiThickness`@72) |
+
+### KSA.PartModelDynamicModule
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelDynamicModule.cs:55` | blinky, its-so-shiny | `BlinkyPatches.cs:27,31`; `ShinyPatches.cs:26,30` | OK | |
+| `PartModelDynamicModule.PartModelDynamic : required` | direct API | `KSA/PartModelDynamicModule.cs:32` | humble-arteest (EngineEmissive) | `EngineEmissive.cs:123,129,159` | OK | file identical |
+
+### KSA.PartModelGlassModule
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre | `KSA/PartModelGlassModule.cs:69` | blinky, its-so-shiny | `BlinkyPatches.cs:28,32`; `ShinyPatches.cs:27,31` | OK | 4745 merged ModelGlass+ModelEye shaders; C# class unchanged |
+
+### KSA.PartModelModule (+ nested Template, RaytracingMode)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelModule.cs:79` | blinky, its-so-shiny, mesh-deform | `BlinkyPatches.cs:26,30`; `ShinyPatches.cs:25,29`; `MeshDeformPatches.cs:34-43` | OK | game uses `Parent.FullPart.LightSwitch` here |
+| `Parent : Part` | direct API | `KSA/PartModelModule.cs:71` | mesh-deform | `MeshDeformPatches.cs:101` | OK | `__instance.Parent` |
+| `Template.Internal : bool` (field) | direct API (write) | `KSA/PartModelModule.cs:36` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113,125` | OK | flipped false to force interior render |
+| `Template.RayTracing : RaytracingMode` (field) | direct API | `KSA/PartModelModule.cs:30` | IvaForceRender | `IvaForceRender.cs:103` | OK | |
+| `RaytracingMode.ShadowProxy` (enum) | enum | `KSA/PartModelModule.cs:14` | IvaForceRender | `IvaForceRender.cs:103` | OK | shadow-proxy skip in editor postfix |
+
+### KSA.PartModelRenderer (+ nested ColorData)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `UpdateRenderData(Viewport, int) : static void` | Harmony pre | `KSA/PartModelRenderer.cs:658` | space-tape, flexo | `PartRenderHelper.cs:9,13`; `FlexoPatches.cs:9,13` | OK | **keystone render hook**; overload array `[Viewport,int]` must stay |
+| `ColorData.Rebuild() : static void` | direct API | `KSA/PartModelRenderer.cs:228` (mesh-deform cites `:17`) | humble-arteest (VehiclePaint), mesh-deform | `VehiclePaint.cs:126,161`; `MeshDeformShaders.cs:43,77` | OK | pipeline rebuild after shader swap |
+
+### KSA.PartTemplate (+ component template types — space-tape import surface)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Get<PartTemplate>(id)` / `Components : List<ModuleBase.TemplateDataBase>` (field) | reflection-field (string "Components") | `KSA/PartTemplate.cs:91` | zippo | `zippo.lib/LightController.cs:33` | OK | walked to find light TemplateData |
+| `PartTemplate.{SubPartInstances, DisplayName, EditorTags, InertMasses, Tank, Connectors, Batteries, Generators, PowerConsumers, Decoupler, DockingPort, EVADoor, IsSubPart, IsHidden, Thumbnail}` | direct API (import) | `KSA/PartTemplate.cs` | space-tape | `space-tape.lib/PartImporter.cs` | OK | bulk import; most fields unchanged |
+| `BatteryTemplate.MaximumCapacity : EnergyReference` (`KWh` **double**) | direct API | `KSA/EnergyReference.cs:32` | space-tape | `PartImporter.cs:95` | **CHANGED** | was `JoulesReference` (`KWh` float, 4680) → `float.IsNaN(...)` no longer compiles (CS1503). Genuine 4680→4750 regression. Fix: `double.IsNaN` |
+| `GeneratorTemplate.Produced : PowerReference` (`W` **double**) | direct API | `KSA/PowerReference.cs:10` | space-tape | `PartImporter.cs:104` | **CHANGED** | same split (JoulesReference→PowerReference) |
+| `PowerConsumerTemplate.Consumed : PowerReference` (`W` **double**) | direct API | `KSA/PowerReference.cs:10` | space-tape | `PartImporter.cs:113` | **CHANGED** | same split |
+| `DockingPortTemplate.{PushoffImpulse:ImpulseReference, LatchingKineticEnergy:EnergyReference, ConnectorId:StringReference}` | direct API | `KSA/DockingPortTemplate.cs` | space-tape | `PartImporter.cs:135` | **CHANGED/BROKEN** | `.Force` removed → CS error. Was `PushoffForce`+`LatchingImpulse` (4680). Fix: `PushoffImpulse.GetNewtonSeconds()`; also fix writer (R1) or saved ports won't load |
+| `DecouplerTemplate.Force : float` | direct API | `KSA/DecouplerTemplate.cs` | space-tape | `PartImporter.cs` | OK | still `float` |
+| `Cylindrical/SphericalTankTemplate.{Length, OuterRadius, WallThickness, Material.Id}` | direct API | `KSA/*TankTemplate.cs` | space-tape | `PartImporter.cs:176` | OK | tank import |
+| `CustomMassTemplate.Mass` | direct API | `KSA/PartTemplate.cs` | space-tape | `PartImporter.cs` | OK | |
+
+### KSA.PartTree
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Parts : ReadOnlySpan<Part>` | direct API | `KSA/PartTree.cs:67` | PartHelpers (→ many), garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, mesh-deform | `PartHelpers.cs:13`; `ZippoSubmod.cs:406`; `ActionScanner.cs:17` | OK | top-level parts |
+| `Root` | direct API | `KSA/PartTree.cs` | blinky, its-so-shiny | `LcdGridBuilder.cs:135`; `ShinyGridBuilder.cs:146` | OK | |
+| `Batteries : ModuleStateful<…>.StateList` (field) | direct API | `KSA/PartTree.cs:37` | eternal-flame | `EternalFlameLib.cs:128` | OK | battery state list |
+| `Modules.Get<Battery>()` (ModuleList) | direct API | `KSA/PartTree.cs` | its-so-shiny | `ShinyGridBuilder.cs:205` | OK | |
+| `CreateFromNewPartTree(Part rootPart)` | direct API | `KSA/PartTree.cs:117` | blinky, its-so-shiny, space-tape | `LcdGridBuilder.cs:135`; `ShinyGridBuilder.cs:94`; `PartEditorScene.cs:246-280` | OK | core build path |
+| `UpdateRenderData(ref readonly double4x4, bool isEditedVehicle, Viewport, int)` | direct API | `KSA/PartTree.cs:435` | i-feel-seen, space-tape, flexo | `IFeelSeenPatches.cs:70`; `PartRenderHelper.cs:23`; `FlexoPatches.cs:23` | OK | mod passes `in` → `ref readonly` |
+| `States : ModuleStateList` (field) | direct API | `KSA/PartTree.cs:25` | kitchen-sink | `KitchenSinkLib.cs:59` | OK | passed as `oldStates` |
+| `ReinitializeDerivedValues(ModuleStateList oldStates) : void` | direct API | `KSA/PartTree.cs:189` | kitchen-sink, doh | `KitchenSinkLib.cs:60`; `KittenSpawner.cs:278-289` | OK | also a 0-arg overload |
+| `RecomputeStaticMass() : private void` | reflection-method (Traverse, string) | `KSA/PartTree.cs:306` | flexo, kitchen-sink | `HingeController.cs:186`; `FlexoPartTest.cs:319` | OK | string-named; caught/logged if renamed |
+| `Controls : (control modules)` (rev 4699, backs `Vehicle.IsControllable`) | direct API | `KSA/PartTree.cs:49` | (informational) | — | ADDITIVE | new in 4750; not consumed |
+
+### KSA.PbrMaterialReference
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `{DiffuseReference, NormalReference, PBRMap, EmissiveMap, Id}` + non-generic `.Get()` | reflection-field/method | `KSA/PbrMaterialReference.cs:9-18` | doh | `MaterialFactory.cs:413-418,242-245` | OK | `.BindlessHandle` off resolved `TextureReference`; file identical |
+
+### KSA.PowerConsumer
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `LightIsActive : bool` (field) | direct API | `KSA/PowerConsumer.cs:28` | zippo, red-alert, its-so-shiny | `ZippoSubmod.cs:161`; `LightActions.cs:42`; `ShinyPixelCell.cs:24,27` | OK | on/off toggle; rev-4681 electrical refactor didn't touch it |
+
+### KSA.Program
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OnDrawUiFrame(double)` | Harmony PREFIX (StarMap `[StarMapBeforeGui]`) | `KSA/Program.cs:2639` | shell + all submods (every mod) | `unscience/Mod.cs:122` | OK | StarMap-owned string hook; drives per-frame `Update`/drain |
+| `OnDrawUiViewports(double)` | Harmony POSTFIX (StarMap `[StarMapAfterGui]`) | `KSA/Program.cs:2666` | shell + all submods | `unscience/Mod.cs:135` | OK | StarMap-owned string hook |
+| `OnFrame(double,double)` | Harmony POSTFIX (StarMap `[StarMapAfterOnFrame]`) | `KSA/Program.cs:1986` | (available; **not** used by supermod shell) | — | OK | StarMap dispatch only |
+| `DrawProgramMenusHook() : void` (empty modding hook) | Harmony post | `KSA/Program.cs:3391` | unscience (MenuBarPatch), space-tape | `unscience/MenuBarPatch.cs:8`; `space-tape.lib/PartEditorMenuBarPatch.cs:31` | OK | game ships as deliberate no-op |
+| `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, flexo, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
+| `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
+| `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:194` | IvaForceRender, kitchen-sink | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56` | OK | editor-only branch |
+| `MainViewport : static Viewport { get; }` | direct API | `KSA/Program.cs:403` | IvaForceRender, kitchen-sink, space-tape | `IvaForceRender.cs:102`; `PartEditorMenuBarPatch.cs:31` | OK | `.Mode`, `.MapCamera`, `.BaseCamera` |
+| `GetCamera() : static Camera` | direct API | `KSA/Program.cs:504` | glass, space-tape | `FovController.cs:42`; `PartEditorScene.cs:71-77` | OK | |
+| `SetCameraMode(...)` / `GetHoveredCamera()` | direct API | `KSA/Program.cs` | space-tape | `PartEditorScene.cs:71-77` | OK | editor camera control |
+| `GetMainCamera() : Camera` | direct (render) | `KSA/Program.cs:489` | thug-life | `ThugLifeQuadRenderer.cs:238` | OK | |
+| `GetRenderer() : Renderer` (→ `.Device`) | direct (render) | `KSA/Program.cs:450` | humble-arteest, thug-life, space-tape, mesh-deform | `VehiclePaint.cs:118`; `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39` | OK | Vulkan device |
+| `OffScreenPass : RenderPassState` (→ `.SampleCount`, `.Pass`) | direct (render-pass) | `KSA/Program.cs:375` | thug-life | `ThugLifeQuadRenderer.cs:127,133` | OK | offscreen MSAA; 4694 touched offscreen/thumbnail, members intact |
+| `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:248` | OK | |
+| `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
+| `Instance : static (singleton)` | reflection (private) | `KSA/Program.cs:371` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:54,57`; `KittenColor.cs:56-74` | OK | render-systems root |
+| `MaterialSystem : GpuMaterialSystem` (field) | reflection-field | `KSA/Program.cs:94` | doh, humble-arteest | `MaterialSystemAccessor.cs:64`; `KittenColor.cs:56-74` | OK | |
+| `SuperMeshRenderSystem` (field) → `.TextureSystem : GpuTextureSystem` | reflection-field | `KSA/Program.cs:96`; `KSA/SuperMeshRenderSystem.cs:39` | doh | `MaterialSystemAccessor.cs:85,88,91` | OK | |
+| `CharacterRenderSystem` (field) | reflection-field | `KSA/Program.cs` (`KSA/CharacterRenderSystem.cs:7`) | doh | `MaterialFactory.cs:504-525` | OK | |
+| `RenderedViewport` / `LinearClampedSampler` / `LightSystem` | direct (render) | `KSA/Program.cs:391,407,126` | space-tape | `space-tape.lib/Thumbnails/*` | OK | thumbnail render loop |
+
+### KSA.RocketCore
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `RocketCore.ResourceManager` | direct API (debug) | `KSA/RocketCore.cs:14` | blinky | `BlinkySubmod.cs:612-618` | OK | diagnose button only |
+
+### KSA.SerializedCollection<T>
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GetList() : List<T>` | reflection-method (string "GetList") | `KSA/SerializedCollection.cs:42` | doh, space-tape | `KittenSpawner.cs:347`; `PartCatalog.cs:20-28` | OK | on `ModLibrary.AllParts`/`AllCharacters` |
+| `Find(KeyHash) : T` | reflection-method | `KSA/SerializedCollection.cs:37` | doh | `KittenSpawner.cs:329,333` | OK | `"KittenBackPackPart"` |
+
+### KSA.SerializedId
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Id : string { get; set; }` (base of PartTemplate, GaugeCanvas) | direct API | `KSA/SerializedId.cs:13` | con-man (GaugeCanvas.Id), garrys-torch/red-alert/space-tape (PartTemplate.Id) | `LayoutManager.cs:119`; `GarrysTorchSubmod.cs:188` | OK | layout key / template id |
+
+### KSA.SimStep
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Universe.GetJobSimStep(double) : SimStep` → `SimStep.NextTime : SimTime` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | tick-end time for new orbit state time |
+| `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1660` | eternal-flame, flexo, kitchen-sink | (solver prefixes) | OK | prefixes ignore it (by-name `dtPlayer` only) |
+
+### KSA.SimTime
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `SimTime` (`readonly struct`) | direct API | `KSA/SimTime.cs:6` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, garrys-torch, doh) | `SimTimeProvider.cs:9` | OK | |
+| `Seconds() : double` (instance) | direct API | `KSA/SimTime.cs:67` | geeforce, steely-eyed | `GeeForceSubmod.cs:34`; `MonitoringLoop.cs:45` | OK | timestamps sample |
+
+### KSA.Situation / KSA.SituationEx
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Vehicle.Situation : Situation => _props.Situation` | direct API | `KSA/Vehicle.cs:494` | steely-eyed | `VehicleTelemetry.cs:85` | OK | |
+| `Situation` (`enum : byte`, 8 states) via `.ToString()` string-compare | enum (string-compare) | `KSA/Situation.cs:3` | steely-eyed | `VehicleTelemetry.cs:87-89`; `EventDetector.cs:62` | OK | byte-identical; rename breaks silently (rev 4704 aerostat = value reuse, no new names) |
+| `SituationEx.HasAnyContact(this Situation) : bool` | direct API (ext) | `KSA/SituationEx.cs:18` | steely-eyed | `VehicleTelemetry.cs:86` | OK | liftoff/landing logic |
+
+### KSA.SolarPanel
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `SolarPanel` (type, `Get<SolarPanel>()` presence test) | direct API | `KSA/SolarPanel.cs:8` | red-alert | `ActionScanner.cs:51` | OK | rev-4681 added power internals; red-alert reads none |
+
+### KSA.StaticMeshRenderable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `MaterialIndices : protected int[]` | reflection-field | `KSA/StaticMeshRenderable.cs:31` | doh | `KittenSpawner.cs:388-408,523-537` | OK | helmet/visor/mmu mesh handle swap |
+
+### KSA.SubstanceLibrary
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `TryGetCombustionProcess(KeyHash)` + `KeyHash.Make` | direct API | `KSA/SubstanceLibrary.cs:122` | doh | `KittenSpawner.cs:281` | OK | `"MMH_NTO_1.6"` |
+
+### KSA.SuperMeshRenderSystem
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `RenderMainPass(CommandBuffer) ` | Harmony post (render-pass) | `KSA/SuperMeshRenderSystem.cs:329` | thug-life | `thug-life.lib/ThugLifeRenderPatches.cs:19-21,44` | OK | records quad draws into offscreen MSAA pass; called 3× from Program |
+
+### KSA.Tank
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Tank` (type, `Get<Tank>()`) | direct API | `KSA/Tank.cs` | blinky | `LcdGridBuilder.cs:469` | OK | |
+| `ConfigureFor(IReactantMix)` | direct API | `KSA/Tank.cs:382` | doh | `KittenSpawner.cs:278-289` | OK | backpack propellant |
+
+### KSA.Transform3D
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `PositionEcl : double3 { get; set; }` (virtual) | direct API (write) | `KSA/Transform3D.cs:15` | camera-controller-override | `KeyframeSequencePlayer.cs:450,473` | OK | mutated to move camera (dead until `___Transform` fixed); `Camera` overrides at `Camera.cs:94` |
+| `LocalRotation : doubleQuat` (field) | direct API (write) | `KSA/Transform3D.cs:13` | camera-controller-override | `KeyframeSequencePlayer.cs:451,476` | OK | mutated to rotate camera (dead until fixed) |
+
+### KSA.Universe
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1660` | eternal-flame, flexo, kitchen-sink | `unscience/Patcher.cs:96,104`; `FlexoPatches.cs:76-81`; `kitchen-sink/Patcher.cs:56` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe |
+| `CurrentSystem : static CelestialSystem? { get; private set; }` | direct API | `KSA/Universe.cs:92` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11` | OK | enumeration root |
+| `GetElapsedSimTime() : static SimTime` | direct API | `KSA/Universe.cs:1991` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, doh) | `SimTimeProvider.cs:9` | OK | |
+| `GetJobSimStep(double) : SimStep` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | (see KSA.SimStep) |
+
+### KSA.Vehicle
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Vehicle` (type) | direct API | `KSA/Vehicle.cs:28` | VehicleProvider (→ ~all), unladen-swallow | `VehicleProvider.cs:11` | OK | `OfType<Vehicle>()` |
+| `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink, mesh-deform, flexo | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
+| `Id` (inherited Astronomical.Id) | direct API | `KSA/Astronomical.cs:85` | (see KSA.Astronomical) | — | OK | |
+| `RefillConsumables() : void` | direct API | `KSA/Vehicle.cs:2300` | eternal-flame | `EternalFlameLib.cs:80` | OK | fuel/resource refill |
+| `Teleport(Orbit?, doubleQuat?, double3?) : void` | direct API | `KSA/Vehicle.cs:1594` | garrys-torch, doh (KittenEva) | `WeldEngine.cs:129`; `KittenSpawner.cs:171` | OK | core mutation; nullable params |
+| `UpdatePerFrameData() : override void` | direct API | `KSA/Vehicle.cs:1972` | garrys-torch, doh | `WeldEngine.cs:130`; `KittenSpawner.cs:175` | OK | refresh caches post-teleport |
+| `UpdateVehicleConfiguration() : void` | direct API | `KSA/Vehicle.cs:1263` | blinky, its-so-shiny | `LcdGridBuilder.cs:149`; `ShinyGridBuilder.cs:98` | OK | |
+| `UpdateAfterPartTreeModification() : void` | direct API | `KSA/Vehicle.cs:1277` | flexo, kitchen-sink | `HingeController.cs:186`; `FlexoPartTest.cs:320` | OK | recompute mass/aero/CoM |
+| `Parent : IParentBody => Orbit.Parent` | direct API | `KSA/Vehicle.cs:332` | garrys-torch, average-twr (dead), steely-eyed, doh | `WeldEngine.cs:19`; `VehicleTelemetry.cs:44`; `KittenSpawner.cs:230` | OK | |
+| `Orbit : Orbit => Patch.Orbit` | direct API | `KSA/Vehicle.cs:330` | garrys-torch, steely-eyed | `WeldEngine.cs:126`; `VehicleTelemetry.cs:64` | OK | |
+| `GetPositionCci() : double3` | direct API | `KSA/Vehicle.cs:1949` | garrys-torch | `WeldEngine.cs:28` | OK | (concrete; cf. `IOrbiter.GetPositionCci`) |
+| `GetVelocityCci() : double3` | direct API | `KSA/Vehicle.cs:1897` | garrys-torch | `WeldEngine.cs:29` | OK | |
+| `GetBody2Cci() : doubleQuat` | direct API | `KSA/Vehicle.cs:2242` | garrys-torch | `WeldEngine.cs:30,90` | OK | |
+| `GetAsmb2Cci() : doubleQuat` | direct API | `KSA/Vehicle.cs:2247` | doh | `KittenSpawner.cs:231` | OK | spawn positioning |
+| `CenterOfMassAsmb : double3` (field) | direct API | `KSA/Vehicle.cs:510` | garrys-torch | `WeldEngine.cs:58` | OK | part-anchor offset base |
+| `BodyRates : double3` (field) | direct API | `KSA/Vehicle.cs:458` | garrys-torch, doh | `WeldEngine.cs:85`; `KittenSpawner.cs:239-242` | OK | NaN-guarded by mod |
+| `Body2Cce : doubleQuat` (field) | direct API | `KSA/Vehicle.cs:423` | i-feel-seen, doh | `IFeelSeenPatches.cs:59`; `KittenSpawner.cs:239-242` | OK | |
+| `Asmb2Ego : doubleQuat` | direct (render) | `KSA/Vehicle.cs` | thug-life | `ThugLifeQuadRenderer.cs:269` | OK | |
+| `GetMatrixAsmb2Ego(Camera) : double4x4` | direct API | `KSA/Vehicle.cs:833` | i-feel-seen, thug-life | `IFeelSeenPatches.cs:69`; `ThugLifeQuadRenderer.cs:267` | OK | |
+| `GetWorldMatrix(Camera) : float4x4?` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2772` | i-feel-seen | `IFeelSeenPatches.cs:27,30` | OK | string-resolved; non-virtual |
+| `UpdateRenderData(Viewport, int) : virtual void` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2785` | i-feel-seen | `IFeelSeenPatches.cs:28,31` | OK | string-resolved; `KittenEva` overrides (`KittenEva.cs:62`) |
+| `IsEditedVehicle : bool` | direct API | `KSA/Vehicle.cs:356` | i-feel-seen | `IFeelSeenPatches.cs:70` | OK | |
+| `NavBallData` (see KSA.NavBallData) | direct API | `KSA/Vehicle.cs:528` | average-twr | — | OK | |
+| `FlightComputer` (see KSA.FlightComputer) | direct API | `KSA/Vehicle.cs:415` | average-twr, blinky (debug) | — | OK | |
+| `TotalMass : float => _props.TotalMassPropsAsmb.Props.Mass` | direct API | `KSA/Vehicle.cs:512` | average-twr, steely-eyed | `TwrDataReader.cs:18`; `VehicleTelemetry.cs:76` | OK | |
+| `InertMass : float` | direct API | `KSA/Vehicle.cs:514` | steely-eyed | `VehicleTelemetry.cs:77` | OK | |
+| `PropellantMass : float` | direct API | `KSA/Vehicle.cs:516` | steely-eyed | `VehicleTelemetry.cs:78` | OK | |
+| `AccelerationBody : double3 => KinematicMeasurements.AccelerationBody` | direct API | `KSA/Vehicle.cs:518` | geeforce, steely-eyed | `GForceRecorder.cs:96`; `VehicleTelemetry.cs:81` | OK | |
+| `OrbitalSpeed : double => GetVelocityCci().Length()` | direct API | `KSA/Vehicle.cs:532` | steely-eyed | `VehicleTelemetry.cs:59` | OK | |
+| `GetSurfaceSpeed() : double` | direct API | `KSA/Vehicle.cs:2169` | steely-eyed | `VehicleTelemetry.cs:60` | OK | |
+| `GetInertialSpeed() : double` | direct API | `KSA/Vehicle.cs:2164` | steely-eyed | `VehicleTelemetry.cs:61` | OK | |
+| `GetBarometricAltitude() : double` | direct API | `KSA/Vehicle.cs:2175` | steely-eyed | `VehicleTelemetry.cs:55` | OK | |
+| `GetRadarAltitude() : double` | direct API | `KSA/Vehicle.cs:2180` | steely-eyed | `VehicleTelemetry.cs:56` | OK | |
+| `GetPositionEcl() : double3` | direct API | `KSA/Vehicle.cs:613` | steely-eyed | `VehicleTelemetry.cs:111` | OK | (cf. `IPosition.GetPositionEcl`) |
+| `GetManualThrottle()` | direct API (debug) | `KSA/Vehicle.cs:822` | blinky | `BlinkySubmod.cs:586-587` | OK | diagnose button only |
+| `SetEnum(Enum?) : void` | direct API | `KSA/Vehicle.cs:4838` | unladen-swallow, blinky | `ActionIgnite.cs:34`; `BlinkyGridManager.cs:258` | OK | `VehicleEngine` branch → private `SetAction` (`Vehicle.cs:4912`, ungated by `IsControllable`) |
+| `Dispose() : void` | direct API | `KSA/Vehicle.cs` | doh | `KittenSpawner.cs:68` | OK | despawn |
+| `ShowOrbit` (as IOrbiter) | direct API | `KSA/Vehicle.cs` | marque | `MarqueLib.cs:84` | OK | (see KSA.IOrbiter.ShowOrbit) |
+| `IsControllable : virtual bool` (rev 4699) | direct API | `KSA/Vehicle.cs:526` | (informational — not consumed) | — | ADDITIVE | new; gates control on a Control Module. RPC ignite path is NOT gated by it |
+
+### KSA.VehicleEditingSpace
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `VehicleEditingSpace(double3, doubleQuat, double, …)` ctor; `.GetMatrixAsmb2Ego(Camera)`; `.Asmb2Ecl` | direct API | `KSA/VehicleEditingSpace.cs` | space-tape, flexo | `PartEditorScene.cs:62,154,216`; `flexo.lib/Editor/FlexoEditorScene.cs` | OK | isolated editor space |
+| `Parts : PartTree?` (field) | direct API | `KSA/VehicleEditingSpace.cs:14` | kitchen-sink | `KitchenSinkLib.cs:57,59` | OK | null-guarded |
+
+### KSA.VehicleEditor
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `EditingSpace : VehicleEditingSpace` (field) | direct API | `KSA/VehicleEditor.cs:334` | kitchen-sink | `KitchenSinkLib.cs:57` | OK | |
+| `RegisterTag` (tags registered from `CoreEditorTagsGameData.xml`, rev 4731/4741) | direct API | `KSA/PartTemplate.cs:127-129` | space-tape (R2) | — | CHANGED | tag categories drifted ("Interstage" removed; "Stages"→"Resource Groups") |
+
+### KSA.VehicleEngine
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `VehicleEngine : enum byte { MainIgnite, MainShutdown }` | enum | `KSA/VehicleEngine.cs:3-6` | unladen-swallow, blinky | `ActionIgnite.cs:34`; `BlinkyGridManager.cs:258` | OK | both members present |
+
+### KSA.Viewport
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Mode : CameraMode` (field) | direct API | `KSA/Viewport.cs:14` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:102` | OK | vs `CameraMode.IVA` |
+| `GetCamera() : Camera` | direct API | `KSA/Viewport.cs:366` | i-feel-seen | `IFeelSeenPatches.cs:69` | OK | |
+| `MenuBarInUse` | direct API | `KSA/Viewport.cs` | space-tape | `PartEditorMenuBarPatch.cs:31` | OK | menu gating |
+| `MapCamera` / `BaseCamera` (via `Program.MainViewport`) | direct API | `KSA/Viewport.cs` | space-tape | `PartEditorScene.cs:71-77` | OK | |
+| `Viewport` (param of `UpdateRenderData`/`AddInstance`/render prefixes) | Harmony arg type | `KSA/Viewport.cs` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender, space-tape, flexo | (render prefixes) | OK | |
+
+### KSA.Rendering.Thumbnails (space-tape)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `ThumbnailReference.GetOrCreateImGuiTexture(VkSampler) : ImTextureRef` | direct API | `KSA.Rendering.Thumbnails/ThumbnailReference.cs:36` | space-tape | `Thumbnails/SubpartViewerWindow.cs:365,407` | **CHANGED/BROKEN** | mod calls old `CreateImGuiThumbnail(VkSampler)` (gone) → CS error. Pre-4680 drift. `.ImGuiImageRef`/`DestroyImGuiThumbnail` unchanged |
+| `ThumbnailPart.ComputeBoundingSphereRadius(out float3 outCenter) : float` | direct API | `KSA.Rendering.Thumbnails/ThumbnailPart.cs:150` | space-tape | `Thumbnails/SingleSubpartGenerator.cs:207` | **CHANGED/BROKEN** | mod calls no-arg overload (gone) → CS error. Pre-4680 drift. Fix: `ComputeBoundingSphereRadius(out _)` |
+| `ThumbnailRenderer(Renderer)` (`.SIZE/.ColorFormat/.Sampler/.PerInstance…/.PerDraw…/.RecordPartRender`), `ThumbnailRenderResources` | render | `KSA.Rendering.Thumbnails/*` | space-tape | `Thumbnails/SubpartThumbnailGenerator.cs` | OK | off-screen Vulkan render loop; rev 4694 rework |
+
+### RenderCore.* (game-side render layer)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `RenderTechnique.CreateShaderStages(Device, Span<ShaderReference>, Span<VkSpecializationInfo>=default)` | direct (render) | `RenderCore/RenderTechnique.cs:37` | thug-life | `ThugLifeQuadRenderer.cs:117` | OK | |
+| `ShaderModuleUtils.FromFile(Device, string, out VkShaderStageFlags, CompileOptions)` | reflection-method (cross-asm, string) | `RenderCore/ShaderModuleUtils.cs` | humble-arteest (VehiclePaint), mesh-deform | `VehiclePaint.cs:214`; `MeshDeformShaders.cs:373-397` | OK | runtime GLSL→SPIR-V |
+| `Presets.{InputAssembly.TriangleList, Rasterization.Fill.CullNone, BlendState.BlendColorAlpha}` | direct (render) | `RenderCore.Pipelines/SimplePipelineCreator.cs:15` | thug-life | `ThugLifeQuadRenderer.cs:140,141,143` | OK | pipeline presets |
+| `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` | direct (render) | `RenderCore` (e.g. `OceanRenderer.cs:292`) | thug-life | `ThugLifeQuadRenderer.cs:142` | OK | reverse-Z; 4730/4733 depth-prepass didn't alter it |
+| `Renderer.{Device, Allocator, Graphics, DynamicStateInfo, ViewportState}` | direct (render) | `KSA`/`RenderCore` (via `Program.GetRenderer`) | thug-life | `ThugLifeQuadRenderer.cs:137,138` | OK | compile-verified |
+
+### KSA.ShaderReference (asset-reference type)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `ShaderReference : FileReference, IKeyed` (type) | direct API | `KSA/ShaderReference.cs:20` | thug-life, humble-arteest, mesh-deform | `ThugLifeQuadRenderer.cs:114`; `VehiclePaint.cs:158` | OK | via `ModLibrary.Get<ShaderReference>` |
+| `Shader : VkShaderModule? { get; private set; }` (+ `<Shader>k__BackingField`) | reflection-field (string) | `KSA/ShaderReference.cs:33` | humble-arteest, mesh-deform | `VehiclePaint.cs:225`; `MeshDeformShaders.cs:232-252` | OK | swap via private setter |
+| `DoLoad() : internal void` | reflection-method (string) | `KSA/ShaderReference.cs:167` | humble-arteest, mesh-deform | `VehiclePaint.cs:307-316`; `MeshDeformShaders.cs:65-73` | OK | restore original shader |
+| `ModPath` / `LocalPath` (on `FileReference` base) | reflection-field (string) | `KSA/ShaderReference.cs:73,49` | humble-arteest, mesh-deform | `VehiclePaint.cs:150`; `MeshDeformShaders.cs:336,341` | OK | resolve on-disk shader path |
+
+### Brutal.* (game-shipped; risk-bearing only)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `ConsoleWindow.IsOpen : bool => _show` | direct API | `Brutal.ImGuiApi.Abstractions/ConsoleWindow.cs:292` | HotkeyGuard (→ all mods) | `ksa-abstractions.lib/HotkeyGuard.cs:38` | OK | guard bypassed while dev console open |
+| `ImGui.GetIO().WantTextInput` | direct API | `Brutal.ImGuiApi/*` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | detects ImGui text-input focus; watch on Brutal bumps |
+| `ImGuiStyle.Colors : float4_60` / `ImGuiStylePtr` (60-color array + 72 style members) | direct API | `Brutal.ImGuiApi/ImGuiStyle.cs:188`; `ImGuiStylePtr.cs` | skittles, con-man | `skittles.lib/ThemeDefinition.cs:89-90`; `ConManSubmod.cs:68-73` | OK | hard-codes 60 colors + fixed style-var list; a Brutal slot/member add is silently dropped — watch every Brutal bump |
+| `ImGuiCol` (enum, 60 slots `Text`…`ModalWindowDimBg` + `COUNT`) | enum | `Brutal.ImGuiApi/ImGuiCol.cs:5-65` | skittles | `skittles.lib/ThemeSerializer.cs:12-31` | OK | hard-coded `60` count must match |
+| `VkUtils.StageAndUploadToBuffer` / `BufferEx.VkBuffer` / `IVulkanContext.Device.CreateStagingPool` / `ByteSize.Of<T>()` | GPU write (Brutal.VulkanApi) | `Brutal.VulkanApi(.Abstractions)` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:283-296`; `KittenColor.cs:192-216` | OK | GPU material-buffer write; rev-4729 Brutal bump is the churn surface (build passes) |
+| `SimpleVkTexture` / `VkUtils.UploadBufferToImage` + pipeline/descriptor primitives (`DescriptorSetLayoutEx`, `DescriptorPoolEx`, `VertexInput`, `ShaderStages`, `CommandBuffer`) | GPU (Brutal.VulkanApi/RenderCore) | `Brutal.VulkanApi`, `RenderCore`, `Core` | thug-life | `ThugLifeTextureFactory.cs:33,64`; `ThugLifeQuadRenderer.cs` | OK | custom Vulkan pipeline; highest churn surface (rev 4729); 4750 build passes |
+
+---
+
+## 4. String-based reflection watchlist (highest silent-break risk)
+
+NOT compile-checked — a game rename breaks these at runtime with no build error. Re-verify each name
+on every game update FIRST.
+
+| Type.Member (string) | Mod(s) | Why string-based | 4750 |
+|---|---|---|---|
+| `Camera.OnFrame` (`OrbitController`/`FlyController.OnFrame`) | camera-controller-override | `AccessTools.Method(…, "OnFrame")` | OK |
+| `Controller.___Transform` (field injector) | camera-controller-override | Harmony field-injection by name | **BROKEN** (no such field on KSA controllers, 4680 & 4750) |
+| `Camera._fovRadians` | glass | `AccessTools.Field` private field by name | OK (single most-important glass check) |
+| `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` | glass | `AccessTools.Method` by name | OK |
+| `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` | i-feel-seen | `AccessTools.Method(typeof(Vehicle), "…")` | OK |
+| `KittenEva` (type name) / `KittenEva._renderable` → `KittenRenderable._characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` | garrys-torch, doh, kitten-animations | `GetType().Name` compare + private field chain | OK |
+| `CharacterAvatar.Core.{CharacterModel,Fur,Attachments}…MaterialIndices` (AnimatedRenderable/CatFurRenderable/StaticMeshRenderable) | doh | private field-path + `protected int[]` | OK |
+| `CatExpressionAnim._expressionPose` | kitten-animations | private field by name (cache bust) | OK |
+| `LightModule.TemplateData` (`"KSA.LightModule+TemplateData"`) + `PartTemplate.Components` + `TemplateData.Intensity`/`FloatReference.Value` + `ColorRgbReference.{R,G,B,OnDataLoad}` | zippo, red-alert, its-so-shiny (via ZippoLib) | hard-coded type/field/method names | OK |
+| `LightModule.TemplateData."Color"` | zippo | `GetField("Color")` — wrong name (actual `ColorRgb`) | **BROKEN** (silent no-op, 4680 & 4750) |
+| `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK (highest count in suite) |
+| `Program.Instance`/`MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem` + `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}` + `AssetManager.{AssetMap,GetOrLoad}` + `GpuObjectAssetRef.Handle` + `GpuTextureSystem.*` + `Pbr/Character*Reference.*` | doh, humble-arteest (KittenColor) | deep render-system reflection bridge | OK |
+| `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | humble-arteest (VehiclePaint), mesh-deform | private/internal member names, cross-asm | OK |
+| `ModLibrary.AllParts`/`AllCharacters` + `SerializedCollection.{GetList,Find}` | doh, space-tape | internal static fields/methods by name | OK |
+| `Part._matrixAsmb` / `Part._matrixAsmb2Parent` | space-tape | private fields by name (cache safety) | OK |
+| `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
+| `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK |
+| `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
+| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink | `AccessTools.Method` by name (no param array) | OK (single overload) |
+| `Situation` enum names (`"Landed"/"Floating"/…`) via `.ToString()` | steely-eyed | enum-name string compare | OK |
+
+---
+
+## 5. Shaders & game assets subtable
+
+| Asset / shader | Kind | Referenced as | Content path (NEW) | Consumer | 4750 |
+|---|---|---|---|---|---|
+| `UnlitMesh.vert` / `UnlitMesh.frag` | shader | `ModLibrary.Get<ShaderReference>("UnlitMeshVert"/"UnlitMeshFrag")` | `Core/DefaultAssets.xml:66,67` → `Core/Shaders/Mesh/UnlitMesh.*` | thug-life | OK (untouched by 4693/4745) |
+| `MeshIndirect.vert` (struct + varying anchors) | shader text-edit | `Get<ShaderReference>("MeshIndirectVert")`, GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.vert` | humble-arteest (VehiclePaint), mesh-deform | **BROKEN** (anchors diverged; see §6) |
+| `MeshIndirect.frag` (input-decl anchor) | shader text-edit | GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.frag` | humble-arteest (VehiclePaint) | **BROKEN** (anchor absent; moot — vert fails first) |
+| `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
+| `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`) | shader (read-only) | — (effect of GPU buffer write) | `Content/Core/Shaders/Mesh/ModelPbr.frag`; `Common/MaterialSet.glsl` | doh, humble-arteest (KittenColor) | OK (`MaterialSet.glsl` identical; `ModelPbr.frag` only SSAO reorder rev 4671) |
+| `DynamicMeshIndirect.vert/.frag`, `ModelEye.frag`, `ModelGlass.frag` | shader (removed) | (design assumption only) | — | humble-arteest (narrative), blinky/its-so-shiny GlassModule (C# only) | n/a (removed 4693/4745; `ModelTranslucent.frag` new 4747 — not referenced by id) |
+| Engine part templates `CorePropulsionA_Prefab_EngineA1..A6` | part template | `ModLibrary.Get<PartTemplate>(id)` (default A3) | `Core/CorePropulsionAAssets.xml:466`; `Core/CorePropulsionAGameData.xml` (A2–A6) | blinky | OK (A1 has `<Part>` but not in build catalog — identical both builds) |
+| `LightPart` template (`<PowerConsumer LightSwitch="true">`) | part template | `ModLibrary.Get<PartTemplate>("LightPart")` | `Core/PartAssets.xml:19`; `Core/CoreElectricalAGameData.xml:221` | its-so-shiny | OK |
+| Gizmo meshes `"Box"`, `"ArrowMesh"` | mesh | `ModLibrary.Get<MeshReference>(id)` | `Core/*` | space-tape, flexo | OK |
+| `"KittenBackPackPart"` | part template | `ModLibrary.AllParts.Find(KeyHash)` | `Core/*` | doh | OK |
+| Default tank wall material `"Aluminum.2014(s)"` | material id | (XML emit) | `Core/*` | space-tape | OK |
+| Characters (e.g. `"Calico"`) | character | `ModLibrary.AllCharacters.GetList()` | `Core/*` | doh | OK (no hard-coded id) |
+| Combustion process `"MMH_NTO_1.6"` | substance | `SubstanceLibrary.TryGetCombustionProcess(KeyHash)` | `Core/*` | doh | OK |
+| Fur texture `"FurNoise"` | texture (indirect) | `CharacterRenderResources.FurTexture.BindlessHandle` | `Core/*` | doh | OK |
+| `MusicPlayList "SabotageMusic"` | sound | `ModLibrary.Get<MusicPlayList>("SabotageMusic")` | not stock (`Core/Sounds.xml` has `EarthSOIMusic`,…) | byo-music | n/a (placeholder; null-guarded; never stock in 4680/4750) |
+
+---
+
+## 6. Confirmed-broken / changed summary (vs 4750)
+
+Every table row whose 4750 status is BROKEN or CHANGED:
+
+**BROKEN (non-functional against 4750)**
+- `Controller.___Transform` field injector (camera-controller-override) — pre-existing, both builds → `scope/camera.md`.
+- `LightModule.TemplateData."Color"` field (zippo) — pre-existing silent no-op, both builds → `scope/celestial-and-lights.md`.
+- `MeshIndirect.vert` / `.frag` GLSL anchors (humble-arteest **Vehicle Paint**) — non-functional both builds; further diverged by rev-4693 merge → `scope/character-and-materials.md`.
+- `MeshIndirect.vert` struct anchor (mesh-deform) — **genuine 4680→4750 regression** (anchor removed in 4750); shader activation now fails → `scope/standalone-mods.md`.
+
+**CHANGED (compile breaks — `space-tape.lib` does not build against 4750)** → all `scope/part-editor-and-robotics.md`
+- `BatteryTemplate.MaximumCapacity` / `GeneratorTemplate.Produced` / `PowerConsumerTemplate.Consumed`: `JoulesReference`(float) → `EnergyReference`/`PowerReference`(double) — **genuine 4680→4750 regression** (CS1503). Fix: `float.IsNaN`→`double.IsNaN`.
+- `DockingPortTemplate.Force` → `PushoffImpulse`/`LatchingKineticEnergy`/`StringReference ConnectorId` — also fix the GameData XML writer (R1).
+- `ThumbnailReference.CreateImGuiThumbnail` → `GetOrCreateImGuiTexture(VkSampler)` — pre-4680 drift.
+- `ThumbnailPart.ComputeBoundingSphereRadius()` → `(out float3)` — pre-4680 drift.
+- `VehicleEditor.RegisterTag` / editor tag categories (rev 4731/4741, "Interstage" removed; "Stages"→"Resource Groups") — runtime tag-filter drift (R2).
+
+**ADDITIVE (new in 4750, not consumed → no break)**
+- `Vehicle.IsControllable` + `PartTree.Controls` + `KittenEva.IsControllable` (rev 4699); `PartTemplate.Diameter:DistanceReference` (rev 4721). Behavioral watch only.
+
+**Build break not tied to a game-member row:** `garrys-torch.lib/GarrysTorchSubmod.cs:457` — CS8604 on `ImGui.Text($"…{_deleteConfirmName}…")` from the rev-4729 Brutal nullability bump (ordinary ImGui call, not a KSA member). Fix: null-coalesce. → `scope/vehicle-physics.md`.
+

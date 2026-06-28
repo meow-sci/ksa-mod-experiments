@@ -14,19 +14,39 @@ All features are accessible as `ISubmod` implementations for use in the unscienc
 
 ### Why Three Separate Approaches?
 
-KSA uses **two completely different rendering pipelines** for different object types, plus a third data path for dynamic parts:
+KSA renders vehicle parts and kitten characters through different pipelines, so each feature uses
+the approach matched to its rendering path:
 
 | Object Type | Shader Path | Material Source | Per-Instance Color? |
 |---|---|---|---|
-| Vehicle parts (static) | `MeshIndirect.frag` | PerDrawData texture indices | ❌ Not natively — we add it |
-| Vehicle parts (dynamic) | `DynamicMeshIndirect.frag` | PerDrawData texture indices | Temperature/TFI only |
+| Vehicle parts (static) | `MeshIndirect.frag` (base variant) | PerDrawData texture indices | ❌ Not natively |
+| Vehicle parts (dynamic) | `MeshIndirect.frag` (`ENABLE_TEMPERATURE`/`ENABLE_THIN_FILM` variant) | PerDrawData texture indices | Temperature/TFI only |
 | Kitten characters | `ModelPbr.frag` | GpuMaterialSystem buffer | ✅ Via AlbedoColor |
+
+> **Shader-merge note (KSA rev 4693+).** The separate `DynamicMeshIndirect` shader no longer exists —
+> it was merged into a single, feature-gated `MeshIndirect.{vert,frag}` whose behaviour is selected at
+> compile time by `ENABLE_EMISSIVE` / `ENABLE_TEMPERATURE` / `ENABLE_THIN_FILM` defines (rev 4745 then
+> cleaned up the layout indices). "Static" vs "dynamic" parts are now **compile variants of the same
+> shader**, not separate files. This is also why **Vehicle Paint is disabled on 4693+** (see the banner
+> below): the color pipeline recompiles those variants from disk via
+> `ShaderReference.CompileVariantWithCustomOptions`, ignoring the runtime module swap paint relied on.
 
 Because of this split, each feature uses a different technical approach matched to its rendering path.
 
 ---
 
 ## Feature 1: Vehicle Paint (Runtime Shader Patching)
+
+> ⚠️ **Availability: auto-disabled on KSA 4693+.** The narrative below describes the original
+> (pre-4693) mechanism and is retained for design context. As of KSA `2026.6.9.4750` this feature is
+> **inert and self-guarded**: `VehiclePaint.IsSupported` probes the on-disk shader and disables the
+> feature with a UI notice, and the `AddInstance` prefix no-ops (so it no longer clobbers
+> `EmissiveColor`). Two compounding changes broke it: (1) the `MeshIndirect` shader was feature-gated
+> with `ENABLE_*` defines (the GLSL anchors moved), and (2) — the deeper blocker — the part **color**
+> pipeline now compiles via `ShaderReference.CompileVariantWithCustomOptions()`, which recompiles from
+> disk per variant and **ignores the swapped `ShaderReference.Shader`**. Reviving paint therefore
+> requires Harmony-patching that per-variant compile (blast radius = every part) and GPU iteration —
+> see [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md) Phase 2a for the refined design.
 
 ### How It Works
 
@@ -230,7 +250,7 @@ The `AlbedoColor` offset is determined via `Marshal.OffsetOf<MaterialData>("Albe
 
 ### How It Works
 
-Dynamic vehicle parts (engines, heat shields) use `PartModelDynamic.PerInstanceData` which includes a `Temperature` float field. The game's `DynamicMeshIndirect.frag` shader already reads this field and uses it as an index into an emissive color lookup table — this is how running engines glow.
+Dynamic vehicle parts (engines, heat shields) use `PartModelDynamic.PerInstanceData` which includes a `Temperature` float field. The game's merged `MeshIndirect` shader (its `ENABLE_TEMPERATURE` variant — formerly `DynamicMeshIndirect.frag` before rev 4693) already reads this field and uses it as an index into an emissive color lookup table — this is how running engines glow.
 
 We simply override the Temperature value before it reaches the GPU, giving explicit control over engine glow intensity.
 
@@ -258,7 +278,7 @@ int      packing1           4 bytes
 
 ### What Temperature Does in the Shader
 
-The `DynamicMeshIndirect.frag` shader uses Temperature to:
+The merged `MeshIndirect` shader (`ENABLE_TEMPERATURE` variant) uses Temperature to:
 1. Sample a color from a temperature lookup table (LUT) texture
 2. Add the LUT color as emissive lighting
 3. Higher Temperature values → more intense glow (cool blue → orange → bright white)
@@ -330,7 +350,10 @@ Kitten Color has no Harmony patches — it works purely via GPU buffer writes.
 
 ## Key Decompiled Source References
 
-For future maintenance when KSA updates break this mod, these are the key decompiled sources to examine:
+For future maintenance when KSA updates break this mod, these are the key decompiled sources to examine.
+The authoritative current decomp/assets live under `ksa-game-assemblies/current/decomp` and
+`.../current/Content` (the repo's own `decomp/ksa` copy is older than 4680, so the paths below are for
+orientation only — re-check names against the current tree):
 
 | File | What to Check |
 |------|---------------|
@@ -343,7 +366,7 @@ For future maintenance when KSA updates break this mod, these are the key decomp
 | `decomp/ksa/KSA/GpuMaterialSystem.cs` | Material GPU buffer, `AssetMap`, `BigBuffer` |
 | `decomp/ksa/Content/Core/Shaders/Mesh/MeshIndirect.vert` | Vertex shader InstanceData struct |
 | `decomp/ksa/Content/Core/Shaders/Mesh/MeshIndirect.frag` | Fragment shader — albedo sampling + highlight mixing |
-| `decomp/ksa/Content/Core/Shaders/Mesh/DynamicMeshIndirect.frag` | Temperature LUT emissive application |
+| `Content/Core/Shaders/Mesh/MeshIndirect.frag` (`ENABLE_TEMPERATURE` variant; replaced `DynamicMeshIndirect.frag` at rev 4693) | Temperature LUT emissive application |
 | `decomp/ksa/Content/Core/Shaders/Common/MaterialSet.glsl` | AlbedoColor multiplication pattern |
 | `decomp/ksa/KSA.AssetReloader/ShaderReloader.cs` | Built-in shader hot-reload system |
 | `decomp/ksa/KSA/ShaderReference.cs` | Shader asset with `DoLoad()`, `Shader`, `LocalPath` |

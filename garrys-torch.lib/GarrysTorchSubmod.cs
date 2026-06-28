@@ -454,7 +454,7 @@ public sealed class GarrysTorchSubmod : ISubmod
         if (!ImGui.BeginPopupModal("Delete preset##gt", ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
-        ImGui.Text($"Are you sure you want to delete\npreset '{_deleteConfirmName}'?");
+        ImGui.Text($"Are you sure you want to delete\npreset '{_deleteConfirmName ?? string.Empty}'?");
         ImGui.Spacing();
         if (ImGui.Button(" You bet ##gt_delyes"))
         {

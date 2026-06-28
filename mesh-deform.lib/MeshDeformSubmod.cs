@@ -55,6 +55,14 @@ public sealed class MeshDeformSubmod : ISubmod
 
     internal void RenderBody()
     {
+        if (!MeshDeformShaders.IsSupported)
+        {
+            ImGui.TextColored(new float4(1f, 0.6f, 0.2f, 1f), "Unavailable on this KSA build");
+            ImGui.TextWrapped(MeshDeformShaders.UnsupportedReason
+                ?? "Mesh Deform is not supported on this game version.");
+            return;
+        }
+
         bool prevActive = _active;
         ImGui.Checkbox("Active##md_active", ref _active);
         if (_active && !prevActive)

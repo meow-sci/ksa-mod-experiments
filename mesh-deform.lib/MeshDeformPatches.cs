@@ -111,6 +111,13 @@ public static class AddInstanceDeformPatch
 {
     public static void Prefix(ref PartModel.PerInstanceData instanceData)
     {
+        // Never touch the per-instance bytes unless deform shaders are genuinely active.
+        // On KSA 4693+ they can never activate (see MeshDeformShaders.IsSupported), so this
+        // guarantees the prefix is a no-op and never writes into the padding slots the new
+        // feature-gated shader repurposes for Temperature/TfiThickness.
+        if (!MeshDeformShaders.ShadersActive)
+            return;
+
         var part = CapturePartPatch.CurrentPart.Value;
         if (part == null) return;
         if (!MeshDeformManager.TryGetPayload(part, out var payload)) return;

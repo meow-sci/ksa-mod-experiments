@@ -241,7 +241,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         root.AddChild(child);
 
         // Compute camera distance from bounding sphere
-        float radius = root.ComputeBoundingSphereRadius();
+        float radius = root.ComputeBoundingSphereRadius(out _);
         float dist = radius / (float)Math.Sin(camera.GetFieldOfView() * 0.5f);
         root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
         root.LocalScale = Double3Ex.One;

@@ -58,6 +58,12 @@ public sealed class VehiclePaintSubmod : ISubmod
 
     internal void RenderBody()
     {
+        if (!VehiclePaint.IsSupported)
+        {
+            RenderUnsupportedNotice();
+            return;
+        }
+
         RenderShaderButtonRow();
         RenderStatusMessage();
         if (VehiclePaint.ShadersActive)
@@ -65,6 +71,13 @@ public sealed class VehiclePaintSubmod : ISubmod
             ImGui.Spacing();
             RenderControls();
         }
+    }
+
+    private static void RenderUnsupportedNotice()
+    {
+        ImGui.TextColored(new float4(1f, 0.6f, 0.2f, 1f), "Unavailable on this KSA build");
+        ImGui.TextWrapped(VehiclePaint.UnsupportedReason
+            ?? "Vehicle Paint is not supported on this game version.");
     }
 
     public void Dispose()

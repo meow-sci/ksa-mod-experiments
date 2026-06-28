@@ -92,7 +92,7 @@ public static class PartImporter
         // Batteries — JoulesReference.KWh is a float field; if NaN, fallback to _value / 3600000
         foreach (var b in template.Batteries)
         {
-            double kwh = !float.IsNaN(b.MaximumCapacity.KWh)
+            double kwh = !double.IsNaN(b.MaximumCapacity.KWh)
                 ? (double)b.MaximumCapacity.KWh
                 : (double)(float)b.MaximumCapacity / 3600000.0;
             gd.Batteries.Add(new BatteryState { CapacityKWh = kwh });
@@ -101,7 +101,7 @@ public static class PartImporter
         // Generators — JoulesReference.W is a float field; if NaN, fallback to _value
         foreach (var g in template.Generators)
         {
-            double watts = !float.IsNaN(g.Produced.W)
+            double watts = !double.IsNaN(g.Produced.W)
                 ? (double)g.Produced.W
                 : (double)(float)g.Produced;
             gd.Generators.Add(new GeneratorState { OutputWatts = watts });
@@ -110,7 +110,7 @@ public static class PartImporter
         // PowerConsumers
         foreach (var pc in template.PowerConsumers)
         {
-            double watts = !float.IsNaN(pc.Consumed.W)
+            double watts = !double.IsNaN(pc.Consumed.W)
                 ? (double)pc.Consumed.W
                 : (double)(float)pc.Consumed;
             gd.PowerConsumers.Add(new PowerConsumerState { ConsumedWatts = watts });
@@ -132,7 +132,7 @@ public static class PartImporter
             gd.DockingPort = new DockingPortState
             {
                 ConnectorId = template.DockingPort.ConnectorId,
-                Force = template.DockingPort.Force,
+                PushoffImpulseNs = template.DockingPort.PushoffImpulse.GetNewtonSeconds(),
             };
         }
 

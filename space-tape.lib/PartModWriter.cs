@@ -445,9 +445,9 @@ public sealed class PartModWriter
         {
             part.GameData.DockingPort = new DockingPortState
             {
-                ConnectorId = dpEl.Attribute("ConnectorId")?.Value ?? "",
-                Force = double.TryParse(dpEl.Attribute("Force")?.Value,
-                    NumberStyles.Any, CultureInfo.InvariantCulture, out double f) ? f : 500.0
+                ConnectorId = dpEl.Element("ConnectorId")?.Attribute("Value")?.Value ?? "",
+                PushoffImpulseNs = double.TryParse(dpEl.Element("PushoffImpulse")?.Attribute("Ns")?.Value,
+                    NumberStyles.Any, CultureInfo.InvariantCulture, out double f) ? f : 5000.0
             };
         }
 

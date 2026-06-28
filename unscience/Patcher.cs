@@ -29,31 +29,53 @@ internal static class Patcher
         try
         {
             _harmony = new Harmony("MeowSci.Unscience");
-            HotkeyGuard.Patch(_harmony);
-            // Apply our render postfix FIRST so a failure further down the chain
-            // doesn't prevent thug-life from registering.
-            ThugLifeRenderPatches.Apply(_harmony);
-            MenuBarPatch.ToggleWindow = MenuBarToggle;
-            MenuBarPatch.Apply(_harmony);
-            BlinkyPatches.Apply(_harmony);
-            ShinyPatches.Apply(_harmony);
-            CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
-            CameraControllerOverridePatches.Apply(_harmony);
-            EternalFlamePatches.Apply(_harmony);
-            // garrys-torch no longer registers a Harmony patch — its weld physics
-            // runs from unscience/Mod.cs OnAfterUi via GarrysTorchSubmod.UpdateWelds,
-            // which internally calls JobSystems.VehicleSolvers.Wait() to avoid the
-            // worker-thread races that any other timing produces.
-            GlassPatches.Apply(_harmony);
-            IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!);
-            VehiclePaintPatches.Apply(_harmony);
-            EngineEmissivePatches.Apply(_harmony);
-            FlexoPatches.Apply(_harmony);
-            Console.WriteLine("unscience: Harmony patches applied");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"unscience: Error applying patches: {ex.Message}");
+            Console.WriteLine($"unscience: Error creating Harmony instance: {ex.Message}");
+            return;
+        }
+
+        // Each feature is applied in isolation: a single feature failing to patch (e.g. a
+        // stale reflection/field target after a game update) logs and is skipped instead of
+        // aborting every feature registered after it in the chain.
+        TryApply("hotkey-guard", () => HotkeyGuard.Patch(_harmony!));
+        TryApply("thug-life", () => ThugLifeRenderPatches.Apply(_harmony!));
+        TryApply("menu-bar", () =>
+        {
+            MenuBarPatch.ToggleWindow = MenuBarToggle;
+            MenuBarPatch.Apply(_harmony!);
+        });
+        TryApply("blinky", () => BlinkyPatches.Apply(_harmony!));
+        TryApply("its-so-shiny", () => ShinyPatches.Apply(_harmony!));
+        TryApply("camera-controller-override", () =>
+        {
+            CameraControllerOverridePatches.SequencePlayer = CameraSequencePlayer;
+            CameraControllerOverridePatches.Apply(_harmony!);
+        });
+        TryApply("eternal-flame", () => EternalFlamePatches.Apply(_harmony!));
+        // garrys-torch no longer registers a Harmony patch — its weld physics
+        // runs from unscience/Mod.cs OnAfterUi via GarrysTorchSubmod.UpdateWelds,
+        // which internally calls JobSystems.VehicleSolvers.Wait() to avoid the
+        // worker-thread races that any other timing produces.
+        TryApply("glass", () => GlassPatches.Apply(_harmony!));
+        TryApply("i-feel-seen", () => IFeelSeenPatches.Apply(_harmony!, IFeelSeenTracker!));
+        TryApply("vehicle-paint", () => VehiclePaintPatches.Apply(_harmony!));
+        TryApply("engine-emissive", () => EngineEmissivePatches.Apply(_harmony!));
+        TryApply("flexo", () => FlexoPatches.Apply(_harmony!));
+        TryApply("iva-force-render", () => IvaForceRender.Patch(_harmony!));
+        Console.WriteLine("unscience: Harmony patches applied");
+    }
+
+    private static void TryApply(string feature, Action apply)
+    {
+        try
+        {
+            apply();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"unscience: Failed to apply {feature} patches: {ex.Message}");
         }
     }
 
@@ -63,18 +85,19 @@ internal static class Patcher
         {
             if (_harmony != null)
             {
-                HotkeyGuard.Unpatch(_harmony);
-                MenuBarPatch.Remove(_harmony);
-                BlinkyPatches.Remove(_harmony);
-                ShinyPatches.Remove(_harmony);
-                CameraControllerOverridePatches.Remove(_harmony);
-                EternalFlamePatches.Remove(_harmony);
-                GlassPatches.Remove(_harmony);
-                IFeelSeenPatches.Remove(_harmony);
-                EngineEmissivePatches.Remove(_harmony);
-                FlexoPatches.Remove(_harmony);
-                VehiclePaintPatches.Remove(_harmony);
-                ThugLifeRenderPatches.Remove(_harmony);
+                TryRemove("hotkey-guard", () => HotkeyGuard.Unpatch(_harmony!));
+                TryRemove("menu-bar", () => MenuBarPatch.Remove(_harmony!));
+                TryRemove("blinky", () => BlinkyPatches.Remove(_harmony!));
+                TryRemove("its-so-shiny", () => ShinyPatches.Remove(_harmony!));
+                TryRemove("camera-controller-override", () => CameraControllerOverridePatches.Remove(_harmony!));
+                TryRemove("eternal-flame", () => EternalFlamePatches.Remove(_harmony!));
+                TryRemove("glass", () => GlassPatches.Remove(_harmony!));
+                TryRemove("i-feel-seen", () => IFeelSeenPatches.Remove(_harmony!));
+                TryRemove("engine-emissive", () => EngineEmissivePatches.Remove(_harmony!));
+                TryRemove("flexo", () => FlexoPatches.Remove(_harmony!));
+                TryRemove("vehicle-paint", () => VehiclePaintPatches.Remove(_harmony!));
+                TryRemove("thug-life", () => ThugLifeRenderPatches.Remove(_harmony!));
+                TryRemove("iva-force-render", () => IvaForceRender.Unpatch(_harmony!));
             }
             VehiclePaint.Cleanup();
             EngineEmissive.Cleanup();
@@ -85,6 +108,18 @@ internal static class Patcher
         catch (Exception ex)
         {
             Console.WriteLine($"unscience: Error removing patches: {ex.Message}");
+        }
+    }
+
+    private static void TryRemove(string feature, Action remove)
+    {
+        try
+        {
+            remove();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"unscience: Failed to remove {feature} patches: {ex.Message}");
         }
     }
 }

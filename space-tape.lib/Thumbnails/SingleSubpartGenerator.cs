@@ -204,7 +204,7 @@ public sealed class SingleSubpartGenerator : IDisposable
 
         root.AddChild(child);
 
-        float radius = root.ComputeBoundingSphereRadius();
+        float radius = root.ComputeBoundingSphereRadius(out _);
         float dist = radius / (float)Math.Sin(viewport.GetCamera().GetFieldOfView() * 0.5f);
         root.LocalPosition = Double3Ex.Forward * (viewport.GetCamera().NearPlane + dist);
         root.LocalScale = Double3Ex.One;
