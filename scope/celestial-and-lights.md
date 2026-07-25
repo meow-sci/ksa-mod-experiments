@@ -158,7 +158,20 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
 
 **Game assets referenced** — None.
 
-**Update-risk findings (4680→4750)**
+**Update-risk findings (4750→5018)**
+- ⚠ **`KeyframeAnimationModule.TimeGoal` now fans out to mirrored parts.** 5018 added
+  `ApplyToMirroredParts(TimeGoal, DeploymentState.Deployed|Retracted)` and a
+  `Module.TimeGoal != State.TimeCurrent` guard on the update path. `TimeGoal` is still a plain
+  settable member (no compile break), but a single red-alert write can now also move the part's
+  symmetry partners. **Behavioral — needs a live pass** to confirm red-alert's per-part actuation
+  still targets only what it intends.
+- ✅ `LightModule` (`Template`/`TemplateData`/`ColorRgb`/`Intensity`), `ColorRgbReference`,
+  `PowerConsumer.LightIsActive` and `SolarPanel` are otherwise unchanged; `Celestial.SetOrbit(Orbit)`
+  and `CelestialSystem.All` are signature-identical (kiwis-marbles unaffected).
+- 🔴 **zippo's `GetField("Color")` is still wrong** — re-confirmed against 5018: the field is
+  `ColorRgb`. Pre-existing silent no-op, **not** a 5018 regression.
+
+#### Carried over from the 4680→4750 review
 - No breaking deltas detected. `KeyframeAnimationModule` (`TimeGoal`/`Shared`/`ShowDeployRetract`),
   `SolarPanel`, `Part` (`Modules`/`SubtreeModules`/`LightSwitch`/`FullPart`/`InstanceId`/`Template`),
   `ModuleList.Get<T>`, `LightModule` (`Template`/`TemplateData`/`ColorRgb`), `ColorRgbReference`,

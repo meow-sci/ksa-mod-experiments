@@ -278,7 +278,7 @@ public sealed class KittenSpawner
         var part = new Part(partTemplate.Id, partTemplate);
         part.Tree.ReinitializeDerivedValues();
 
-        var mix = SubstanceLibrary.TryGetCombustionProcess(KeyHash.Make("MMH_NTO_1.6".AsSpan()));
+        var mix = TryGetReactantMix("MMH_NTO");
         if (mix != null)
         {
             var tanks = part.SubtreeModules.Get<Tank>();
@@ -288,6 +288,25 @@ public sealed class KittenSpawner
 
         part.Tree.RefillConsumables();
         return part;
+    }
+
+    /// <summary>
+    /// Resolves a propellant mix by reaction id.
+    ///
+    /// KSA 2026.7.9.5018 replaced the combustion-process model
+    /// (SubstanceLibrary.TryGetCombustionProcess, ids like "MMH_NTO_1.6") with a
+    /// reaction model: mixture ratio is no longer baked into the id, so a
+    /// MixtureReaction must be evaluated at its default ratio to obtain a mix.
+    /// </summary>
+    private static ReactantMix? TryGetReactantMix(string reactionId)
+    {
+        var reaction = SubstanceLibrary.TryGetReaction(KeyHash.Make(reactionId.AsSpan()));
+        return reaction switch
+        {
+            MixtureReaction mixture => mixture.AtMixtureRatio(mixture.DefaultMixtureRatio).ReactantMix,
+            IReactantMix fixedMix => fixedMix.ReactantMix,
+            _ => null,
+        };
     }
 
     private string GetRandomCharacterId()

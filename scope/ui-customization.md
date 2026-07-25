@@ -162,13 +162,41 @@ they survive sessions. No game assets.
 
 **Game assets referenced** — None.
 
-**Update-risk findings (4680 -> 4750)**
+**Update-risk findings (4750 -> 5018)**
+
+- ✅ **All seven reflected fields still resolve** — and critically, all seven are still declared
+  **on `GaugeCanvas` itself** (lines 92/112/127/129/131/133/140), none lifted into `GaugeBase`.
+  That matters because `GaugeStateAccessor` calls `typeof(GaugeCanvas).GetField(name, NonPublic|…)`,
+  which does **not** walk base types for non-public members — a move to `GaugeBase` would have been a
+  silent total failure.
+- ⚠ **`_windowTitle` changed `private` → `protected`.** Still `NonPublic`, so
+  `BindingFlags.NonPublic | BindingFlags.Instance` still finds it. No code change needed, but this is
+  the kind of drift that a `private`-only lookup would have missed.
+- 🔴 **BEHAVIORAL: the game grew a first-party version of con-man's feature.** Unlike 4680→4750, this
+  span is dense with gauge/HUD work and none of it moves a symbol con-man binds to:
+  - **rev 4940** — added a **Hud dropdown to the file bar**, and **moved the gauge enable/disable
+    toggles out of the View dropdown into it**. Also added **HudLayouts**: save any arrangement of
+    gauges as a named layout, mark one default, serialized to a `HUDLayouts` folder alongside
+    Saves/Vehicles. This is a native re-implementation of con-man's layout manager — expect UI overlap
+    and possible fights over canvas offset/scale state.
+  - **rev 4919** — the in-flight Sequence UI is now drawn on a GaugeCanvas dressing; navball canvas
+    padding fixed.
+  - **rev 4959** — the burn UI was reworked into the gauge-canvas system, and an **`AlwaysEnabled`
+    flag** was added for canvases whose enabled state is driven by gameplay rather than the user.
+    con-man does not know about that flag, so toggling `_enabled` on such a canvas may be overridden
+    or produce an inconsistent UI.
+  - **rev 5003** — all UI pop-ups moved to Gauge Window styling.
+  - **rev 4970** — `ImGauge`/`ImGaugeWindow` helper classes added (new `ImGauge*.cs`,
+    `SerializedCanvas`, `LayoutSave`/`LayoutSaves`, `PopupGaugeLayout` types).
+  → **Needs a live pass**: verify the canvas list con-man enumerates, that its saved layouts still
+  apply, and how it interacts with the game's own HudLayouts.
+
+#### Carried over from the 4680 -> 4750 review
 
 - No breaking deltas detected. **This is the highest-risk integration in the suite**
   (seven string-named private fields on `GaugeCanvas`), and all seven exist unchanged
   in NEW — only line numbers shifted ~1. `GaugeCanvas : GaugeBase : SerializedId`
-  inheritance and the `string Id` key are intact. No gauge/canvas/HUD entries appear in
-  the 4680→4750 changelog.
+  inheritance and the `string Id` key are intact.
 - Field semantics still match the apply math: the decomp confirms
   `_windowPosition = GetWindowPos() - _customOffset` and
   `_windowSize = GetWindowSize() / _customScale` (`GaugeCanvas.cs:505-506`), which is

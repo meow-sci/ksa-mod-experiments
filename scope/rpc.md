@@ -144,6 +144,19 @@ ignite/shutdown.
 - **GenHTTP 10.5.0 (3rd-party) and the marshaling seam carry no game-update risk.** Server bind,
   routing, serialization, and the `GameThread` scheduler trio touch no KSA member; their breakage
   modes are library/version/port, not a game update.
+- **`Microsoft.Extensions.ObjectPool` is a game-shipped assembly — bind to the game's copy, not
+  GenHTTP's.** GenHTTP pulls it in transitively at **10.x**, but KSA ships **11.x**
+  (`Microsoft.Extensions.ObjectPool.dll`, 11.0.0-preview.5) and that is what
+  `Brutal.Core.Strings`/`Brutal.Core.Logging` reference — so it is already loaded in the game process
+  before any mod runs. Compiling against the package version produced an unresolvable **MSB3277**
+  10.0.0.0-vs-11.0.0.0 conflict in `unladen-swallow.lib`, `unladen-swallow` and `unscience`, and
+  shipped a stale 10.x copy into each mod folder that could never win at runtime.
+  **Resolution (all three projects):** a `<PackageReference … ExcludeAssets="all">` to drop the
+  package's assets, plus a `<Reference>` to `$(KSAFolder)Microsoft.Extensions.ObjectPool.dll` with
+  `<Private>false</Private>` — the same pattern already used for every `Brutal.*`/`KSA` assembly. The
+  explicit copy of the DLL was also removed from the `GenHttpTransitiveDeps` deploy list.
+  ⚠ **On a game update, re-check this version.** If KSA ever ships an ObjectPool *older* than what
+  GenHTTP requires, the assembly load would fail at runtime rather than at build time.
 - **Delegated-lib risk dominates.** Because endpoints delegate, an RPC group breaking after a game
   update almost always means the *delegated lib* broke. Trace via the cross-reference table:
   fov→`scope/camera.md` (glass), blinky/shiny→`scope/pixel-grids-and-render.md`,

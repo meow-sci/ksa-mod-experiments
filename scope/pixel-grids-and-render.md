@@ -110,7 +110,29 @@ lists only A2–A6 + `EngineA1_Dev`). This catalog asymmetry is identical in OLD
 not a 4750 delta — and is harmless because blinky bypasses the catalog and instantiates
 the template directly. The UI default (A3) is fully cataloged.
 
-**Update-risk findings (4680 -> 4750)**
+**Update-risk findings (4750 -> 5018)**
+
+- 🔴 **BREAKING (fixed): `RocketCore.ResourceManager` moved.** 5018 rewrote the fuel/resource feed
+  model: `RocketCore` no longer owns a `ResourceManager` — it now exposes `FeedConnectors`,
+  `ResolvedConsumerFeeds`, `TryPrepareDrain`/`TryAccumulateDrain` and a `DrainContext`. The
+  `ResourceManager` (and its `FlowRule`) live on the **`Combustor`** subclass; the other
+  `RocketCore` subclass, the new **`SolidMotor`**, legitimately has none. `BlinkySubmod.DiagnoseGrid`
+  now tests `core is Combustor` before reading it. Diagnostics-only path — no functional impact.
+- ✅ **Engine activation is unaffected by the rev-4914 control-module lockout.**
+  `EngineController.SetIsActive(Vehicle?, bool)` and `ThrusterController.SetIsActive` are
+  **byte-identical** to 4750 — the new lockout ("no vehicle control module" disables the Active
+  checkboxes, Decouple and the staging key) was implemented in the **UI layer only**. blinky drives
+  engines through `SetIsActive(null, on)` and is not gated by it.
+- ✅ **Staging reads survive the staging rewrite.** `StageList.cs` and `Staging.cs` were deleted in
+  favour of `ResourceGroups`/`ResourceGroupList`/`SequencePerformance*`, but `Part.Stage` and
+  `Part.SetStage(int)` are unchanged, so `LcdGridBuilder`'s stage alignment is still correct. Note
+  rev 4873 changed `SetStage`'s internals (bulk-guarded rebuilds — previously every `SetStage` rebuilt
+  every resource manager), so bulk stage assignment is now cheaper, not different.
+- ✅ All three render-skip targets (#1–#3) are still byte-identical in signature; the
+  `Parent.FullPart.LightSwitch.LightIsActive` chain is intact (`LightIsActive` is on `PowerConsumer`).
+- ✅ `PartTree.CreateFromNewPartTree(Part)` and the part-tree build/destroy API are unchanged.
+
+#### Carried over from the 4680 -> 4750 review
 
 - No breaking deltas. All three render-skip targets (#1–#3) are byte-identical in
   signature and even line number; the `Parent.FullPart.LightSwitch.LightIsActive` chain
@@ -239,7 +261,27 @@ lost on reload. No StarMap save hooks, no disk I/O.
 Texture is generated programmatically (`ThugLifeTexturePattern.cs`, `R8G8B8A8UNorm`) — no
 external texture asset dependency.
 
-**Update-risk findings (4680 -> 4750)**
+**Update-risk findings (4750 -> 5018)**
+
+- ✅ **No breaking deltas.** `SuperMeshRenderSystem.RenderMainPass(CommandBuffer)` is
+  signature-identical. `SuperMeshRenderSystem.cs` did change (+32 lines) but **only in the
+  shadow/CSM path**: `RenderShadowPass` gained a `cascadeIndex` parameter and pushes it as a push
+  constant, depth pipelines switched `SetPushConstant<InstanceData>` → `SetPushConstant<int>`, a
+  `SetCsmFilterSpecConstant` helper was added, and several `AddMacroDefinition` calls were collapsed
+  to the shorter overload. thug-life postfixes the **main** pass and touches none of it.
+- ✅ **`UnlitMesh.vert` / `UnlitMesh.frag` are byte-identical 4750→5018** (they do not appear in the
+  Content diff at all), and their `DefaultAssets.xml` ids are unchanged.
+- ✅ **Pipeline assumptions are read dynamically, so render-state churn is absorbed.**
+  `ThugLifeQuadRenderer` reads `Program.OffScreenPass.SampleCount`, `Program.OffScreenPass.Pass` and
+  `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` at build time rather than hard-coding an MSAA
+  count or depth mode — an MSAA/format change would be picked up automatically.
+- ⚠ **Watch (visual-only, needs a live pass):** this span added a lot of render work around the
+  offscreen pass — screenspace particles (`ScreenspaceParticleRenderer` + new `Composite.frag`),
+  `MilkyWayRenderer`, volumetric trails, extruded shadow-cascade frusta (rev 4982), and CSM filter
+  spec constants. None of it moves an API thug-life binds to, but a depth/MSAA behavioral change here
+  manifests as a mis-drawn quad rather than a crash. **Re-verify visually.**
+
+#### Carried over from the 4680 -> 4750 review
 
 - No breaking deltas. The single Harmony target (`SuperMeshRenderSystem.RenderMainPass`)
   is signature-identical and even same-line; the offscreen-pass + camera + ego-transform

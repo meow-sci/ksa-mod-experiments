@@ -48,7 +48,16 @@ All five mods **compile clean against NEW (4750)**, so every *typed* member belo
 
 **Game assets referenced** — None.
 
-**Update-risk findings (4680→4750)** — No breaking deltas detected. All patch targets, the `IOrbiter.ShowOrbit` property, and every celestial/vehicle type are signature-identical between versions. Minor hygiene note only: the duplicated local `HotkeyGuard` should be consolidated onto `ksa-abstractions.lib`.
+**Update-risk findings (4750→5018)** — No compile or signature deltas: `GaugeCanvas.OnDrawMenuBar()`
+(the Harmony target), `IOrbiter.ShowOrbit`, and every celestial/vehicle type are signature-identical,
+as is `GameSettings.OnKeyAll` for the local `HotkeyGuard` copy. ⚠ **But the menu marque injects into
+moved**: rev 4940 added a **Hud dropdown to the file bar** and relocated the gauge enable/disable
+toggles there from the View dropdown, and revs 4919/4959/5003 pulled the sequence UI, burn UI and all
+pop-ups into the gauge-canvas system. `OnDrawMenuBar` still runs, but *where* marque's entries land
+relative to the reorganised menus **needs a live pass**. Minor hygiene note, still open: the
+duplicated local `HotkeyGuard` should be consolidated onto `ksa-abstractions.lib`.
+
+#### Carried over from the 4680→4750 review — No breaking deltas detected. All patch targets, the `IOrbiter.ShowOrbit` property, and every celestial/vehicle type are signature-identical between versions.
 
 ---
 
@@ -158,7 +167,21 @@ All five mods **compile clean against NEW (4750)**, so every *typed* member belo
 
 **Game assets referenced** — `ShaderReference "MeshIndirectVert"` → `Content/Core/Shaders/Mesh/MeshIndirect.vert` (vertex shader rewritten at runtime). No sounds/parts.
 
-**Update-risk findings (4680→4750)** — **BREAKING DELTA in the GLSL shader rewrite (item 14).**
+**Update-risk findings (4750→5018)** — still dead (unchanged cause), and the byte hazard deepened.
+
+- 🔴 **`PerInstanceData.packing2` — the slot `DeformRadius` maps onto — is now the game's
+  `public float Wetness`.** 5018 added an `ENABLE_WETNESS` shader variant (`MeshIndirect.vert`
+  `outWetness`@loc8), compiled when `GameSettings.Current.Graphics.VesselWater` is on. mesh-deform's
+  `AddInstanceDeformPatch.Prefix` returns early unless `MeshDeformShaders.ShadersActive`, which
+  remains false on ≥4693, so **nothing is written today** — but un-gating the feature would now
+  corrupt vessel wetness as well as the emissive slot.
+- ✅ The self-disable probe is still correct: `MeshIndirect.vert` in 5018 still carries the
+  `#ifdef ENABLE_*` feature gates (and gained `ENABLE_WETNESS`/`ENABLE_FROST`), so the anchors the
+  mod needs remain absent and it disables cleanly. **Not a new regression.**
+- ✅ Both Harmony targets (`PartModel.AddInstance`, `PartModelModule.UpdateRenderData`) are
+  signature-identical in 5018.
+
+#### Carried over from the 4680→4750 review — **BREAKING DELTA in the GLSL shader rewrite (item 14).**
 
 - The C# side is entirely intact: both Harmony targets (`PartModel.AddInstance`, `PartModelModule.UpdateRenderData`), `PartModelModule.Parent`, the `PerInstanceData` struct layout, `ColorData.Rebuild`, and all `ShaderReference` reflection (`DoLoad`, `Shader` private setter, `ModPath`) + `ShaderModuleUtils.FromFile` are signature-identical in both versions. The mod loads and patches without error.
 - **But `MeshIndirect.vert` was refactored in 4750.** OLD (4680) ended the struct exactly with the mod's anchor:

@@ -612,7 +612,9 @@ public sealed class BlinkySubmod : ISubmod
             if (ctrl.Cores != null && ctrl.Cores.Length > 0)
             {
                 var core = ctrl.Cores[0];
-                var rm = core.ResourceManager;
+                // As of KSA 2026.7.9.5018 ResourceManager moved off the RocketCore base
+                // onto Combustor; SolidMotor cores have no resource manager at all.
+                var rm = core is Combustor combustor ? combustor.ResourceManager : null;
                 if (rm != null)
                 {
                     Console.WriteLine($"blinky:     ResourceManager.FlowRule = {rm.FlowRule}");

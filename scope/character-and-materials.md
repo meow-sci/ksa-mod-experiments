@@ -110,14 +110,32 @@ Vehicle/character filterable combos, offset/count, color picker + XKCD combo, pe
 
 - **Characters** by id from `ModLibrary.AllCharacters` (e.g. `"Calico"`, user-selectable / random). No hardcoded character id.
 - **Part template** `"KittenBackPackPart"` (`KittenSpawner.cs:275`).
-- **Combustion process** `"MMH_NTO_1.6"` (`KittenSpawner.cs:281`).
+- **Reaction** `"MMH_NTO"` (`KittenSpawner.cs:281` → `TryGetReactantMix`), defined in
+  `Core/Reactions.xml` as `<MixtureReaction Id="MMH_NTO">` with `DefaultMixtureRatio` 1.65.
+  Was the combustion process `"MMH_NTO_1.6"` before 5018 — the mixture ratio is no longer part of
+  the id, so the old id resolves to nothing.
 - **Fur texture** `"FurNoise"` reached indirectly via `CharacterRenderResources.FurTexture` (game loads it; mod only reads `.BindlessHandle`).
 - No shader files referenced directly. Tint takes effect through `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`, **identical** both builds).
 
-### Update-risk findings (4680 → 4750)
+### Update-risk findings (4750 → 5018)
 
-- **No breaking deltas detected.** Every reflected member, internal field, and typed API is present in 4750 with identical signatures; only source line numbers shifted.
-- `MaterialData` (the GPU write target) is byte-identical (`AlbedoColor` @ offset 16) — the staged Vulkan write remains correct.
+- **BREAKING (fixed):** the combustion model was replaced by a reaction model.
+  `SubstanceLibrary.TryGetCombustionProcess` is gone, along with `CombustionObject`,
+  `CombustionProcess`, `CombustionProcessTemplate` and `CombustionTable`. The replacements are
+  `SubstanceLibrary.TryGetReaction(KeyHash) → Reaction`, with `FixedReaction : Reaction, IReactantMix`
+  carrying a `ReactantMix` directly and `MixtureReaction : Reaction` exposing
+  `AtMixtureRatio(float) → FixedReaction` plus `DefaultMixtureRatio`. `Tank.ConfigureFor` now takes a
+  `ReactantMix` (`ConfigureFor(ReactantMix, bool recreateResourceManagers = true)`).
+  `KittenSpawner.CreateBackpackPart` was rewritten accordingly (`TryGetReactantMix` helper).
+- **Everything else clean.** `CharacterAvatar.cs`, `GpuMaterialSystem.cs`, `KittenEva.cs`,
+  `KittenRenderable.cs` and `CharacterRenderSystem.cs` are **unchanged** 4750→5018.
+- `MaterialData` (the GPU write target) is byte-identical (`AlbedoColor` @ offset 16, stride 80) — the
+  staged Vulkan write remains correct. `ModelPbr.frag` and `Common/MaterialSet.glsl` are also
+  byte-identical, so Kitten Color is unaffected.
+- `CharacterAvatar.CharacterCore` is still a **struct** with `public float Scale` — garrys-torch's
+  boxed `SetValue` write-back pattern still works.
+
+#### Carried over from the 4680 → 4750 review
 - `CharacterRenderResources.cs` **does** differ between builds, but only in **internal shader wiring**: `using Brutal.ShaderCompilerApi` → `Brutal.ShaderCApi`, and the eye/glass technique now compiles `ModelTranslucentFrag` (with `CreateEyeCompileOptions`) instead of `ModelEyeFrag`/`ModelGlassFrag` (rev 4745 ModelGlass+ModelEye merge). The fur/eye **fields** doh reflects (`FurTexture`, `CatFurMaskTexture`, `FurSampler`, `EyeRenderer`) are unchanged → no impact on doh.
 - rev 4699 added `KittenEva.IsControllable => true`; doh does not reference it, so additive only (spawned kittens gain controllability).
 
@@ -168,7 +186,30 @@ global toggles; all cleared on unload.
 - **GPU material buffer** (`GpuMaterialSystem.BigBuffer`) for Kitten Color (no asset path).
 - **Removed assets the mod's design assumed:** `DynamicMeshIndirect.vert/.frag` (gone, 4693), `ModelEye.frag`, `ModelGlass.frag` (gone, 4745). `ModelTranslucent.frag` is **new** (4747). humble-arteest does not recompile these by id, so removal is not a hard reference break — but the README's narrative around `DynamicMeshIndirect.frag` is now stale.
 
-### Update-risk findings (4680 → 4750)
+### Update-risk findings (4750 → 5018)
+
+- 🔴 **`PerInstanceData` padding slot the mod writes is now GAME-USED.**
+  `PartModel.PerInstanceData.packing2` → **`public float Wetness`**, and
+  `PartModelDynamic.PerInstanceData.packing1` → **`public float Wetness`**. These feed a new
+  `ENABLE_WETNESS` shader variant (`MeshIndirect.vert` `outWetness`@loc8 / `.frag` `inWetness`@loc8),
+  compiled only when `GameSettings.Current.Graphics.VesselWater` is on
+  (`PartModelRenderer.cs`). A sibling `ENABLE_FROST` variant was added at the same time.
+  - **Vehicle Paint** maps `PaintB` onto that slot — but its `AddInstancePrefix` returns early unless
+    `VehiclePaint.ShadersActive`, which can never be true on ≥4693, so **nothing is written today**.
+    The hazard is now worse than the previously-recorded `EmissiveColor` clobber: un-gating the
+    feature would corrupt both `EmissiveColor` *and* `Wetness`.
+  - **Engine Emissive is unaffected** — it writes only `Temperature` and `TfiThickness`, whose offsets
+    did not move. Its mirror struct's trailing field was renamed `packing1` → `Wetness` to make the
+    "do not write" boundary explicit.
+- ✅ **Engine Emissive's LUT survived.** The `#ifdef ENABLE_TEMPERATURE` block (with
+  `temperatureLut` sampler and `inTemperature`@loc7) is still present in `MeshIndirect.frag`.
+- ✅ `GpuMaterialSystem.cs` and `MaterialData` are **unchanged** → Kitten Color's staged Vulkan write
+  is still correct.
+- 🔴 **Vehicle Paint remains dead**, unchanged in cause: the probe in `VehiclePaint.DetectSupport`
+  tests for `#ifdef ENABLE_EMISSIVE`/`ENABLE_TEMPERATURE` in `MeshIndirect.vert`; 5018 still has them
+  (6 occurrences), so the feature correctly self-disables. **Not a new regression.**
+
+#### Carried over from the 4680 → 4750 review
 
 - 🔴 **Vehicle Paint shader-swap is non-functional on both builds (highest-priority finding).**
   Verified by reading `MeshIndirect.vert`/`.frag` in *both* Content trees: the three
@@ -254,7 +295,27 @@ Expression buttons, MMU-animation grid, walking buttons, duration slider.
   `CharacterAvatar` (populated by the game per character); the mod selects from them, it does not
   load assets by id. No shader, material, or character-id references.
 
-### Update-risk findings (4680 → 4750)
+### Update-risk findings (4750 → 5018)
+
+- ⚠ **The animation pipeline was reworked — no break, but investigate the standing bug here.**
+  `IAnimProcessor` gained `void UpdateLocalPose(float4x4, Skeleton, Span<TransformTRS>, float)`
+  alongside the existing `UpdateSkeleton`. `CatExpressionAnim.MixPose` was replaced by
+  `MixPoseLocal`, and the expression mix now runs from `UpdateLocalPose` against a caller-supplied
+  local-pose span. `AnimatedRenderable` now allocates a reusable `_processedPose` buffer, copies
+  `RuntimeAnim.Transforms` into it, lets each processor mutate the *local pose*, and only then calls
+  `Skeleton.UpdateLocalTransforms`/`UpdateWorldTransforms`.
+  - **kitten-animations does not implement `IAnimProcessor`**, so the added interface member is not a
+    compile break, and `avatar.Core.CharacterModel.SetAnimation` is unchanged.
+  - The reflected cache field `CatExpressionAnim._expressionPose` (`private TransformTRS[]?`) is
+    **still present and still the correct bust target** — `UpdateLocalPose` re-samples when it is
+    `null` or `!CanCacheAnimation`, exactly as before.
+  - 🔎 **This rework is the prime suspect for the `ISSUES.md` entry "kitten animations don't properly
+    play each one, always the same".** Needs a live in-game pass to confirm whether the cache-bust
+    still lands before `UpdateLocalPose` reads it.
+- `CharacterAvatar.cs` is **unchanged** 4750→5018; `CharacterCore` is still a struct with
+  `public float Scale`.
+
+#### Carried over from the 4680 → 4750 review
 
 - **No breaking deltas detected.** `CharacterAvatar.cs` and `CatExpressionAnim.cs` are
   **byte-identical** OLD↔NEW, so every expression list, MMU/walking animation field, the

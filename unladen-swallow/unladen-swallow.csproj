@@ -31,6 +31,14 @@
     <PackageReference Include="GenHTTP.Modules.ErrorHandling" Version="10.5.0" />
     <PackageReference Include="GenHTTP.Modules.IO" Version="10.5.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+
+    <!--
+      See unladen-swallow.lib: GenHTTP pulls Microsoft.Extensions.ObjectPool 10.x transitively, but
+      the game ships and loads 11.x (which Brutal.Core.Strings/Brutal.Core.Logging reference).
+      Excluding the package's assets lets the game's DLL below be the single provider, which both
+      clears the MSB3277 10-vs-11 conflict and stops shipping a copy that can never win at runtime.
+    -->
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.3" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,6 +64,12 @@
     </Reference>
     <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">
       <HintPath>$(KSAFolder)KSA.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Game-shipped assembly: bind to the game's 11.x copy, don't ship our own (see above). -->
+    <Reference Include="Microsoft.Extensions.ObjectPool" Condition="Exists('$(KSAFolder)Microsoft.Extensions.ObjectPool.dll')">
+      <HintPath>$(KSAFolder)Microsoft.Extensions.ObjectPool.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -94,9 +108,10 @@
           DestinationFolder="$(DistDir)"
           Condition="'@(GenHttpAssemblies)' != ''" />
 
-    <!-- Transitive dependencies required by GenHTTP at runtime -->
+    <!-- Transitive dependencies required by GenHTTP at runtime.
+         Microsoft.Extensions.ObjectPool is deliberately NOT listed: the game ships and loads its
+         own 11.x copy, so shipping ours would be a stale duplicate that never wins. -->
     <ItemGroup>
-      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.ObjectPool.dll" />
       <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
       <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.Logging.Abstractions.dll" />
       <!-- <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Data.Sqlite.dll" /> -->

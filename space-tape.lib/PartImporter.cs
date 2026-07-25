@@ -81,9 +81,13 @@ public static class PartImporter
             }
         }
 
-        // Tank (game templates only ever have one)
-        if (template.Tank != null)
-            gd.Tanks.Add(ImportTank(template.Tank));
+        // Tanks — as of KSA 2026.7.9.5018 tanks are no longer a single PartTemplate.Tank
+        // field; they are Tank.TemplateData entries in the generic Components list.
+        foreach (var component in template.Components)
+        {
+            if (component is Tank.TemplateData tankData && tankData.Tank != null)
+                gd.Tanks.Add(ImportTank(tankData.Tank));
+        }
 
         // Connectors
         foreach (var c in template.Connectors)

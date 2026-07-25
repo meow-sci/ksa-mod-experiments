@@ -13,15 +13,23 @@ decompiled-source path for each so the dependency can be re-checked against any 
 
 ## Version baseline
 
-- **Cataloged against:** KSA build **`2026.6.9.4750`** (current install) — decomp at
+- **Cataloged against:** KSA build **`2026.7.9.5018`** (2026-07-25) — decomp at
   `…/ksa-game-assemblies/current/decomp`, assets at `…/ksa-game-assemblies/current/Content`.
-- **Diffed from:** KSA build **`2026.6.8.4680`** (previous) — `…/ksa-game-assemblies_2026.6.8.4680/current/…`.
-- **How each touchpoint was verified:** (1) `dotnet build` against the live `4750` game DLLs to catch
-  *typed* breaks; (2) grep of every touchpoint in **both** decomp trees to catch *string/reflection*
-  breaks the compiler can't see; (3) cross-reference against the `version.json` changelog (revs
-  4681–4748) for *behavioral* changes that don't move a symbol.
-- The repo's own `decomp/ksa` copy is **older than 4680** and is not authoritative — always diff
-  against the two `ksa-game-assemblies*` trees above.
+  Confirmed identical to the live install (`C:\Program Files\Kitten Space Agency\KSA.dll`), so
+  `dotnet build` compiled against this build.
+- **Diffed from:** KSA build **`2026.6.9.4750`** — the previously verified baseline, recovered from
+  git tag `2026.6.9.4750` in the `ksa-game-assemblies` repo. The intermediate builds `4826`, `4892`,
+  `4939` and `4980` were never separately verified, so the honest span is **4750 → 5018**.
+- **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx` against the live
+  `5018` DLLs for *typed* breaks; (2) re-grep of the **entire** string-reflection watchlist plus a
+  signature diff of **every** Harmony patch target in both trees, for the silent breaks the compiler
+  can't see; (3) byte-layout diff of `PerInstanceData`/`MaterialData` and a content diff of every
+  referenced GLSL/asset; (4) the `version.json` changelogs for behavioral changes that move no symbol.
+- ⚠ **The changelog is incomplete for this span.** No `version.json` on disk covers revs **4751–4824**
+  or **4827–4859** (~110 revisions). Steps 1–3 above compare *source*, so they cover the gap; the
+  changelog scan alone does not.
+- The repo's own `decomp/ksa` copy is **older still** (June 12) and is not authoritative — always diff
+  against the `ksa-game-assemblies` git tags.
 
 When a new game version arrives, bump this baseline and re-run the workflow below.
 
@@ -93,43 +101,57 @@ the repo but are **not** loaded by the supermod.)
 
 ---
 
-## Current status against `4750` (summary)
+## Current status against `5018` (summary)
 
-Full detail and the remediation plan live in
-[`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md). Headline:
+Full detail lives in [`game-integration-surface.md`](game-integration-surface.md) §6; the remediation
+record is in [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md). Headline: the
+4750→5018 span is large (433 decomp files, ~40k inserted lines), driven by three game-side rewrites —
+**combustion → reaction model**, **fuel/resource feed wiring**, and **staging → resource groups** —
+plus a substantial **gauge/HUD** rework. Despite that, the blast radius on unscience was three compile
+errors and no new runtime break.
 
-**Build-blocking (must fix to compile against the live game):**
-- **space-tape.lib** — 4 compile-error groups (thumbnail API `CreateImGuiThumbnail`→`GetOrCreateImGuiTexture`;
-  energy/power `float`→`double`; `DockingPortTemplate.Force`→`PushoffImpulse`; `ComputeBoundingSphereRadius`
-  now needs `out float3`) plus a docking-port XML writer runtime break. *Mostly accumulated API drift
-  that predates 4680; only the energy/power change is strictly from this update.*
-- **garrys-torch.lib** — one nullable break (`ImString.AppendFormatted` non-nullable after the rev 4729
-  Brutal package bump). *Genuinely from this update.*
+**Build-blocking (all three FIXED — `dotnet build ksa-mod-experiments.slnx` is green):**
+- **space-tape.lib** — `PartTemplate.Tank` removed; tanks are now `Tank.TemplateData` entries in
+  `PartTemplate.Components`. Importer iterates `Components` (and so now supports multi-tank parts).
+- **doh.lib** — `SubstanceLibrary.TryGetCombustionProcess` and the whole `Combustion*` type family
+  removed. Now resolves `TryGetReaction("MMH_NTO")` and evaluates the `MixtureReaction` at its
+  `DefaultMixtureRatio` (1.65) to get the `ReactantMix` that `Tank.ConfigureFor` now takes. The old
+  ratio-in-the-id convention (`MMH_NTO_1.6`) is gone.
+- **blinky.lib** — `RocketCore.ResourceManager` moved down to the `Combustor` subclass; the diagnostic
+  now tests `core is Combustor` (`SolidMotor` cores legitimately have none).
 
-**Runtime/asset breaks (compile-clean, broken in game) — now guarded (Phase 2 done):**
-- **humble-arteest** Vehicle Paint — runtime GLSL shader-swap is inert. Root cause is deeper than the
-  missing anchors: rev 4693 moved part-color compilation to
-  `ShaderReference.CompileVariantWithCustomOptions()`, which recompiles MeshIndirect from disk per
-  `ENABLE_*` pipeline variant and **ignores `ShaderReference.Shader`**, so the mod's module-swap can
-  never take effect (even with correct anchors). The feature now **self-detects and disables** with a
-  clear "unavailable on this build" notice, and no longer clobbers `PerInstanceData.EmissiveColor`.
-  Engine Emissive and Kitten Color are unaffected. Reviving paint is a redesign (Harmony-patch the
-  shared part-shader compilation, blast radius = every part) needing in-game GPU iteration — see the plan.
-- **mesh-deform** (standalone) — same root cause; now **self-detects and disables** on `≥4693`.
+**Silent byte-layout change (guarded — no live break, but the hazard deepened):**
+- `PartModel.PerInstanceData.packing2` and `PartModelDynamic.PerInstanceData.packing1` are now
+  **`public float Wetness`**, feeding a new `ENABLE_WETNESS` shader variant. humble-arteest **Vehicle
+  Paint** and **mesh-deform** write into that slot, but both remain inert behind their content probes
+  (still correct on 5018), so nothing writes there today. humble-arteest **Engine Emissive** is
+  unaffected — it writes only `Temperature`/`TfiThickness`, whose offsets did not move.
 
-**Pre-existing latent bugs surfaced by the audit (not caused by 4750):**
-- **zippo** color control inert (reflects `"Color"`; field is `ColorRgb`).
-- **camera-controller-override** `___Transform` Harmony field injector targets a non-existent field
-  (camera is `Camera`); likely makes the animation override inert — *needs runtime confirmation*; also
-  manifests as an inert `POST /camera/animate` in unladen-swallow.
-- humble-arteest Vehicle Paint clobber of the now-used `PerInstanceData.EmissiveColor` byte — **fixed**
-  (Phase 2): the `AddInstance` prefix now no-ops unless paint is genuinely active (impossible on `≥4693`).
-- supermod `Patcher.cs` never wires `IvaForceRender.Patch` (kitchen-sink IVA force-render is partial
-  inside the supermod).
+**Behavioral watch items (compile-clean, need a live pass):**
+- **con-man / marque vs the gauge-HUD rework** (revs 4919/4940/4959/5003): the game moved the gauge
+  toggles from the View dropdown into a new **Hud** dropdown and shipped a native **HudLayouts**
+  save/load feature — a first-party re-implementation of con-man's feature and a relocation of the
+  menu marque injects into. All 7 of con-man's reflected fields still resolve.
+- **`KeyframeAnimationModule.TimeGoal` now fans out to mirrored parts** → red-alert.
+- **Animation pipeline reworked** (`IAnimProcessor.UpdateLocalPose`, `MixPose`→`MixPoseLocal`);
+  kitten-animations still works, and this is the prime suspect for the `ISSUES.md` "always the same
+  expression" report.
+- **Rev 4914 control-module lockout** is UI-layer only — `EngineController`/`ThrusterController`
+  `SetIsActive` are byte-identical, so blinky/its-so-shiny are unaffected.
+- Carried forward from 4750: editor tag/category schema, face-snapping/connector rules, part-size XML.
 
-**Behavioral watch items (changed semantics, not symbol breaks):** `Vehicle.IsControllable` gating
-(rev 4699); editor tag/category schema — "Interstage" removed, "Stages"→"Resource Groups", tags moved
-to XML (rev 4731/4732/4741); face-snapping/connector rules (rev 4687–4740); part-size XML (rev 4721).
+**Previously-recorded breaks now CLOSED (fixed in-repo; re-verified correct against 5018):**
+- **camera-controller-override** `___Transform` field injector — fixed; the prefix reads
+  `__instance.Camera` directly, and 5018 still exposes `public Camera Camera` with no `Transform`
+  field. (This also unblocked the supermod patch chain, which the injector's throw used to abort.)
+- **zippo** color control — fixed; reflects `"ColorRgb"`, matching 5018.
+- supermod `Patcher.cs` now wires `IvaForceRender.Patch`/`Unpatch`.
 
-**Everything else verified clean** — all other mods' typed + reflection touchpoints exist in 4750 with
-identical signatures (only line numbers shifted).
+**Still genuinely broken, pre-existing, NOT caused by this update:**
+- **humble-arteest Vehicle Paint** / **mesh-deform** — dead by design change since rev 4693; both
+  self-detect and disable, and their probes are still correct on 5018. Reviving paint is a redesign,
+  not a patch.
+
+**Everything else verified clean against 5018** — every Harmony patch-target signature, the full
+string-reflection watchlist, `MaterialData`/`CharacterAvatar` layouts, and the `UnlitMesh`/
+`MaterialSet.glsl`/`ModelPbr.frag` shaders (byte-identical → thug-life and doh Kitten Color safe).

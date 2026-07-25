@@ -24,15 +24,21 @@ public static class EngineEmissivePatches
     private static MethodInfo? _addInstanceOriginal;
     private static MethodInfo? _addInstancePrefix;
 
-    /// <summary>Mirror struct matching PartModelDynamic.PerInstanceData with writable fields.</summary>
+    /// <summary>
+    /// Mirror struct matching PartModelDynamic.PerInstanceData with writable fields.
+    ///
+    /// Only Temperature and TfiThickness are written; the trailing slot is the game's own
+    /// Wetness value (KSA 2026.7.9.5018 repurposed the former packing1 padding for the
+    /// ENABLE_WETNESS shader variant) and MUST be left alone.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     private struct WritablePerInstanceData
     {
         public float4x4 ModelMatrix; // 64 bytes
         public int StateBitFlag;     //  4 bytes
-        public float Temperature;    //  4 bytes
-        public float TfiThickness;   //  4 bytes
-        public int packing1;         //  4 bytes
+        public float Temperature;    //  4 bytes ← override target
+        public float TfiThickness;   //  4 bytes ← override target
+        public float Wetness;        //  4 bytes (game-used since 5018 — do not write)
     }
 
     public static void Apply(Harmony harmony)

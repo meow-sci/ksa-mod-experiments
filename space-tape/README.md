@@ -77,7 +77,10 @@ SubPart browsing now lives in a dedicated floating window tied to the Part Edito
 
 - Save is now performed from a toolbar button that opens a save modal
 - Load/import flows use a compact 2x2 filterable combo table for selecting source category/part
-- Import still pulls full supported data (SubParts, Connectors, Tank, Power, Coupling) into the current editing state
+- Import still pulls full supported data (SubParts, Connectors, Tanks, Power, Coupling) into the current editing state
+- Tank import reads KSA's component list rather than a single tank field (the game moved tanks into
+  `PartTemplate.Components` in build `2026.7.9.5018`), so parts defining **more than one tank** now
+  import all of them instead of just the first
 - Import skips and logs individual bad SubPart records instead of aborting the whole import
 - Connector direction markers use the game's interleaved gizmo mesh path, with a render safety patch active while the editor is open to prevent invalid gizmo mesh data from crashing the game
 - Grid lines use KSA's orbit line renderer instead of the shared gizmo line shader, so grid opacity is driven by the configured RGBA alpha without modifying game shader files.

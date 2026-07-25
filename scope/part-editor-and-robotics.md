@@ -60,7 +60,7 @@ SubPart **thumbnail generation** (off-screen Vulkan rendering) and an animated S
 | 12 | Game assets (mesh) | `ConnectorGizmo.cs:28,32`, `PartEditorScene.cs:66` | `ModLibrary.Get<MeshReference>("Box")`, `("ArrowMesh")` | `KSA/ModLibrary.cs` | ✅ | none | Hard-coded mesh ids; missing ids → gizmo creation fails (caught). |
 | 13 | Typed API (build parts) | `PartEditorScene.cs:246-280` | `new Part(string, PartTemplate)`, `Part.{PositionParentAsmb,Asmb2ParentAsmb,Scale}`, `PartTree.CreateFromNewPartTree(Part)`, `Part.Modules.Get<MeshViewModule>()/<PartModelModule>()`, `Part.Modules.Add(...)`, `new MeshViewModule(string, MeshReference)`, `MeshReference.{PositionCompare,BoundingSphereRadius}` | `KSA/Part.cs`, `KSA/PartTree.cs`, `KSA/MeshViewModule.cs` | ✅ | none | Builds runtime `Part`s for the editor scene; ensures MeshView for raycasting. |
 | 14 | Typed API (raycast/select) | `PartEditorInteraction.cs:86,105,116` | `Camera.ScreenToEgoRay(double2)`, `Part.RayCastEgoSubPart(in double4x4, Ray, out …)`, `Part.RayCastEgo(...)`, `Part.Selected` | `KSA/Part.cs`, `KSA/Camera.cs` | ✅ | none | Hover/click select + native highlight/selection shaders. |
-| 15 | Typed API (import) | `PartImporter.cs` (see breaks) | `PartTemplate.{SubPartInstances,DisplayName,EditorTags,InertMasses,Tank,Connectors,Batteries,Generators,PowerConsumers,Decoupler,DockingPort,EVADoor,IsSubPart,IsHidden,Thumbnail}`; `EditorTag.Tag`; `Part.Connector.TemplateBase.{Id,Transform,Flags}`; `Part.Connector.Flag.{Internal,ToSurface,FromSurface}`; tank `Cylindrical/SphericalTankTemplate.{Length,OuterRadius,WallThickness,Material.Id}`; `CustomMassTemplate.Mass` | `KSA/PartTemplate.cs`, `KSA/EditorTag.cs`, `KSA/Part.cs:95-111`, `KSA/*TankTemplate.cs` | ⚠️ | energy/docking types changed (breaks #2/#3 below); rest unchanged | `EditorTag` is still `record struct` w/ `public readonly string Tag` (compiles). `Decoupler.Force` still `float`. |
+| 15 | Typed API (import) | `PartImporter.cs` (see breaks) | `PartTemplate.{SubPartInstances,DisplayName,EditorTags,InertMasses,Components,Connectors,Batteries,Generators,PowerConsumers,Decoupler,DockingPort,EVADoor,IsSubPart,IsHidden,Thumbnail}` (**`Tank` removed in 5018** — tanks are now `Tank.TemplateData` entries inside `Components`); `EditorTag.Tag`; `Part.Connector.TemplateBase.{Id,Transform,Flags}`; `Part.Connector.Flag.{Internal,ToSurface,FromSurface}`; tank `Cylindrical/SphericalTankTemplate.{Length,OuterRadius,WallThickness,Material.Id}`; `CustomMassTemplate.Mass` | `KSA/PartTemplate.cs`, `KSA/EditorTag.cs`, `KSA/Part.cs:95-111`, `KSA/*TankTemplate.cs` | ⚠️ | energy/docking types changed (breaks #2/#3 below); rest unchanged | `EditorTag` is still `record struct` w/ `public readonly string Tag` (compiles). `Decoupler.Force` still `float`. |
 | 16 | Render/GPU (thumbnails) | `Thumbnails/SubpartThumbnailGenerator.cs`, `SingleSubpartGenerator.cs`, `ThumbnailCameraState.cs` | `ThumbnailRenderer(Renderer)` (`.SIZE/.ColorFormat/.Sampler/.PerInstance…/.PerDraw…/.RecordPartRender`), `ThumbnailPart`, `ThumbnailRenderResources`, `ThumbnailReference`, `Program.{GetRenderer,RenderedViewport,LinearClampedSampler,LightSystem}`, `GameSettings.Current.Graphics.PartThumbnailSize` (ushort) | `KSA.Rendering.Thumbnails/*`, `KSA.Rendering/*`, `KSA/Program.cs:126,391,407,450` | ⚠️ | `ThumbnailReference`/`ThumbnailPart` APIs changed (breaks #1/#4) | Off-screen Vulkan render loop; rev 4694 thumbnail/offscreen rework, rev 4696 sizes. |
 | 17 | Harmony (IVA) | `space-tape/Patcher.cs:20,35`; toggled `SubPartsWindow.cs:102-104` | via `IvaForceRender` → patches `PartModel..ctor(PartModelModule.Template)` + `PartModel.AddInstance(...)` | `ksa-abstractions.lib/IvaForceRender.cs`; `KSA/PartModel.cs` | ✅ | none | "Render IVA SubParts" toggle; depends on `PartModel` ctor overload + `AddInstance` name. |
 | 18 | Lifecycle | `space-tape/Mod.cs`, `Patcher.cs`; `SpaceTapeSubmod.cs` | StarMap attributes; `ISubmod`; `HotkeyGuard` | `MeowSci.KsaAbstractions` | ✅ | none | Per CLAUDE.md HotkeyGuard rule. |
@@ -94,6 +94,31 @@ not 4680→4750 regressions). #3: 4680 had `PushoffForce`+`LatchingImpulse` (flo
 4680 `BatteryTemplate.MaximumCapacity`/`GeneratorTemplate.Produced` were `JoulesReference` whose
 `KWh`/`W` were **float** (`KSA/JoulesReference.cs:10-16`), so `float.IsNaN(...)` compiled. In 4750
 `JoulesReference` was split into `EnergyReference` + `PowerReference` with all fields **double**.
+
+### Update-risk findings (4750 → 5018)
+
+- 🔴 **BREAKING (fixed) — `PartTemplate.Tank` removed.** In 5018 a part's tank is no longer a single
+  `AsmbTankTemplate? Tank` field. Tanks moved into the generic component list as
+  `Tank.TemplateData` (`[XmlType(TypeName = "Tank")] class TemplateData : TemplateDataBase` with an
+  `[XmlElement("CylindricalTank"|"SphericalTank")] AsmbTankTemplate? Tank`), reachable via
+  `PartTemplate.Components`. The game itself now walks it that way
+  (`PartTemplate.CalculateMass`/`AccumulateStorageVolume`, `KSA/PartTemplate.cs:633,675`).
+  `PartImporter` now iterates `Components` and imports **every** `Tank.TemplateData` it finds — so
+  multi-tank parts are supported, where the old single-field read could only ever see one.
+  `AsmbTankTemplate` itself and both subclasses (`CylindricalTankTemplate`, `SphericalTankTemplate`)
+  are unchanged, so `ImportTank` needed no edit.
+  - ⚠ **Round-trip follow-up (not yet done):** `GameDataXmlSerializer` still emits tanks in the old
+    shape. Verify the emitted `<CylindricalTank|SphericalTank>` is nested where 5018's deserializer
+    expects a `Tank` component, or saved parts will lose their tanks — same class of runtime break as
+    R1 below. **Needs a live save/load pass.**
+- ✅ Everything else in this area is stable: `PartModelRenderer.UpdateRenderData(Viewport, int)` (the
+  Harmony target shared with flexo) is signature-identical, `Part.Asmb2ParentAsmb` and
+  `PartTree.RecomputeStaticMass` are unchanged, and `ThumbnailReference`/`ThumbnailPart` did not
+  change at all 4750→5018.
+- ⚠ Carried forward: the **staging → resource groups** rewrite deleted `StageList.cs`/`Staging.cs`
+  and added `ResourceGroups`/`ResourceGroupList`/`ResourceGroupsPanel`. `Part.Stage`/`SetStage` are
+  unchanged, but this is the game-side landing of the 4731/4741 "Stages"→"Resource Groups" editor
+  rename already tracked in R2.
 
 ### Other update-risk findings
 - **R1 (runtime, high) — DockingPort GameData XML mismatch:** `GameDataXmlSerializer.SerializeDockingPort`

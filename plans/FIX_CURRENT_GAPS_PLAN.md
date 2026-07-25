@@ -1,5 +1,12 @@
 # Fix Plan — Current Gaps vs KSA `2026.6.9.4750`
 
+> ⚠ **Superseded as the current baseline.** The suite is now verified against
+> **`2026.7.9.5018`** — see [`KSA_5018_UPGRADE.md`](KSA_5018_UPGRADE.md). This document remains the
+> history for the `4680 → 4750` hop. Note that three items recorded here as open
+> (`Controller.___Transform`, zippo `"Color"`, supermod `IvaForceRender` wiring) have since been
+> **fixed**; the 5018 review re-verified each fix against the new build.
+
+
 Remediation plan for breakage found by auditing the unscience suite against the current KSA build
 **`2026.6.9.4750`** (previous: **`2026.6.8.4680`**). Findings come from three signals, all cross-checked:
 

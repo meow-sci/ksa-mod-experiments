@@ -128,7 +128,7 @@ public struct DeformablePerInstanceData
 {
     public float4x4 ModelMatrix;   // 64 bytes
     public int      StateBitFlag;  //  4 bytes
-    public uint     EmissiveColor; //  4 bytes (preserved)
+    public uint     EmissiveColor; //  4 bytes (game-used — preserved)
     public float    DeformMagnitude; // 4 bytes ← was packing1
-    public float    DeformRadius;    // 4 bytes ← was packing2
+    public float    DeformRadius;    // 4 bytes ← was packing2, GAME-USED (Wetness) since 5018
 }

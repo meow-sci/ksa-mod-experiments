@@ -4,11 +4,12 @@ Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bea
 Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the 11 per-area `scope/`
 files. Use it on every KSA update to find which mods a changed game member puts at risk.
 
-**Verification baseline:** cataloged against KSA build **2026.6.9.4750**
-(`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`), diffed from **2026.6.8.4680**
-(`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`). Decomp paths are
-relative to the decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-row detail
-and the exact 4680↔4750 diff live in the linked area scope files.
+**Verification baseline:** cataloged against KSA build **2026.7.9.5018**
+(`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`), diffed from the previously
+verified baseline **2026.6.9.4750** (tag `2026.6.9.4750` in the same git repo — the intermediate
+builds `4826`/`4892`/`4939`/`4980` were never separately verified). Decomp paths are relative to the
+decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-row detail and the exact
+4750↔5018 diff live in the linked area scope files.
 
 ---
 
@@ -30,8 +31,8 @@ and the exact 4680↔4750 diff live in the linked area scope files.
   `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData`, and the `VehicleProvider` enumeration
   chain — one change here breaks several mods at once.
 
-Status legend: **OK** unchanged 4680→4750 · **CHANGED** signature/shape changed · **BROKEN** non-functional
-against 4750 (compile or silent runtime) · **ADDITIVE** new in 4750, not yet consumed.
+Status legend: **OK** unchanged 4750→5018 · **CHANGED** signature/shape changed · **BROKEN** non-functional
+against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet consumed.
 
 ---
 
@@ -729,7 +730,7 @@ against 4750 (compile or silent runtime) · **ADDITIVE** new in 4750, not yet co
 NOT compile-checked — a game rename breaks these at runtime with no build error. Re-verify each name
 on every game update FIRST.
 
-| Type.Member (string) | Mod(s) | Why string-based | 4750 |
+| Type.Member (string) | Mod(s) | Why string-based | 5018 |
 |---|---|---|---|
 | `Camera.OnFrame` (`OrbitController`/`FlyController.OnFrame`) | camera-controller-override | `AccessTools.Method(…, "OnFrame")` | OK |
 | `Controller.___Transform` (field injector) | camera-controller-override | Harmony field-injection by name | **BROKEN** (no such field on KSA controllers, 4680 & 4750) |
@@ -741,13 +742,13 @@ on every game update FIRST.
 | `CatExpressionAnim._expressionPose` | kitten-animations | private field by name (cache bust) | OK |
 | `LightModule.TemplateData` (`"KSA.LightModule+TemplateData"`) + `PartTemplate.Components` + `TemplateData.Intensity`/`FloatReference.Value` + `ColorRgbReference.{R,G,B,OnDataLoad}` | zippo, red-alert, its-so-shiny (via ZippoLib) | hard-coded type/field/method names | OK |
 | `LightModule.TemplateData."Color"` | zippo | `GetField("Color")` — wrong name (actual `ColorRgb`) | **BROKEN** (silent no-op, 4680 & 4750) |
-| `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK (highest count in suite) |
+| `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK — all 7 still declared **on `GaugeCanvas` itself** (not lifted to `GaugeBase`, which would break `GetField`). `_windowTitle` went `private`→`protected`; still `NonPublic\|Instance`, so it resolves. **Behavioral risk instead:** revs 4919/4940/4959/5003 rebuilt the gauge/HUD system around con-man (see §6) |
 | `Program.Instance`/`MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem` + `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}` + `AssetManager.{AssetMap,GetOrLoad}` + `GpuObjectAssetRef.Handle` + `GpuTextureSystem.*` + `Pbr/Character*Reference.*` | doh, humble-arteest (KittenColor) | deep render-system reflection bridge | OK |
 | `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | humble-arteest (VehiclePaint), mesh-deform | private/internal member names, cross-asm | OK |
 | `ModLibrary.AllParts`/`AllCharacters` + `SerializedCollection.{GetList,Find}` | doh, space-tape | internal static fields/methods by name | OK |
 | `Part._matrixAsmb` / `Part._matrixAsmb2Parent` | space-tape | private fields by name (cache safety) | OK |
 | `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
-| `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK |
+| `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK (field names intact) — but the **owner moved**: `ResourceManager` is no longer on `RocketCore`, it is on the `Combustor` subclass (`SolidMotor` cores have none). Reached via a `core is Combustor` test since 5018 |
 | `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
 | `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink | `AccessTools.Method` by name (no param array) | OK (single overload) |
 | `Situation` enum names (`"Landed"/"Floating"/…`) via `.ToString()` | steely-eyed | enum-name string compare | OK |
@@ -758,7 +759,7 @@ on every game update FIRST.
 
 | Asset / shader | Kind | Referenced as | Content path (NEW) | Consumer | 4750 |
 |---|---|---|---|---|---|
-| `UnlitMesh.vert` / `UnlitMesh.frag` | shader | `ModLibrary.Get<ShaderReference>("UnlitMeshVert"/"UnlitMeshFrag")` | `Core/DefaultAssets.xml:66,67` → `Core/Shaders/Mesh/UnlitMesh.*` | thug-life | OK (untouched by 4693/4745) |
+| `UnlitMesh.vert` / `UnlitMesh.frag` | shader | `ModLibrary.Get<ShaderReference>("UnlitMeshVert"/"UnlitMeshFrag")` | `Core/DefaultAssets.xml:66,67` → `Core/Shaders/Mesh/UnlitMesh.*` | thug-life | OK (**byte-identical 4750→5018**; also untouched by 4693/4745) |
 | `MeshIndirect.vert` (struct + varying anchors) | shader text-edit | `Get<ShaderReference>("MeshIndirectVert")`, GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.vert` | humble-arteest (VehiclePaint), mesh-deform | **BROKEN** (anchors diverged; see §6) |
 | `MeshIndirect.frag` (input-decl anchor) | shader text-edit | GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.frag` | humble-arteest (VehiclePaint) | **BROKEN** (anchor absent; moot — vert fails first) |
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
@@ -770,31 +771,87 @@ on every game update FIRST.
 | `"KittenBackPackPart"` | part template | `ModLibrary.AllParts.Find(KeyHash)` | `Core/*` | doh | OK |
 | Default tank wall material `"Aluminum.2014(s)"` | material id | (XML emit) | `Core/*` | space-tape | OK |
 | Characters (e.g. `"Calico"`) | character | `ModLibrary.AllCharacters.GetList()` | `Core/*` | doh | OK (no hard-coded id) |
-| Combustion process `"MMH_NTO_1.6"` | substance | `SubstanceLibrary.TryGetCombustionProcess(KeyHash)` | `Core/*` | doh | OK |
+| Reaction `"MMH_NTO"` (was combustion process `"MMH_NTO_1.6"`) | substance | `SubstanceLibrary.TryGetReaction(KeyHash)` → `MixtureReaction.AtMixtureRatio(DefaultMixtureRatio).ReactantMix` | `Core/Reactions.xml` (`<MixtureReaction Id="MMH_NTO">`, `DefaultMixtureRatio` 1.65) | doh | **CHANGED** (5018 — mixture ratio is no longer part of the id; old id resolves to nothing) |
 | Fur texture `"FurNoise"` | texture (indirect) | `CharacterRenderResources.FurTexture.BindlessHandle` | `Core/*` | doh | OK |
 | `MusicPlayList "SabotageMusic"` | sound | `ModLibrary.Get<MusicPlayList>("SabotageMusic")` | not stock (`Core/Sounds.xml` has `EarthSOIMusic`,…) | byo-music | n/a (placeholder; null-guarded; never stock in 4680/4750) |
 
 ---
 
-## 6. Confirmed-broken / changed summary (vs 4750)
+## 6. Confirmed-broken / changed summary (vs 5018)
 
-Every table row whose 4750 status is BROKEN or CHANGED:
+Every table row whose 5018 status is BROKEN or CHANGED. The 4750→5018 span is large (433 decomp
+files, ~40k inserted lines) and dominated by three game-side rewrites: **combustion → reaction
+model**, **fuel/resource feed wiring**, and **staging → resource groups**.
 
-**BROKEN (non-functional against 4750)**
-- `Controller.___Transform` field injector (camera-controller-override) — pre-existing, both builds → `scope/camera.md`.
-- `LightModule.TemplateData."Color"` field (zippo) — pre-existing silent no-op, both builds → `scope/celestial-and-lights.md`.
-- `MeshIndirect.vert` / `.frag` GLSL anchors (humble-arteest **Vehicle Paint**) — non-functional both builds; further diverged by rev-4693 merge → `scope/character-and-materials.md`.
-- `MeshIndirect.vert` struct anchor (mesh-deform) — **genuine 4680→4750 regression** (anchor removed in 4750); shader activation now fails → `scope/standalone-mods.md`.
+**CHANGED (compile breaks against 5018 — all three now FIXED)**
+- `PartTemplate.Tank` **removed**; tanks are now `Tank.TemplateData` entries in the generic
+  `PartTemplate.Components` list (a part may have several). → `space-tape.lib/PartImporter.cs`
+  now iterates `Components`. `scope/part-editor-and-robotics.md`
+- `SubstanceLibrary.TryGetCombustionProcess` **removed** along with `CombustionObject`,
+  `CombustionProcess`, `CombustionProcessTemplate`, `CombustionTable`. Replaced by
+  `TryGetReaction` → `Reaction`/`FixedReaction`/`MixtureReaction`, and `Tank.ConfigureFor` now takes
+  a `ReactantMix`. Mixture ratio left the asset id (`MMH_NTO_1.6` → `MMH_NTO` + `DefaultMixtureRatio`
+  1.65). → `doh.lib/Spawning/KittenSpawner.cs`. `scope/character-and-materials.md`
+- `RocketCore.ResourceManager` **moved down** to the `Combustor` subclass (`SolidMotor` cores have
+  none); the base now exposes the feed-wiring model (`FeedConnectors`, `ResolvedConsumerFeeds`,
+  `TryPrepareDrain`/`TryAccumulateDrain`). → `blinky.lib/BlinkySubmod.cs`. `scope/pixel-grids-and-render.md`
 
-**CHANGED (compile breaks — `space-tape.lib` does not build against 4750)** → all `scope/part-editor-and-robotics.md`
-- `BatteryTemplate.MaximumCapacity` / `GeneratorTemplate.Produced` / `PowerConsumerTemplate.Consumed`: `JoulesReference`(float) → `EnergyReference`/`PowerReference`(double) — **genuine 4680→4750 regression** (CS1503). Fix: `float.IsNaN`→`double.IsNaN`.
-- `DockingPortTemplate.Force` → `PushoffImpulse`/`LatchingKineticEnergy`/`StringReference ConnectorId` — also fix the GameData XML writer (R1).
-- `ThumbnailReference.CreateImGuiThumbnail` → `GetOrCreateImGuiTexture(VkSampler)` — pre-4680 drift.
-- `ThumbnailPart.ComputeBoundingSphereRadius()` → `(out float3)` — pre-4680 drift.
-- `VehicleEditor.RegisterTag` / editor tag categories (rev 4731/4741, "Interstage" removed; "Stages"→"Resource Groups") — runtime tag-filter drift (R2).
+**CHANGED (silent — byte layout; guarded, no live break)**
+- `PartModel.PerInstanceData.packing2` → **`public float Wetness`**, and
+  `PartModelDynamic.PerInstanceData.packing1` → **`public float Wetness`**. New `ENABLE_WETNESS`
+  shader variant (`MeshIndirect.vert/.frag`, gated on `GameSettings.Current.Graphics.VesselWater`).
+  The game now **uses** a slot humble-arteest Vehicle Paint and mesh-deform write into. Both are
+  already inert behind their `ShadersActive` probe, so nothing writes there today — but the hazard
+  deepened. humble-arteest **Engine Emissive** is unaffected (it writes only `Temperature`/
+  `TfiThickness`, whose offsets are unchanged). `scope/character-and-materials.md`, `scope/standalone-mods.md`
 
-**ADDITIVE (new in 4750, not consumed → no break)**
-- `Vehicle.IsControllable` + `PartTree.Controls` + `KittenEva.IsControllable` (rev 4699); `PartTemplate.Diameter:DistanceReference` (rev 4721). Behavioral watch only.
+**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
+- **Gauge/HUD rework vs con-man + marque.** Revs 4919/4940/4959/5003 moved the sequence UI, burn UI
+  and all pop-ups into the GaugeCanvas system, added an `AlwaysEnabled` canvas flag, and **relocated
+  the gauge enable/disable toggles from the View dropdown to a new Hud dropdown** that also ships a
+  native **HudLayouts** save/load feature — i.e. a first-party re-implementation of con-man's whole
+  feature, plus a move of the menu marque injects into. All 7 reflected fields still resolve.
+  `scope/ui-customization.md`, `scope/standalone-mods.md`
+- **`KeyframeAnimationModule.TimeGoal` now fans out to mirrored parts** (`ApplyToMirroredParts`), so a
+  single write can move symmetry-partner parts too. → red-alert. `scope/celestial-and-lights.md`
+- **Animation pipeline reworked**: `IAnimProcessor` gained `UpdateLocalPose(…, Span<TransformTRS>, …)`,
+  `CatExpressionAnim.MixPose` → `MixPoseLocal`, `AnimatedRenderable` now builds a pose buffer.
+  kitten-animations does **not** implement the interface and its `_expressionPose` cache-bust target
+  is intact, so it still works — but this is prime suspect for the `ISSUES.md` "kitten animations
+  always the same expression" report. `scope/character-and-materials.md`
+- **Rev 4914 control-module lockout** (engine/thruster Active checkboxes, Decouple, staging key locked
+  out with no control module) is implemented in the **UI layer only** — `EngineController.SetIsActive`
+  and `ThrusterController.SetIsActive` are byte-identical to 4750, so blinky and its-so-shiny drive
+  pixel engines unaffected. `scope/vehicle-physics.md`
+- **Staging rewrite**: `StageList.cs` and `Staging.cs` deleted in favour of `ResourceGroups`/
+  `ResourceGroupList`/`SequencePerformance*`. `Part.Stage` and `Part.SetStage(int)` are unchanged, so
+  blinky/its-so-shiny stage alignment still compiles and reads correctly — but rev 4873 changed
+  `SetStage`'s cost/rebuild behavior. `scope/pixel-grids-and-render.md`
 
-**Build break not tied to a game-member row:** `garrys-torch.lib/GarrysTorchSubmod.cs:457` — CS8604 on `ImGui.Text($"…{_deleteConfirmName}…")` from the rev-4729 Brutal nullability bump (ordinary ImGui call, not a KSA member). Fix: null-coalesce. → `scope/vehicle-physics.md`.
+**CLOSED — previously-recorded breaks confirmed already fixed in-repo (re-verified against 5018)**
+- `Controller.___Transform` field injector (camera-controller-override) — **fixed**. The prefix reads
+  `__instance.Camera` directly (`CameraControllerOverridePatches.cs:54`); 5018 still exposes
+  `public Camera Camera` on `Controller` and still has no `Transform` field, so the fix remains
+  correct. → `scope/camera.md`
+- `LightModule.TemplateData."Color"` (zippo) — **fixed**. `LightController.cs:59,80` now read
+  `"ColorRgb"`, which is the 5018 field name. → `scope/celestial-and-lights.md`
+- unscience supermod `IvaForceRender.Patch` — **fixed**. Now wired at `unscience/Patcher.cs:66`
+  (with a matching `Unpatch` at :100). → `scope/00-architecture-and-abstractions.md`
+
+**BROKEN — genuinely still dead, pre-existing, NOT caused by 5018**
+- `MeshIndirect.vert`/`.frag` GLSL anchors (humble-arteest **Vehicle Paint**, **mesh-deform**) — dead
+  by design change since rev 4693 and still dead: 5018's `MeshIndirect.vert` still carries the
+  `#ifdef ENABLE_*` feature gates (now extended with `ENABLE_WETNESS`/`ENABLE_FROST`), so both mods'
+  content probes correctly self-disable. Reviving paint is a redesign, not a patch.
+  → `scope/character-and-materials.md`, `scope/standalone-mods.md`
+
+**VERIFIED CLEAN against 5018** — every Harmony patch target signature (`RenderMainPass`,
+the three `*Module.UpdateRenderData`, `PartModel(.Dynamic).AddInstance`,
+`PartModelRenderer.UpdateRenderData(Viewport,int)`, `Universe.ExecuteNextVehicleSolvers`,
+`Program.DrawProgramMenusHook`, `Orbit`/`FlyController.OnFrame`, `Camera.ChangeFieldOfView`/
+`UpdateProjection`, `Vehicle.GetWorldMatrix`/`UpdateRenderData`, `GameSettings.OnKeyAll`,
+`GaugeCanvas.OnDrawMenuBar`); the full §4 watchlist; `MaterialData` layout (`AlbedoColor` @16,
+stride 80) and `CharacterAvatar`/`CharacterCore` (still a **struct** with `public float Scale`);
+`UnlitMesh.*`, `MaterialSet.glsl` and `ModelPbr.frag` (byte-identical → thug-life and doh Kitten
+Color safe); the `#ifdef ENABLE_TEMPERATURE` LUT (Engine Emissive).
 
