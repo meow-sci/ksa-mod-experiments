@@ -62,6 +62,10 @@ public sealed class PartsNowSubmod : ISubmod
             MeshBudget.OnFirstFrame();
             _firstFrameDone = true;
         }
+
+        // Exactly once per frame, and only from here: the loader's Bind and Thumbnails states submit
+        // command buffers and block on fences, which is only safe inside Program.OnDrawUiFrame.
+        RuntimeModLoader.Step();
     }
 
     /// <inheritdoc />
