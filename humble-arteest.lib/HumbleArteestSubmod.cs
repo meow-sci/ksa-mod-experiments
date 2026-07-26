@@ -35,11 +35,7 @@ public sealed class HumbleArteestSubmod : ISubmod
         SubmodUI.BeginContentArea("##ha_content");
 
         ImGui.SeparatorText("Vehicle Paint");
-        ImGui.SetItemTooltip(
-            "Paints vehicle parts by injecting custom shaders at runtime.\n" +
-            "Writes RGB color into the PerInstanceData padding bytes\n" +
-            "and applies a multiplicative tint in the fragment shader.\n\n" +
-            "Note: paint is per-part template, not per-vehicle.");
+        ImGui.SetItemTooltip(VehiclePaintSubmod.HeaderTooltip);
         ImGui.Spacing();
         ImGui.Spacing();
         ImGui.Spacing();
@@ -66,8 +62,8 @@ public sealed class HumbleArteestSubmod : ISubmod
             "Overrides the Temperature field on dynamic engine parts to control\n" +
             "their emissive glow. Uses the game's existing per-instance Temperature\n" +
             "data path — no shader modifications needed.\n\n" +
-            "Temperature drives the DynamicMeshIndirect fragment shader's emissive\n" +
-            "color lookup table, making engines glow from cool to hot.");
+            "Temperature drives the ENABLE_TEMPERATURE variant of MeshIndirect.frag\n" +
+            "and its heat lookup table, making engines glow from cool to hot.");
         ImGui.Spacing();
         ImGui.Spacing();
         ImGui.Spacing();

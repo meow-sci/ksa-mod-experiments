@@ -1,439 +1,258 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Text;
 using Brutal.Numerics;
-using Brutal.VulkanApi;
 using KSA;
-using KSA.AssetReloader;
 
 namespace MeowSci.HumbleArteestLib;
 
+/// <summary>How a paint color is combined with a part's sampled albedo in the fragment shader.</summary>
+public enum PaintBlendMode
+{
+    /// <summary>albedo *= paint. Keeps all texture detail; can only darken. Best for repainting light hulls.</summary>
+    Multiply,
+
+    /// <summary>albedo = paint * luminance(albedo) * 2. Keeps shading detail and lets a part become brighter.</summary>
+    Tint,
+
+    /// <summary>albedo = paint. Flat color; surface shape still comes from the normal/PBR maps.</summary>
+    Replace,
+}
+
 /// <summary>
-/// Core paint state and runtime shader management for the vehicle paint system.
+/// Per-part-instance paint for KSA vehicle parts.
 ///
-/// Manages per-PartModel paint colors and shader swapping. Modified shaders read
-/// RGB paint values from the PerInstanceData padding bytes (slots 68–79) that normally
-/// go unused. A Harmony prefix on PartModel.AddInstance writes the paint color into
-/// those bytes before the data is sent to the GPU.
+/// The color travels to the GPU inside the <b>unused high bits of the per-instance
+/// <c>StateBitFlag</c></b> (see <see cref="PaintBitShift"/>). The game only uses bits 0..10 of that
+/// field, and the field exists at the same offset in every <c>PerInstanceData</c> variant
+/// (static / dynamic / glass), so nothing else in the render pipeline has to change: no struct
+/// stride change, no new descriptor binding, no clobbering of EmissiveColor / Temperature /
+/// TfiThickness / Wetness.
 ///
-/// Shader lifecycle:
-///   ActivateShaders() — compile modified GLSL at runtime, swap VkShaderModule, rebuild pipelines
-///   DeactivateShaders() — restore originals via ShaderReference.DoLoad(), rebuild pipelines
+/// The fragment shader reads those bits back out of the <c>inStateFlags</c> varying — which every
+/// part fragment shader already receives — after a small snippet injected by
+/// <see cref="VehiclePaintShaders"/>.
+///
+/// Resolution order for a part: explicit per-part color, then per-part-type (template id) color,
+/// then the global "paint everything" color.
 /// </summary>
 public static class VehiclePaint
 {
-    // ---- Paint state ----
+    /// <summary>First state-flag bit used to carry paint. The game uses bits 0..10.</summary>
+    public const int PaintBitShift = 11;
 
-    private static readonly Dictionary<PartModel, float3> _partModelColors = new();
-    private static bool _paintAllEnabled;
-    private static float3 _defaultColor;
+    /// <summary>Bits per color channel (7:7:7 across the 21 free state-flag bits).</summary>
+    public const int ChannelBits = 7;
 
-    // ---- Shader state ----
+    /// <summary>Largest quantized channel value.</summary>
+    public const int ChannelMax = (1 << ChannelBits) - 1;
 
-    private static bool _shadersActive;
-    private static string? _lastError;
-    private static bool? _isSupported;
-    private static string? _unsupportedReason;
+    private static readonly Dictionary<Part, PaintEntry> ByPart = new(ReferenceEqualityComparer.Instance);
+    private static readonly Dictionary<string, PaintEntry> ByTemplate = new(StringComparer.Ordinal);
 
-    // ---- Public properties ----
+    private static PaintEntry _global = PaintEntry.From(new float3(1f, 0.25f, 0.2f));
+    private static bool _globalEnabled;
+    private static PaintBlendMode _blendMode = PaintBlendMode.Multiply;
 
-    public static bool ShadersActive => _shadersActive;
-    public static string? LastError => _lastError;
+    // ---- Feature state ----
+
+    /// <summary>True when the patched part shaders are installed and paint can render.</summary>
+    public static bool Active => VehiclePaintShaders.Installed;
+
+    /// <summary>Last activation / shader error, if any.</summary>
+    public static string? LastError => VehiclePaintShaders.LastError;
 
     /// <summary>
-    /// Whether this build of KSA still supports the runtime shader-swap paint mechanism.
-    /// Computed once by probing the on-disk part shader; see <see cref="DetectSupport"/>.
+    /// Installs the patched part shaders and schedules the renderer rebuild that recompiles them.
+    /// The visual change lands on the next frame.
     /// </summary>
-    public static bool IsSupported
+    public static bool Enable() => VehiclePaintShaders.Install();
+
+    /// <summary>Removes the patched shaders and schedules a rebuild back to the stock ones.</summary>
+    public static void Disable() => VehiclePaintShaders.Uninstall();
+
+    /// <summary>
+    /// Blend operator baked into the injected GLSL. Changing it while active triggers a shader
+    /// rebuild, so treat it as an occasional setting rather than a per-frame control.
+    /// </summary>
+    public static PaintBlendMode BlendMode
     {
-        get
+        get => _blendMode;
+        set
         {
-            _isSupported ??= DetectSupport(out _unsupportedReason);
-            return _isSupported.Value;
+            if (_blendMode == value) return;
+            _blendMode = value;
+            VehiclePaintShaders.OnBlendModeChanged();
         }
     }
 
-    /// <summary>Human-readable reason paint is unavailable, when <see cref="IsSupported"/> is false.</summary>
-    public static string? UnsupportedReason
+    // ---- Global paint ----
+
+    /// <summary>When true every unlisted part is painted with <see cref="GlobalColor"/>.</summary>
+    public static bool GlobalEnabled
     {
-        get
+        get => _globalEnabled;
+        set => _globalEnabled = value;
+    }
+
+    /// <summary>Fallback color used when <see cref="GlobalEnabled"/> is set.</summary>
+    public static float3 GlobalColor
+    {
+        get => _global.Color;
+        set => _global = PaintEntry.From(value);
+    }
+
+    // ---- Per-part paint ----
+
+    /// <summary>Paints one specific part instance.</summary>
+    public static void SetPart(Part part, float3 color) => ByPart[part] = PaintEntry.From(color);
+
+    /// <summary>Removes the paint override for one part instance.</summary>
+    public static void ClearPart(Part part) => ByPart.Remove(part);
+
+    /// <summary>Gets the explicit per-part color, if one was set.</summary>
+    public static bool TryGetPartColor(Part part, out float3 color)
+    {
+        if (ByPart.TryGetValue(part, out var entry)) { color = entry.Color; return true; }
+        color = default;
+        return false;
+    }
+
+    /// <summary>Number of individually painted part instances.</summary>
+    public static int PaintedPartCount => ByPart.Count;
+
+    // ---- Per-part-type paint ----
+
+    /// <summary>Paints every instance of a part template (<c>Part.Id</c>).</summary>
+    public static void SetTemplate(string templateId, float3 color)
+    {
+        if (string.IsNullOrEmpty(templateId)) return;
+        ByTemplate[templateId] = PaintEntry.From(color);
+    }
+
+    /// <summary>Removes the paint override for a part template.</summary>
+    public static void ClearTemplate(string templateId) => ByTemplate.Remove(templateId);
+
+    /// <summary>Gets the per-part-type color, if one was set.</summary>
+    public static bool TryGetTemplateColor(string templateId, out float3 color)
+    {
+        if (templateId != null && ByTemplate.TryGetValue(templateId, out var entry))
         {
-            _ = IsSupported; // ensure the probe has run
-            return _unsupportedReason;
-        }
-    }
-
-    /// <summary>When true, all parts receive <see cref="DefaultColor"/> unless overridden per-PartModel.</summary>
-    public static bool PaintAllEnabled
-    {
-        get => _paintAllEnabled;
-        set => _paintAllEnabled = value;
-    }
-
-    /// <summary>Default paint color applied to all parts when <see cref="PaintAllEnabled"/> is true.</summary>
-    public static float3 DefaultColor
-    {
-        get => _defaultColor;
-        set => _defaultColor = value;
-    }
-
-    // ---- Per-PartModel API ----
-
-    /// <summary>Sets a paint color for a specific PartModel instance.</summary>
-    public static void SetPaintColor(PartModel partModel, float3 color)
-    {
-        _partModelColors[partModel] = color;
-    }
-
-    /// <summary>Removes paint from a specific PartModel instance.</summary>
-    public static void ClearPaint(PartModel partModel)
-    {
-        _partModelColors.Remove(partModel);
-    }
-
-    /// <summary>Clears all per-PartModel paint entries and disables global paint.</summary>
-    public static void ClearAllPaint()
-    {
-        _partModelColors.Clear();
-        _paintAllEnabled = false;
-    }
-
-    /// <summary>Returns the paint color for a PartModel, or null if not painted.</summary>
-    public static float3? GetPaintColor(PartModel partModel)
-    {
-        if (_partModelColors.TryGetValue(partModel, out var color))
-            return color;
-        if (_paintAllEnabled)
-            return _defaultColor;
-        return null;
-    }
-
-    /// <summary>
-    /// Tries to get the effective paint color for a PartModel (used by the Harmony prefix).
-    /// Returns true if paint should be applied and sets <paramref name="color"/>.
-    /// </summary>
-    internal static bool TryGetEffectiveColor(PartModel partModel, out float3 color)
-    {
-        if (_partModelColors.TryGetValue(partModel, out color))
-            return true;
-        if (_paintAllEnabled)
-        {
-            color = _defaultColor;
+            color = entry.Color;
             return true;
         }
         color = default;
         return false;
     }
 
-    // ---- Shader management ----
+    /// <summary>Template ids that currently carry a paint override.</summary>
+    public static IReadOnlyCollection<string> PaintedTemplates => ByTemplate.Keys;
 
-    /// <summary>
-    /// Compiles modified shaders at runtime and swaps them into the pipeline.
-    /// Original game shader files on disk are NOT modified — a temp file is used
-    /// for compilation (for #include path resolution) and immediately deleted.
-    /// </summary>
-    public static bool ActivateShaders()
+    // ---- Bulk operations ----
+
+    /// <summary>Clears every per-part and per-part-type override and disables global paint.</summary>
+    public static void ClearAllPaint()
     {
-        _lastError = null;
-
-        if (!IsSupported)
-        {
-            _lastError = UnsupportedReason;
-            Console.WriteLine($"humble-arteest: {_lastError}");
-            return false;
-        }
-
-        try
-        {
-            var device = Program.GetRenderer().Device;
-
-            if (!CompileAndSwapShader("MeshIndirectVert", ModifyVertexShader, device))
-                return false;
-
-            if (!CompileAndSwapShader("MeshIndirectFrag", ModifyFragmentShader, device))
-                return false;
-
-            PartModelRenderer.ColorData.Rebuild();
-
-            _shadersActive = true;
-            Console.WriteLine("humble-arteest: Paint shaders activated and pipelines rebuilt.");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _lastError = $"Shader activation failed: {ex.Message}";
-            Console.WriteLine($"humble-arteest: {_lastError}");
-            return false;
-        }
+        ByPart.Clear();
+        ByTemplate.Clear();
+        _globalEnabled = false;
     }
 
+    /// <summary>True when at least one paint source could apply.</summary>
+    public static bool HasAnyPaint => _globalEnabled || ByPart.Count > 0 || ByTemplate.Count > 0;
+
     /// <summary>
-    /// Restores original shaders by recompiling from the untouched game files on disk
-    /// and rebuilding pipelines.
+    /// Drops paint entries whose parts no longer exist, so the registry does not keep dead part
+    /// graphs alive. An empty live set is treated as "nothing enumerated yet" rather than
+    /// "everything died", so a scene transition never silently wipes the player's paint.
     /// </summary>
-    public static bool DeactivateShaders()
+    public static void PruneParts(ICollection<Part> livingParts)
     {
-        _lastError = null;
-
-        try
+        if (ByPart.Count == 0 || livingParts.Count == 0) return;
+        List<Part>? dead = null;
+        foreach (var part in ByPart.Keys)
         {
-            var doLoadMethod = typeof(ShaderReference).GetMethod("DoLoad",
-                BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-            if (doLoadMethod == null)
-            {
-                _lastError = "ShaderReference.DoLoad() not found via reflection.";
-                return false;
-            }
-
-            doLoadMethod.Invoke(ModLibrary.Get<ShaderReference>("MeshIndirectVert"), null);
-            doLoadMethod.Invoke(ModLibrary.Get<ShaderReference>("MeshIndirectFrag"), null);
-
-            PartModelRenderer.ColorData.Rebuild();
-
-            _shadersActive = false;
-            Console.WriteLine("humble-arteest: Original shaders restored and pipelines rebuilt.");
-            return true;
+            if (livingParts.Contains(part)) continue;
+            (dead ??= new List<Part>()).Add(part);
         }
-        catch (Exception ex)
-        {
-            _lastError = $"Shader deactivation failed: {ex.Message}";
-            Console.WriteLine($"humble-arteest: {_lastError}");
-            return false;
-        }
+        if (dead == null) return;
+        foreach (var part in dead)
+            ByPart.Remove(part);
     }
 
-    /// <summary>Deactivates shaders and clears all paint state. Call on mod unload.</summary>
+    /// <summary>Uninstalls the shaders and drops all paint state. Call on mod unload.</summary>
     public static void Cleanup()
     {
-        if (_shadersActive)
-            DeactivateShaders();
         ClearAllPaint();
+        VehiclePaintShaders.Uninstall();
     }
 
-    // ---- Capability detection ----
+    // ---- Hot path (called from the AddInstance prefixes, once per part per viewport per frame) ----
 
     /// <summary>
-    /// Probes the on-disk MeshIndirect vertex shader to decide whether the legacy runtime
-    /// shader-swap can still drive paint on this game build.
-    ///
-    /// KSA rev 4693 rebuilt the part color pipeline: <c>PartModelRenderer.ColorData</c> now
-    /// compiles MeshIndirect per-pipeline through
-    /// <c>ShaderReference.CompileVariantWithCustomOptions()</c> — which re-reads the GLSL from
-    /// disk with <c>ENABLE_*</c> macro variants and destroys the compiled module immediately —
-    /// so it no longer consults <c>ShaderReference.Shader</c>. Swapping that module (this mod's
-    /// entire mechanism) therefore has no effect, and the feature-gated shader also dropped the
-    /// GLSL anchors this mod injects into. Both conditions are detected here so the feature can
-    /// fail visibly instead of silently doing nothing (and never clobbers EmissiveColor).
+    /// Resolves the state-flag bits to OR into a part instance's <c>StateBitFlag</c>.
+    /// Returns false when the part is unpainted.
     /// </summary>
-    private static bool DetectSupport(out string? reason)
+    internal static bool TryGetPaintBits(Part part, out int bits)
     {
-        reason = null;
-        try
+        bits = 0;
+        if (!VehiclePaintShaders.Installed) return false;
+
+        if (ByPart.Count > 0 && ByPart.TryGetValue(part, out var entry))
         {
-            var shaderRef = ModLibrary.Get<ShaderReference>("MeshIndirectVert");
-            var modPath = GetShaderModPath(shaderRef);
-            if (modPath == null || !File.Exists(modPath))
-            {
-                reason = "Vehicle Paint unavailable: MeshIndirect.vert could not be located on disk.";
-                return false;
-            }
-
-            var src = File.ReadAllText(modPath).Replace("\r\n", "\n");
-
-            bool featureGated = src.Contains("#ifdef ENABLE_EMISSIVE")
-                             || src.Contains("#ifdef ENABLE_TEMPERATURE");
-            bool anchorsPresent = src.Contains("    int Highlighted;\n};")
-                               && src.Contains("layout(location = 5) out flat int outHighlighted;");
-
-            if (featureGated || !anchorsPresent)
-            {
-                reason = "Vehicle Paint is unavailable on this KSA build. The part shader was rebuilt "
-                       + "(KSA 4693+) into feature-gated variants compiled per-pipeline from disk, so the "
-                       + "runtime shader-swap this feature depends on no longer affects rendering. "
-                       + "Kitten Color and Engine Emissive are unaffected.";
-                return false;
-            }
-
+            bits = entry.Bits;
             return true;
         }
-        catch (Exception ex)
+
+        if (ByTemplate.Count > 0 && ByTemplate.TryGetValue(part.Id, out entry))
         {
-            reason = $"Vehicle Paint unavailable: could not verify shader compatibility ({ex.Message}).";
-            return false;
-        }
-    }
-
-    // ---- Shader modification logic ----
-
-    private static bool CompileAndSwapShader(string shaderId, Func<string, string> modifier, Device device)
-    {
-        var shaderRef = ModLibrary.Get<ShaderReference>(shaderId);
-        var modPath = GetShaderModPath(shaderRef);
-
-        if (modPath == null || !File.Exists(modPath))
-        {
-            _lastError = $"Shader file not found for {shaderId}: {modPath}";
-            return false;
-        }
-
-        var originalSource = File.ReadAllText(modPath);
-        var modifiedSource = modifier(originalSource);
-
-        if (modifiedSource == originalSource)
-        {
-            _lastError = $"Modification had no effect on {shaderId} — expected strings not found.";
-            return false;
-        }
-
-        // Write temp file in the same directory so #include paths resolve correctly
-        var dir = Path.GetDirectoryName(modPath)!;
-        var ext = Path.GetExtension(modPath);
-        var tempPath = Path.Combine(dir, $"_humble_paint_tmp_{shaderId}{ext}");
-
-        try
-        {
-            File.WriteAllText(tempPath, modifiedSource, new UTF8Encoding(false));
-
-            var fromFileMethod = FindFromFileMethod();
-            if (fromFileMethod == null)
-            {
-                _lastError = $"ShaderModuleUtils.FromFile not found for {shaderId}.";
-                return false;
-            }
-
-            var args = new object?[] { device, tempPath, default(VkShaderStageFlags), null };
-            var newModule = (VkShaderModule)fromFileMethod.Invoke(null, args)!;
-
-            // Swap the VkShaderModule on the ShaderReference
-            var oldModule = shaderRef.Shader;
-            SwapShaderModule(shaderRef, newModule);
-
-            if (oldModule.HasValue)
-                device.DestroyShaderModule(oldModule.Value, null);
-
-            Console.WriteLine($"humble-arteest: {shaderId} compiled and swapped.");
+            bits = entry.Bits;
             return true;
         }
-        finally
+
+        if (_globalEnabled)
         {
-            try { if (File.Exists(tempPath)) File.Delete(tempPath); }
-            catch { /* best effort */ }
+            bits = _global.Bits;
+            return true;
         }
+
+        return false;
     }
 
-    private static void SwapShaderModule(ShaderReference shaderRef, VkShaderModule newModule)
+    // ---- Encoding ----
+
+    /// <summary>
+    /// Packs an sRGB color into the free state-flag bits as 7:7:7. Quantizing in sRGB (the shader
+    /// converts to linear) keeps the steps perceptually even. Never encodes to zero, because zero
+    /// is what the shader reads as "unpainted".
+    /// </summary>
+    public static int EncodeBits(float3 srgb)
     {
-        var setter = typeof(ShaderReference)
-            .GetProperty("Shader", BindingFlags.Public | BindingFlags.Instance)
-            ?.GetSetMethod(nonPublic: true);
-
-        if (setter != null)
-        {
-            setter.Invoke(shaderRef, new object[] { (VkShaderModule?)newModule });
-            return;
-        }
-
-        var backingField = typeof(ShaderReference).GetField("<Shader>k__BackingField",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-        if (backingField != null)
-        {
-            backingField.SetValue(shaderRef, (VkShaderModule?)newModule);
-            return;
-        }
-
-        throw new InvalidOperationException("Cannot set Shader property — no setter or backing field found.");
+        uint r = Quantize(srgb.X);
+        uint g = Quantize(srgb.Y);
+        uint b = Quantize(srgb.Z);
+        uint packed = (r << (ChannelBits * 2)) | (g << ChannelBits) | b;
+        if (packed == 0u) packed = 1u;
+        return unchecked((int)(packed << PaintBitShift));
     }
 
-    /// <summary>Adds PaintR/G/B float fields to the InstanceData struct and output variables.</summary>
-    private static string ModifyVertexShader(string source)
+    private static uint Quantize(float channel)
     {
-        source = source.Replace("\r\n", "\n");
-
-        // Expand InstanceData struct with paint fields in padding slots
-        source = source.Replace(
-            "    int Highlighted;\n};",
-            "    int Highlighted;\n    float PaintR;\n    float PaintG;\n    float PaintB;\n};");
-
-        // Add output variables for paint color
-        source = source.Replace(
-            "layout(location = 5) out flat int outHighlighted;",
-            "layout(location = 5) out flat int outHighlighted;\nlayout(location = 6) out float outPaintR;\nlayout(location = 7) out float outPaintG;\nlayout(location = 8) out float outPaintB;");
-
-        // Pass paint values through to fragment shader
-        source = source.Replace(
-            "    outHighlighted = instanceData.Highlighted;",
-            "    outHighlighted = instanceData.Highlighted;\n\n    outPaintR = instanceData.PaintR;\n    outPaintG = instanceData.PaintG;\n    outPaintB = instanceData.PaintB;");
-
-        return source;
+        if (float.IsNaN(channel)) return 0u;
+        int quantized = (int)MathF.Round(Math.Clamp(channel, 0f, 1f) * ChannelMax);
+        return (uint)Math.Clamp(quantized, 0, ChannelMax);
     }
 
-    /// <summary>Adds paint inputs and applies multiplicative tint after albedo sampling.</summary>
-    private static string ModifyFragmentShader(string source)
+    private readonly struct PaintEntry
     {
-        source = source.Replace("\r\n", "\n");
+        public readonly float3 Color;
+        public readonly int Bits;
 
-        // Add input variables for paint color
-        source = source.Replace(
-            "layout (location = 5) in flat int inHighlighted;",
-            "layout (location = 5) in flat int inHighlighted;\nlayout (location = 6) in float inPaintR;\nlayout (location = 7) in float inPaintG;\nlayout (location = 8) in float inPaintB;");
-
-        // Apply paint tint after albedo texture sampling
-        source = source.Replace(
-            "    vec3 sampledColor = gammaToLinear(texture(sampler2D(globalTextures[drawData.diffuseTextureIndex], textureSampler), inUv).xyz);",
-            "    vec3 sampledColor = gammaToLinear(texture(sampler2D(globalTextures[drawData.diffuseTextureIndex], textureSampler), inUv).xyz);\n\n    // Paint tint from per-instance data padding\n    vec3 paintTint = vec3(inPaintR, inPaintG, inPaintB);\n    if (dot(paintTint, paintTint) > 0.001) {\n        sampledColor *= paintTint;\n    }");
-
-        return source;
-    }
-
-    // ---- Helpers ----
-
-    private static string? GetShaderModPath(ShaderReference shaderRef)
-    {
-        try
+        private PaintEntry(float3 color, int bits)
         {
-            var modPathProp = typeof(ShaderReference).GetProperty("ModPath",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (modPathProp != null)
-                return modPathProp.GetValue(shaderRef) as string;
-
-            var localPath = shaderRef.LocalPath;
-            if (!string.IsNullOrEmpty(localPath))
-                return Experiments.GamePaths.GetShaderPath(localPath);
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static MethodInfo? FindFromFileMethod()
-    {
-        Type? shaderModuleUtilsType = null;
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            shaderModuleUtilsType = asm.GetType("RenderCore.ShaderModuleUtils");
-            if (shaderModuleUtilsType != null) break;
+            Color = color;
+            Bits = bits;
         }
 
-        if (shaderModuleUtilsType == null) return null;
-
-        foreach (var method in shaderModuleUtilsType.GetMethods(BindingFlags.Public | BindingFlags.Static))
-        {
-            if (method.Name != "FromFile") continue;
-            var parameters = method.GetParameters();
-            if (parameters.Length >= 3 &&
-                parameters[0].ParameterType == typeof(Device) &&
-                parameters[1].ParameterType == typeof(string) &&
-                parameters[2].IsOut)
-            {
-                return method;
-            }
-        }
-
-        return null;
+        public static PaintEntry From(float3 color) => new(color, EncodeBits(color));
     }
 }

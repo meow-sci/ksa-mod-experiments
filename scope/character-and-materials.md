@@ -41,13 +41,15 @@ are not deltas).
 | Mod | Verdict |
 |---|---|
 | **doh** | NO breaking deltas. Entire reflection + typed-API surface signature-identical; `MaterialData` byte-identical. Only additive change in scope: rev 4699 `KittenEva.IsControllable=>true`. |
-| **humble-arteest** | **HIGH-RISK MOD.** *Kitten Color* and *Engine Emissive* are intact. *Vehicle Paint* shader-swap is **non-functional on both builds** (its GLSL anchor strings are absent from the shipped `MeshIndirect.vert/.frag` at 4680 *and* 4750); the **rev 4693 `DynamicMeshIndirect`→`MeshIndirect` merge** further diverged that shader (Temperature/TFI/Emissive folded behind `ENABLE_*` defines, varyings now occupy locations 5/6/7 that collide with the mod's intended 6/7/8). Deeper still, rev 4693 moved color-pipeline compilation to `ShaderReference.CompileVariantWithCustomOptions()`, which recompiles from disk and ignores the swapped `ShaderReference.Shader`. The C# Harmony write paths are unchanged. Now **self-guarded** (Phase 2): Vehicle Paint auto-disables with a UI notice and no longer clobbers `EmissiveColor`. |
+| **humble-arteest** | *Kitten Color* and *Engine Emissive* intact. *Vehicle Paint* was **rebuilt for 5018** (2026-07-25) and works again: the dead shader-swap was replaced by a `ShaderModuleUtils.FromFile` prefix that compiles a patched `MeshIndirect(.Raytraced).frag` in memory, with the color carried in the free `StateBitFlag` bits 11..31. It no longer touches `MeshIndirect.vert` and no longer clobbers `EmissiveColor`/`Temperature`/`TfiThickness`/`Wetness`. Remaining game-coupling to watch: those free state-flag bits, and the `vec3 sampledColor` anchor in the two fragment shaders. |
 | **kitten-animations** | NO breaking deltas. `CharacterAvatar.cs` + `CatExpressionAnim.cs` byte-identical; `AnimatedRenderable.cs` differs only by a trivial log line. |
 
 **Key C# layout facts verified (load-bearing for the patches)**
 
-- `KSA/PartModel.cs` — **byte-identical** OLD↔NEW (full-file diff). `PerInstanceData` = `float4x4 ModelMatrix`(0) · `int StateBitFlag`(64) · `uint EmissiveColor`(68) · `int packing1`(72) · `int packing2`(76).
-- `KSA/PartModelDynamic.cs` — **byte-identical** OLD↔NEW. `PerInstanceData` = `float4x4 ModelMatrix`(0) · `int StateBitFlag`(64) · `float Temperature`(68) · `float TfiThickness`(72) · `int packing1`(76).
+- `KSA/PartModel.cs` @5018 — `PerInstanceData` (80 B) = `float4x4 ModelMatrix`(0) · `int StateBitFlag`(64) · `uint EmissiveColor`(68) · `int packing1`(72, read as `TfiThickness` by the shader) · `float Wetness`(76).
+- `KSA/PartModelDynamic.cs` @5018 — `PerInstanceData` (80 B) = `float4x4 ModelMatrix`(0) · `int StateBitFlag`(64) · `float Temperature`(68) · `float TfiThickness`(72) · `float Wetness`(76).
+- **`StateBitFlag` bit map** (identical in the static, dynamic and glass structs): game uses bits **0..10** (0 highlighted · 1 grabbed · 2 fake-translucent · 3 selected · 4 edited-vehicle/no-celestial-shadow · 5 IVA/no-planet-shine · 6 no-emissive · 7 add-emissive-color · 8 selected-connected · 9 selected-disconnected · 10 fuel-flow highlight). **Bits 11..31 are free** and are what humble-arteest's Vehicle Paint uses.
+- **std430 stride is exactly 80 B in every variant** — the maximal enabled combination (static: `EMISSIVE`+`THIN_FILM`+`WETNESS`; dynamic: `TEMPERATURE`+`THIN_FILM`+`WETNESS`) fills it precisely, so there is **no spare trailing space** to append a field to. Any future per-instance mod data must reuse free bits, not new fields.
 - `KSA/MaterialData.cs` — **byte-identical**, `[StructLayout(Sequential, Pack=1)]`: `int AlbedoTexture`(0) `int NormalTexture`(4) `int RoughMetallicAOTexture`(8) `int Sampler`(12) `float4 AlbedoColor`(**16**) `float4 RoughnessMetalScale`(32) `float4 ExtraData`(48) `int EmissiveTexture`(64).
 - `KSA/CharacterAvatar.cs`, `KSA/CatExpressionAnim.cs`, `KSA/CatFurRenderable.cs`, `KSA/StaticMeshRenderable.cs`, `KSA/CharacterReference.cs`, `KSA/CharacterTexturesReference.cs`, `KSA/PbrMaterialReference.cs`, `KSA/GpuTextureSystem.cs`, `KSA/PartModelDynamicModule.cs` — all **byte-identical** OLD↔NEW.
 
@@ -144,34 +146,48 @@ Vehicle/character filterable combos, offset/count, color picker + XKCD combo, pe
 ## humble-arteest
 
 **Purpose** — Three independent visual-customization features matched to KSA's three rendering
-data paths: **(A) Vehicle Paint** (per-part RGB tint via runtime GLSL recompile + per-instance
-padding hijack), **(B) Kitten Color** (`AlbedoColor` writes to the GPU material buffer), **(C)
+data paths: **(A) Vehicle Paint** (per-part-instance albedo tint — color packed into the free high
+bits of `PerInstanceData.StateBitFlag`, applied by a runtime-patched copy of the part fragment
+shaders), **(B) Kitten Color** (`AlbedoColor` writes to the GPU material buffer), **(C)
 Engine Emissive** (Harmony override of the per-instance `Temperature`/`TfiThickness` engines glow).
 
 **Unscience integration** — Three `ISubmod`s (`VehiclePaintSubmod`, `KittenColorSubmod`,
-`EngineEmissiveSubmod`). Two Harmony prefixes applied through the shared instance:
-`VehiclePaintPatches.Apply` (on `PartModel.AddInstance`) and `EngineEmissivePatches.Apply`
+`EngineEmissiveSubmod`). Harmony patches applied through the shared instance:
+`VehiclePaintPatches.Apply` (five seams — see A1–A6) and `EngineEmissivePatches.Apply`
 (on `PartModelDynamic.AddInstance`). `VehiclePaint.Cleanup()` + `EngineEmissive.Cleanup()` on
 unload. Kitten Color has **no** Harmony patch (pure GPU buffer write, same bridge as doh).
 
 **UI / hotkeys** — Standalone **F11** window (`humble-arteest/Mod.cs:66`); embedded in unscience.
 
-**Persistence** — None. In-memory dictionaries keyed by `PartModel` / `PartModelDynamic`;
-global toggles; all cleared on unload.
+**Persistence** — None. In-memory dictionaries keyed by `Part` (per-instance) and part template id;
+global toggle + color; all cleared on unload.
+
+**Vehicle Paint mechanism (rewritten for 5018)** — The paint color is quantized to 7:7:7 sRGB and
+ORed into `StateBitFlag` **bits 11..31**, which the game leaves unused (it writes only bits 0..10).
+That field exists at the same offset in *every* `PerInstanceData` variant and is already forwarded
+to every part fragment shader as the `inStateFlags`@loc4 varying, so **no vertex shader, struct
+layout, stride, descriptor binding, or game-used field is touched** — in particular `EmissiveColor`,
+`Temperature`, `TfiThickness` and `Wetness` are all left alone. Only the *fragment* shader is
+modified, and only in memory: a prefix on `ShaderModuleUtils.FromFile` compiles a patched source
+string (with the caller's own `CompileOptions`, so every `ENABLE_*` variant still builds) instead of
+the file on disk. Installation requests the game's own deferred `Program.RendererRebuildNeeded`
+rebuild, which is what recompiles the part pipelines.
 
 ### Integration points
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + sig / struct-offset / shader path) | Decomp/Content path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
-| A1 | Harmony PREFIX | VehiclePaintPatches.cs:36,46,65 | `PartModel.AddInstance(PerInstanceData instanceData, Viewport, int) : void` (prefix takes `ref PerInstanceData instanceData`) | KSA/PartModel.cs:375 | ✅ | **none** (PartModel.cs byte-identical) | Harmony binds by param name `instanceData`; attaches cleanly |
-| A2 | Struct reinterpret (`Unsafe.As`) | VehiclePaintPatches.cs:25-32,70-73 | `PartModel.PerInstanceData` — writes `float` at **offset 68/72/76** | KSA/PartModel.cs:299-310 | ✅ | **none** (identical) | ⚠ **offset 68 = `uint EmissiveColor` (game-USED), not padding.** Mod's `PaintR` overwrites EmissiveColor; `PaintG`/`PaintB` (72/76) land in real `packing1/2`. Pre-existing data hazard, *unchanged* by update |
-| A3 | Reflection | VehiclePaint.cs:158,159,187 | `ModLibrary.Get<ShaderReference>("MeshIndirectVert" / "MeshIndirectFrag")` | KSA/PartModelRenderer.cs:108-109,170-171 | ✅ | none | shader IDs still resolve |
-| A4 | Reflection | VehiclePaint.cs:225,241-259,150,307-316 | `ShaderReference.Shader : VkShaderModule?` (private set); `.LocalPath`; `.ModPath`; `DoLoad()` (internal) | KSA/ShaderReference.cs:33,167 | ✅ | none | swap via setter / backing field |
-| A5 | Reflection | VehiclePaint.cs:214,328-352 | `RenderCore.ShaderModuleUtils.FromFile(Device, string, out VkShaderStageFlags, …)` | RenderCore/ShaderModuleUtils.cs | ✅ | none | runtime GLSL→SPIR-V |
-| A6 | Typed | VehiclePaint.cs:126,161 | `PartModelRenderer.ColorData.Rebuild() : void` (static) | KSA/PartModelRenderer.cs:228 | ✅ | none (was :202) | pipeline rebuild |
-| A7 | Typed | VehiclePaint.cs:118 | `Program.GetRenderer() : Renderer` → `.Device` | KSA/Program.cs:450 | ✅ | none | Vulkan device |
-| A8 | **Shader text edit** | VehiclePaint.cs:265-285 (`ModifyVertexShader` anchors :270,275,280) | `MeshIndirect.vert` — anchors `"    int Highlighted;\n};"`, `"layout(location = 5) out flat int outHighlighted;"`, `"outHighlighted = instanceData.Highlighted;"` | Content/Core/Shaders/Mesh/MeshIndirect.vert | ⚠ shader exists, **anchors DO NOT MATCH** | **DIVERGED** (4693 merge) | 🔴 **see findings.** None of the 3 anchors exist in the 4680 *or* 4750 shipped vert → `ActivateShaders()` returns false → **paint never renders** |
-| A9 | **Shader text edit** | VehiclePaint.cs:288-303 (`ModifyFragmentShader` anchors :293,298) | `MeshIndirect.frag` — anchor `"layout (location = 5) in flat int inHighlighted;"` (**no match**), and `"vec3 sampledColor = gammaToLinear(texture(...drawData.diffuseTextureIndex...).xyz);"` (**matches both**) | Content/Core/Shaders/Mesh/MeshIndirect.frag | ⚠ partial | DIVERGED | 🔴 input-decl anchor absent → would yield undeclared `inPaintR/G/B`; moot (vert fails first) |
+| A1 | Harmony PREFIX | VehiclePaintPatches.cs `ResolveFromFile`/`FromFilePrefix` | `RenderCore.ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags shaderStage, CompileOptions? options) : VkShaderModule` (**static**) | RenderCore/ShaderModuleUtils.cs:115 | ✅ | n/a (new seam) | The only interception point that works ≥4693: part pipelines recompile per variant straight from disk. Prefix returns `true` (stock behavior) for every non-target path and on any error |
+| A2 | Typed call | VehiclePaintPatches.cs `FromFilePrefix` | `ShaderModuleUtils.FromString(Device, ReadOnlySpan<byte>, VkShaderStageFlags, CompileOptions?, ReadOnlySpan<byte> debugName)`; `ShaderStageFromFileExtension(string)` | RenderCore/ShaderModuleUtils.cs:77,198 | ✅ | n/a (new) | `debugName` = the original file path (NUL-terminated) so relative `#include`s resolve exactly as stock; `options` passed through unmodified |
+| A3 | Harmony PREFIX | VehiclePaintPatches.cs `PartModelModulePrefix` | `PartModelModule.UpdateRenderData(in double4x4, bool, Viewport, int) : void`; reads `Module<T>.Parent : Part` | KSA/PartModelModule.cs:79; KSA/Module.cs:419 | ✅ | none | Records which `Part` is about to submit; it is the **only** caller of `PartModel.AddInstance` |
+| A4 | Harmony PREFIX | VehiclePaintPatches.cs `PartModelDynamicModulePrefix` | `PartModelDynamicModule.UpdateRenderData(in double4x4, bool, Viewport, int) : void` | KSA/PartModelDynamicModule.cs:55 | ✅ | none | Same hand-off for dynamic parts; only caller of `PartModelDynamic.AddInstance` |
+| A5 | Harmony PREFIX | VehiclePaintPatches.cs `AddInstancePrefix` | `PartModel.AddInstance(PerInstanceData instanceData, Viewport, int) : void` — ORs paint into `instanceData.StateBitFlag` | KSA/PartModel.cs:375 (struct :299-310) | ✅ | none | Binds by param name `instanceData`; **no** `Unsafe.As` mirror struct any more — writes the public field directly |
+| A6 | Harmony PREFIX | VehiclePaintPatches.cs `AddInstanceDynamicPrefix` | `PartModelDynamic.AddInstance(PerInstanceData inInstanceData, Viewport, int) : void` | KSA/PartModelDynamic.cs:379 (struct :309-320) | ✅ | none | Param name `inInstanceData` |
+| A7 | Typed | VehiclePaintShaders.cs `RequestRendererRebuild` | `Program.RendererRebuildNeeded : bool` (public static) | KSA/Program.cs:383 (consumed at :2080 `PrepareFrame`) | ✅ | n/a (new) | The game's own deferred-rebuild flag — the same path a Frost/Water graphics-setting change takes, so pipelines are destroyed at a frame boundary, not mid-record |
+| A8 | Typed | VehiclePaintShaders.cs `TryResolveShaderPath` | `ModLibrary.Get<ShaderReference>("MeshIndirectFrag")` → `FileReference.ModPath : string` | KSA/PartModelRenderer.cs:109; KSA/FileReference.cs:23 | ✅ | none | Pre-flight check only, so a shader change fails visibly at "Enable" instead of silently |
+| A9 | **Shader text edit** (in memory) | VehiclePaintShaders.cs `Inject`/`BuildSnippet` | `MeshIndirect.frag` **and** `MeshIndirectRaytraced.frag` — anchor = first line starting `vec3 sampledColor` and ending `;`; also requires the `inStateFlags` varying | Content/Core/Shaders/Mesh/MeshIndirect.frag:114; MeshIndirectRaytraced.frag:156 | ✅ | n/a (new anchors) | Anchored on the albedo *declaration*, not an exact line, so incidental upstream edits do not break it. Snippet appends after the sample so paint flows through thin film / frost / PBR. Uses `gammaToLinear` (Common/Shared.glsl:203) |
+| A10 | **Per-instance bit budget** | VehiclePaint.cs `EncodeBits` (`PaintBitShift`=11, 7:7:7) | `PerInstanceData.StateBitFlag` **bits 11..31** — game writes only bits 0..10 | writers: KSA/PartModelModule.cs:82-133, PartModelDynamicModule.cs:81-107; readers: MeshIndirect.frag:308-353, MeshIndirectRaytraced.frag:290-333 | ✅ | none | 🔶 **The one thing to re-check on every game update:** if KSA starts using bit 11 or above, paint and that feature will corrupt each other. `RayTraceInstance.StateFlags` is `int` (RaytracingRenderer.cs:32), so the bits survive the RT path too |
+| A11 | Typed | PaintTargets.cs | `Program.Editor : VehicleEditor?`; `VehicleEditor.EditingSpace.Parts : PartTree?`; `.UnattachedPartTrees : List<PartTree>`; `PartTree.Parts : ReadOnlySpan<Part>`; `Part.SubParts/Id/DisplayName/Modules` | KSA/Program.cs:202; VehicleEditor.cs:407,529; PartTree.cs:80; Part.cs:622 | ✅ | n/a (new) | Enumerates paint targets in both flight (via `VehicleProvider`) and the editor — mirrors the two sources `Program` itself walks at :4019-4029 |
 | B1 | Reflection | KittenColor.cs:56-74 | `Program.Instance`→`MaterialSystem`→`AssetMap`/`BigBuffer`/`DeviceCtx` (same chain as doh #1-5) | KSA/Program.cs:94; GpuObjectSystem.cs:16,18; AssetManager.cs:11 | ✅ | none | |
 | B2 | GPU write (Vulkan) | KittenColor.cs:192-216 | `BigBuffer.VkBuffer` + `VkUtils.StageAndUploadToBuffer` at `handle*ByteSize.Of<MaterialData>() + OffsetOf(AlbedoColor=16)` | KSA/MaterialData.cs:17 | ✅ | none | tints fur/body/eyes |
 | B3 | Shader path (read-only) | (effect) KittenColor.cs concept | `ModelPbr.frag` → `MaterialSet.glsl`: `albedo = mat.albedoColor * texture(...)`; alpha `discard` | Content/Core/Shaders/Mesh/ModelPbr.frag; Common/MaterialSet.glsl | ✅ | MaterialSet.glsl **identical**; ModelPbr.frag differs only in SSAO ordering (rev 4671) | tint path intact |
@@ -182,72 +198,55 @@ global toggles; all cleared on unload.
 
 ### Game assets referenced
 
-- **Shaders by `ModLibrary` id:** `"MeshIndirectVert"` / `"MeshIndirectFrag"` → `Content/Core/Shaders/Mesh/MeshIndirect.vert` / `.frag` (read from disk via `ShaderReference.ModPath`/`LocalPath`, edited in-memory, recompiled). **Both files exist** in 4750.
+- **Fragment shaders patched in memory (never on disk):** `Content/Core/Shaders/Mesh/MeshIndirect.frag` and `Content/Core/Shaders/Mesh/MeshIndirectRaytraced.frag`. Matched by **file name** at `ShaderModuleUtils.FromFile` time; `"MeshIndirectFrag"` is also resolved by `ModLibrary` id for the pre-flight check. `MeshIndirect.vert` is **no longer touched at all**.
+- **Glass parts are deliberately not painted** — `MeshGlassIndirect.frag` declares `inStateFlags` but ignores it, so windows stay clear.
 - **GPU material buffer** (`GpuMaterialSystem.BigBuffer`) for Kitten Color (no asset path).
-- **Removed assets the mod's design assumed:** `DynamicMeshIndirect.vert/.frag` (gone, 4693), `ModelEye.frag`, `ModelGlass.frag` (gone, 4745). `ModelTranslucent.frag` is **new** (4747). humble-arteest does not recompile these by id, so removal is not a hard reference break — but the README's narrative around `DynamicMeshIndirect.frag` is now stale.
+- **Removed assets the mod's design once assumed:** `DynamicMeshIndirect.vert/.frag` (gone, 4693), `ModelEye.frag`, `ModelGlass.frag` (gone, 4745). `ModelTranslucent.frag` is **new** (4747). None are referenced by the current implementation.
 
-### Update-risk findings (4750 → 5018)
+### Update-risk findings (as of 5018)
 
-- 🔴 **`PerInstanceData` padding slot the mod writes is now GAME-USED.**
-  `PartModel.PerInstanceData.packing2` → **`public float Wetness`**, and
-  `PartModelDynamic.PerInstanceData.packing1` → **`public float Wetness`**. These feed a new
-  `ENABLE_WETNESS` shader variant (`MeshIndirect.vert` `outWetness`@loc8 / `.frag` `inWetness`@loc8),
-  compiled only when `GameSettings.Current.Graphics.VesselWater` is on
-  (`PartModelRenderer.cs`). A sibling `ENABLE_FROST` variant was added at the same time.
-  - **Vehicle Paint** maps `PaintB` onto that slot — but its `AddInstancePrefix` returns early unless
-    `VehiclePaint.ShadersActive`, which can never be true on ≥4693, so **nothing is written today**.
-    The hazard is now worse than the previously-recorded `EmissiveColor` clobber: un-gating the
-    feature would corrupt both `EmissiveColor` *and* `Wetness`.
-  - **Engine Emissive is unaffected** — it writes only `Temperature` and `TfiThickness`, whose offsets
-    did not move. Its mirror struct's trailing field was renamed `packing1` → `Wetness` to make the
-    "do not write" boundary explicit.
+- ✅ **Vehicle Paint REBUILT for 5018 (2026-07-25).** The 4693-era shader-swap mechanism is gone;
+  see "Vehicle Paint mechanism" above and rows A1–A11. What this bought:
+  - **No per-instance field is clobbered any more.** The old design wrote floats at offsets 68/72/76,
+    which by 5018 were the game-used `EmissiveColor`/`TfiThickness`(`packing1`)/`Wetness` (static) and
+    `Temperature`/`TfiThickness`/`Wetness` (dynamic). The new design writes **only** free bits of
+    `StateBitFlag`@64, so battery status lights, engine heat glow, thin film and vessel wetness all
+    keep working while painted.
+  - **No varying-location collisions.** `inStateFlags`@loc4 already exists in every part fragment
+    shader, so nothing is added to the vertex shader and locations 5–10
+    (`outEmissiveColor`/`outTfiThickness`/`outTemperature`/`outWetness`/frost) are untouched.
+  - **Works with the per-variant compile.** Interception moved from `ShaderReference.Shader` down to
+    `ShaderModuleUtils.FromFile`, which every variant compile goes through, so
+    `ENABLE_EMISSIVE`/`ENABLE_TEMPERATURE`/`ENABLE_THIN_FILM`/`ENABLE_WETNESS`/`ENABLE_FROST` all
+    build correctly and the mod never has to reason about which variant it is patching.
+  - **Granularity:** per **part instance** (the finest unit the render path exposes), plus per part
+    template and a global fallback. A part with several model modules paints as a unit — the modules
+    of one `Part` share its paint.
+  - **Precision:** 7 bits per channel (128 steps, quantized in sRGB). Not a limitation of the design
+    — it is the whole free-bit budget in `StateBitFlag`.
+- 🔶 **The one paint invariant to re-check every game update:** `StateBitFlag` bits **11..31** must
+  stay unused by KSA. Writers to audit: `PartModelModule.UpdateRenderData` and
+  `PartModelDynamicModule.UpdateRenderData`. Readers to audit: the `inStateFlags` bit tests in
+  `MeshIndirect.frag`, `MeshIndirectRaytraced.frag`, `MeshGlassIndirect(.Raytraced).frag` and
+  `Selected.comp`. At 5018 the game uses bits 0,1,2,3,4,5,6,7,8,9,10 only.
+- 🔶 **Secondary paint anchors:** the `vec3 sampledColor = …;` line in `MeshIndirect.frag` (:114) and
+  `MeshIndirectRaytraced.frag` (:156). If either moves or is renamed, `Enable` fails loudly with a UI
+  message and rendering falls back to stock — it cannot half-apply.
 - ✅ **Engine Emissive's LUT survived.** The `#ifdef ENABLE_TEMPERATURE` block (with
   `temperatureLut` sampler and `inTemperature`@loc7) is still present in `MeshIndirect.frag`.
 - ✅ `GpuMaterialSystem.cs` and `MaterialData` are **unchanged** → Kitten Color's staged Vulkan write
   is still correct.
-- 🔴 **Vehicle Paint remains dead**, unchanged in cause: the probe in `VehiclePaint.DetectSupport`
-  tests for `#ifdef ENABLE_EMISSIVE`/`ENABLE_TEMPERATURE` in `MeshIndirect.vert`; 5018 still has them
-  (6 occurrences), so the feature correctly self-disables. **Not a new regression.**
+- ℹ️ **`PerInstanceData` fields the mod must NOT write (4750→5018 change, still true).**
+  `PartModel.PerInstanceData.packing2` → **`public float Wetness`** and
+  `PartModelDynamic.PerInstanceData.packing1` → **`public float Wetness`**, feeding the
+  `ENABLE_WETNESS` variant (`outWetness`/`inWetness`@loc8) compiled when
+  `GameSettings.Current.Graphics.VesselWater` is on; a sibling `ENABLE_FROST` variant arrived with it.
+  Engine Emissive writes only `Temperature`/`TfiThickness`, whose offsets did not move.
 
 #### Carried over from the 4680 → 4750 review
 
-- 🔴 **Vehicle Paint shader-swap is non-functional on both builds (highest-priority finding).**
-  Verified by reading `MeshIndirect.vert`/`.frag` in *both* Content trees: the three
-  `ModifyVertexShader` anchor strings are **absent at 4680 and 4750**. The shipped `InstanceData`
-  struct already carries `uint EmissiveColor` after `int Highlighted` at **4680**; at **4750** the
-  **rev 4693 merge** further changed it to `int Highlighted;` followed by `#ifdef ENABLE_EMISSIVE
-  uint EmissiveColor #endif` + `#ifdef ENABLE_TEMPERATURE float Temperature` + `#ifdef
-  ENABLE_THIN_FILM float TfiThickness`. The varying that was `outHighlighted` no longer exists
-  (state goes through `outStateFlags`@loc4 / `outEmissiveColor`@loc5). Result: `ModifyVertexShader`
-  returns the source unchanged → `CompileAndSwapShader` aborts with *"Modification had no effect on
-  MeshIndirectVert"* → no paint is rendered. (The C# `PartModel.AddInstance` write at A2 still runs.)
-- 🔴 **A fix is now harder than a string update.** Post-4693, `MeshIndirect.vert`/`.frag` already
-  use out/in varyings at **locations 5/6/7** (`outEmissiveColor`/`outTfiThickness`/`outTemperature`),
-  which **collide** with humble-arteest's intended paint locations **6/7/8**. A correct fix must
-  target the new `#ifdef`-gated struct, pick non-colliding varying locations, and reconcile with
-  the merged dynamic/static pipeline. Also reconsider A2: writing `PaintR` into offset 68 clobbers
-  `EmissiveColor`.
-- 🔴 **Root cause is architectural, not just the anchors (verified in `PartModelRenderer.cs` +
-  `ShaderReference.cs`, NEW).** `PartModelRenderer.ColorData.BuildPipelineModel`/`BuildPipelineDynamic`
-  (NEW `:104-164` / `:166-226`) compile MeshIndirect via
-  `ShaderReference.CompileVariantWithCustomOptions(options)` (NEW `ShaderReference.cs:119`) with macro
-  variants (`ENABLE_EMISSIVE`+`ENABLE_THIN_FILM` for static parts; `ENABLE_TEMPERATURE`+`ENABLE_THIN_FILM`
-  for dynamic) and **destroy the module immediately** after pipeline creation. That method reads GLSL
-  fresh from `base.ModPath` (disk) and **never consults `ShaderReference.Shader`**. So the mod's "modify
-  in memory → swap `ShaderReference.Shader` → `ColorData.Rebuild()`" sequence is inert even with correct
-  anchors — `Rebuild()` recompiles from the unmodified disk file. (`PrePassData.BuildPipelineModel` still
-  uses `.Shader` for the *depth* prepass, but that pass does no color/paint.) A real fix must
-  Harmony-patch `CompileVariantWithCustomOptions` (or the pipeline builders) for `MeshIndirectVert/Frag`
-  — touching the rendering of *every* part — and be GPU-validated.
-- ✅ **GUARDED (Phase 2).** `VehiclePaint.IsSupported` (`VehiclePaint.cs`) probes the on-disk
-  `MeshIndirect.vert` for the feature-gating / missing anchors and disables the feature with a clear UI
-  notice (`VehiclePaintSubmod.RenderBody`); `ActivateShaders()` short-circuits; and
-  `VehiclePaintPatches.AddInstancePrefix` now early-outs unless `ShadersActive`, so the `EmissiveColor`@68
-  clobber (A2) can no longer occur. Engine Emissive / Kitten Color untouched.
 - ✅ **Vehicle Paint Harmony plumbing is intact:** `PartModel.cs` is byte-identical OLD↔NEW;
-  `AddInstance` signature and `PerInstanceData` layout unchanged; all shader-swap reflection
-  targets (`ShaderReference.Shader/DoLoad/ModPath`, `ShaderModuleUtils.FromFile`,
-  `PartModelRenderer.ColorData.Rebuild`, `Program.GetRenderer`, the two shader ids) resolve.
+  `AddInstance` signature and `PerInstanceData` layout unchanged.
 - ✅ **Engine Emissive intact:** `PartModelDynamic.cs` + `PartModelDynamicModule.cs` byte-identical;
   mirror struct (`Temperature`@68, `TfiThickness`@72) exact; the Temperature→emissive path survived
   the 4693 merge (now inside `MeshIndirect.frag` under `ENABLE_TEMPERATURE`), so no shader edit

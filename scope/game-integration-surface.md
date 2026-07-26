@@ -25,7 +25,8 @@ decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-ro
   in section 3 that is not string-based.
 - **Check the shaders & assets subtable (section 5) by reading the shipped files**, not just the C#:
   several mods edit GLSL by anchor-string and depend on asset ids — a shader refactor breaks them with
-  no C# change (humble-arteest Vehicle Paint and mesh-deform are already broken this way).
+  no C# change (mesh-deform is broken this way; humble-arteest Vehicle Paint was rebuilt for 5018 and
+  now fails loudly instead of silently if its anchor moves).
 - **Watch the Harmony keystones** that fan out to many mods: `Universe.ExecuteNextVehicleSolvers`,
   `GameSettings.OnKeyAll` (HotkeyGuard), the three `*Module.UpdateRenderData` render prefixes,
   `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData`, and the `VehicleProvider` enumeration
@@ -360,7 +361,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.ModLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music, space-tape | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114`; `MaterialFactory.cs:219`; `VehiclePaint.cs:158`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8`; `ConnectorGizmo.cs:28` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
+| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music, space-tape | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8`; `ConnectorGizmo.cs:28` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
 | `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, space-tape | `KittenSpawner.cs:322`; `space-tape.lib/PartCatalog.cs:20-28` | OK | `.Find(KeyHash)` (doh) / `.GetList()` (space-tape) |
 | `AllCharacters : internal static SerializedCollection<CharacterReference>` | reflection-field (string) | `KSA/ModLibrary.cs:90` | doh | `KittenSpawner.cs:347,354,357` | OK | character enumeration |
 
@@ -445,9 +446,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.PartModel (+ nested PerInstanceData, ViewportData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `AddInstance(PerInstanceData, Viewport, int frameIndex) : void` | Harmony pre (humble vehicle-paint, mesh-deform) + post (IvaForceRender) | `KSA/PartModel.cs:375` | humble-arteest (VehiclePaint), mesh-deform, IvaForceRender (kitchen-sink, space-tape) | `VehiclePaintPatches.cs:36`; `MeshDeformPatches.cs:51-60`; `IvaForceRender.cs:46` | OK | `PartModel.cs` byte-identical; 3-arg single overload |
+| `AddInstance(PerInstanceData, Viewport, int frameIndex) : void` | Harmony pre (humble vehicle-paint, mesh-deform) + post (IvaForceRender) | `KSA/PartModel.cs:375` | humble-arteest (VehiclePaint), mesh-deform, IvaForceRender (kitchen-sink, space-tape) | `VehiclePaintPatches.cs` (`AddInstancePrefix`); `MeshDeformPatches.cs:51-60`; `IvaForceRender.cs:46` | OK | `PartModel.cs` byte-identical; 3-arg single overload. humble binds by param name `instanceData` and ORs paint into `StateBitFlag` |
 | `..ctor(PartModelModule.Template) : protected` | Harmony post (ctor, `AccessTools.Constructor`) | `KSA/PartModel.cs:351` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:42` | OK | explicit param-type array |
-| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `packing2`@76) | direct API (struct reinterpret) | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint), mesh-deform | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs:25-32`; `MeshDeformManager.cs:127-134` | OK | ⚠ humble `PaintR`@68 overwrites real `EmissiveColor`; mesh-deform reuses `packing1/2`@72-79 |
+| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `Wetness`@76; 80 B) | direct API | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint), mesh-deform | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs` (`AddInstancePrefix`); `MeshDeformManager.cs:127-134` | OK | humble now writes **only `StateBitFlag` bits 11..31** (no struct reinterpret, no game field clobbered); ⚠ mesh-deform still reuses `packing1`@72 + `Wetness`@76 |
+| `PerInstanceData.StateBitFlag` **bits 11..31** | free-bit reuse (per-instance mod payload) | writers `KSA/PartModelModule.cs:82-133`, `KSA/PartModelDynamicModule.cs:81-107`; readers `MeshIndirect.frag:308-353` | humble-arteest (VehiclePaint) | `VehiclePaint.cs` (`EncodeBits`, `PaintBitShift`) | OK | 🔶 **audit every game update.** Game uses bits 0..10 only; 21 free bits carry a 7:7:7 sRGB paint color. `RayTraceInstance.StateFlags` is `int`, so the bits survive the RT path |
 | `ViewportData.Get(PartModel, Viewport) : ViewportData` → `.InstanceList.Add(...)` | direct API | `KSA/PartModel.cs:281,277` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:105` | OK | re-add internal instance to per-viewport draw list (editor) |
 | `Instances : static List<PartModel>` | direct API | `KSA/PartModel.cs:325` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:111` | OK | enumerated by `Enabled` setter |
 | `Template : PartModelModule.Template` (field) | direct API | `KSA/PartModel.cs:329` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113` | OK | |
@@ -456,12 +458,12 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `AddInstance(PerInstanceData inInstanceData, Viewport, int) : void` | Harmony pre | `KSA/PartModelDynamic.cs:379` | humble-arteest (EngineEmissive) | `EngineEmissivePatches.cs:40,51` | OK | file byte-identical; param name `inInstanceData` matches |
-| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `Temperature`@68 · `TfiThickness`@72 · `packing1`@76) | direct API (struct reinterpret) | `KSA/PartModelDynamic.cs:309-319` | humble-arteest (EngineEmissive) | `EngineEmissivePatches.cs:29-36` | OK | mirror struct matches exactly (`Temperature`@68, `TfiThickness`@72) |
+| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `Temperature`@68 · `TfiThickness`@72 · `Wetness`@76; 80 B) | direct API (struct reinterpret for EngineEmissive) | `KSA/PartModelDynamic.cs:309-320` | humble-arteest (EngineEmissive, VehiclePaint) | `EngineEmissivePatches.cs:29-36`; `VehiclePaintPatches.cs` (`AddInstanceDynamicPrefix`) | OK | mirror struct matches exactly (`Temperature`@68, `TfiThickness`@72). VehiclePaint touches only `StateBitFlag` bits 11..31, so the two features compose |
 
 ### KSA.PartModelDynamicModule
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelDynamicModule.cs:55` | blinky, its-so-shiny | `BlinkyPatches.cs:27,31`; `ShinyPatches.cs:26,30` | OK | |
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelDynamicModule.cs:55` | blinky, its-so-shiny, humble-arteest (VehiclePaint) | `BlinkyPatches.cs:27,31`; `ShinyPatches.cs:26,30`; `VehiclePaintPatches.cs` (`PartModelDynamicModulePrefix`) | OK | humble reads `__instance.Parent` to know which `Part` is submitting; **only caller** of `PartModelDynamic.AddInstance` |
 | `PartModelDynamicModule.PartModelDynamic : required` | direct API | `KSA/PartModelDynamicModule.cs:32` | humble-arteest (EngineEmissive) | `EngineEmissive.cs:123,129,159` | OK | file identical |
 
 ### KSA.PartModelGlassModule
@@ -472,7 +474,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.PartModelModule (+ nested Template, RaytracingMode)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelModule.cs:79` | blinky, its-so-shiny, mesh-deform | `BlinkyPatches.cs:26,30`; `ShinyPatches.cs:25,29`; `MeshDeformPatches.cs:34-43` | OK | game uses `Parent.FullPart.LightSwitch` here |
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelModule.cs:79` | blinky, its-so-shiny, mesh-deform, humble-arteest (VehiclePaint) | `BlinkyPatches.cs:26,30`; `ShinyPatches.cs:25,29`; `MeshDeformPatches.cs:34-43`; `VehiclePaintPatches.cs` (`PartModelModulePrefix`) | OK | game uses `Parent.FullPart.LightSwitch` here; humble reads `Module<T>.Parent : Part` (`KSA/Module.cs:419`); **only caller** of `PartModel.AddInstance` |
 | `Parent : Part` | direct API | `KSA/PartModelModule.cs:71` | mesh-deform | `MeshDeformPatches.cs:101` | OK | `__instance.Parent` |
 | `Template.Internal : bool` (field) | direct API (write) | `KSA/PartModelModule.cs:36` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113,125` | OK | flipped false to force interior render |
 | `Template.RayTracing : RaytracingMode` (field) | direct API | `KSA/PartModelModule.cs:30` | IvaForceRender | `IvaForceRender.cs:103` | OK | |
@@ -482,7 +484,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `UpdateRenderData(Viewport, int) : static void` | Harmony pre | `KSA/PartModelRenderer.cs:658` | space-tape, flexo | `PartRenderHelper.cs:9,13`; `FlexoPatches.cs:9,13` | OK | **keystone render hook**; overload array `[Viewport,int]` must stay |
-| `ColorData.Rebuild() : static void` | direct API | `KSA/PartModelRenderer.cs:228` (mesh-deform cites `:17`) | humble-arteest (VehiclePaint), mesh-deform | `VehiclePaint.cs:126,161`; `MeshDeformShaders.cs:43,77` | OK | pipeline rebuild after shader swap |
+| `ColorData.Rebuild() : static void` | direct API | `KSA/PartModelRenderer.cs:282` | mesh-deform | `MeshDeformShaders.cs:43,77` | OK | pipeline rebuild after shader swap. ⚠ destroys/recreates pipelines immediately — unsafe mid-frame. humble-arteest no longer calls it; it sets `Program.RendererRebuildNeeded` instead |
+| `ColorData.BuildPipelineModel` / `BuildPipelineDynamic` (→ `ShaderReference.CompileVariantWithCustomOptions`) | behavior dependency (no patch) | `KSA/PartModelRenderer.cs:104,193` | humble-arteest (VehiclePaint) | — | OK | Part color pipelines recompile MeshIndirect **from disk per `ENABLE_*` variant** and destroy the module right after, which is why swapping `ShaderReference.Shader` cannot work and interception happens at `ShaderModuleUtils.FromFile` |
 
 ### KSA.PartTemplate (+ component template types — space-tape import surface)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -530,12 +533,13 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `DrawProgramMenusHook() : void` (empty modding hook) | Harmony post | `KSA/Program.cs:3391` | unscience (MenuBarPatch), space-tape | `unscience/MenuBarPatch.cs:8`; `space-tape.lib/PartEditorMenuBarPatch.cs:31` | OK | game ships as deliberate no-op |
 | `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, flexo, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
 | `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
-| `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:194` | IvaForceRender, kitchen-sink | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56` | OK | editor-only branch |
+| `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint) | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets |
+| `RendererRebuildNeeded : static bool` (field) | direct API | `KSA/Program.cs:383` (consumed `PrepareFrame` :2080) | humble-arteest (VehiclePaint) | `VehiclePaintShaders.cs` (`RequestRendererRebuild`) | OK | game's **deferred** full-renderer rebuild flag — the safe way for a mod to force shader/pipeline recompilation (same path a graphics-setting change takes) |
 | `MainViewport : static Viewport { get; }` | direct API | `KSA/Program.cs:403` | IvaForceRender, kitchen-sink, space-tape | `IvaForceRender.cs:102`; `PartEditorMenuBarPatch.cs:31` | OK | `.Mode`, `.MapCamera`, `.BaseCamera` |
 | `GetCamera() : static Camera` | direct API | `KSA/Program.cs:504` | glass, space-tape | `FovController.cs:42`; `PartEditorScene.cs:71-77` | OK | |
 | `SetCameraMode(...)` / `GetHoveredCamera()` | direct API | `KSA/Program.cs` | space-tape | `PartEditorScene.cs:71-77` | OK | editor camera control |
 | `GetMainCamera() : Camera` | direct (render) | `KSA/Program.cs:489` | thug-life | `ThugLifeQuadRenderer.cs:238` | OK | |
-| `GetRenderer() : Renderer` (→ `.Device`) | direct (render) | `KSA/Program.cs:450` | humble-arteest, thug-life, space-tape, mesh-deform | `VehiclePaint.cs:118`; `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39` | OK | Vulkan device |
+| `GetRenderer() : Renderer` (→ `.Device`) | direct (render) | `KSA/Program.cs:450` | thug-life, space-tape, mesh-deform | `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
 | `OffScreenPass : RenderPassState` (→ `.SampleCount`, `.Pass`) | direct (render-pass) | `KSA/Program.cs:375` | thug-life | `ThugLifeQuadRenderer.cs:127,133` | OK | offscreen MSAA; 4694 touched offscreen/thumbnail, members intact |
 | `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:248` | OK | |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
@@ -700,7 +704,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `RenderTechnique.CreateShaderStages(Device, Span<ShaderReference>, Span<VkSpecializationInfo>=default)` | direct (render) | `RenderCore/RenderTechnique.cs:37` | thug-life | `ThugLifeQuadRenderer.cs:117` | OK | |
-| `ShaderModuleUtils.FromFile(Device, string, out VkShaderStageFlags, CompileOptions)` | reflection-method (cross-asm, string) | `RenderCore/ShaderModuleUtils.cs` | humble-arteest (VehiclePaint), mesh-deform | `VehiclePaint.cs:214`; `MeshDeformShaders.cs:373-397` | OK | runtime GLSL→SPIR-V |
+| `ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags shaderStage, CompileOptions? options)` | **Harmony pre** (humble-arteest) + reflection-method (mesh-deform) | `RenderCore/ShaderModuleUtils.cs:115` | humble-arteest (VehiclePaint), mesh-deform | `VehiclePaintPatches.cs` (`ResolveFromFile`/`FromFilePrefix`); `MeshDeformShaders.cs:373-397` | OK | 🔶 **humble's keystone shader seam.** Every part-shader variant compile funnels through here; the prefix substitutes patched source for two `.frag` files and passes through otherwise. Param names `device`/`filePath`/`shaderStage`/`options` are load-bearing for Harmony binding |
+| `ShaderModuleUtils.FromString(Device, ReadOnlySpan<byte> shaderCode, VkShaderStageFlags, CompileOptions?, ReadOnlySpan<byte> debugName)` | direct (render) | `RenderCore/ShaderModuleUtils.cs:77` | humble-arteest (VehiclePaint) | `VehiclePaintPatches.cs` (`FromFilePrefix`) | OK | `debugName` becomes shaderc's input-file name → relative `#include` resolution. Mod passes the original path NUL-terminated (the game's own `Utf8.GetBytes` call is not terminated) |
+| `ShaderModuleUtils.ShaderStageFromFileExtension(string) : VkShaderStageFlags` | direct (render) | `RenderCore/ShaderModuleUtils.cs:198` | humble-arteest (VehiclePaint) | `VehiclePaintPatches.cs` (`FromFilePrefix`) | OK | fills the skipped original's `out` param |
+| `Brutal.ShaderCApi.CompileOptions` (readonly struct) | Harmony arg type (cross-asm) | `Brutal.ShaderCApi/CompileOptions.cs:10` (Brutal.ShaderC.dll) | humble-arteest (VehiclePaint) | `humble-arteest.lib.csproj` reference | OK | needed only to declare the `FromFile` prefix signature; options are passed through untouched |
 | `Presets.{InputAssembly.TriangleList, Rasterization.Fill.CullNone, BlendState.BlendColorAlpha}` | direct (render) | `RenderCore.Pipelines/SimplePipelineCreator.cs:15` | thug-life | `ThugLifeQuadRenderer.cs:140,141,143` | OK | pipeline presets |
 | `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` | direct (render) | `RenderCore` (e.g. `OceanRenderer.cs:292`) | thug-life | `ThugLifeQuadRenderer.cs:142` | OK | reverse-Z; 4730/4733 depth-prepass didn't alter it |
 | `Renderer.{Device, Allocator, Graphics, DynamicStateInfo, ViewportState}` | direct (render) | `KSA`/`RenderCore` (via `Program.GetRenderer`) | thug-life | `ThugLifeQuadRenderer.cs:137,138` | OK | compile-verified |
@@ -708,10 +715,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.ShaderReference (asset-reference type)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ShaderReference : FileReference, IKeyed` (type) | direct API | `KSA/ShaderReference.cs:20` | thug-life, humble-arteest, mesh-deform | `ThugLifeQuadRenderer.cs:114`; `VehiclePaint.cs:158` | OK | via `ModLibrary.Get<ShaderReference>` |
-| `Shader : VkShaderModule? { get; private set; }` (+ `<Shader>k__BackingField`) | reflection-field (string) | `KSA/ShaderReference.cs:33` | humble-arteest, mesh-deform | `VehiclePaint.cs:225`; `MeshDeformShaders.cs:232-252` | OK | swap via private setter |
-| `DoLoad() : internal void` | reflection-method (string) | `KSA/ShaderReference.cs:167` | humble-arteest, mesh-deform | `VehiclePaint.cs:307-316`; `MeshDeformShaders.cs:65-73` | OK | restore original shader |
-| `ModPath` / `LocalPath` (on `FileReference` base) | reflection-field (string) | `KSA/ShaderReference.cs:73,49` | humble-arteest, mesh-deform | `VehiclePaint.cs:150`; `MeshDeformShaders.cs:336,341` | OK | resolve on-disk shader path |
+| `ShaderReference : FileReference, IKeyed` (type) | direct API | `KSA/ShaderReference.cs:20` | thug-life, humble-arteest, mesh-deform | `ThugLifeQuadRenderer.cs:114`; `VehiclePaintShaders.cs` (`TryResolveShaderPath`) | OK | via `ModLibrary.Get<ShaderReference>` |
+| `Shader : VkShaderModule? { get; private set; }` (+ `<Shader>k__BackingField`) | reflection-field (string) | `KSA/ShaderReference.cs:33` | mesh-deform | `MeshDeformShaders.cs:232-252` | OK | swap via private setter. **Inert for part color shaders since rev 4693** — the color pipelines never read it; humble-arteest no longer uses this |
+| `DoLoad() : internal void` | reflection-method (string) | `KSA/ShaderReference.cs:167` | mesh-deform | `MeshDeformShaders.cs:65-73` | OK | restore original shader; humble-arteest no longer uses this |
+| `ModPath` (on `FileReference` base, public property) | direct API | `KSA/FileReference.cs:23` | humble-arteest, mesh-deform | `VehiclePaintShaders.cs` (`TryResolveShaderPath`); `MeshDeformShaders.cs:336,341` | OK | resolve on-disk shader path (humble: pre-flight anchor check only) |
 
 ### Brutal.* (game-shipped; risk-bearing only)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -744,7 +751,7 @@ on every game update FIRST.
 | `LightModule.TemplateData."Color"` | zippo | `GetField("Color")` — wrong name (actual `ColorRgb`) | **BROKEN** (silent no-op, 4680 & 4750) |
 | `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK — all 7 still declared **on `GaugeCanvas` itself** (not lifted to `GaugeBase`, which would break `GetField`). `_windowTitle` went `private`→`protected`; still `NonPublic\|Instance`, so it resolves. **Behavioral risk instead:** revs 4919/4940/4959/5003 rebuilt the gauge/HUD system around con-man (see §6) |
 | `Program.Instance`/`MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem` + `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}` + `AssetManager.{AssetMap,GetOrLoad}` + `GpuObjectAssetRef.Handle` + `GpuTextureSystem.*` + `Pbr/Character*Reference.*` | doh, humble-arteest (KittenColor) | deep render-system reflection bridge | OK |
-| `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | humble-arteest (VehiclePaint), mesh-deform | private/internal member names, cross-asm | OK |
+| `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | mesh-deform | private/internal member names, cross-asm | OK (but `Shader` is inert for part color pipelines since 4693) |
 | `ModLibrary.AllParts`/`AllCharacters` + `SerializedCollection.{GetList,Find}` | doh, space-tape | internal static fields/methods by name | OK |
 | `Part._matrixAsmb` / `Part._matrixAsmb2Parent` | space-tape | private fields by name (cache safety) | OK |
 | `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
@@ -760,8 +767,8 @@ on every game update FIRST.
 | Asset / shader | Kind | Referenced as | Content path (NEW) | Consumer | 4750 |
 |---|---|---|---|---|---|
 | `UnlitMesh.vert` / `UnlitMesh.frag` | shader | `ModLibrary.Get<ShaderReference>("UnlitMeshVert"/"UnlitMeshFrag")` | `Core/DefaultAssets.xml:66,67` → `Core/Shaders/Mesh/UnlitMesh.*` | thug-life | OK (**byte-identical 4750→5018**; also untouched by 4693/4745) |
-| `MeshIndirect.vert` (struct + varying anchors) | shader text-edit | `Get<ShaderReference>("MeshIndirectVert")`, GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.vert` | humble-arteest (VehiclePaint), mesh-deform | **BROKEN** (anchors diverged; see §6) |
-| `MeshIndirect.frag` (input-decl anchor) | shader text-edit | GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.frag` | humble-arteest (VehiclePaint) | **BROKEN** (anchor absent; moot — vert fails first) |
+| `MeshIndirect.vert` (struct + varying anchors) | shader text-edit | `Get<ShaderReference>("MeshIndirectVert")`, GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.vert` | mesh-deform | **BROKEN** (anchors diverged; see §6). humble-arteest **no longer touches this file** |
+| `MeshIndirect.frag` + `MeshIndirectRaytraced.frag` (paint injection) | shader text-edit (in memory, via the `FromFile` prefix) | matched by **file name**; anchor = first `vec3 sampledColor …;` line; requires `inStateFlags` varying and `gammaToLinear` (`Common/Shared.glsl:203`) | `Content/Core/Shaders/Mesh/MeshIndirect.frag:114`; `MeshIndirectRaytraced.frag:156` | humble-arteest (VehiclePaint) | OK (rebuilt for 5018) — if the anchor moves, `Enable` fails with a UI message and rendering stays stock |
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
 | `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`) | shader (read-only) | — (effect of GPU buffer write) | `Content/Core/Shaders/Mesh/ModelPbr.frag`; `Common/MaterialSet.glsl` | doh, humble-arteest (KittenColor) | OK (`MaterialSet.glsl` identical; `ModelPbr.frag` only SSAO reorder rev 4671) |
 | `DynamicMeshIndirect.vert/.frag`, `ModelEye.frag`, `ModelGlass.frag` | shader (removed) | (design assumption only) | — | humble-arteest (narrative), blinky/its-so-shiny GlassModule (C# only) | n/a (removed 4693/4745; `ModelTranslucent.frag` new 4747 — not referenced by id) |

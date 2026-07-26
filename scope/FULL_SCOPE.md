@@ -47,9 +47,10 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 3. **Scan the changelog for behavioral hits.** Read the new `version.json` commit list and match it
    against the per-area "Update-risk findings" sections — some changes (control gating, editor tag
    schema, particle/shader reworks) break behavior without moving a symbol.
-4. **Re-check shaders & per-instance layout.** Runtime-recompiled GLSL and byte-offset struct hacks
+4. **Re-check shaders & per-instance layout.** Runtime-recompiled GLSL and per-instance data hacks
    (humble-arteest, mesh-deform) break when the game's shader sources change even though the C#
-   compiles. See [`game-integration-surface.md`](game-integration-surface.md) → *Shaders & assets*.
+   compiles. Includes verifying `PerInstanceData.StateBitFlag` bits 11..31 are still unused by the
+   game. See [`game-integration-surface.md`](game-integration-surface.md) → *Shaders & assets*.
 5. **Record deltas + update these docs**, then capture the fix work in a `plans/` document (see the
    current one: [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md)).
 
@@ -87,7 +88,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; **camera `___Transform` injector latent bug** |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
-| [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` byte hijack, `CatExpressionAnim`; **humble-arteest paint break** |
+| [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | space-tape, flexo | `ThumbnailReference`/`ThumbnailPart`, `PartImporter` templates, `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`; **space-tape compile breaks** |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
@@ -120,12 +121,17 @@ errors and no new runtime break.
 - **blinky.lib** — `RocketCore.ResourceManager` moved down to the `Combustor` subclass; the diagnostic
   now tests `core is Combustor` (`SolidMotor` cores legitimately have none).
 
-**Silent byte-layout change (guarded — no live break, but the hazard deepened):**
+**Silent byte-layout change (mesh-deform still exposed; humble-arteest no longer is):**
 - `PartModel.PerInstanceData.packing2` and `PartModelDynamic.PerInstanceData.packing1` are now
-  **`public float Wetness`**, feeding a new `ENABLE_WETNESS` shader variant. humble-arteest **Vehicle
-  Paint** and **mesh-deform** write into that slot, but both remain inert behind their content probes
-  (still correct on 5018), so nothing writes there today. humble-arteest **Engine Emissive** is
-  unaffected — it writes only `Temperature`/`TfiThickness`, whose offsets did not move.
+  **`public float Wetness`**, feeding a new `ENABLE_WETNESS` shader variant. **mesh-deform** writes
+  into that slot but stays inert behind its content probe (still correct on 5018).
+  humble-arteest **Vehicle Paint** was rebuilt (2026-07-25) and no longer writes any per-instance
+  *field* — it uses the free `StateBitFlag` bits 11..31 instead, so `EmissiveColor`, `Temperature`,
+  `TfiThickness` and `Wetness` are all left intact. **Engine Emissive** was never affected — it
+  writes only `Temperature`/`TfiThickness`, whose offsets did not move.
+- 🔶 **New standing invariant to audit each update:** `PerInstanceData.StateBitFlag` bits **11..31**
+  must remain unused by KSA (it uses 0..10 today). See
+  [`character-and-materials.md`](character-and-materials.md) → humble-arteest row A10.
 
 **Behavioral watch items (compile-clean, need a live pass):**
 - **con-man / marque vs the gauge-HUD rework** (revs 4919/4940/4959/5003): the game moved the gauge
@@ -147,10 +153,17 @@ errors and no new runtime break.
 - **zippo** color control — fixed; reflects `"ColorRgb"`, matching 5018.
 - supermod `Patcher.cs` now wires `IvaForceRender.Patch`/`Unpatch`.
 
+- **humble-arteest Vehicle Paint** — **rebuilt for 5018 (2026-07-25)** and working again. The
+  4693-era shader-swap was replaced by a `ShaderModuleUtils.FromFile` Harmony prefix that compiles a
+  patched `MeshIndirect(.Raytraced).frag` in memory, with the per-part color carried in the free
+  `StateBitFlag` bits. Targeting is per **part instance**, per part type, or global; works in flight
+  and in the editor. See [`character-and-materials.md`](character-and-materials.md) rows A1–A11.
+
 **Still genuinely broken, pre-existing, NOT caused by this update:**
-- **humble-arteest Vehicle Paint** / **mesh-deform** — dead by design change since rev 4693; both
-  self-detect and disable, and their probes are still correct on 5018. Reviving paint is a redesign,
-  not a patch.
+- **mesh-deform** (standalone, not bundled) — dead by design change since rev 4693; self-detects and
+  disables, and its probe is still correct on 5018. It could now be revived by reusing
+  humble-arteest's `FromFile` interception, but it also needs per-instance *floats*, which the
+  free-bit trick cannot carry.
 
 **Everything else verified clean against 5018** — every Harmony patch-target signature, the full
 string-reflection watchlist, `MaterialData`/`CharacterAvatar` layouts, and the `UnlitMesh`/

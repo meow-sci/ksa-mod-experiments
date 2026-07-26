@@ -307,14 +307,13 @@ Programmatic kitten spawning with per-kitten GPU material customization. Spawns 
 
 ### [humble-arteest](humble-arteest) / [humble-arteest.lib](humble-arteest.lib)
 Part painting and visual customization mod. Three features: vehicle part painting via runtime shader patching, kitten character tinting via GPU material buffer writes, and per-engine emissive glow control.
-- **Vehicle Paint**: Per-part RGB tinting by hijacking PerInstanceData padding bytes (3 unused ints at bytes 68–79) and compiling modified GLSL shaders at runtime via `ShaderModuleUtils.FromFile()` + `ShaderReference` swap + `PartModelRenderer.ColorData.Rebuild()`
+- **Vehicle Paint**: Recolors individual part instances at runtime. The color is quantized to 7:7:7 sRGB and packed into the **free high bits (11..31) of `PerInstanceData.StateBitFlag`** — bits KSA does not use — so no game field, struct layout, or vertex shader is touched. A Harmony prefix on `RenderCore.ShaderModuleUtils.FromFile` compiles an in-memory patched copy of `MeshIndirect.frag` / `MeshIndirectRaytraced.frag` (nothing on disk is modified) that unpacks those bits and blends them into the albedo. Installed through the game's own deferred `Program.RendererRebuildNeeded` rebuild. Targeting: per part instance, per part type, or global; blend modes Multiply / Tint / Replace; works in flight and in the vehicle editor.
 - **Kitten Color**: Tints character models (fur, glass, eyes) by writing AlbedoColor to the `GpuMaterialSystem.BigBuffer` via Vulkan staged uploads. Only affects `ModelPbr.frag` path — vehicle parts are unaffected.
 - **Engine Emissive**: Per-engine Temperature/TFI override via Harmony prefix on `PartModelDynamic.AddInstance()`. No shader modifications needed — uses the game's existing emissive color LUT.
 - F11 window toggle (standalone mode)
-- Unscience supermod integration via `ISubmod`: `VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`
-- Harmony patches: `VehiclePaintPatches` (PartModel.AddInstance), `EngineEmissivePatches` (PartModelDynamic.AddInstance)
-- Experiments directory with Phase 0 feasibility validation tests
-- **humble-arteest.lib**: `VehiclePaint` (shader swap + paint state), `VehiclePaintPatches`, `VehiclePaintSubmod`, `KittenColor` (GPU buffer writes), `KittenColorSubmod`, `EngineEmissive` (temperature state), `EngineEmissivePatches`, `EngineEmissiveSubmod`
+- Unscience supermod integration via `ISubmod`: `VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod` (grouped by `HumbleArteestSubmod`)
+- Harmony patches: `VehiclePaintPatches` (5 seams — `ShaderModuleUtils.FromFile`, both `*Module.UpdateRenderData`, both `*.AddInstance`), `EngineEmissivePatches` (PartModelDynamic.AddInstance)
+- **humble-arteest.lib**: `VehiclePaint` (paint registry + bit encoding), `VehiclePaintShaders` (GLSL injection + install/rebuild), `VehiclePaintPatches`, `PaintTargets` (flight + editor part enumeration), `VehiclePaintSubmod` (+ `VehiclePaintSubmodTables`), `KittenColor` (GPU buffer writes), `KittenColorSubmod`, `EngineEmissive` (temperature state), `EngineEmissivePatches`, `EngineEmissiveSubmod`
 
 ---
 

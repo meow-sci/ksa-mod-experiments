@@ -1,82 +1,217 @@
 using System;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Brutal.Numerics;
+using System.Text;
+using Brutal.ShaderCApi;
+using Brutal.VulkanApi;
 using HarmonyLib;
 using KSA;
+using RenderCore;
 
 namespace MeowSci.HumbleArteestLib;
 
 /// <summary>
-/// Harmony patches for the vehicle paint system.
+/// Harmony patches behind the vehicle paint feature. Three seams, all inert until
+/// <see cref="VehiclePaintShaders.Installed"/> is true:
 ///
-/// Prefixes PartModel.AddInstance to inject paint RGB values into the PerInstanceData
-/// padding bytes before the data is written to the GPU. The prefix uses __instance
-/// (the PartModel) to look up the paint color via <see cref="VehiclePaint"/>.
+/// 1. <c>ShaderModuleUtils.FromFile</c> — compiles the paint-patched GLSL instead of the file on
+///    disk for the part fragment shaders. This is the only interception point that works on
+///    KSA 4693+, where part pipelines recompile per feature variant straight from disk and never
+///    consult <c>ShaderReference.Shader</c>.
+///
+/// 2. <c>PartModelModule/PartModelDynamicModule.UpdateRenderData</c> — records which
+///    <c>Part</c> is about to submit an instance. These are the only callers of the matching
+///    <c>AddInstance</c>, so a single hand-off slot is exact.
+///
+/// 3. <c>PartModel/PartModelDynamic.AddInstance</c> — ORs the packed paint color into the free
+///    high bits of <c>StateBitFlag</c> on its way to the GPU.
 /// </summary>
 public static class VehiclePaintPatches
 {
-    private static MethodInfo? _addInstanceOriginal;
-    private static MethodInfo? _addInstancePrefix;
+    /// <summary>Part whose instance data is about to be submitted; set by (2), consumed by (3).</summary>
+    [ThreadStatic] private static Part? _pendingPart;
 
-    /// <summary>Mirror struct with same layout but float fields at padding offsets.</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PaintablePerInstanceData
-    {
-        public float4x4 ModelMatrix; // 64 bytes
-        public int StateBitFlag;     //  4 bytes
-        public float PaintR;         //  4 bytes (was packing1)
-        public float PaintG;         //  4 bytes (was packing2)
-        public float PaintB;         //  4 bytes (was packing3)
-    }
+    /// <summary>Number of seams this feature needs; anything less means paint is degraded.</summary>
+    public const int RequiredPatchCount = 5;
+
+    private static readonly PatchRecord[] Records = new PatchRecord[RequiredPatchCount];
+    private static int _recordCount;
+
+    /// <summary>How many of the required seams are currently patched.</summary>
+    public static int AppliedPatchCount => _recordCount;
+
+    // ---- Apply / remove ----
 
     public static void Apply(Harmony harmony)
     {
-        _addInstanceOriginal = AccessTools.Method(typeof(PartModel), nameof(PartModel.AddInstance));
-        _addInstancePrefix = typeof(VehiclePaintPatches).GetMethod(
-            nameof(AddInstancePrefix), BindingFlags.NonPublic | BindingFlags.Static);
+        _recordCount = 0;
 
-        if (_addInstanceOriginal == null)
-        {
-            Console.WriteLine("humble-arteest: WARNING — PartModel.AddInstance not found");
-            return;
-        }
+        Patch(harmony, ResolveFromFile(), nameof(FromFilePrefix), "ShaderModuleUtils.FromFile");
+        Patch(harmony, AccessTools.Method(typeof(PartModelModule), nameof(PartModelModule.UpdateRenderData)),
+            nameof(PartModelModulePrefix), "PartModelModule.UpdateRenderData");
+        Patch(harmony, AccessTools.Method(typeof(PartModelDynamicModule), nameof(PartModelDynamicModule.UpdateRenderData)),
+            nameof(PartModelDynamicModulePrefix), "PartModelDynamicModule.UpdateRenderData");
+        Patch(harmony, AccessTools.Method(typeof(PartModel), nameof(PartModel.AddInstance)),
+            nameof(AddInstancePrefix), "PartModel.AddInstance");
+        Patch(harmony, AccessTools.Method(typeof(PartModelDynamic), nameof(PartModelDynamic.AddInstance)),
+            nameof(AddInstanceDynamicPrefix), "PartModelDynamic.AddInstance");
 
-        harmony.Patch(_addInstanceOriginal, prefix: new HarmonyMethod(_addInstancePrefix));
-        Console.WriteLine("humble-arteest: VehiclePaint patches applied");
+        Console.WriteLine($"humble-arteest: VehiclePaint patches applied ({_recordCount}/{RequiredPatchCount})");
     }
 
     public static void Remove(Harmony harmony)
     {
-        if (_addInstanceOriginal != null && _addInstancePrefix != null)
-            harmony.Unpatch(_addInstanceOriginal, _addInstancePrefix);
-
-        _addInstanceOriginal = null;
-        _addInstancePrefix = null;
-
+        for (int i = 0; i < _recordCount; i++)
+        {
+            try { harmony.Unpatch(Records[i].Original, Records[i].Patch); }
+            catch (Exception ex) { Console.WriteLine($"humble-arteest: unpatch failed for {Records[i].Label}: {ex.Message}"); }
+        }
+        _recordCount = 0;
+        _pendingPart = null;
         Console.WriteLine("humble-arteest: VehiclePaint patches removed");
     }
 
-    /// <summary>
-    /// Harmony prefix on PartModel.AddInstance. Writes paint color into the
-    /// PerInstanceData padding bytes when paint is active for this PartModel.
-    /// </summary>
-    private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerInstanceData instanceData)
+    private static void Patch(Harmony harmony, MethodBase? original, string prefixName, string label)
     {
-        // Never touch the per-instance bytes unless paint shaders are genuinely active.
-        // On KSA 4693+ they can never activate (see VehiclePaint.IsSupported), so this
-        // guarantees the prefix is a no-op and never clobbers PerInstanceData.EmissiveColor
-        // (offset 68 — game-used in the current build).
-        if (!VehiclePaint.ShadersActive)
-            return;
+        try
+        {
+            if (original == null)
+            {
+                Console.WriteLine($"humble-arteest: WARNING — {label} not found; paint will be incomplete");
+                return;
+            }
 
-        if (!VehiclePaint.TryGetEffectiveColor(__instance, out var color))
-            return;
+            var prefix = typeof(VehiclePaintPatches).GetMethod(prefixName,
+                BindingFlags.NonPublic | BindingFlags.Static)
+                ?? throw new MissingMethodException(nameof(VehiclePaintPatches), prefixName);
 
-        ref var paintable = ref Unsafe.As<PartModel.PerInstanceData, PaintablePerInstanceData>(ref instanceData);
-        paintable.PaintR = color.X;
-        paintable.PaintG = color.Y;
-        paintable.PaintB = color.Z;
+            harmony.Patch(original, prefix: new HarmonyMethod(prefix));
+            Records[_recordCount++] = new PatchRecord(original, prefix, label);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"humble-arteest: WARNING — could not patch {label}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Resolves the four-argument <c>FromFile</c> overload (the one that takes compile options);
+    /// the two-argument overload delegates to it.
+    /// </summary>
+    private static MethodBase? ResolveFromFile() =>
+        AccessTools.Method(typeof(ShaderModuleUtils), nameof(ShaderModuleUtils.FromFile), new[]
+        {
+            typeof(Device),
+            typeof(string),
+            typeof(VkShaderStageFlags).MakeByRefType(),
+            typeof(CompileOptions?),
+        });
+
+    // ---- (1) Shader compilation ----
+
+    /// <summary>
+    /// Compiles the paint-patched source for part fragment shaders. The original file path is
+    /// handed to the compiler as the input file name so relative <c>#include</c>s resolve exactly
+    /// as they do stock, and the caller's <c>CompileOptions</c> (which carry the
+    /// <c>ENABLE_EMISSIVE</c>/<c>ENABLE_TEMPERATURE</c>/... variant defines) pass straight through.
+    /// Any failure falls back to compiling the untouched file.
+    /// </summary>
+    private static bool FromFilePrefix(Device device, string filePath, ref VkShaderStageFlags shaderStage,
+        CompileOptions? options, ref VkShaderModule __result)
+    {
+        byte[]? source;
+        try
+        {
+            source = VehiclePaintShaders.TryGetPatchedSource(filePath);
+        }
+        catch (Exception ex)
+        {
+            VehiclePaintShaders.NoteCompileFailed(filePath, ex);
+            return true;
+        }
+
+        if (source == null) return true;
+
+        try
+        {
+            var stage = ShaderModuleUtils.ShaderStageFromFileExtension(filePath);
+            __result = ShaderModuleUtils.FromString(device, source, stage, options, NullTerminated(filePath));
+            shaderStage = stage;
+            VehiclePaintShaders.NoteCompiled();
+            return false;
+        }
+        catch (Exception ex)
+        {
+            VehiclePaintShaders.NoteCompileFailed(filePath, ex);
+            return true;
+        }
+    }
+
+    /// <summary>The compiler takes the input file name as a C string, so terminate it explicitly.</summary>
+    private static byte[] NullTerminated(string value)
+    {
+        var utf8 = new UTF8Encoding(false);
+        var bytes = new byte[utf8.GetByteCount(value) + 1];
+        utf8.GetBytes(value, 0, value.Length, bytes, 0);
+        return bytes;
+    }
+
+    // ---- (2) Part hand-off ----
+
+    private static void PartModelModulePrefix(PartModelModule __instance)
+    {
+        if (!VehiclePaintShaders.Installed) return;
+        _pendingPart = __instance.Parent;
+    }
+
+    private static void PartModelDynamicModulePrefix(PartModelDynamicModule __instance)
+    {
+        if (!VehiclePaintShaders.Installed) return;
+        _pendingPart = __instance.Parent;
+    }
+
+    // ---- (3) Per-instance paint ----
+
+    private static void AddInstancePrefix(ref PartModel.PerInstanceData instanceData)
+    {
+        if (!TryTakePaintBits(out int bits)) return;
+        instanceData.StateBitFlag |= bits;
+    }
+
+    private static void AddInstanceDynamicPrefix(ref PartModelDynamic.PerInstanceData inInstanceData)
+    {
+        if (!TryTakePaintBits(out int bits)) return;
+        inInstanceData.StateBitFlag |= bits;
+    }
+
+    /// <summary>
+    /// Consumes the pending part and resolves its paint. Clearing the slot here keeps a part from
+    /// leaking into an unrelated submission if the game ever gains another AddInstance caller.
+    /// </summary>
+    private static bool TryTakePaintBits(out int bits)
+    {
+        var part = _pendingPart;
+        _pendingPart = null;
+
+        if (part == null)
+        {
+            bits = 0;
+            return false;
+        }
+
+        return VehiclePaint.TryGetPaintBits(part, out bits);
+    }
+
+    private readonly struct PatchRecord
+    {
+        public readonly MethodBase Original;
+        public readonly MethodInfo Patch;
+        public readonly string Label;
+
+        public PatchRecord(MethodBase original, MethodInfo patch, string label)
+        {
+            Original = original;
+            Patch = patch;
+            Label = label;
+        }
     }
 }

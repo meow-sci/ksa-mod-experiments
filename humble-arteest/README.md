@@ -4,14 +4,20 @@ Standalone KSA mod providing visual customization features. Toggle with F11.
 
 ## Features
 
-- **Vehicle Paint** — Per-part RGB tinting via runtime shader patching and PerInstanceData padding hijack.
-  ⚠️ **Auto-disabled on KSA 4693+** — the part color pipeline was rebuilt and no longer honors the
-  runtime shader-swap this feature relies on, so it self-detects and shows an "unavailable" notice. See
-  [`../scope/character-and-materials.md`](../scope/character-and-materials.md) and
-  [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md) (Phase 2a) for the root cause
-  and the rework plan.
+- **Vehicle Paint** — Recolor individual part instances (or a whole part type, or everything) at
+  runtime. Tick **Enable painting**, pick a brush color, then tick the parts you want. Blend modes:
+  *Multiply* (keeps texture detail, can only darken), *Tint* (recolors by luminance, can brighten),
+  *Replace* (flat color). Works in flight and in the vehicle editor.
 - **Kitten Color** — Character model tinting via GPU material buffer AlbedoColor writes
 - **Engine Emissive** — Per-engine glow control via Temperature field override
+
+## Notes on Vehicle Paint
+
+- Enabling paint, or changing the blend mode, triggers a **renderer rebuild** — a brief one-off hitch,
+  the same one the game performs when you change a graphics setting. Picking colors is free.
+- Nothing on disk is modified. The game's shader files are read, patched **in memory**, and compiled.
+- Paint is not saved; it lives for the session and is cleared on unload.
+- Windows (glass parts) are deliberately not painted.
 
 ## Architecture
 

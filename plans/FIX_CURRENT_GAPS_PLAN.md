@@ -81,8 +81,12 @@ with a docking port (R1) and confirm the connector/impulse survive the round-tri
 
 ## Phase 2 — Runtime/asset breaks (🟠 P2)
 
-These compile but are dead in-game. Both are runtime-recompiled-GLSL hacks invalidated by the rev 4693
+These compile but are dead in-game. Both were runtime-recompiled-GLSL hacks invalidated by the rev 4693
 **MeshIndirect** merge — a `dotnet build` cannot catch them.
+
+> **Status (2026-07-25): 2a Vehicle Paint is FIXED** — rebuilt on a different transport + interception
+> point (see 2a). **2b mesh-deform is still guarded-off**; it needs per-instance *floats*, which the
+> free-bit trick cannot carry, so it would need a different transport of its own.
 
 > **Status (2026-06-27): short-term guards DONE.** Both features now self-detect the unsupported build
 > and disable cleanly (clear UI notice; activation short-circuits; the per-instance write prefixes
@@ -100,7 +104,36 @@ These compile but are dead in-game. Both are runtime-recompiled-GLSL hacks inval
 > — which changes the shader used to render *every* part — and therefore **requires in-game GPU iteration**
 > (a bad pipeline makes all parts vanish or aborts on a validation layer). Not safe to land blind.
 
-### 2a. humble-arteest — Vehicle Paint shader-swap is inert → [`character-and-materials.md`](../scope/character-and-materials.md)
+### 2a. humble-arteest — Vehicle Paint ✅ **DONE (2026-07-25) — rebuilt, not patched**
+
+Vehicle Paint was reimplemented from scratch against 5018 and works again. The design below (kept for
+history) was abandoned in favour of a simpler transport that sidesteps both blockers:
+
+- **Transport:** the color rides in the **free high bits (11..31) of `PerInstanceData.StateBitFlag`**
+  (the game writes only bits 0..10) as a 7:7:7 sRGB value. That field exists at offset 64 in every
+  `PerInstanceData` variant and is already forwarded to every part fragment shader as
+  `inStateFlags`@loc4 — so there is **no vertex-shader edit, no varying-location conflict (5..10 stay
+  free for emissive/tfi/temperature/wetness), no struct/stride change, and no clobbering of
+  `EmissiveColor`@68 / `Temperature`@68 / `TfiThickness`@72 / `Wetness`@76.** This also closes the P4
+  `EmissiveColor` clobber item below.
+- **Injection:** a Harmony prefix on **`RenderCore.ShaderModuleUtils.FromFile`** (not
+  `CompileVariantWithCustomOptions`). Every variant compile funnels through it; the prefix compiles a
+  patched source *string* with `FromString`, passing the caller's own `CompileOptions` and the original
+  path as the compiler input-file name so `#include`s and all `ENABLE_*` variants behave stock. Any
+  failure falls back to the unmodified file, so the worst case is stock rendering, never a broken
+  pipeline. Nothing on disk is written.
+- **Applying it:** sets `Program.RendererRebuildNeeded` (the game's deferred, `WaitIdle`-guarded
+  rebuild) instead of calling `ColorData.Rebuild()` mid-frame.
+- **Targeting:** per **part instance**, per part type, or global; flight and vehicle editor.
+- **Standing invariant to re-audit each game update:** `StateBitFlag` bits 11..31 must stay unused by
+  KSA. Secondary anchor: the `vec3 sampledColor …;` line in `MeshIndirect.frag` /
+  `MeshIndirectRaytraced.frag` (a move there fails loudly at "Enable", it cannot half-apply).
+
+Details: [`../scope/character-and-materials.md`](../scope/character-and-materials.md) rows A1–A11 and
+[`../humble-arteest.lib/README.md`](../humble-arteest.lib/README.md).
+
+<details>
+<summary>Original (superseded) analysis of the break</summary>
 
 Root cause (verified against both `Content` shader trees):
 - The mod's `ModifyVertexShader` anchor strings (`"    int Highlighted;\n};"`, `out flat int outHighlighted`,
@@ -136,6 +169,8 @@ Plan (Engine Emissive and Kitten Color are unaffected — do not touch them):
 
 **Verify (proper fix):** apply paint to a part in-game and confirm tint renders without altering engine
 emissive glow, thin-film, or other parts.
+
+</details>
 
 ### 2b. mesh-deform (standalone, not bundled) — GLSL rewrite dead on 4750 → [`standalone-mods.md`](../scope/standalone-mods.md)
 
@@ -196,8 +231,8 @@ Not caused by `4750`, but found while cataloging. Cheap, high-value fixes.
   `Patcher.cs` try/catch); if inert, inject `Camera ___Camera` / read `__instance.Camera`, and re-verify
   which controller family the flight camera actually uses. Fixing this also revives unladen-swallow's
   `POST /camera/animate`. **Verify:** run a camera sequence (UI and RPC) and observe motion.
-- **humble-arteest — `PerInstanceData.EmissiveColor` clobber** — folded into the Phase 2a redesign (stop
-  writing offset 68 as paint).
+- ✅ **humble-arteest — `PerInstanceData.EmissiveColor` clobber — CLOSED.** The Phase 2a rebuild moved
+  paint into `StateBitFlag` bits 11..31; no per-instance *field* is written any more.
 - **supermod doesn't wire `IvaForceRender.Patch`** → [`00-architecture-and-abstractions.md`](../scope/00-architecture-and-abstractions.md),
   [`ui-customization.md`](../scope/ui-customization.md). Inside the supermod, kitchen-sink's "Force IVA
   Rendering" only does the `Enabled`-setter mutation; the ctor/`AddInstance` postfixes (needed for parts
@@ -211,7 +246,8 @@ Not caused by `4750`, but found while cataloging. Cheap, high-value fixes.
 - **Stale READMEs** (correct to match verified APIs):
   - `average-twr` README cites a nonexistent `vehicle.TotalThrust` → actual `Vehicle.FlightComputer.VehicleConfig.TotalEngineVacuumThrust` / `NavBallData.ThrustWeightRatio` ([`telemetry.md`](../scope/telemetry.md)).
   - `geeforce` README cites `Velocity.GetBodyFrameAcceleration()` + `Situation` + a `float` sample → actual `Vehicle.AccelerationBody` (`double3`) ([`telemetry.md`](../scope/telemetry.md)).
-  - `humble-arteest` README shader narrative (DynamicMeshIndirect / ModelEye / ModelGlass) is stale post-4693/4745 ([`character-and-materials.md`](../scope/character-and-materials.md)).
+  - ✅ `humble-arteest` READMEs — rewritten with the 5018 Vehicle Paint design; the stale
+    DynamicMeshIndirect / ModelEye / ModelGlass narrative is gone.
 - **After each fix lands:** update the affected `scope/` touchpoint status (BROKEN→OK), the status summary
   in [`../scope/FULL_SCOPE.md`](../scope/FULL_SCOPE.md), and this plan. Keep `REPOSITORY_INDEX.md` accurate
   if any feature's described behavior changes.
@@ -228,7 +264,7 @@ Not caused by `4750`, but found while cataloging. Cheap, high-value fixes.
 | 4 | **Checkpoint: `dotnet build` clean** | — | — |
 | 5 | Phase 4 zippo `ColorRgb` | 🔵 | XS |
 | 6 | Phase 4 camera `___Transform` (confirm + fix) | 🔵 | S–M (needs runtime check) |
-| 7 | Phase 2a Vehicle Paint — ✅ guard done; ⬜ shader redesign open | 🟠 | guard XS · rework L (needs in-game GPU) |
+| 7 | Phase 2a Vehicle Paint — ✅ **rebuilt and working (2026-07-25)** | 🟠 | done |
 | 8 | Phase 3 space-tape tag/connector/size behavior | 🟡 | M |
 | 9 | Phase 2b mesh-deform — ✅ guard done; ⬜ rework shares 7 | 🟠 | guard XS · rework M |
 | 10 | Phase 4 supermod IvaForceRender wiring (if wanted) | 🔵 | S |

@@ -31,6 +31,10 @@
       <HintPath>$(KSAFolder)KSA.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Brutal.ShaderC" Condition="Exists('$(KSAFolder)Brutal.ShaderC.dll')">
+      <HintPath>$(KSAFolder)Brutal.ShaderC.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Brutal.Vulkan" Condition="Exists('$(KSAFolder)Brutal.Vulkan.dll')">
       <HintPath>$(KSAFolder)Brutal.Vulkan.dll</HintPath>
       <Private>false</Private>

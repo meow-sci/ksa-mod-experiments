@@ -2,7 +2,7 @@
 
 Humble Arteest provides three visual customization features for KSA:
 
-1. **Vehicle Paint** — Tints vehicle parts with per-part RGB colors via runtime shader patching
+1. **Vehicle Paint** — Recolors vehicle parts, per part instance, via a runtime-patched part fragment shader
 2. **Kitten Color** — Tints kitten character models by modifying GPU material buffers
 3. **Engine Emissive** — Controls per-engine glow/heat effects via Temperature field overrides
 
@@ -17,165 +17,193 @@ All features are accessible as `ISubmod` implementations for use in the unscienc
 KSA renders vehicle parts and kitten characters through different pipelines, so each feature uses
 the approach matched to its rendering path:
 
-| Object Type | Shader Path | Material Source | Per-Instance Color? |
+| Object Type | Shader Path | Per-instance data | How we color it |
 |---|---|---|---|
-| Vehicle parts (static) | `MeshIndirect.frag` (base variant) | PerDrawData texture indices | ❌ Not natively |
-| Vehicle parts (dynamic) | `MeshIndirect.frag` (`ENABLE_TEMPERATURE`/`ENABLE_THIN_FILM` variant) | PerDrawData texture indices | Temperature/TFI only |
-| Kitten characters | `ModelPbr.frag` | GpuMaterialSystem buffer | ✅ Via AlbedoColor |
+| Vehicle parts (static) | `MeshIndirect.{vert,frag}`, `ENABLE_EMISSIVE`+`ENABLE_THIN_FILM` variant | `PartModel.PerInstanceData` | Free bits of `StateBitFlag` + patched fragment shader |
+| Vehicle parts (dynamic) | `MeshIndirect.{vert,frag}`, `ENABLE_TEMPERATURE`+`ENABLE_THIN_FILM` variant | `PartModelDynamic.PerInstanceData` | Same, plus the game's own `Temperature` for glow |
+| Kitten characters | `ModelPbr.frag` | — (materials live in `GpuMaterialSystem`) | Write `AlbedoColor` into the GPU material buffer |
 
 > **Shader-merge note (KSA rev 4693+).** The separate `DynamicMeshIndirect` shader no longer exists —
 > it was merged into a single, feature-gated `MeshIndirect.{vert,frag}` whose behaviour is selected at
-> compile time by `ENABLE_EMISSIVE` / `ENABLE_TEMPERATURE` / `ENABLE_THIN_FILM` defines (rev 4745 then
-> cleaned up the layout indices). "Static" vs "dynamic" parts are now **compile variants of the same
-> shader**, not separate files. This is also why **Vehicle Paint is disabled on 4693+** (see the banner
-> below): the color pipeline recompiles those variants from disk via
-> `ShaderReference.CompileVariantWithCustomOptions`, ignoring the runtime module swap paint relied on.
-
-Because of this split, each feature uses a different technical approach matched to its rendering path.
+> compile time by `ENABLE_EMISSIVE` / `ENABLE_TEMPERATURE` / `ENABLE_THIN_FILM` / `ENABLE_WETNESS` /
+> `ENABLE_FROST` defines. "Static" vs "dynamic" parts are now **compile variants of the same shader**,
+> not separate files.
 
 ---
 
-## Feature 1: Vehicle Paint (Runtime Shader Patching)
+## Feature 1: Vehicle Paint
 
-> ⚠️ **Availability: auto-disabled on KSA 4693+.** The narrative below describes the original
-> (pre-4693) mechanism and is retained for design context. As of KSA `2026.6.9.4750` this feature is
-> **inert and self-guarded**: `VehiclePaint.IsSupported` probes the on-disk shader and disables the
-> feature with a UI notice, and the `AddInstance` prefix no-ops (so it no longer clobbers
-> `EmissiveColor`). Two compounding changes broke it: (1) the `MeshIndirect` shader was feature-gated
-> with `ENABLE_*` defines (the GLSL anchors moved), and (2) — the deeper blocker — the part **color**
-> pipeline now compiles via `ShaderReference.CompileVariantWithCustomOptions()`, which recompiles from
-> disk per variant and **ignores the swapped `ShaderReference.Shader`**. Reviving paint therefore
-> requires Harmony-patching that per-variant compile (blast radius = every part) and GPU iteration —
-> see [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md) Phase 2a for the refined design.
+Per-part-instance albedo recoloring. Rebuilt from scratch for KSA `2026.7.9.5018`.
 
-### How It Works
+### The two problems this design solves
 
-Vehicle parts are rendered via `MeshIndirect.vert/frag` using Vulkan indirect draw calls. Each part instance sends an 80-byte `PerInstanceData` struct to the GPU:
+Any per-part color mod has to answer two questions. The pre-5018 implementation answered both in ways
+the game has since invalidated:
+
+**1. How does a color reach the GPU per instance?**
+The old design wrote floats into what were once padding ints at offsets **68 / 72 / 76** of
+`PerInstanceData`. By 5018 all three are game-used:
 
 ```
-PerInstanceData (80 bytes):
-  float4x4 ModelMatrix      64 bytes — world transform
-  int      StateBitFlag       4 bytes — highlight/grab/select bits
-  int      packing1           4 bytes — UNUSED (we hijack this)
-  int      packing2           4 bytes — UNUSED (we hijack this)
-  int      packing3           4 bytes — UNUSED (we hijack this)
+PartModel.PerInstanceData (80 bytes)          PartModelDynamic.PerInstanceData (80 bytes)
+  0  float4x4 ModelMatrix   64 bytes            0  float4x4 ModelMatrix   64 bytes
+ 64  int      StateBitFlag   4 bytes           64  int      StateBitFlag   4 bytes
+ 68  uint     EmissiveColor  4 bytes  ← used   68  float    Temperature    4 bytes  ← used
+ 72  int      packing1       4 bytes           72  float    TfiThickness   4 bytes  ← used
+ 76  float    Wetness        4 bytes  ← used   76  float    Wetness        4 bytes  ← used
 ```
 
-The three padding integers (bytes 68–79) are unused by the game. We repurpose them to carry RGB paint color data from C# to the GPU shader.
+There is also **no room to append a field**: in std430 the struct strides exactly 80 bytes in every
+enabled variant, so a new trailing member would change the stride and desynchronize every draw.
 
-### Step-by-Step Data Flow
+**2. How do you get modified GLSL into the pipeline?**
+The old design swapped `ShaderReference.Shader` and called `PartModelRenderer.ColorData.Rebuild()`.
+Since rev 4693 the part color pipelines compile through
+`ShaderReference.CompileVariantWithCustomOptions()`, which reads the GLSL **fresh from disk per
+`ENABLE_*` variant** and destroys the module immediately — it never reads `ShaderReference.Shader`.
+The swap was inert.
 
-1. **Harmony Prefix on `PartModel.AddInstance()`** (`VehiclePaintPatches.cs`)
-   - Intercepts every per-instance data submission before it reaches the GPU
-   - Uses `Unsafe.As<>` to reinterpret the struct padding fields as floats
-   - Writes R, G, B color values into `packing1`, `packing2`, `packing3`
-   - The paint color comes from `VehiclePaint.TryGetEffectiveColor()` which checks per-PartModel overrides first, then falls back to the global "paint all" color
+### How it works now
 
-2. **Runtime Shader Compilation** (`VehiclePaint.ActivateShaders()`)
-   - Reads the game's original GLSL shader source from disk via `ShaderReference.LocalPath`
-   - Modifies the source **in memory** (never touches the game files):
-     - **Vertex shader** (`MeshIndirect.vert`): Adds `float PaintR/G/B` fields to the `InstanceData` struct and new `out` variables at locations 6/7/8
-     - **Fragment shader** (`MeshIndirect.frag`): Adds matching `in` variables and applies `sampledColor *= paintTint` when the paint vector is non-zero
-   - Writes to a temporary file in the same directory (for `#include` path resolution)
-   - Compiles via `ShaderModuleUtils.FromFile()` (reflection) → new `VkShaderModule`
-   - Swaps the compiled module into the existing `ShaderReference` via backing field
-   - Deletes the temp file
-   - Calls `PartModelRenderer.ColorData.Rebuild()` to recreate Vulkan pipelines with the new shaders
+**Transport: the free bits of `StateBitFlag`.** The game writes only bits **0..10** of that field
+(highlight, grabbed, translucent, selected, edited-vehicle, IVA, no-emissive, add-emissive-color,
+selected-connected, selected-disconnected, fuel-flow). Bits **11..31** are free — 21 bits, which
+carries a 7:7:7 sRGB color. `StateBitFlag` lives at offset 64 in *every* `PerInstanceData` variant
+(static, dynamic, glass) and is already forwarded to every part fragment shader as the
+`inStateFlags`@location 4 varying.
 
-3. **Paint Application**
-   - The modified fragment shader reads paint RGB as interpolated floats from the vertex shader
-   - When `dot(paintTint, paintTint) > 0.001` (i.e., non-zero color), it multiplies the albedo texture color
-   - This is a **multiplicative tint**: white = no change, red = red tint, dark = darkens
+That single choice removes almost all the fragility:
 
-4. **Shader Restoration** (`VehiclePaint.DeactivateShaders()`)
-   - Calls `ShaderReference.DoLoad()` via reflection, which recompiles from the original game files
-   - Rebuilds pipelines, restoring vanilla rendering
+- no game field is clobbered — `EmissiveColor`, `Temperature`, `TfiThickness` and `Wetness` all keep working
+- no struct, stride, or descriptor-set change
+- **no vertex shader modification at all** — the varying already exists
+- no varying-location collisions with `outEmissiveColor`/`outTfiThickness`/`outTemperature`/`outWetness` (locations 5–10)
+- the same encoding works for every `ENABLE_*` variant, and survives the raytraced path (`RayTraceInstance.StateFlags` is an `int`)
 
-### Key Shader Modifications (Vertex)
+The cost is color resolution: 7 bits per channel (128 steps, quantized in **sRGB** so the steps are
+perceptually even; the shader converts to linear).
+
+**Injection: a prefix on `ShaderModuleUtils.FromFile`.** Every shader compile in the game — including
+every per-variant part-pipeline compile — funnels through
+`RenderCore.ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags, CompileOptions?)`.
+The prefix checks the file name; for `MeshIndirect.frag` and `MeshIndirectRaytraced.frag` it compiles a
+patched source **string** via `ShaderModuleUtils.FromString`, passing:
+
+- the caller's own `CompileOptions` untouched — so all `ENABLE_*` defines and the include callback still apply
+- the original file path as the compiler's input-file name (NUL-terminated) — so relative `#include`s resolve exactly as they do stock
+
+Nothing on disk is read-modify-written, and no temp file is created. Any failure (missing anchor,
+compile error, unexpected exception) returns control to the original method, so the worst case is
+**stock rendering**, never a broken pipeline.
+
+### Data flow
+
+```
+PartModelModule.UpdateRenderData(...)          ← HARMONY PREFIX: remember which Part this is
+    │   builds PerInstanceData { ModelMatrix, StateBitFlag, EmissiveColor, Wetness }
+    ▼
+PartModel.AddInstance(instanceData, ...)       ← HARMONY PREFIX: instanceData.StateBitFlag |= paintBits
+    ▼
+PartModel.WriteInstancesToGpu()                 (unmodified)
+    ▼
+vkCmdDrawIndexedIndirect
+    ▼
+MeshIndirect.vert                               (unmodified — forwards outStateFlags@4)
+    ▼
+MeshIndirect.frag                              ← PATCHED: unpack bits 11..31, blend into sampledColor
+```
+
+`PartModelModule.UpdateRenderData` is the **only** caller of `PartModel.AddInstance`
+(and `PartModelDynamicModule.UpdateRenderData` the only caller of `PartModelDynamic.AddInstance`),
+so the "remember the part, then consume it" hand-off is exact rather than heuristic.
+
+### The injected GLSL
+
+Anchored on the albedo sample — matched as *the first line beginning `vec3 sampledColor` and ending
+`;`*, not as an exact string, so incidental upstream edits do not break it:
 
 ```glsl
-// Original struct:
-struct InstanceData {
-    mat4 WorldMatrix;
-    int Highlighted;
-};
+    vec3 sampledColor = gammaToLinear(texture(sampler2D(globalTextures[drawData.diffuseTextureIndex], textureSampler), inUv).xyz);
 
-// Modified struct — paint color in padding slots:
-struct InstanceData {
-    mat4 WorldMatrix;
-    int Highlighted;
-    float PaintR;    // was packing1
-    float PaintG;    // was packing2
-    float PaintB;    // was packing3
-};
-
-// New output variables:
-layout(location = 6) out float outPaintR;
-layout(location = 7) out float outPaintG;
-layout(location = 8) out float outPaintB;
+    // --- humble-arteest: per-instance paint, packed into state-flag bits 11..31 ---
+    {
+        uint hbPaintPacked = inStateFlags >> 11u;
+        if (hbPaintPacked != 0u)
+        {
+            vec3 hbPaintColor = gammaToLinear(vec3(
+                float((hbPaintPacked >> 14u) & 0x7Fu),
+                float((hbPaintPacked >> 7u) & 0x7Fu),
+                float( hbPaintPacked        & 0x7Fu)) * (1.0 / 127.0));
+            sampledColor *= hbPaintColor;          // ← blend mode goes here
+        }
+    }
 ```
 
-### Key Shader Modifications (Fragment)
+Placing it immediately after the sample means the painted color flows through thin film, frost and the
+whole PBR evaluation exactly as the texture would.
 
-```glsl
-// New input variables:
-layout(location = 6) in float inPaintR;
-layout(location = 7) in float inPaintG;
-layout(location = 8) in float inPaintB;
+**Blend modes** (baked into the snippet; switching one triggers a rebuild):
 
-// After albedo texture sampling:
-vec3 paintTint = vec3(inPaintR, inPaintG, inPaintB);
-if (dot(paintTint, paintTint) > 0.001) {
-    sampledColor *= paintTint;
-}
-```
+| Mode | Expression | Behavior |
+|---|---|---|
+| `Multiply` (default) | `sampledColor *= paint` | Keeps every texture detail. Can only darken — ideal for repainting light hulls. |
+| `Tint` | `sampledColor = paint * luminance(sampledColor) * 2` | Keeps shading detail and can brighten. A mid-grey surface becomes exactly the picked color. |
+| `Replace` | `sampledColor = paint` | Flat color; surface shape still comes from the normal and PBR maps. |
 
-### Critical Game Infrastructure Used
+### Applying the change
 
-- **`ModLibrary.Get<ShaderReference>(id)`** — retrieves named shader references by ID (`MeshIndirectVert`, `MeshIndirectFrag`)
-- **`ShaderReference.LocalPath`** — file path to the GLSL source on disk
-- **`ShaderReference.Shader`** — the compiled `VkShaderModule` (swapped via reflection)
-- **`ShaderReference.DoLoad()`** — recompiles shader from its source file (used for restore)
-- **`ShaderModuleUtils.FromFile(device, path, out stageFlags, out errorMsg)`** — compiles GLSL to SPIR-V to VkShaderModule
-- **`PartModelRenderer.ColorData.Rebuild()`** — static method that destroys and recreates the Vulkan rendering pipelines, picking up the swapped shader modules
-- **`Program.GetRenderer().Device`** — Vulkan device handle for shader compilation
-- **`PartModel.AddInstance(ref PerInstanceData, ...)`** — the Harmony patch target
+Installing or removing the patched shaders sets **`Program.RendererRebuildNeeded = true`** rather than
+calling `ColorData.Rebuild()` directly. That is the game's own deferred mechanism (`PrepareFrame`
+consumes the flag at a frame boundary, after `Device.WaitIdle()`), and it is the same path a
+Frost/Water graphics-setting change takes. Calling `Rebuild()` inline would destroy pipelines that the
+current frame's command buffer may already reference.
 
-### Struct Alignment (Critical for Future Maintenance)
+Setting a color, on the other hand, costs nothing — it is just a dictionary write.
 
-The C# struct and GLSL struct **must** have identical memory layouts:
+### Targeting
 
-| Offset | C# Field | GLSL Field | Size |
-|--------|----------|------------|------|
-| 0 | `ModelMatrix` | `WorldMatrix` | 64 |
-| 64 | `StateBitFlag` | `Highlighted` | 4 |
-| 68 | `packing1` → PaintR | `PaintR` | 4 |
-| 72 | `packing2` → PaintG | `PaintG` | 4 |
-| 76 | `packing3` → PaintB | `PaintB` | 4 |
+Resolution order per part, evaluated in the `AddInstance` prefix:
 
-If KSA changes the `PerInstanceData` struct layout, adds fields, removes padding, or changes the shader's `InstanceData` struct, the paint system will break. Look for:
-- Changes to `PartModel.PerInstanceData` (C# struct)
-- Changes to `MeshIndirect.vert` InstanceData struct
-- Changes to `MeshIndirect.frag` input variable locations
-- New `PartModelRenderer` pipeline setup code
+1. **Per part instance** — `Dictionary<Part, …>` (reference identity). The finest unit the render path exposes.
+2. **Per part type** — keyed by `Part.Id` (the template id), so "all fuel tanks white" is one click.
+3. **Global** — the "paint everything" fallback color.
 
-### What Could Break and How to Fix It
+A `Part` with several model modules paints as a unit; the modules of one part share its color. Parts
+are enumerated by `PaintTargets`, which mirrors the two sources the game itself walks: vehicles in the
+current system (flight) and `Program.Editor.EditingSpace.Parts` + `Editor.UnattachedPartTrees` (editor).
+
+Glass parts are deliberately not painted — `MeshGlassIndirect.frag` declares `inStateFlags` but ignores
+it, so windows stay clear.
+
+### Critical game infrastructure used
+
+- **`RenderCore.ShaderModuleUtils.FromFile(...)`** — the Harmony seam (param names `device` / `filePath` / `shaderStage` / `options` are load-bearing)
+- **`ShaderModuleUtils.FromString(...)`** / **`ShaderStageFromFileExtension(...)`** — used to compile the patched source
+- **`Brutal.ShaderCApi.CompileOptions`** — only to declare the prefix signature; passed through untouched
+- **`PartModelModule.UpdateRenderData` / `PartModelDynamicModule.UpdateRenderData`** — part identity (`Module<T>.Parent`)
+- **`PartModel.AddInstance` / `PartModelDynamic.AddInstance`** — where the paint bits are ORed in
+- **`Program.RendererRebuildNeeded`** — deferred renderer rebuild
+- **`ModLibrary.Get<ShaderReference>("MeshIndirectFrag").ModPath`** — pre-flight anchor check only
+- **`Program.Editor`**, **`VehicleEditor.EditingSpace.Parts` / `.UnattachedPartTrees`**, **`PartTree.Parts`** — editor paint targets
+
+### What could break and how to fix it
 
 | Breakage | Symptom | Fix |
-|----------|---------|-----|
-| Padding fields removed from PerInstanceData | Crash or wrong colors | Find new unused bytes or switch to a different data injection approach |
-| Shader InstanceData struct changed | Colors applied to wrong data | Update the string replacements in `ModifyVertexShader()` / `ModifyFragmentShader()` to match new struct |
-| `ShaderReference` API changed | Shader swap fails | Update reflection targets — check field names, method signatures |
-| `PartModelRenderer.ColorData.Rebuild()` removed | Pipelines not rebuilt after swap | Find the new pipeline rebuild mechanism |
-| `ShaderModuleUtils.FromFile()` signature changed | Compilation fails | Update the `FindFromFileMethod()` reflection to match new parameters |
-| New shader output locations conflict | Vulkan validation errors | Change paint output locations (currently 6/7/8) to unused slots |
-| Game adds its own per-instance color system | Our modifications conflict | Consider using the game's native system instead |
+|---|---|---|
+| KSA starts using `StateBitFlag` bit 11 or above | Paint and that feature corrupt each other | Re-audit the bit map; shrink the paint payload (e.g. 6:6:6 or a palette index) or move the transport |
+| `vec3 sampledColor = …;` anchor moves or is renamed | "Enable" fails with a UI message; rendering stays stock | Update the anchor predicate in `VehiclePaintShaders.Inject` |
+| `inStateFlags` varying renamed or removed | Same — `Inject` refuses and reports why | Follow the new state-flag varying name |
+| `ShaderModuleUtils.FromFile` signature or param names change | Log shows fewer than 5/5 hooks attached; UI warns | Update `ResolveFromFile` + the prefix signature |
+| `*Module.UpdateRenderData` renamed | 5/5 drops; paint silently has no target | Update the patch targets |
+| Fragment shader gains a *new* file that renders parts | New shader renders unpainted | Add its file name to `VehiclePaintShaders.TargetFileNames` |
 
 ### Files
 
-- `VehiclePaint.cs` — paint state management + shader compilation/swap/restore
-- `VehiclePaintPatches.cs` — Harmony prefix on `PartModel.AddInstance`
-- `VehiclePaintSubmod.cs` — ISubmod UI panel
+- `VehiclePaint.cs` — paint registry (per part / per type / global), bit encoding, blend-mode setting
+- `VehiclePaintShaders.cs` — GLSL transform, source cache, install/uninstall + rebuild request
+- `VehiclePaintPatches.cs` — the five Harmony seams
+- `PaintTargets.cs` — enumerates paintable parts in flight and in the editor
+- `VehiclePaintSubmod.cs` / `VehiclePaintSubmodTables.cs` — ISubmod UI panel
 
 ---
 
@@ -210,7 +238,7 @@ The material list from `GpuMaterialSystem.AssetMap` is populated by:
 - `CharacterRenderResources` — kitten fur, glass, eye materials
 - `GltfPbrSystem` — GLTF model materials
 
-Vehicle parts never register here.
+Vehicle parts never register here — which is exactly why Vehicle Paint needs its own transport.
 
 ### Alpha Channel Behavior
 
@@ -270,10 +298,10 @@ We simply override the Temperature value before it reaches the GPU, giving expli
 
 ```
 float4x4 ModelMatrix      64 bytes
-int      StateBitFlag       4 bytes
-float    Temperature        4 bytes  ← we override this
-float    TfiThickness       4 bytes  ← we override this
-int      packing1           4 bytes
+int      StateBitFlag      4 bytes  ← Vehicle Paint uses bits 11..31 here; do not write the low bits
+float    Temperature       4 bytes  ← we override this
+float    TfiThickness      4 bytes  ← we override this
+float    Wetness           4 bytes  ← game-used (ENABLE_WETNESS); do NOT write
 ```
 
 ### What Temperature Does in the Shader
@@ -283,7 +311,8 @@ The merged `MeshIndirect` shader (`ENABLE_TEMPERATURE` variant) uses Temperature
 2. Add the LUT color as emissive lighting
 3. Higher Temperature values → more intense glow (cool blue → orange → bright white)
 
-`TfiThickness` controls thin-film interference effects (rainbow sheen).
+Negative Temperature drives the `ENABLE_FROST` path instead. `TfiThickness` controls thin-film
+interference effects (rainbow sheen).
 
 ### What Could Break and How to Fix It
 
@@ -312,21 +341,21 @@ humble-arteest/                    — Standalone mod (F11 toggle)
 └── mod.toml
 
 humble-arteest.lib/                — Core library (referenced by unscience supermod)
-├── VehiclePaint.cs                — Paint state + shader compilation/swap
-├── VehiclePaintPatches.cs         — Harmony prefix on PartModel.AddInstance
-├── VehiclePaintSubmod.cs          — ISubmod UI for vehicle painting
+├── VehiclePaint.cs                — Paint registry + StateBitFlag bit encoding
+├── VehiclePaintShaders.cs         — GLSL injection, source cache, install/rebuild
+├── VehiclePaintPatches.cs         — The five Harmony seams
+├── PaintTargets.cs                — Paintable part enumeration (flight + editor)
+├── VehiclePaintSubmod.cs          — ISubmod UI: shader state, brush, blend mode
+├── VehiclePaintSubmodTables.cs    — ISubmod UI: per-part and per-part-type tables
 ├── KittenColor.cs                 — GPU material buffer AlbedoColor writes
 ├── KittenColorSubmod.cs           — ISubmod UI for kitten coloring
 ├── EngineEmissive.cs              — Per-engine temperature state management
 ├── EngineEmissivePatches.cs       — Harmony prefix on PartModelDynamic.AddInstance
 ├── EngineEmissiveSubmod.cs        — ISubmod UI for engine glow control
-├── Experiments/                   — Phase 0 validation experiments (retained for reference)
-│   ├── GamePaths.cs               — KSA install path resolution
-│   ├── ShaderLoadTest.cs          — Experiment 0.1: shader file loading test
-│   ├── PaddingTest.cs             — Experiment 0.2: PerInstanceData padding passthrough
-│   ├── MaterialColorTest.cs       — Experiment 0.3: AlbedoColor material test
-│   ├── TemperatureTest.cs         — Experiment 0.4: Temperature field override test
-│   └── ShaderHotReloadTest.cs     — Experiment 0.5: Runtime shader hot-reload test
+├── HumbleArteestSubmod.cs         — Composite ISubmod grouping all three
+├── Experiments/                   — Retained validation experiments
+│   ├── MaterialColorTest.cs       — AlbedoColor material test (Kitten Color)
+│   └── TemperatureTest.cs         — Temperature field override test (Engine Emissive)
 └── humble-arteest.lib.csproj
 ```
 
@@ -334,14 +363,14 @@ humble-arteest.lib/                — Core library (referenced by unscience sup
 
 ## Unscience Supermod Integration
 
-All three submods (`VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`) implement `ISubmod` from `ksa-abstractions.lib`. Unscience registers them alongside other submods and provides Harmony patches via its consolidated patcher.
+All three submods (`VehiclePaintSubmod`, `KittenColorSubmod`, `EngineEmissiveSubmod`) implement `ISubmod` from `ksa-abstractions.lib`, grouped by `HumbleArteestSubmod`. Unscience registers them alongside other submods and provides Harmony patches via its consolidated patcher.
 
 Unscience's `Patcher.cs` calls:
 - `VehiclePaintPatches.Apply(harmony)` / `.Remove(harmony)`
 - `EngineEmissivePatches.Apply(harmony)` / `.Remove(harmony)`
 
 Unscience's `Patcher.Unload()` also calls:
-- `VehiclePaint.Cleanup()` — deactivates shaders and clears paint state
+- `VehiclePaint.Cleanup()` — removes the patched shaders (requesting a rebuild) and clears paint state
 - `EngineEmissive.Cleanup()` — clears all engine overrides
 
 Kitten Color has no Harmony patches — it works purely via GPU buffer writes.
@@ -350,70 +379,37 @@ Kitten Color has no Harmony patches — it works purely via GPU buffer writes.
 
 ## Key Decompiled Source References
 
-For future maintenance when KSA updates break this mod, these are the key decompiled sources to examine.
-The authoritative current decomp/assets live under `ksa-game-assemblies/current/decomp` and
-`.../current/Content` (the repo's own `decomp/ksa` copy is older than 4680, so the paths below are for
-orientation only — re-check names against the current tree):
+For future maintenance when KSA updates break this mod. The authoritative current decomp/assets live
+under `ksa-game-assemblies/current/decomp` and `.../current/Content`.
 
 | File | What to Check |
 |------|---------------|
-| `decomp/ksa/KSA/PartModel.cs` | `PerInstanceData` struct layout (lines ~340-351), `AddInstance()` |
-| `decomp/ksa/KSA/PartModelDynamic.cs` | Dynamic `PerInstanceData` struct (lines ~350-361) |
-| `decomp/ksa/KSA/PartModelModule.cs` | `UpdateRenderData()` — how PerInstanceData is populated |
-| `decomp/ksa/KSA/PartModelDynamicModule.cs` | Dynamic variant with Temperature/TFI |
-| `decomp/ksa/KSA/PartModelRenderer.cs` | Pipeline setup, `ColorData.Rebuild()` |
-| `decomp/ksa/KSA/MaterialData.cs` | `MaterialData` struct with `AlbedoColor` |
-| `decomp/ksa/KSA/GpuMaterialSystem.cs` | Material GPU buffer, `AssetMap`, `BigBuffer` |
-| `decomp/ksa/Content/Core/Shaders/Mesh/MeshIndirect.vert` | Vertex shader InstanceData struct |
-| `decomp/ksa/Content/Core/Shaders/Mesh/MeshIndirect.frag` | Fragment shader — albedo sampling + highlight mixing |
-| `Content/Core/Shaders/Mesh/MeshIndirect.frag` (`ENABLE_TEMPERATURE` variant; replaced `DynamicMeshIndirect.frag` at rev 4693) | Temperature LUT emissive application |
-| `decomp/ksa/Content/Core/Shaders/Common/MaterialSet.glsl` | AlbedoColor multiplication pattern |
-| `decomp/ksa/KSA.AssetReloader/ShaderReloader.cs` | Built-in shader hot-reload system |
-| `decomp/ksa/KSA/ShaderReference.cs` | Shader asset with `DoLoad()`, `Shader`, `LocalPath` |
-
----
-
-## Rendering Pipeline Summary
-
-```
-Part Instance (in Vehicle)
-    │
-    ▼
-PartModelModule.UpdateRenderData()           ← creates PerInstanceData
-    │
-    ▼
-PartModel.AddInstance(ref instanceData)      ← HARMONY PATCH: inject paint RGB into padding
-    │  Stages to per-viewport instance list
-    ▼
-PartModel.WriteInstancesToGpu()
-    │  Writes to GPU storage buffers:
-    │    - PerInstanceDataVectors (Set 3, Binding 0) → Vertex Shader
-    │    - PerDrawDataVectors (Set 2, Binding 0)     → Fragment Shader
-    ▼
-vkCmdDrawIndexedIndirect()
-    │
-    ▼
-Vertex Shader (MeshIndirect.vert)            ← MODIFIED: reads PaintR/G/B from struct
-    │  Passes paint values to fragment via locations 6/7/8
-    ▼
-Fragment Shader (MeshIndirect.frag)          ← MODIFIED: multiplies albedo by paint tint
-    │  Samples textures → applies paint tint → applies highlights
-    ▼
-Output Color
-```
+| `KSA/PartModel.cs` | `PerInstanceData` layout (:299-310), `AddInstance()` (:375) |
+| `KSA/PartModelDynamic.cs` | Dynamic `PerInstanceData` (:309-320), `AddInstance()` (:379) |
+| `KSA/PartModelModule.cs` | `UpdateRenderData()` (:79) — **the `StateBitFlag` bit map lives here** (:82-133) |
+| `KSA/PartModelDynamicModule.cs` | Dynamic variant with Temperature/TFI (:55) |
+| `KSA/PartModelRenderer.cs` | `ColorData.BuildPipelineModel/Dynamic` — which `ENABLE_*` defines each pipeline uses |
+| `KSA/ShaderReference.cs` | `CompileVariantWithCustomOptions()` — why `.Shader` swapping is inert |
+| `RenderCore/ShaderModuleUtils.cs` | `FromFile` (:115) / `FromString` (:77) — the interception seam |
+| `KSA/Program.cs` | `RendererRebuildNeeded` (:383), consumed in `PrepareFrame` (:2080) |
+| `Content/Core/Shaders/Mesh/MeshIndirect.frag` | Paint anchor (:114) and the `inStateFlags` bit tests (:308-353) |
+| `Content/Core/Shaders/Mesh/MeshIndirectRaytraced.frag` | Same anchor (:156) for the IVA raytraced path |
+| `Content/Core/Shaders/Common/Shared.glsl` | `gammaToLinear` (:203), `unpackRGB` (:50) |
+| `KSA/MaterialData.cs` | `MaterialData` struct with `AlbedoColor` (Kitten Color) |
+| `KSA/GpuMaterialSystem.cs` | Material GPU buffer, `AssetMap`, `BigBuffer` (Kitten Color) |
+| `Content/Core/Shaders/Mesh/ModelPbr.frag` + `Common/MaterialSet.glsl` | AlbedoColor multiplication (Kitten Color) |
 
 ---
 
 ## Experiment History
 
-The `Experiments/` directory contains the Phase 0 validation tests that proved feasibility:
+The `Experiments/` directory retains the validation tests still relevant to the live features:
 
 | Experiment | Result | What It Proved |
 |-----------|--------|---------------|
-| 0.1 Shader File Loading | ✅ PASSED | KSA loads GLSL from disk at runtime |
-| 0.2 Padding Passthrough | ✅ PASSED | C# padding bytes reach GPU shader unchanged |
-| 0.3 Material AlbedoColor | ✅ MIXED | Works for kittens (ModelPbr), not vehicle parts (MeshIndirect) |
-| 0.4 Temperature Override | ✅ PASSED | Per-instance data flows correctly, no shader changes needed |
-| 0.5 Shader Hot-Reload | ✅ PASSED | Runtime shader compilation + pipeline rebuild works from a mod |
+| Material AlbedoColor | ✅ MIXED | Works for kittens (ModelPbr), not vehicle parts (MeshIndirect) |
+| Temperature Override | ✅ PASSED | Per-instance data flows correctly, no shader changes needed |
 
-These experiments are retained for reference and can be re-run for regression testing after KSA updates.
+The shader-swap-era experiments (`ShaderLoadTest`, `PaddingTest`, `ShaderHotReloadTest`, `GamePaths`)
+were removed with the mechanism they validated: the padding bytes they probed are now game-used, and
+`ShaderReference.Shader` swapping no longer affects part rendering.

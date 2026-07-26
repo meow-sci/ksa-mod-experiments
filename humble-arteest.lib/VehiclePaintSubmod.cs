@@ -1,439 +1,256 @@
 using System;
 using System.Collections.Generic;
-using Brutal.Numerics;
 using Brutal.ImGuiApi;
-using KSA;
+using Brutal.Numerics;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.HumbleArteestLib;
 
 /// <summary>
-/// ISubmod implementation for the Vehicle Paint feature.
-/// Provides an ImGui panel for activating paint shaders and picking colors
-/// to apply to vehicle parts.
+/// ImGui panel for the vehicle paint feature: arm the patched part shaders, pick a blend mode,
+/// and assign colors per part instance, per part type, or to everything at once.
 /// </summary>
-public sealed class VehiclePaintSubmod : ISubmod
+public sealed partial class VehiclePaintSubmod : ISubmod
 {
-    public string Name => "Vehicle Paint";
-    public string Tooltip => "Paints vehicle parts with custom colors via shader injection.";
+    private const double RefreshIntervalSeconds = 0.5;
 
-    // UI state
-    private float3 _pickerColor = new float3(1f, 0.3f, 0.3f);
-    private bool _applyToAll = true;
-    private string? _statusMessage;
+    private static readonly string[] BlendModeNames = { "Multiply", "Tint", "Replace" };
+
+    private float3 _brush = new(1f, 0.25f, 0.2f);
+    private int _tab;
+    private int _groupIndex;
+
+    private List<PaintTargets.Group> _groups = new();
+    private double _timeSinceRefresh = double.MaxValue;
+
+    private ImGuiTextFilter _partFilter = new();
+    private ImGuiTextFilter _typeFilter = new();
+
+    private string? _status;
     private bool _statusIsError;
 
-    // Vehicle selection (when not applying to all)
-    private int _selectedVehicleIndex = -1;
-    private readonly ImInputString _vehicleFilter = new(128);
+    public string Name => "Vehicle Paint";
 
-    // Cached part entries for the selected vehicle
-    private List<PartEntry> _cachedParts = new();
-    private string? _cachedVehicleId;
-    private ImGuiTextFilter _partTableFilter = new();
+    public string Tooltip => "Paints individual vehicle parts by injecting a tint into the part shaders.";
 
     public void Initialize() { }
 
-    public void Update(double dt) { }
+    public void Update(double dt)
+    {
+        if (_timeSinceRefresh < double.MaxValue)
+            _timeSinceRefresh += dt;
+    }
 
     public void RenderContent()
     {
         SubmodUI.BeginContentArea("##vp_content");
 
         bool headerOpen = ImGui.CollapsingHeader("Vehicle Paint (?)", ImGuiTreeNodeFlags.DefaultOpen);
-        ImGui.SetItemTooltip(
-            "Paints vehicle parts by injecting custom shaders at runtime.\n" +
-            "Writes RGB color into the PerInstanceData padding bytes\n" +
-            "and applies a multiplicative tint in the fragment shader.");
-        if (!headerOpen)
-        {
-            SubmodUI.EndContentArea();
-            return;
-        }
-
-        RenderBody();
+        ImGui.SetItemTooltip(HeaderTooltip);
+        if (headerOpen)
+            RenderBody();
 
         SubmodUI.EndContentArea();
     }
 
+    /// <summary>Renders the panel contents without the collapsing header, for the combined submod.</summary>
     internal void RenderBody()
     {
-        if (!VehiclePaint.IsSupported)
-        {
-            RenderUnsupportedNotice();
-            return;
-        }
+        RefreshIfStale();
 
-        RenderShaderButtonRow();
-        RenderStatusMessage();
-        if (VehiclePaint.ShadersActive)
-        {
-            ImGui.Spacing();
-            RenderControls();
-        }
+        RenderShaderRow();
+        ImGui.Spacing();
+        RenderBrushRow();
+        ImGui.Spacing();
+        RenderTargetTabs();
+        RenderStatus();
     }
 
-    private static void RenderUnsupportedNotice()
+    public void Dispose() => VehiclePaint.Cleanup();
+
+    internal const string HeaderTooltip =
+        "Packs a per-part color into the unused high bits of the part instance state flags and\n" +
+        "applies it to the albedo in a runtime-patched copy of the part fragment shaders.\n\n" +
+        "Enabling or changing the blend mode triggers a renderer rebuild (a brief hitch),\n" +
+        "the same one the game performs when you change a graphics setting.";
+
+    // ---- Header rows ----
+
+    private void RenderShaderRow()
     {
-        ImGui.TextColored(new float4(1f, 0.6f, 0.2f, 1f), "Unavailable on this KSA build");
-        ImGui.TextWrapped(VehiclePaint.UnsupportedReason
-            ?? "Vehicle Paint is not supported on this game version.");
-    }
-
-    public void Dispose()
-    {
-        VehiclePaint.Cleanup();
-    }
-
-    // ---- Shader status + action buttons ----
-
-    private void RenderShaderButtonRow()
-    {
-        if (VehiclePaint.ShadersActive)
-            ImGui.TextColored(new float4(0.4f, 1f, 0.4f, 1f), "Shaders: Active");
-        else
-            ImGui.TextColored(new float4(1f, 1f, 0.4f, 1f), "Shaders: Inactive");
-
-        if (!VehiclePaint.ShadersActive)
+        bool enabled = VehiclePaint.Active;
+        if (ImGui.Checkbox("Enable painting##vp", ref enabled))
         {
-            ImGui.SameLine(0, 12);
-            if (ImGui.Button(" Activate "))
+            if (enabled)
             {
-                if (VehiclePaint.ActivateShaders())
-                    SetStatus("Paint shaders activated.", false);
+                if (VehiclePaint.Enable())
+                    SetStatus("Paint shaders armed — rebuilding renderer.", false);
                 else
-                    SetStatus(VehiclePaint.LastError ?? "Shader activation failed.", true);
+                    SetStatus(VehiclePaint.LastError ?? "Could not arm the paint shaders.", true);
+            }
+            else
+            {
+                VehiclePaint.Disable();
+                SetStatus("Paint shaders removed — rebuilding renderer.", false);
             }
         }
+        ImGui.SetItemTooltip(
+            "Installs a patched copy of the part fragment shaders.\n" +
+            "Paint has no visible effect while this is off.");
 
-        bool hasPaint = VehiclePaint.ShadersActive;
-        if (!hasPaint) ImGui.BeginDisabled();
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Deactivate "))
-        {
-            if (VehiclePaint.DeactivateShaders())
-                SetStatus("Shaders deactivated.", false);
-            else
-                SetStatus(VehiclePaint.LastError ?? "Shader deactivation failed.", true);
-        }
-        ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Clear All "))
+        ImGui.SameLine(0, 12);
+        if (VehiclePaint.Active)
+            ImGui.TextColored(new float4(0.4f, 1f, 0.4f, 1f), $"Active ({VehiclePaintShaders.CompileCount} compiles)");
+        else
+            ImGui.TextColored(new float4(1f, 1f, 0.4f, 1f), "Inactive");
+
+        ImGui.SameLine(0, 12);
+        if (ImGui.Button(" Clear all paint ##vp"))
         {
             VehiclePaint.ClearAllPaint();
-            foreach (var entry in _cachedParts)
-                entry.Enabled = false;
             SetStatus("All paint cleared.", false);
         }
-        if (!hasPaint) ImGui.EndDisabled();
+
+        if (VehiclePaint.Active && VehiclePaintShaders.LastError != null)
+            ImGui.TextColored(new float4(1f, 0.55f, 0.2f, 1f), VehiclePaintShaders.LastError);
+
+        int applied = VehiclePaintPatches.AppliedPatchCount;
+        if (applied < VehiclePaintPatches.RequiredPatchCount)
+        {
+            ImGui.TextColored(new float4(1f, 0.55f, 0.2f, 1f),
+                $"Only {applied}/{VehiclePaintPatches.RequiredPatchCount} game hooks attached — " +
+                "this KSA build moved something. See the log for which one.");
+        }
     }
 
-    // ---- Main controls ----
-
-    private void RenderControls()
+    private void RenderBrushRow()
     {
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        var flags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##vp_controls", 2, flags))
+        if (ImGui.BeginTable("##vp_brush", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
             ImGui.TableSetupColumn("##vp_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##vp_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
-            // Mode
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Mode");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Brush color");
             ImGui.TableNextColumn();
-            ImGui.Checkbox("Apply to All##vp", ref _applyToAll);
+            ImGui.ColorEdit3("##vp_brush_color", ref _brush, ImGuiColorEditFlags.NoInputs);
+            ImGui.SameLine(0, 8);
+            ImGui.TextDisabled("(?)");
+            ImGui.SetItemTooltip(
+                "Color applied when you tick a part or part type below.\n" +
+                "Colors are stored at 7 bits per channel.");
 
-            // Color picker (always visible)
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Color");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Blend");
             ImGui.TableNextColumn();
-            if (ImGui.ColorEdit3("##vp_color", ref _pickerColor, ImGuiColorEditFlags.NoInputs))
-                OnGlobalColorChanged();
-
-            // Apply-to-all: auto-apply when color changes and shaders are active
-            if (_applyToAll && VehiclePaint.ShadersActive)
+            int blend = (int)VehiclePaint.BlendMode;
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.Combo("##vp_blend", ref blend, BlendModeNames, BlendModeNames.Length))
             {
-                VehiclePaint.PaintAllEnabled = true;
-                VehiclePaint.DefaultColor = _pickerColor;
+                VehiclePaint.BlendMode = (PaintBlendMode)blend;
+                SetStatus($"Blend mode set to {BlendModeNames[blend]} — rebuilding renderer.", false);
             }
+            ImGui.SetItemTooltip(
+                "Multiply — albedo x color. Keeps every texture detail, can only darken.\n" +
+                "Tint — recolors by luminance. Keeps shading, can brighten.\n" +
+                "Replace — flat color; shape still comes from the normal and PBR maps.");
 
-            // Vehicle selector (only when not applying to all)
-            if (!_applyToAll)
-            {
-                var vehicles = VehicleProvider.GetAllVehicles();
-                var vehicleIds = new string[vehicles.Count];
-                for (int i = 0; i < vehicles.Count; i++)
-                    vehicleIds[i] = vehicles[i].Id;
-
-                if (_selectedVehicleIndex >= vehicles.Count)
-                    _selectedVehicleIndex = -1;
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
-                ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-                int prevVehicle = _selectedVehicleIndex;
-                RenderFilteredCombo("##vp_vehicle", vehicleIds, ref _selectedVehicleIndex, _vehicleFilter);
-
-                if (_selectedVehicleIndex != prevVehicle)
-                    RefreshPartCache(_selectedVehicleIndex >= 0 ? vehicles[_selectedVehicleIndex] : null);
-            }
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Paint everything");
+            ImGui.TableNextColumn();
+            bool paintAll = VehiclePaint.GlobalEnabled;
+            if (ImGui.Checkbox("##vp_all", ref paintAll))
+                VehiclePaint.GlobalEnabled = paintAll;
+            ImGui.SameLine(0, 8);
+            var globalColor = VehiclePaint.GlobalColor;
+            if (ImGui.ColorEdit3("##vp_all_color", ref globalColor, ImGuiColorEditFlags.NoInputs))
+                VehiclePaint.GlobalColor = globalColor;
+            ImGui.SameLine(0, 8);
+            ImGui.TextDisabled("fallback for parts with no other paint");
 
             ImGui.EndTable();
         }
-        ImGui.PopStyleVar(); // CellPadding
-
-        // Per-part table (visible when not applying to all)
-        if (!_applyToAll)
-        {
-            ImGui.Spacing();
-            RenderPartTable();
-        }
+        ImGui.PopStyleVar();
     }
 
-    // ---- Per-part table ----
+    // ---- Target selection ----
 
-    private void RenderPartTable()
+    private void RenderTargetTabs()
     {
-        if (_cachedParts.Count == 0)
-        {
-            ImGui.Text("No parts. Select a vehicle above.");
-            return;
-        }
-
-        // Toolbar: All / None / filter
-        if (ImGui.Button(" All ##vp"))
-        {
-            foreach (var entry in _cachedParts)
-            {
-                if (!_partTableFilter.PassFilter(entry.Label)) continue;
-                entry.Enabled = true;
-                ApplyPartPaint(entry);
-            }
-        }
-        ImGui.SameLine(0, 4);
-        if (ImGui.Button(" None ##vp"))
-        {
-            foreach (var entry in _cachedParts)
-            {
-                if (!_partTableFilter.PassFilter(entry.Label)) continue;
-                entry.Enabled = false;
-                ApplyPartPaint(entry);
-            }
-        }
+        if (ImGui.RadioButton("Parts##vp_tab", _tab == 0)) _tab = 0;
         ImGui.SameLine(0, 12);
-        ImGui.SetNextItemWidth(-1f);
-        _partTableFilter.Draw("##vp_ptfilter");
+        if (ImGui.RadioButton("Part types##vp_tab", _tab == 1)) _tab = 1;
+        ImGui.SameLine(0, 16);
+        if (ImGui.Button(" Refresh ##vp"))
+            Refresh();
+        ImGui.SameLine(0, 8);
+        ImGui.TextDisabled($"{VehiclePaint.PaintedPartCount} parts / {VehiclePaint.PaintedTemplates.Count} types painted");
 
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 4f));
-        var flags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX
-                  | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH
-                  | ImGuiTableFlags.ScrollY;
+        ImGui.Spacing();
 
-        float maxHeight = ImGui.GetTextLineHeightWithSpacing() * 12;
-        if (ImGui.BeginTable("##vp_parts", 3, flags, new float2(0, maxHeight)))
-        {
-            ImGui.TableSetupColumn("##chk", ImGuiTableColumnFlags.WidthFixed, 38f);
-            ImGui.TableSetupColumn("##clr", ImGuiTableColumnFlags.WidthFixed, 50f);
-            ImGui.TableSetupColumn("Part", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableHeadersRow();
-
-            for (int i = 0; i < _cachedParts.Count; i++)
-            {
-                var entry = _cachedParts[i];
-                if (!_partTableFilter.PassFilter(entry.Label)) continue;
-                ImGui.PushID(i);
-
-                ImGui.TableNextRow();
-
-                // Checkbox column
-                ImGui.TableNextColumn();
-                bool enabled = entry.Enabled;
-                if (ImGui.Checkbox("##en", ref enabled))
-                {
-                    entry.Enabled = enabled;
-                    ApplyPartPaint(entry);
-                }
-
-                // Color picker column
-                ImGui.TableNextColumn();
-                var color = entry.Color;
-                if (ImGui.ColorEdit3("##clr", ref color,
-                    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
-                {
-                    entry.Color = color;
-                    if (entry.Enabled)
-                        ApplyPartPaint(entry);
-                }
-
-                // Part name column
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text(entry.Label);
-
-                ImGui.PopID();
-            }
-
-            ImGui.EndTable();
-        }
-        ImGui.PopStyleVar(); // CellPadding
+        if (_tab == 0)
+            RenderPartsTab();
+        else
+            RenderTypesTab();
     }
 
-    // ---- Status messages ----
-
-    private void RenderStatusMessage()
+    private void RenderStatus()
     {
-        if (string.IsNullOrEmpty(_statusMessage)) return;
+        if (string.IsNullOrEmpty(_status)) return;
         ImGui.Spacing();
+        ImGui.TextWrapped(_status);
         if (_statusIsError)
-            ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f), _statusMessage);
-        else
-            ImGui.TextColored(new float4(0.4f, 1f, 0.4f, 1f), _statusMessage);
+            ImGui.TextColored(new float4(1f, 0.35f, 0.35f, 1f), "^ paint could not be applied");
     }
 
     private void SetStatus(string message, bool isError)
     {
-        _statusMessage = message;
+        _status = message;
         _statusIsError = isError;
     }
 
-    // ---- Paint helpers ----
+    // ---- Target cache ----
 
-    private void OnGlobalColorChanged()
+    private void RefreshIfStale()
     {
-        if (_applyToAll)
-            return; // apply-to-all is handled in RenderControls continuously
-
-        // Propagate global color to all per-part entries
-        foreach (var entry in _cachedParts)
-            entry.Color = _pickerColor;
-
-        if (VehiclePaint.ShadersActive)
-        {
-            foreach (var entry in _cachedParts)
-            {
-                if (entry.Enabled)
-                    VehiclePaint.SetPaintColor(entry.Model, entry.Color);
-            }
-        }
+        if (_timeSinceRefresh >= RefreshIntervalSeconds)
+            Refresh();
     }
 
-    private void ApplyPartPaint(PartEntry entry)
+    private void Refresh()
     {
-        if (!VehiclePaint.ShadersActive) return;
+        _groups = PaintTargets.Enumerate();
+        _typeCounts = PaintTargets.CountTemplates(_groups);
+        _timeSinceRefresh = 0;
 
-        if (entry.Enabled)
-            VehiclePaint.SetPaintColor(entry.Model, entry.Color);
-        else
-            VehiclePaint.ClearPaint(entry.Model);
+        if (_groupIndex >= _groups.Count)
+            _groupIndex = _groups.Count - 1;
+        if (_groupIndex < 0 && _groups.Count > 0)
+            _groupIndex = 0;
+
+        VehiclePaint.PruneParts(PaintTargets.FlattenParts(_groups));
     }
 
-    // ---- Vehicle/part cache ----
+    private PaintTargets.Group? CurrentGroup =>
+        _groupIndex >= 0 && _groupIndex < _groups.Count ? _groups[_groupIndex] : null;
 
-    private void RefreshPartCache(Vehicle? vehicle)
+    private void RenderGroupSelector()
     {
-        _cachedParts.Clear();
-        _cachedVehicleId = vehicle?.Id;
-
-        if (vehicle == null) return;
-
-        try
+        if (_groups.Count == 0)
         {
-            var parts = PartHelpers.GetAllParts(vehicle);
-            // Track label occurrences to disambiguate duplicates
-            var labelCounts = new Dictionary<string, int>();
-
-            foreach (var part in parts)
-            {
-                var modules = part.Modules.Get<PartModelModule>();
-                for (int i = 0; i < modules.Length; i++)
-                {
-                    var baseName = modules.Length > 1
-                        ? $"{part.Id} [{i}]"
-                        : part.Id;
-
-                    if (!labelCounts.TryGetValue(baseName, out int count))
-                        count = 0;
-                    labelCounts[baseName] = count + 1;
-
-                    // Label will be disambiguated in a second pass
-                    _cachedParts.Add(new PartEntry(baseName, modules[i].PartModel, _pickerColor));
-                }
-            }
-
-            // Second pass: append occurrence number for any duplicated labels
-            var seen = new Dictionary<string, int>();
-            foreach (var entry in _cachedParts)
-            {
-                if (labelCounts[entry.BaseName] > 1)
-                {
-                    if (!seen.TryGetValue(entry.BaseName, out int idx))
-                        idx = 0;
-                    seen[entry.BaseName] = idx + 1;
-                    entry.Label = $"{entry.BaseName} #{idx + 1}";
-                }
-                else
-                {
-                    entry.Label = entry.BaseName;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"humble-arteest: Error scanning parts: {ex.Message}");
-        }
-    }
-
-    // ---- Filtered combo helper ----
-
-    private static void RenderFilteredCombo(string id, string[] items, ref int selectedIndex,
-        ImInputString filter)
-    {
-        string preview = selectedIndex >= 0 && selectedIndex < items.Length
-            ? items[selectedIndex] : "Select...";
-
-        if (!ImGui.BeginCombo(id, preview))
+            ImGui.TextDisabled("No vehicles or editor parts to paint.");
             return;
-
-        if (ImGui.IsWindowAppearing())
-        {
-            ImGui.SetKeyboardFocusHere();
-            filter.Clear();
         }
+
+        var labels = new string[_groups.Count];
+        for (int i = 0; i < _groups.Count; i++)
+            labels[i] = _groups[i].Label;
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Target");
+        ImGui.SameLine(0, 8);
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint($"{id}_filter", "filter..."u8, filter);
-        string filterText = filter.ToString().Trim();
-
-        for (int i = 0; i < items.Length; i++)
-        {
-            if (filterText.Length > 0 &&
-                !items[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
-                continue;
-            bool sel = selectedIndex == i;
-            if (ImGui.Selectable(items[i], sel))
-                selectedIndex = i;
-            if (sel) ImGui.SetItemDefaultFocus();
-        }
-        ImGui.EndCombo();
-    }
-
-    // ---- Part entry ----
-
-    private sealed class PartEntry
-    {
-        public string BaseName;
-        public string Label;
-        public PartModel Model;
-        public float3 Color;
-        public bool Enabled;
-
-        public PartEntry(string baseName, PartModel model, float3 defaultColor)
-        {
-            BaseName = baseName;
-            Label = baseName;
-            Model = model;
-            Color = defaultColor;
-            Enabled = false;
-        }
+        ImGui.Combo("##vp_group", ref _groupIndex, labels, labels.Length);
     }
 }
