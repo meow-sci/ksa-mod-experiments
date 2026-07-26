@@ -43,7 +43,10 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 2. **Diff the string/reflection touchpoints.** Compile-clean ≠ safe. Open
    [`game-integration-surface.md`](game-integration-surface.md) → *String-based reflection watchlist*
    and re-grep each entry in the new decomp. These (private fields, string method names, Harmony
-   overload param arrays) fail **silently at runtime**, not at compile.
+   overload param arrays) fail **silently at runtime**, not at compile. The same section lists the
+   🔶 **standing invariants** — facts about the game that no grep can check, chiefly
+   `StateBitFlag` bits 11..31 (humble-arteest) and **`[StarMapAllModsLoaded]` firing before
+   `ModLibrary.Bind()`** (parts-now).
 3. **Scan the changelog for behavioral hits.** Read the new `version.json` commit list and match it
    against the per-area "Update-risk findings" sections — some changes (control gating, editor tag
    schema, particle/shader reworks) break behavior without moving a symbol.
@@ -65,7 +68,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 - **One consolidated Harmony instance.** `unscience/Patcher.cs` owns a single
   `Harmony("MeowSci.Unscience")`; each feature lib exposes `Apply(Harmony)`/`Remove(Harmony)` and the
   supermod applies them all onto that instance. `HotkeyGuard` is applied first.
-- **`ISubmod` aggregation.** 22 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
+- **`ISubmod` aggregation.** 23 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
   `RenderContent`/`RenderFloatingWindows`/`Dispose`); the same classes power each feature's standalone
   mod too.
 - **`ksa-abstractions.lib` is the game-facing seam.** Cross-cutting game access is funneled through a
@@ -89,16 +92,16 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | space-tape, flexo | `ThumbnailReference`/`ThumbnailPart`, `PartImporter` templates, `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`; **space-tape compile breaks** |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | space-tape, flexo, parts-now | `ThumbnailReference`/`ThumbnailPart`, `PartImporter` templates, `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`; **space-tape compile breaks**; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (22): average-twr, blinky, camera-controller-override, con-man,
+Bundled in the unscience supermod (23): average-twr, blinky, camera-controller-override, con-man,
 doh, eternal-flame, flexo, garrys-torch, geeforce, glass, humble-arteest, i-feel-seen, its-so-shiny,
-kitchen-sink, kitten-animations, kiwis-marbles, red-alert, skittles, space-tape, thug-life,
-unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy live in
-the repo but are **not** loaded by the supermod.)
+kitchen-sink, kitten-animations, kiwis-marbles, parts-now, red-alert, skittles, space-tape,
+thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform,
+stampy live in the repo but are **not** loaded by the supermod.)
 
 ---
 
@@ -132,6 +135,25 @@ errors and no new runtime break.
 - 🔶 **New standing invariant to audit each update:** `PerInstanceData.StateBitFlag` bits **11..31**
   must remain unused by KSA (it uses 0..10 today). See
   [`character-and-materials.md`](character-and-materials.md) → humble-arteest row A10.
+
+**New in the suite since 5018 — parts-now (23rd bundled mod):**
+- Runtime Part/SubPart loading: paste `<Assets>` XML into a new mod folder, or load / reload /
+  unload an existing mod folder **without restarting the game**. Adds **no Harmony patch** (only the
+  mandatory `HotkeyGuard`), but is the most reflection-heavy and most GPU-adjacent mod in the suite.
+- It was written *against* 5018, so it has no 4750→5018 delta. Its risk lives entirely in seven
+  🔶 **standing invariants (U1–U7)** that fail **silently at runtime** — all documented in
+  [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → parts-now → *Update-risk findings*.
+  The headline one:
+  - 🔶 **`[StarMapAllModsLoaded]` must keep firing before `ModLibrary.Bind()`.** StarMap implements
+    it as a Harmony postfix on `ModLibrary.LoadAll()` (`KSA/Program.cs:956`); `ModLibrary.Bind()`
+    (`KSA/Program.cs:985`) is where `DeviceMeshInterleaved.Shared.Build()` allocates the single
+    shared vertex/index buffer pair **once**. parts-now reserves mesh headroom in between. If that
+    order ever changes, every runtime-loaded mesh writes past the end of the shared vertex buffer.
+- Nine new **string-reflection** names on the watchlist (six `ModLibrary.All*` registries,
+  `SerializedCollection<T>._collection`, `VehicleEditor._editorTagLookup`) — all confined to
+  `parts-now.lib/Runtime/GameRegistry.cs`, the only file in the mod allowed to reflect.
+- Two **new game DLL references** for the repo: `Brutal.Vulkan.Vma` (`Renderer.Allocator` is a
+  `KsaVmaAllocator : IVmaAllocator`) and `Planet.Render.Core` (`BindlessTextureLibrary`).
 
 **Behavioral watch items (compile-clean, need a live pass):**
 - **con-man / marque vs the gauge-HUD rework** (revs 4919/4940/4959/5003): the game moved the gauge

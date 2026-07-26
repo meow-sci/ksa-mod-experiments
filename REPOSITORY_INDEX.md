@@ -385,6 +385,20 @@ Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part
 - Unscience integration as ISubmod with runtime panel and floating editor window
 - **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`
 
+### [parts-now](parts-now) / [parts-now.lib](parts-now.lib)
+Runtime Part / SubPart loader. Paste Part XML into a brand new mod folder, or load / reload / unload an existing mod folder, without restarting the game. New parts appear in the vehicle editor's part browser immediately with thumbnails and game data attached.
+- Paste XML workflow — mod-id form with live validation, three tabbed XML documents (Assets / Part / GameData, 256 KiB each) with clipboard paste, Validate then Install & Load
+- Writes a real KSA mod folder (`mod.toml` + XML, UTF-8 no BOM, LF, atomic tmp+move) under the game's discovered mods path and adds an enabled manifest entry so the parts also load at next launch
+- Mod folder workflow — scans the mods directory, classifies each folder (Content / StarMap / Both / Empty, LoadedAtBoot / LoadedByPartsNow / NotLoaded) and offers Load / Reload / Unload only where it is safe
+- Reload = purge + load, so an edited GLB, KTX2 or XML really is re-read (`SerializedCollection.Register` silently drops duplicate ids, which would otherwise skip the file read)
+- Fail-closed reload/unload safety gate — refuses while a live vehicle flies one of the parts, while the vehicle editor holds one, while a job is in flight, or for anything KSA loaded at boot
+- Mesh headroom reservation — inflates `DeviceMeshInterleaved.Shared`'s size counters from `[StarMapAllModsLoaded]` (before `ModLibrary.Bind` allocates the single shared interleaved buffer) and rewinds the bump cursor on the first frame; configurable in `parts-now.toml`, effective next launch, with leak accounting for bytes an unload can never reclaim
+- Fifteen validation rules (V1–V15) run before anything is written or registered, including the crash guard that rejects a `<PbrMaterial>` missing any of Diffuse / Normal / AoRoughMetal
+- Incremental game-data attach, model warming, and per-part thumbnail rendering (2 per frame) against KSA's offscreen thumbnail viewport
+- Single reflection layer with a self-test that disables loading with a readable message instead of crashing when KSA internals move
+- Standalone window on F10 (configurable); also an unscience submod
+- **parts-now.lib**: `PartsNowSubmod` (ISubmod entry point), `GameRegistry` (the only reflection into `ModLibrary` internals), `MeshBudget` (shared-buffer headroom + leak accounting), `BundleParser` / `BundleValidator` (V1–V15), `RuntimeModLoader` (load state machine), `RuntimeModUnloader` (safety gate + purge/rollback), `PartThumbnailGenerator`, `ModIdValidator` / `ModFolderWriter` / `ModFolderScanner`, `StatusPanel` / `PastePanel` / `ModFolderPanel` / `ResultsPanel`
+
 ---
 
 ## Orbit & Navigation Mods

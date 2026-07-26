@@ -1,10 +1,70 @@
 # PARTS NOW — Runtime Part / SubPart Loading for KSA
 
-> **Status:** plan / not yet implemented
+> **Status:** IMPLEMENTED. Shipped as `parts-now/` + `parts-now.lib/`.
+> See [`parts-now.lib/README.md`](../../parts-now.lib/README.md) for the as-built documentation and
+> [`scope/part-editor-and-robotics.md`](../../scope/part-editor-and-robotics.md) → `## parts-now` for
+> the game-integration map. **Read the as-built corrections below before trusting the body of this
+> document** — several of its claims about the game turned out to be wrong.
 > **Target game build:** `2026.7.9.5018` (see `scope/FULL_SCOPE.md` → Version baseline)
 > **Decomp root (source of truth):** `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
 > — referred to below as `<decomp>`
 > **New projects:** `parts-now/` + `parts-now.lib/`
+
+---
+
+## As-built corrections (added on completion)
+
+Everything below this section is the plan **as written before implementation**. These are the places
+where the game turned out not to match it. The code and `parts-now.lib/README.md` are authoritative.
+
+**Facts about KSA 5018 the plan got wrong**
+
+1. **§T9.2 — registry deltas cannot all be read after `OnDataLoad`.** `AllParts`,
+   `AllPartGameDataReferences`, `AllMaterials` and `ModLibrary.Loaders` gain entries during
+   `RegisterBundles`, but `AllFiles`, `AllMeshes` and `ModLibrary.Binders` only gain them during
+   `RunLoaders` (`FileReference.Load()` registers itself and *then* calls `DoLoad()`). Capturing
+   everything at one point would have left unload silently incomplete.
+2. **§8 V10 — `<Combustion>` does not exist.** Reactions are `<Reaction Id>` inside `<Combustor>` /
+   `<SolidMotor>`. The GrainGeometry *reference* element is `<Grain Id>`; `<GrainGeometry>` is only
+   ever a definition, which V8 rejects. `ModLibrary.TryGet<SoundBehavior>` can never succeed (its
+   branch is `IsSubclassOf`-only), so the sound check goes through `Get<T>` in a try/catch.
+3. **§8 V2 — `<Texture Id="X"/>` with no `Path` is legal** (a reference to an already-loaded
+   texture, as in `DefaultAssets.xml`), so the rule requires Id **or** Path for file references.
+4. **§T11.2 step 4 — model instances must be purged by object identity, not `Template.Id`.**
+   `ModuleBase.TemplateDataBase.Id` is an optional, non-unique XML attribute. `PartModelGlassModule
+   .Template.RayTracers` also exists and is purged; the plan named only `PartModelModule`'s.
+5. **`ImageViewEx.Dispose()` NREs on a default instance** (null captured `Device`), so a
+   `<Thumbnail>` that came from XML must never be disposed. The plan's replace-the-thumbnail
+   sequence would also have dropped the declared `<ModelTransform>`; parts-now carries it across.
+6. **`Camera.Unfollow()` defaults to `changeControl: true`**, which nulls
+   `Program.ControlledVehicle`. Thumbnail generation must pass `false`.
+7. **`Brutal.Gltf.dll` is referenced by no project in this repo**, so V6 reads mesh-atlas node names
+   from the GLB JSON chunk directly instead of using `GltfLoader`.
+
+**Deliberate design changes**
+
+8. **§T9.3** — loader success is verified by post-conditions (`IsReference()` cleared, atlas
+   `Meshes` non-empty, texture present in the new binder set), not id lookups. A demotion whose
+   winner is a file this same job registered is a legal share, not a failure: naming one texture from
+   two material channels is a pattern KSA itself uses.
+9. **§T11.4** — rollback does not record a leak; the cursor rewind reclaims those bytes. A failure
+   *after* the first bind purges with leak accounting instead, because a bound mesh has already
+   copied into an absolute range.
+10. **§T11.2** — gained a step 0 clearing `VehicleEditor.DynamicThumbnail`'s hover preview, whose
+    `AddPart` call sits outside `ThumbnailDynamic.Render`'s try/catch.
+11. **§5/T1.4** — `GameRegistry` separates fatal problems (the six registries + the removal path,
+    which disable loading) from degraded ones (`VehicleEditor._editorTagLookup`, which only narrows
+    editor-tag validation and is reported as a warning).
+12. **§T12.3** — an existing `mod.toml` is merged rather than replaced, so `File.Move` uses
+    `overwrite: true` when the destination is already there.
+13. **A failed paste-install deletes the folder it created**, otherwise `ModIdValidator` would refuse
+    that mod id for the rest of the session.
+14. **§T10.2** — the debug readback is a `PartThumbnailGenerator` property, not a UI toggle: the
+    generator is owned and disposed per job, so there is nothing persistent to bind a toggle to.
+15. **Test T13** ("missing texture blocked by V11 before anything registers") only holds for the
+    folder flow. In the paste flow the folder does not exist at validation time, so V6 and V11's
+    existence checks degrade to warnings and the miss is caught by `RunLoaders`' post-conditions.
+16. **§16 limitation 5** applies to unload as well as reload.
 
 ---
 

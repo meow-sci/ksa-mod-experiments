@@ -27,6 +27,17 @@ decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-ro
   several mods edit GLSL by anchor-string and depend on asset ids — a shader refactor breaks them with
   no C# change (mesh-deform is broken this way; humble-arteest Vehicle Paint was rebuilt for 5018 and
   now fails loudly instead of silently if its anchor moves).
+- **Re-verify the 🔶 standing invariants.** These are facts about the game that no symbol lookup and
+  no compile can check, and each one fails silently:
+  - `PerInstanceData.StateBitFlag` bits **11..31** are still unused by KSA (humble-arteest Vehicle
+    Paint) — see `KSA.PartModel` below and [`character-and-materials.md`](character-and-materials.md).
+  - **`[StarMapAllModsLoaded]` still fires before `ModLibrary.Bind()`** (parts-now). StarMap
+    implements it as a Harmony postfix on `ModLibrary.LoadAll()` (`KSA/Program.cs:956`), and
+    `ModLibrary.Bind(_renderer)` at `KSA/Program.cs:985` is where the shared interleaved mesh buffers
+    are allocated **once**. parts-now reserves headroom in between. If that order ever changes, every
+    runtime-loaded mesh writes past the end of the shared vertex buffer, with no error anywhere. See
+    `KSA.DeviceMeshInterleaved` below and [`part-editor-and-robotics.md`](part-editor-and-robotics.md)
+    → parts-now **U1**. Six further parts-now invariants (**U2**–**U7**) live in that same section.
 - **Watch the Harmony keystones** that fan out to many mods: `Universe.ExecuteNextVehicleSolvers`,
   `GameSettings.OnKeyAll` (HotkeyGuard), the three `*Module.UpdateRenderData` render prefixes,
   `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData`, and the `VehicleProvider` enumeration
@@ -49,6 +60,12 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `SetAnimation(IAnimation, float blend=0.2f)` | direct API | `KSA/AnimatedRenderable.cs:97` | kitten-animations | `kitten-animations.lib/KittenAnimationController.cs:79` | OK | body/MMU/walk playback |
 | `AnimProcessors : List<IAnimProcessor>` | direct API | `KSA/AnimatedRenderable.cs:41` | kitten-animations | `KittenAnimationController.cs:115` | OK | `.OfType<CatExpressionAnim>().LastOrDefault()` |
 | `MaterialIndices : protected int[]` | reflection-field | `KSA/AnimatedRenderable.cs:33` | doh | `doh.lib/Spawning/KittenSpawner.cs:388-408` | OK | in-place handle swap (CharacterModel) |
+
+### KSA.AssetBundle
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `AssetBundle` (`[XmlRoot("Assets")]`) + `Assets : List<SerializedId>` (field) | direct API | `KSA/AssetBundle.cs:8,67` | parts-now | `parts-now.lib/Runtime/BundleParser.cs:102`; `BundleParserQueries.cs:38` | OK | deserialized **without** side effects for validation; classification helpers test most-derived type first |
+| `OnDataLoad(Mod) : override void` | direct API | `KSA/AssetBundle.cs:74` | parts-now | `Runtime/RuntimeModLoaderStates.cs:200` | OK | the single call that registers a bundle's templates/materials/loaders into `ModLibrary` |
 
 ### KSA.AssetManager<T>
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -95,6 +112,9 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `SetFollow(IFollowable, bool, bool, bool alert) : void` | direct API | `KSA/Camera.cs` | space-tape | `space-tape.lib/PartEditorScene.cs:106-107` | OK | `alert:false` avoids "Following…" spam |
 | `ScreenToEgoRay(double2) : Ray` | direct API | `KSA/Camera.cs` | space-tape | `space-tape.lib/PartEditorInteraction.cs:86` | OK | hover/click select |
 | `MVP.viewProjection` | direct (render) | `KSA/Camera.cs` (used `Program.cs:2394`) | thug-life | `thug-life.lib/ThugLifeQuadRenderer.cs:238,263` | OK | per-frame quad MVP |
+| `Unfollow(bool changeControl = true)` | direct API | `KSA/Camera.cs:607` | parts-now | `parts-now.lib/Runtime/PartThumbnailGenerator.cs:188` | OK | ⚠ **must** be called as `changeControl: false` — the defaulted overload nulls `Program.ControlledVehicle` and would drop the player's vessel mid-flight |
+| `OnFrame(double dt)` · `LocalPosition`/`LocalRotation`/`LocalScale` (inherited `Transform3D`) | direct API (write) | `KSA/Camera.cs:482`; `KSA/Transform3D.cs:9,13,11` | parts-now | `PartThumbnailGenerator.cs:189-191` | OK | INVARIANT: the thumbnail camera is only ever **re-asserted** to origin/identity — the part is moved, never the camera (`ThumbnailCreator.MoveRootPart` assumes a camera parked at the origin) |
+| `GetFieldOfView() : float` (RADIANS) · `NearPlane : float => 0.1f` | direct API (indirect) | `KSA/Camera.cs:765,65` (the row above cites `:702` from the 4750 baseline; `GetFieldOfView` is at **:765** in 5018) | glass (direct), parts-now (via `ThumbnailCreator.MoveRootPart`) | `KSA.Rendering/ThumbnailCreator.cs:191` | OK | `MoveRootPart(root, thumb, Camera)` forwards to the `(double fov, double nearPlane)` overload (`:194`) |
 
 ### KSA.CameraMode
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -176,6 +196,15 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Controller.Camera : Camera` (field) | direct API (read chain) | `KSA/Controller.cs:12` | camera-controller-override | `AnimationHelpers.cs:33` | OK | the real camera field (NOT `Transform`) |
 | **field `Transform` (`___Transform` injector)** | Harmony field-injection (by name) | `KSA/Controller.cs` (NO such field) | camera-controller-override | `CameraControllerOverridePatches.cs:42,48` | **BROKEN** | no `Transform` field on KSA controllers in 4680 OR 4750 → `Apply` throws (swallowed) → animation prefix never attaches. Pre-existing, not a 4750 regression. Fix: inject `Camera ___Camera` |
 
+### KSA.DeviceMeshInterleaved (+ nested static Shared)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Shared.{RunningVertexBufferSize, RunningIndexBufferSize} : public static uint` | direct API (**write**) | `KSA/DeviceMeshInterleaved.cs:25,27` | parts-now | `parts-now.lib/Runtime/MeshBudget.cs:86-89,134-138,180-181,232-233` | OK | 🔶 the headroom trick: inflated at `[StarMapAllModsLoaded]`, rewound on the first UI frame. Must stay **public static settable `uint`** |
+| `Shared.{VertexAllocation, IndexAllocation} : public static BufferEx` → `.BufferSize` | direct API | `KSA/DeviceMeshInterleaved.cs:19,21`; `Brutal.VulkanApi.Abstractions/BufferEx.cs:90` | parts-now | `MeshBudget.cs:80,83` | OK | authoritative allocated size vs the running bump cursor |
+| `Shared.IsBuilt : public static bool` | direct API (tripwire) | `KSA/DeviceMeshInterleaved.cs:31` | parts-now | `MeshBudget.cs:124,173` | OK | must be false at reserve time, true on the first frame; a mismatch only WARNs |
+| `Shared.Build() : static void` (one-shot) / `Shared.Rebuild()` | behavior dependency (no patch) | `KSA/DeviceMeshInterleaved.cs:33,69`; called from `DeviceMeshInterleaved.Bind() :195` ← `ModLibrary.Bind` (`KSA/ModLibrary.cs:1732`) ← `KSA/Program.cs:985` | parts-now | — | OK | 🔶 **standing invariant U1/U2.** `Build()` sizes both buffers from the running counters, exactly once. `Rebuild()` copies `VertexAllocation.BufferSize` bytes out of the **old** buffer (`:82-83`) so it can never grow anything |
+| `VerticesSize` / `IndicesSize : ByteSize` (fields) | direct API | `KSA/DeviceMeshInterleaved.cs:115,125` | parts-now | `MeshBudget.cs:276-277` (via `MeshReference.DeviceMeshesInterleaved`, `KSA/MeshReference.cs:32`) | OK | measured **before** `MeshReference.Dispose()` for the purge's leak accounting |
+
 ### KSA.DistanceReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
@@ -200,6 +229,16 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `MinimumThrottle : float (settable)` | direct API | `KSA/EngineController.cs` | blinky | `LcdGridBuilder.cs:472` | OK | |
 | `Cores : RocketCore[]` | direct API (debug) | `KSA/EngineController.cs:18` | blinky | `BlinkySubmod.cs:612-618` | OK | diagnose button only |
 
+### KSA.FileReference (+ MeshAtlasFileReference / MeshFileReference / TextureReference)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `LocalPath : string` (field, XML attribute `Path`) · `IsReference() : override bool` · `Load() : void` · `ModPath` | direct API | `KSA/FileReference.cs:12,56,66,23` | parts-now | `Runtime/RuntimeModLoaderDeltas.cs:194,196,203`; `BundleParserQueries.cs:252-272` | OK | ⚠ **`Load()` catches and logs its own exceptions instead of throwing** (`:66-147`), so a missing GLB/KTX2 produces a silent partial load. `VerifyLoadersProduced` re-derives every `DoLoad()` post-condition by hand (U9). `OnDataLoad` falls back to `Id = ModPath` when no `Id` is declared (`:43`) |
+| `MeshAtlasFileReference.Meshes : List<MeshReference> { get; private set; }` | direct API | `KSA/MeshAtlasFileReference.cs:10` | parts-now | `RuntimeModLoaderDeltas.cs:217` | OK | non-empty is the atlas's success post-condition |
+| `MeshAtlasFileReference.DoLoad()` mesh-naming rule (one `MeshReference` per `GltfJson.Meshes[i].Name`, skipping `_`-prefixed) | behavior dependency (**duplicated**, not called) | `KSA/MeshAtlasFileReference.cs:25-38` | parts-now | `Runtime/GlbMeshNames.cs:48-79`; `BundleValidatorContext.cs:157` | OK | ⚠ **U8.** Validation rule V6 must know the mesh ids before anything loads, so parts-now reads the GLB JSON chunk itself (no `Brutal.Gltf` reference). A change to the rule silently mis-validates |
+| `MeshFileReference.Mesh : MeshReference?` (field) | direct API | `KSA/MeshFileReference.cs:14` | parts-now | `RuntimeModLoaderDeltas.cs:220` | OK | non-null is the mesh file's success post-condition |
+| `TextureReference.{BindlessHandle : int, Texture : SimpleVkTexture, TextureAsset : TextureAsset, Dispose(Device)}` | direct API (GPU teardown) | `KSA/TextureReference.cs:67,61,58,74` | parts-now | `Runtime/RuntimeModPurgeSteps.cs:146-154` | OK | ⚠ `Dispose(Device)` calls `BindlessTextures.FreeTexture(BindlessHandle)` then `Texture.Dispose()`/`TextureAsset.Dispose()` with **no null checks**, and handle `0` is the shared *empty* texture → triple guard before calling. Type does **not** implement `IDisposable`; the `Device` arg is ignored |
+| `MeshReference.{IsReference(), Dispose(), DeviceMeshesInterleaved}` | direct API | `KSA/MeshReference.cs:65,145,32` | parts-now | `RuntimeModLoaderDeltas.cs:232`; `RuntimeModPurgeSteps.cs:206,217` | OK | `MeshReference.Load` ends by clearing `_isReference` and calling `ModLibrary.RegisterBinder(this)` (`:107`) |
+
 ### KSA.FlightComputer (+ nested VehicleConfigInfo)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
@@ -221,7 +260,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `OnKeyAll(GlfwKeyEvent) : static bool` | Harmony pre (HotkeyGuard) + reflection-method (`nameof`) | `KSA/GameSettings.cs:2379` | **ALL top-level mods via HotkeyGuard** (marque ships a local copy) | `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | OK | suite-wide chokepoint; prefix `ref bool __result` swallows key while typing |
-| `GameSettings.Current.Graphics.PartThumbnailSize : ushort` | direct API | `KSA/GameSettings.cs` | space-tape | `space-tape.lib/Thumbnails/*` | OK | thumbnail size (rev 4696) |
+| `GameSettings.Current.Graphics.PartThumbnailSize : ushort` | direct API | `KSA/GameSettings.cs` | space-tape, parts-now (indirect) | `space-tape.lib/Thumbnails/*`; parts-now via `ThumbnailRenderer.SIZE` | OK | thumbnail size (rev 4696). parts-now reads it only through `ThumbnailRenderer.SIZE` and warns when it drifts from the boot-sized thumbnail viewport (U12); it never writes the setting |
 
 ### KSA.GaugeCanvas
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -261,6 +300,11 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `GetOrLoad`; `{SamplerRepeatHandle, DefaultWhiteTexture, DefaultBlackTexture}` | reflection-field/method | `KSA/GpuTextureSystem.cs:26,32,34` | doh | `MaterialSystemAccessor.cs:85-91`; `MaterialFactory.cs:541-577` | OK | texture bindless lookup; file byte-identical |
+
+### KSA.GrainGeometryLibrary
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `All() : static ReadOnlySpan<GrainGeometry>` · `TryGet(KeyHash) : static GrainGeometry?` | direct API (read-only) | `KSA/GrainGeometryLibrary.cs:25,41` | parts-now | `Runtime/BundleValidatorRulesReferences.cs:195,209` | OK | validation rule V10 — `<Grain Id>` must already exist; parts-now cannot extend this library at runtime (it is `Dictionary.Add`-populated once by `LoadAll`). Empty library → warning, not error |
 
 ### KSA.IFollowable
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -338,6 +382,11 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `TemplateData.ColorRgb : ColorRgbReference` (field) | reflection-field (zippo) / direct (red-alert) | `KSA/LightModule.cs:33` | zippo (intended), red-alert | `LightController.cs` (intended); `LightActions.cs:58,71` | OK | red-alert uses it correctly |
 | `TemplateData` field **`"Color"`** (no such field) | reflection-field (string) | `KSA/LightModule.cs:33` (actual field is `ColorRgb`) | zippo | `LightController.cs:59,80` | **BROKEN** | `GetField("Color")`→null ⇒ color get/set silent no-op. Pre-existing in 4680 AND 4750 (not a regression). Fix: `"Color"`→`"ColorRgb"` |
 
+### KSA.Loading
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `OnFrame()` early-returns on `!Program.IsMainThread()`; `Task(string)` / `PushTask(LoadTask)` / `Current` | behavior dependency (no patch) | `KSA/Loading.cs:90-94,50,36,23`; `KSA/Program.cs:520` | parts-now | `Runtime/RuntimeModLoaderStates.cs:232-256` (design note + `Task.Run` worker) | OK | 🔶 **U7.** `FileReference.Load()` → `Loading.Task()` → `PushTask()` → `Current.OnFrame()` renders **and submits a whole ImGui frame**. parts-now runs `ILoader.Load()` on a worker precisely because that guard makes the chain a no-op there. Never null `Loading.Current` instead — `LoadTask`'s field initialiser throws, and the throw escapes `FileReference.Load`'s try block |
+
 ### KSA.LookupCollection<T>
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
@@ -358,17 +407,37 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `new MeshViewModule(string, MeshReference)` | direct API (ctor) | `KSA/MeshViewModule.cs` | space-tape | `PartEditorScene.cs:246-280` | OK | ensures MeshView for raycast |
 
+### KSA.Mod / KSA.ModManifest / KSA.ModEntry
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Mod.MakeUsing(string id, string manifestPath) : static Mod` | direct API | `KSA/Mod.cs:102` | parts-now | `Runtime/RuntimeModLoaderStates.cs:153` | OK | builds a `Mod` from a `mod.toml` path. Deliberately **not** registered into `ModLibrary.Lookup` — `MakeUsing` does not do it, and only the boot path does (`KSA/ModLibrary.cs:430`), which keeps `ModLibrary.Find` a reliable "loaded at boot?" test |
+| `Mod.{DirectoryPath, Preload, Id}` | direct API | `KSA/Mod.cs:90,77,81` | parts-now | `RuntimeModLoaderStates.cs:161-176` | OK | `Preload` forced **false**: `FileReference.OnDataLoad` only calls `ModLibrary.RegisterLoader` while it is false, so a preloading mod would register templates whose files are never read |
+| `ModManifest.{Mods : List<ModEntry>, Save()}` | direct API (**write to disk**) | `KSA/ModManifest.cs:12,27` | parts-now | `Io/ModFolderWriter.cs:146,155,172-173`; `Io/ModIdValidator.cs:175,181` | OK | so a runtime-installed mod also loads at the next launch (a saved vehicle would otherwise fail to resolve its parts). Null manifest ⇒ **fail closed** ("cannot prove the id is free") |
+| `ModEntry.{Id, Enabled, New}` + `ModEntry(string, int)` ctor | direct API | `KSA/ModEntry.cs:24,9,21,40` | parts-now | `Io/ModFolderWriter.cs:172` | OK | parts-now writes `new ModEntry { Id, Enabled = true, New = false }` **on purpose** — the `(id, count)` ctor sets `Enabled=false, New=true`, which pops the game's "confirm mods" dialog at next boot |
+
 ### KSA.ModLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music, space-tape | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8`; `ConnectorGizmo.cs:28` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
-| `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, space-tape | `KittenSpawner.cs:322`; `space-tape.lib/PartCatalog.cs:20-28` | OK | `.Find(KeyHash)` (doh) / `.GetList()` (space-tape) |
+| `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, space-tape, parts-now | `KittenSpawner.cs:322`; `space-tape.lib/PartCatalog.cs:20-28`; `parts-now.lib/Runtime/GameRegistry.cs:72` | OK | `.Find(KeyHash)` (doh, parts-now) / `.GetList()` (space-tape, parts-now) |
 | `AllCharacters : internal static SerializedCollection<CharacterReference>` | reflection-field (string) | `KSA/ModLibrary.cs:90` | doh | `KittenSpawner.cs:347,354,357` | OK | character enumeration |
+| `{AllMeshes, AllFiles, AllMaterials, AllPartGameDataReferences, AllEditorTagDefinitions}` : internal static `SerializedCollection<…>` | reflection-field (string ×5) | `KSA/ModLibrary.cs:80,68,70,78,134` | parts-now | `Runtime/GameRegistry.cs:73-77,292` | OK | the other five registries a runtime load writes into. All resolved once in `GameRegistry`'s static ctor; a miss is **fatal** (`IsHealthy=false` disables every Load button) |
+| `Loaders : public static List<ILoader>` · `Binders : public static List<IBinder>` (+ `RegisterLoader`/`RegisterBinder`) | direct API (read + `RemoveAll`) | `KSA/ModLibrary.cs:144,146,180,209` | parts-now | `Runtime/RuntimeModLoaderDeltas.cs:33,36,80,93`; `RuntimeModPurgeSteps.cs:285-286` | OK | mark/delta bookkeeping, then pruned on purge — KSA never clears either list |
+| `Bind(Renderer) : static void` | behavior dependency (**re-implemented**, not called) | `KSA/ModLibrary.cs:1732` | parts-now | `Runtime/RuntimeModLoaderGpuStates.cs:93-94` | OK | parts-now mirrors the per-binder body (`CreateStagingPool` + `binder.Bind`) minus the `Parallel.ForEachAsync`: the stock method binds **every** binder ever registered, which would reallocate every existing mesh's device primitives |
+| `AttachGameData() : static void` | behavior dependency (**re-implemented**, not called) | `KSA/ModLibrary.cs:1746` | parts-now | `Runtime/RuntimeModLoaderGpuStates.cs:215-271` | OK | `PartTemplate.ApplyGameData` is additive, so the stock method (which walks every registered entry) would **double** every part already attached at boot |
+| `Find(string) : Mod?` → `Lookup : internal static SerializedCollection<Mod>` | direct API | `KSA/ModLibrary.cs:175,172,66` (registered only at `:430`) | parts-now | `Runtime/RuntimeModLoaderApi.cs:280`; `Io/ModFolderScanner.cs:249`; `Io/ModIdValidator.cs:166`; `RuntimeModLoaderStates.cs:153` | OK | "was this mod loaded at boot?" — parts-now refuses to load/reload such a mod. Fails **closed** |
+| `{MOD_TOML, CONTENT_FOLDER, LocalModsFolderPath, LocalManifestPath, Manifest}` | direct API | `KSA/ModLibrary.cs:136,138,166,168,148` | parts-now | `Io/ModIdValidator.cs:158,175,214`; `Io/ModFolderWriter.cs:110,146,174`; `Runtime/PartsNowSettings.cs:65`; `Io/ModFolderScanner.cs:135` | OK | never hardcode a mods path in place of `LocalModsFolderPath`. `Manifest` is a public static field initialised to `null` |
+| `Get<SoundBehavior>(string)` | direct API (validation only) | `KSA/ModLibrary.cs:975`; `KSA/SoundBehavior.cs:6` | parts-now | `Runtime/BundleValidatorRulesReferences.cs:295` | OK | V10 `<SoundEvent SoundId>` check. Only public path — `AllSoundBehaviours` is internal (`:108`) and `TryGet<T>` takes the strict `IsSubclassOf` branch (`:745`), so it never matches the base type. Throws `NullReferenceException` on a miss |
 
 ### KSA.Module
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Module.Parent : required Part` | direct API | `KSA/Module.cs:268` | blinky, its-so-shiny | `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `FullPart => PartParent ?? this` |
+
+### KSA.ModuleBase (+ nested TemplateDataBase)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `TemplateDataBase.Id : [XmlAttribute] public string = ""` | direct API | `KSA/ModuleBase.cs:8-11` | parts-now | `Runtime/RuntimeModLoaderDeltas.cs:130-147`; `LoadedModRecord.cs:91-105`; `RuntimeModPurgeSteps.cs:109-120` | OK | 🔶 **U5 — optional and non-unique.** The purge therefore matches model templates by **object identity**, never by id: an id match would miss every id-less template (leaving a stale `PartModel` that `PartModel.Get` hands to the reloaded part, complete with the purged mesh's old shared-buffer offsets) and would evict another mod's instances on a collision |
 
 ### KSA.ModuleList
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -415,9 +484,9 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `new Part(string inName, PartTemplate, PartInstance?=null, Part?=null)` (ctor) | direct API | `KSA/Part.cs:765` | blinky, its-so-shiny, doh, space-tape | `LcdGridBuilder.cs:268`; `ShinyGridBuilder.cs:157`; `KittenSpawner.cs:278`; `PartEditorScene.cs:246-280` | OK | |
 | `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, mesh-deform | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:126`; `MeshDeformSubmod.cs:317-319` | OK | combo labels / pixel-id parsing |
 | `DisplayName : string { get; init; }` | direct API | `KSA/Part.cs:413` | zippo, red-alert, mesh-deform | `ZippoSubmod.cs`; `ActionScanner.cs:27`; `MeshDeformSubmod.cs:282` | OK | |
-| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, doh | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:120`; `FlexoRuntime.cs:47` | OK | feeds reflection/labels; `Template.Id` (SerializedId) |
+| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, doh, parts-now | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:120`; `FlexoRuntime.cs:47`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78,148` | OK | feeds reflection/labels; `Template.Id` (SerializedId). parts-now compares it against the record's part ids in the unload safety gate |
 | `InstanceId : uint` | direct API | `KSA/Part.cs:321` | red-alert | `ActionScanner.cs:27,30` | OK | instance addressing |
-| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh, flexo), garrys-torch, thug-life, kitchen-sink, mesh-deform | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302` | OK | recursion key |
+| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh, flexo), garrys-torch, thug-life, kitchen-sink, mesh-deform, parts-now | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:154` | OK | recursion key. parts-now recurses it (plus `PartTree.Parts`, `VehicleEditingSpace.AllParts`, `VehicleEditor.UnattachedPartTrees`) to prove nothing alive still uses a mod's parts before purging |
 | `SubParts` (settable touch for cache invalidation) | direct API | `KSA/Part.cs:655` | flexo | `HingeController.cs:168` | OK | re-assign to force cache invalidation (fragile, R-flexo-2) |
 | `FullPart : Part { get; }` | direct API | `KSA/Part.cs:659` | zippo, red-alert, blinky, its-so-shiny | `ZippoSubmod.cs:152`; `ActionExecutor.cs:80`; `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `=> PartParent ?? this` |
 | `IsSubPart : bool` | direct API | `KSA/Part.cs:657` | blinky | `LcdGridBuilder.cs:326` | OK | |
@@ -451,7 +520,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `Wetness`@76; 80 B) | direct API | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint), mesh-deform | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs` (`AddInstancePrefix`); `MeshDeformManager.cs:127-134` | OK | humble now writes **only `StateBitFlag` bits 11..31** (no struct reinterpret, no game field clobbered); ⚠ mesh-deform still reuses `packing1`@72 + `Wetness`@76 |
 | `PerInstanceData.StateBitFlag` **bits 11..31** | free-bit reuse (per-instance mod payload) | writers `KSA/PartModelModule.cs:82-133`, `KSA/PartModelDynamicModule.cs:81-107`; readers `MeshIndirect.frag:308-353` | humble-arteest (VehiclePaint) | `VehiclePaint.cs` (`EncodeBits`, `PaintBitShift`) | OK | 🔶 **audit every game update.** Game uses bits 0..10 only; 21 free bits carry a 7:7:7 sRGB paint color. `RayTraceInstance.StateFlags` is `int`, so the bits survive the RT path |
 | `ViewportData.Get(PartModel, Viewport) : ViewportData` → `.InstanceList.Add(...)` | direct API | `KSA/PartModel.cs:281,277` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:105` | OK | re-add internal instance to per-viewport draw list (editor) |
-| `Instances : static List<PartModel>` | direct API | `KSA/PartModel.cs:325` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:111` | OK | enumerated by `Enabled` setter |
+| `Instances : static List<PartModel>` | direct API | `KSA/PartModel.cs:325` | IvaForceRender (kitchen-sink, space-tape), parts-now | `IvaForceRender.cs:111`; `parts-now.lib/Runtime/RuntimeModPurgeSteps.cs:109` | OK | enumerated by `Enabled` setter. parts-now `RemoveAll`s its own templates' entries on purge — **KSA never prunes this list** |
+| `InstancesRayTrace : static List<PartModel>` | direct API | `KSA/PartModel.cs:327` | parts-now | `RuntimeModPurgeSteps.cs:110` | OK | same purge pruning; `PartModelDynamic` has **no** such list (dynamic models are never ray traced) |
+| `Get(PartModelModule.Template) : static PartModel` | direct API | `KSA/PartModel.cs:333` | parts-now | `Runtime/RuntimeModLoaderGpuStates.cs:297` | OK | model "warming" turns an unresolvable `<Mesh Id>` into a catchable load-time exception. Resolves by scanning `Instances` for a matching `Template.Id`, which is exactly why the purge must prune those lists |
+| `WriteInstancesToGpu(Viewport, int)` dereferences `Template.Material.{DiffuseReference,NormalReference,PBRMap}.BindlessHandle` **unguarded** | behavior dependency (no patch) | `KSA/PartModel.cs:393`; `KSA/PartModelGlass.cs:539`; `KSA/PartModelDynamic.cs:385` | parts-now | `Runtime/BundleValidatorRulesSchema.cs:87-108` (rule V9) | OK | 🔶 **U3.** Only `EmissiveMap` is `?.`-guarded. V9 exists solely to stop a player-authored part crashing the game; **if KSA ever null-guards these, V9 becomes an unnecessary restriction worth relaxing** |
 | `Template : PartModelModule.Template` (field) | direct API | `KSA/PartModel.cs:329` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113` | OK | |
 
 ### KSA.PartModelDynamic (+ nested PerInstanceData)
@@ -465,6 +537,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelDynamicModule.cs:55` | blinky, its-so-shiny, humble-arteest (VehiclePaint) | `BlinkyPatches.cs:27,31`; `ShinyPatches.cs:26,30`; `VehiclePaintPatches.cs` (`PartModelDynamicModulePrefix`) | OK | humble reads `__instance.Parent` to know which `Part` is submitting; **only caller** of `PartModelDynamic.AddInstance` |
 | `PartModelDynamicModule.PartModelDynamic : required` | direct API | `KSA/PartModelDynamicModule.cs:32` | humble-arteest (EngineEmissive) | `EngineEmissive.cs:123,129,159` | OK | file identical |
+| `PartModelDynamic.{Instances : static List<PartModelDynamic>, Get(PartModelDynamicModule.Template)}`; `PartModelGlass.{Instances, InstancesRayTrace, Get(PartModelGlassModule.Template)}` | direct API | `KSA/PartModelDynamic.cs:335,341`; `KSA/PartModelGlass.cs:474,476,482` | parts-now | `Runtime/RuntimeModPurgeSteps.cs:112-116`; `RuntimeModLoaderGpuStates.cs:301,305` | OK | warm on load, prune on purge. The `PartModelDynamic`-has-no-`InstancesRayTrace` asymmetry is load-bearing |
 
 ### KSA.PartModelGlassModule
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -479,6 +552,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Template.Internal : bool` (field) | direct API (write) | `KSA/PartModelModule.cs:36` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:87,89,113,125` | OK | flipped false to force interior render |
 | `Template.RayTracing : RaytracingMode` (field) | direct API | `KSA/PartModelModule.cs:30` | IvaForceRender | `IvaForceRender.cs:103` | OK | |
 | `RaytracingMode.ShadowProxy` (enum) | enum | `KSA/PartModelModule.cs:14` | IvaForceRender | `IvaForceRender.cs:103` | OK | shadow-proxy skip in editor postfix |
+| `PartModelModule.Template.RayTracers : static List<Template>` · `PartModelGlassModule.Template.RayTracers` | direct API (**prune**) | `KSA/PartModelModule.cs:21`; `KSA/PartModelGlassModule.cs:14` | parts-now | `Runtime/RuntimeModPurgeSteps.cs:119-120` | OK | two separate static registries KSA appends to (`:44`, `:34`) and never prunes. `PartModelDynamicModule.Template` has **no** `RayTracers` — do not add a third call |
+| `PartModelModule.Template.{Mesh, Material}` · `PartModelGlassModule.Template.{Mesh, Material}` · `PartModelDynamicModule.Template.{Mesh, Material}` | direct API | `KSA/PartModelModule.cs`, `KSA/PartModelGlassModule.cs`, `KSA/PartModelDynamicModule.cs` | parts-now | `Runtime/BundleParserQueries.cs:220-229`; `RuntimeModLoaderGpuStates.cs:166-168` | OK | normalised into one `ModelComponent` shape for V9 and for blaming a failed GPU upload on the part that uses the asset |
 
 ### KSA.PartModelRenderer (+ nested ColorData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -499,6 +574,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `DecouplerTemplate.Force : float` | direct API | `KSA/DecouplerTemplate.cs` | space-tape | `PartImporter.cs` | OK | still `float` |
 | `Cylindrical/SphericalTankTemplate.{Length, OuterRadius, WallThickness, Material.Id}` | direct API | `KSA/*TankTemplate.cs` | space-tape | `PartImporter.cs:176` | OK | tank import |
 | `CustomMassTemplate.Mass` | direct API | `KSA/PartTemplate.cs` | space-tape | `PartImporter.cs` | OK | |
+| `PartTemplate.{ApplyGameData(PartGameDataReference), ResolveConsumerFeedPoints(), Dispose()}` | direct API | `KSA/PartTemplate.cs:231,379,226` | parts-now | `Runtime/RuntimeModLoaderGpuStates.cs:237,258`; `RuntimeModPurgeSteps.cs:48` | OK | `ApplyGameData` is **additive** (`AddRange` on connectors/masses/rockets/components) → parts-now attaches incrementally instead of calling `ModLibrary.AttachGameData()`. `ResolveConsumerFeedPoints()` starts with `ConsumerFeeds.Clear()`, so it **is** idempotent. `Dispose()` disposes only `Thumbnail` |
+| `PartTemplate.{Thumbnail : ThumbnailReference?, IsSubPart : bool, Components, SubPartInstances, EditorTagsStrings : List<StringReference>}` | direct API | `KSA/PartTemplate.cs:103,111,105,21,30` | parts-now | `Runtime/PartThumbnailGenerator.cs:262,279,311-320`; `BundleValidatorRulesReferences.cs:41,155`; `Ui/ResultsPanel.cs:125` | OK | Before `OnDataLoad` runs, `Hash` is `KeyHash.Zero` and `EditorTags` is empty — validation therefore reads `Id` strings and `EditorTagsStrings` (`[XmlElement("EditorTag")]`, value in `StringReference.Value`, `KSA/StringReference.cs:9`) |
+| `SubPartTemplate : PartTemplate` · `PartGameDataReference : PartTemplate` · `SubPartGameDataReference : PartGameDataReference` · `PartInstance.{InstanceOf, GetTemplate()}` | direct API (type hierarchy) | `KSA/SubPartTemplate.cs:3`; `KSA/PartGameDataReference.cs:5`; `KSA/SubPartGameDataReference.cs:3`; `KSA/PartInstance.cs:16,94` | parts-now | `Runtime/BundleParserQueries.cs:34-74`; `BundleValidatorRulesIdentity.cs:298-310` | OK | ⚠ a bare `is PartTemplate` matches **all four** part-shaped types — every parts-now classifier tests most-derived first. `PartInstance.GetTemplate()` → `ModLibrary.Get<PartTemplate>` throws `NullReferenceException` on a miss, which is what rule V5 pre-empts |
+| `EditorTagDefinition : SerializedId` · `MeshViewModule.Template` | direct API | `KSA/EditorTagDefinition.cs:5`; `KSA/MeshViewModule.cs:9` | parts-now | `Runtime/GameRegistry.cs:244-249`; `BundleParserQueries.cs:242` | OK | tag-definition ids feed V7's known-tag set; `<MeshView>` presence is V12's warning |
 
 ### KSA.PartTree
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -518,6 +597,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `{DiffuseReference, NormalReference, PBRMap, EmissiveMap, Id}` + non-generic `.Get()` | reflection-field/method | `KSA/PbrMaterialReference.cs:9-18` | doh | `MaterialFactory.cs:413-418,242-245` | OK | `.BindlessHandle` off resolved `TextureReference`; file identical |
+| `{DiffuseReference, NormalReference : TexturePowerReference?, PBRMap, EmissiveMap, ThinFilmMap}` (typed) + `_isReference = Diffuse==null && Normal==null && PBRMap==null` | direct API | `KSA/PbrMaterialReference.cs:9,12,15,18,21,64` | parts-now | `Runtime/BundleParserQueries.cs:178-201`; `BundleValidatorRulesSchema.cs:273-308`; `RuntimeModLoaderGpuStates.cs:182-188` | OK | V9 mirrors the `_isReference` test to tell a material **definition** from a **pointer** (an id-only `<PbrMaterial>` must be resolved against the submitted set, then the live registry, before its channels can be judged). V15 counts every channel with a `Path` as one bindless slot |
 
 ### KSA.PowerConsumer
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -533,13 +613,16 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `DrawProgramMenusHook() : void` (empty modding hook) | Harmony post | `KSA/Program.cs:3391` | unscience (MenuBarPatch), space-tape | `unscience/MenuBarPatch.cs:8`; `space-tape.lib/PartEditorMenuBarPatch.cs:31` | OK | game ships as deliberate no-op |
 | `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, flexo, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
 | `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
-| `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint) | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets |
+| `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint), parts-now | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:98`, `RuntimeModUnloader.cs:110` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets. parts-now uses it for the unload safety gate and to clear the hover preview before a purge. Disposed+nulled in `Program.PrepareFrame` |
+| `ThumbnailViewport : static Viewport` (viewport index 1; `IsOffscreen`/`ShouldRenderGizmos=false`) | direct (render) | `KSA/Program.cs:445,966-967` | parts-now | `Runtime/PartThumbnailGenerator.cs:141` | OK | dedicated offscreen thumbnail viewport — no camera save/restore, no resize, no `UpdateShaderData`. Shared with the part browser's hover preview (see `ThumbnailDynamic`) |
+| `BindlessTextures : BindlessTextureLibrary` (public field) | direct API | `KSA/Program.cs:88,850` | parts-now | `Runtime/BundleValidatorRulesIdentity.cs:222`; `Ui/StatusPanel.cs:202-210` | OK | V15 texture-budget rule + the Status panel gauge. Constructed with `maxTextures = 1024` |
+| `IsMainThread() : static bool` | behavior dependency | `KSA/Program.cs:520` | parts-now | (via `Loading.OnFrame`, `KSA/Loading.cs:92`) | OK | 🔶 **U7** — see `KSA.Loading` |
 | `RendererRebuildNeeded : static bool` (field) | direct API | `KSA/Program.cs:383` (consumed `PrepareFrame` :2080) | humble-arteest (VehiclePaint) | `VehiclePaintShaders.cs` (`RequestRendererRebuild`) | OK | game's **deferred** full-renderer rebuild flag — the safe way for a mod to force shader/pipeline recompilation (same path a graphics-setting change takes) |
 | `MainViewport : static Viewport { get; }` | direct API | `KSA/Program.cs:403` | IvaForceRender, kitchen-sink, space-tape | `IvaForceRender.cs:102`; `PartEditorMenuBarPatch.cs:31` | OK | `.Mode`, `.MapCamera`, `.BaseCamera` |
 | `GetCamera() : static Camera` | direct API | `KSA/Program.cs:504` | glass, space-tape | `FovController.cs:42`; `PartEditorScene.cs:71-77` | OK | |
 | `SetCameraMode(...)` / `GetHoveredCamera()` | direct API | `KSA/Program.cs` | space-tape | `PartEditorScene.cs:71-77` | OK | editor camera control |
 | `GetMainCamera() : Camera` | direct (render) | `KSA/Program.cs:489` | thug-life | `ThugLifeQuadRenderer.cs:238` | OK | |
-| `GetRenderer() : Renderer` (→ `.Device`) | direct (render) | `KSA/Program.cs:450` | thug-life, space-tape, mesh-deform | `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
+| `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, space-tape, mesh-deform, parts-now | `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
 | `OffScreenPass : RenderPassState` (→ `.SampleCount`, `.Pass`) | direct (render-pass) | `KSA/Program.cs:375` | thug-life | `ThugLifeQuadRenderer.cs:127,133` | OK | offscreen MSAA; 4694 touched offscreen/thumbnail, members intact |
 | `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:248` | OK | |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
@@ -548,6 +631,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `SuperMeshRenderSystem` (field) → `.TextureSystem : GpuTextureSystem` | reflection-field | `KSA/Program.cs:96`; `KSA/SuperMeshRenderSystem.cs:39` | doh | `MaterialSystemAccessor.cs:85,88,91` | OK | |
 | `CharacterRenderSystem` (field) | reflection-field | `KSA/Program.cs` (`KSA/CharacterRenderSystem.cs:7`) | doh | `MaterialFactory.cs:504-525` | OK | |
 | `RenderedViewport` / `LinearClampedSampler` / `LightSystem` | direct (render) | `KSA/Program.cs:391,407,126` | space-tape | `space-tape.lib/Thumbnails/*` | OK | thumbnail render loop |
+| `LinearClampedSampler : static VkSampler` | direct (render) | `KSA/Program.cs:427` | space-tape, parts-now | `parts-now.lib/Ui/ResultsPanel.cs:133` | OK | passed to `ThumbnailReference.GetOrCreateImGuiTexture` for the results-table thumbnails |
+| `Instance : public static Program { get; private set; }` | direct API (typed) | `KSA/Program.cs:405` | parts-now | `Runtime/BundleValidatorRulesIdentity.cs:221`; `Ui/StatusPanel.cs:201` | OK | same singleton doh/humble-arteest reach by reflection (row above, cited `:371` at the 4750 baseline); the **getter is public**, so parts-now reads it typed, purely to reach `BindlessTextures` |
 
 ### KSA.RocketCore
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -559,11 +644,15 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `GetList() : List<T>` | reflection-method (string "GetList") | `KSA/SerializedCollection.cs:42` | doh, space-tape | `KittenSpawner.cs:347`; `PartCatalog.cs:20-28` | OK | on `ModLibrary.AllParts`/`AllCharacters` |
 | `Find(KeyHash) : T` | reflection-method | `KSA/SerializedCollection.cs:37` | doh | `KittenSpawner.cs:329,333` | OK | `"KittenBackPackPart"` |
+| `GetList()` / `Find(KeyHash)` (typed, via `GameRegistry`) | direct API | `KSA/SerializedCollection.cs:42,37` | parts-now | `Runtime/GameRegistry.cs:152,170-188`; `RuntimeModLoaderDeltas.cs:30-35` | OK | `GetList()` hands back the **live** backing list, which is what makes `.Remove(item)` a real unregister |
+| `_collection : private readonly ConcurrentDictionary<KeyHash,T>` | reflection-field (string "_collection", per closed generic) | `KSA/SerializedCollection.cs:14` | parts-now | `Runtime/GameRegistry.cs:356-357`, used `:154-165` | OK | 🔶 **U4.** `SerializedCollection<T>` exposes **no removal API** (`Register`/`Find`/`GetList` only), so unload and reload exist only through this field: removing from the list alone would leave `Find` resolving a purged item. **If KSA ever adds a real removal API, replace the reflection with it.** parts-now deliberately does not take the private `Lock` (`:12`) — game-thread-only access is what makes that safe |
+| `Register(T) : bool` (returns **false** on duplicate `KeyHash`) | behavior dependency | `KSA/SerializedCollection.cs:20,28` | parts-now | `Runtime/BundleValidatorRulesIdentity.cs:121-197` (V3/V4/V14) | OK | every caller reads `false` as "this is a reference to the existing entry", so a colliding Part is silently dropped and a colliding file's `Load()` never reads from disk. This is also why a reload **must** purge first (C5) |
 
 ### KSA.SerializedId
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Id : string { get; set; }` (base of PartTemplate, GaugeCanvas) | direct API | `KSA/SerializedId.cs:13` | con-man (GaugeCanvas.Id), garrys-torch/red-alert/space-tape (PartTemplate.Id) | `LayoutManager.cs:119`; `GarrysTorchSubmod.cs:188` | OK | layout key / template id |
+| `Mod : Mod? { get; private set; }` | direct API | `KSA/SerializedId.cs:16` | parts-now | `Runtime/BundleValidatorRulesIdentity.cs:186,252,263-274` | OK | names the **owning mod** in V3/V14 collision messages, and exempts ids owned by the mod currently being reloaded |
 
 ### KSA.SimStep
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -598,6 +687,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `TryGetCombustionProcess(KeyHash)` + `KeyHash.Make` | direct API | `KSA/SubstanceLibrary.cs:122` | doh | `KittenSpawner.cs:281` | OK | `"MMH_NTO_1.6"` |
+| `AllReactions() : static ReadOnlySpan<Reaction>` · `TryGetReaction(KeyHash) : static Reaction?` | direct API (read-only) | `KSA/SubstanceLibrary.cs:62,218` | doh, parts-now | `Runtime/BundleValidatorRulesReferences.cs:194,205` | OK | parts-now validation rule V10 — `<Reaction Id>` must already exist (the library is populated once at boot with `Dictionary.Add` and cannot take runtime entries). Empty library → warning, not error |
+| `KeyHash.Make(ReadOnlySpan<char>) : static KeyHash` | direct API | `KSA/KeyHash.cs:15` | doh, parts-now | `Runtime/GameRegistry.cs:170-188`; `RuntimeModLoaderDeltas.cs:262`; `BundleValidatorRulesReferences.cs:205,209` | OK | **lowercases its input** → every parts-now id index is `OrdinalIgnoreCase` to match |
 
 ### KSA.SuperMeshRenderSystem
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -671,13 +762,18 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `VehicleEditingSpace(double3, doubleQuat, double, …)` ctor; `.GetMatrixAsmb2Ego(Camera)`; `.Asmb2Ecl` | direct API | `KSA/VehicleEditingSpace.cs` | space-tape, flexo | `PartEditorScene.cs:62,154,216`; `flexo.lib/Editor/FlexoEditorScene.cs` | OK | isolated editor space |
-| `Parts : PartTree?` (field) | direct API | `KSA/VehicleEditingSpace.cs:14` | kitchen-sink | `KitchenSinkLib.cs:57,59` | OK | null-guarded |
+| `Parts : PartTree?` (field) | direct API | `KSA/VehicleEditingSpace.cs:16` (cited `:14` at the 4750 baseline) | kitchen-sink | `KitchenSinkLib.cs:57,59` | OK | null-guarded |
+| `AllParts : ReadOnlySpan<Part> => Parts?.Parts ?? default` | direct API | `KSA/VehicleEditingSpace.cs:32` | parts-now | `Runtime/RuntimeModUnloadGate.cs:110` | OK | null-safe by construction — an empty editor yields an empty span, not an NRE |
 
 ### KSA.VehicleEditor
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `EditingSpace : VehicleEditingSpace` (field) | direct API | `KSA/VehicleEditor.cs:334` | kitchen-sink | `KitchenSinkLib.cs:57` | OK | |
-| `RegisterTag` (tags registered from `CoreEditorTagsGameData.xml`, rev 4731/4741) | direct API | `KSA/PartTemplate.cs:127-129` | space-tape (R2) | — | CHANGED | tag categories drifted ("Interstage" removed; "Stages"→"Resource Groups") |
+| `EditingSpace : VehicleEditingSpace` (field) | direct API | `KSA/VehicleEditor.cs:407` (cited `:334` at the 4750 baseline) | kitchen-sink, parts-now | `KitchenSinkLib.cs:57`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:105` | OK | |
+| `RegisterTag` (tags registered from `CoreEditorTagsGameData.xml`, rev 4731/4741) | direct API | `KSA/PartTemplate.cs:127-129` | space-tape (R2), parts-now (V7) | — | CHANGED | tag categories drifted ("Interstage" removed; "Stages"→"Resource Groups"). `MarkEditorTagDefinitionsLoaded()` locks the list at boot, after which `RegisterTag` logs a warning and adds nothing — which is exactly what parts-now rule **V7** rejects up front |
+| `ResetPartDiameterCache() : public static void` → clears `PartWindow._diameterCache` | direct API | `KSA/VehicleEditor.cs:6187,55` | parts-now | `parts-now.lib/Runtime/EditorRefresh.cs:41` | OK | the **only** editor nudge a runtime load/purge needs: `PartWindow.OnDrawUi` re-reads `ModLibrary.AllParts.GetList()` every frame, but the diameter cache is built lazily and reused |
+| `UnattachedPartTrees : List<PartTree>` (field) | direct API | `KSA/VehicleEditor.cs:529` | parts-now | `Runtime/RuntimeModUnloadGate.cs:119-124` | OK | loose part trees in the open editor also block an unload |
+| `DynamicThumbnail : ThumbnailDynamic?` (field) | direct API | `KSA/VehicleEditor.cs:547` | parts-now | `Runtime/RuntimeModUnloader.cs:110-116` | OK | 🔶 **U6** — cleared with `SetSelectedPart(null)` as purge step 0; see `KSA.Rendering.Thumbnails` |
+| `_editorTagLookup : private static Dictionary<uint,string>` | reflection-field (string) | `KSA/VehicleEditor.cs:399` | parts-now | `Runtime/GameRegistry.cs:320` | OK | **degraded, not fatal** — V7 falls back to the six built-in tags + `AllEditorTagDefinitions` ids |
 
 ### KSA.VehicleEngine
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -688,17 +784,34 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Mode : CameraMode` (field) | direct API | `KSA/Viewport.cs:14` | IvaForceRender (kitchen-sink, space-tape) | `IvaForceRender.cs:102` | OK | vs `CameraMode.IVA` |
-| `GetCamera() : Camera` | direct API | `KSA/Viewport.cs:366` | i-feel-seen | `IFeelSeenPatches.cs:69` | OK | |
+| `GetCamera() : Camera` | direct API | `KSA/Viewport.cs:366` | i-feel-seen, parts-now | `IFeelSeenPatches.cs:69`; `parts-now.lib/Runtime/PartThumbnailGenerator.cs:142` | OK | parts-now takes the **thumbnail** viewport's camera |
+| `Size : int2` (field) · `Index : int` (field) | direct API | `KSA/Viewport.cs:30,34` | parts-now | `PartThumbnailGenerator.cs:515`; `Index` consumed indirectly by `ThumbnailDynamic.UpdateGlobalCameraData`'s camera-UBO slice | OK | `Size` is compared against `ThumbnailRenderer.SIZE` only to warn when `PartThumbnailSize` drifted since boot (both square ⇒ framing unaffected) |
 | `MenuBarInUse` | direct API | `KSA/Viewport.cs` | space-tape | `PartEditorMenuBarPatch.cs:31` | OK | menu gating |
 | `MapCamera` / `BaseCamera` (via `Program.MainViewport`) | direct API | `KSA/Viewport.cs` | space-tape | `PartEditorScene.cs:71-77` | OK | |
 | `Viewport` (param of `UpdateRenderData`/`AddInstance`/render prefixes) | Harmony arg type | `KSA/Viewport.cs` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender, space-tape, flexo | (render prefixes) | OK | |
 
-### KSA.Rendering.Thumbnails (space-tape)
+### KSA.VolumetricExhaustTemplate
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Get(string id) : static VolumetricExhaustTemplate?` | direct API (read-only) | `KSA/VolumetricExhaustTemplate.cs:49` | parts-now | `Runtime/BundleValidatorRulesReferences.cs:213` | OK | validation rule V10 — `<VolumetricExhaust Id>` must already resolve |
+
+### KSA.XmlHelper
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `Serializers : public static Dictionary<Type, XmlSerializer>` → `[typeof(AssetBundle)]` | direct API | `KSA/XmlHelper.cs:13,46` | parts-now | `Runtime/BundleParser.cs:89-90,102` | OK | ⚠ **must** be the game's own serializer instance: it carries the `XmlAttributeOverrides` that map `<PartModel>`/`<Tank>`/`<Collider>`/`<Light>`… onto `PartTemplate.Components`. A hand-built `new XmlSerializer(typeof(AssetBundle))` silently drops every component. A missing entry is reported to the user, never thrown |
+
+### KSA.Rendering.Thumbnails (space-tape, parts-now)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `ThumbnailReference.GetOrCreateImGuiTexture(VkSampler) : ImTextureRef` | direct API | `KSA.Rendering.Thumbnails/ThumbnailReference.cs:36` | space-tape | `Thumbnails/SubpartViewerWindow.cs:365,407` | **CHANGED/BROKEN** | mod calls old `CreateImGuiThumbnail(VkSampler)` (gone) → CS error. Pre-4680 drift. `.ImGuiImageRef`/`DestroyImGuiThumbnail` unchanged |
 | `ThumbnailPart.ComputeBoundingSphereRadius(out float3 outCenter) : float` | direct API | `KSA.Rendering.Thumbnails/ThumbnailPart.cs:150` | space-tape | `Thumbnails/SingleSubpartGenerator.cs:207` | **CHANGED/BROKEN** | mod calls no-arg overload (gone) → CS error. Pre-4680 drift. Fix: `ComputeBoundingSphereRadius(out _)` |
 | `ThumbnailRenderer(Renderer)` (`.SIZE/.ColorFormat/.Sampler/.PerInstance…/.PerDraw…/.RecordPartRender`), `ThumbnailRenderResources` | render | `KSA.Rendering.Thumbnails/*` | space-tape | `Thumbnails/SubpartThumbnailGenerator.cs` | OK | off-screen Vulkan render loop; rev 4694 rework |
+| `ThumbnailRenderer(Renderer)` ctor · `SIZE : static int` · `ColorFormat : static readonly VkFormat` · `{PerInstanceDataDescriptorSetLayout, PerDrawDataDescriptorSetLayout, Sampler}` · `RecordPartRender(CommandBuffer, ThumbnailReference, ThumbnailRenderResources, Viewport, string)` | render | `KSA.Rendering.Thumbnails/ThumbnailRenderer.cs:33,31,13,25,27,29,111` | parts-now | `parts-now.lib/Runtime/PartThumbnailGenerator.cs:131,281-286,339,350` | OK | the three layouts + sampler are forwarded straight from `PartModelRenderer.ColorData` (`ThumbnailRenderer.cs:37-39`), so a Part-color-pipeline change reaches parts-now here |
+| `ThumbnailRenderResources(Renderer, DescriptorSetLayoutEx, DescriptorSetLayoutEx, VkSampler, int)` · `.DrawCommandVector.ElementCount` · `.UpdateDescriptorSets()` · `.AddDraw(float4x4, PartModel*Module.Template)` | render | `KSA.Rendering.Thumbnails/ThumbnailRenderResources.cs:33,17,89,125,156` | parts-now | `PartThumbnailGenerator.cs:281-294,322` | OK | 🔶 **U3** — `AddDraw` reads `inTemplate.Material.{DiffuseReference,NormalReference,PBRMap}.BindlessHandle` **unguarded** (`:138-140`). A zero draw count is diagnosed *before* an image is created, since `RecordPartRender` is what transitions the image out of `VK_IMAGE_LAYOUT_UNDEFINED` |
+| `ThumbnailPart(Camera inParent, PartInstance? = null)` · `.Children : List<ThumbnailPart>?` · `.Dispose()` | render | `KSA.Rendering.Thumbnails/ThumbnailPart.cs:72,22,78` | parts-now | `PartThumbnailGenerator.cs:143,270,456` | OK | root part parented to the thumbnail viewport's camera |
+| `ThumbnailReference.{ImageView : ImageViewEx, ModelTransform : TransformReference?, GetOrCreateImGuiTexture(VkSampler), Dispose(), CreateImageView(...)}` | render | `KSA.Rendering.Thumbnails/ThumbnailReference.cs:16,13,36,54,31`; `KSA/TransformReference.cs:6` | parts-now | `PartThumbnailGenerator.cs:312,319`; `RuntimeModPurgeSteps.cs:43-46`; `Ui/ResultsPanel.cs:125,133` | OK | ⚠ **`ImageView.IsNull()` is a load-bearing guard.** A `<Thumbnail>` from XML has a `ModelTransform` but **never had `CreateImageView` called**, so `Dispose()` NREs on a null captured `Device`. parts-now also preserves a declared `ModelTransform` across regeneration, which the game's own `CreateThumbnailImage` (`ThumbnailCreator.cs:143`) drops |
+| `ThumbnailCreator.{ResetRootPart, AddPart, MoveRootPart, CollectDraws, CreateThumbnailReference}` | render | `KSA.Rendering/ThumbnailCreator.cs:213,176,189,123,150` | parts-now | `PartThumbnailGenerator.cs:268-290,318` | OK | same framing as the game's own `PreparePartThumbnails` (`:54`). `AddPart` only walks `SubPartInstances`, so a SubPart collects no draws |
+| `ThumbnailDynamic.{UpdateGlobalCameraData(Viewport, Camera) : static, SetSelectedPart(PartTemplate?), Render(double)}` | render | `KSA.Rendering.Thumbnails/ThumbnailDynamic.cs:272,89,167` | parts-now | `PartThumbnailGenerator.cs:195`; `RuntimeModUnloader.cs:116` | OK | 🔶 **U6.** `Render`'s `ResetRootPart`/`AddPart`/`MoveRootPart` block (`:184-186`) sits **outside** its try/catch (`:197`), and `AddPart` → `PartInstance.GetTemplate()` → `ModLibrary.Get<PartTemplate>` throws on a purged template — straight out of `Editor.OnPreRender` (`KSA/VehicleEditor.cs:4265` ← `KSA/Program.cs:2288`). Hence purge step 0 clears `SetSelectedPart(null)` first. parts-now and `ThumbnailDynamic` share the thumbnail viewport safely **only** because parts-now submits in `Program.OnDrawUiFrame` and `Render` runs later in the same frame |
 
 ### RenderCore.* (game-side render layer)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -711,6 +824,9 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Presets.{InputAssembly.TriangleList, Rasterization.Fill.CullNone, BlendState.BlendColorAlpha}` | direct (render) | `RenderCore.Pipelines/SimplePipelineCreator.cs:15` | thug-life | `ThugLifeQuadRenderer.cs:140,141,143` | OK | pipeline presets |
 | `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` | direct (render) | `RenderCore` (e.g. `OceanRenderer.cs:292`) | thug-life | `ThugLifeQuadRenderer.cs:142` | OK | reverse-Z; 4730/4733 depth-prepass didn't alter it |
 | `Renderer.{Device, Allocator, Graphics, DynamicStateInfo, ViewportState}` | direct (render) | `KSA`/`RenderCore` (via `Program.GetRenderer`) | thug-life | `ThugLifeQuadRenderer.cs:137,138` | OK | compile-verified |
+| `Renderer : KSADeviceContextEx` → `.Device : DeviceEx`, `.Allocator : KsaVmaAllocator`, `.Graphics : Queue` | direct (render) | `Core/Renderer.cs:14`; `Core/KSADeviceContextEx.cs:55,57,59`; `KSA/KsaVmaAllocator.cs:12` | parts-now | `Runtime/RuntimeModLoaderGpuStates.cs:85,93`; `PartThumbnailGenerator.cs:129-138,341-390`; `RuntimeModUnloader.cs:123-124`; `ThumbnailReadback.cs:156` | OK | ⚠ **`Allocator`'s declared type drags in `Brutal.Vulkan.Vma.dll`** (`KsaVmaAllocator : IVmaAllocator`, `Brutal.VulkanApi.Vma/IVmaAllocator.cs:3`) — a **new** game-DLL reference for this repo (`parts-now.lib.csproj`) |
+| `BindlessTextureLibrary.{TextureCount : int, MaxTextures : readonly int}` | direct API | `RenderCore.Systems/BindlessTextureLibrary.cs:41,19` | parts-now | `Runtime/BundleValidatorRulesIdentity.cs:231-232`; `Ui/StatusPanel.cs:209-210` | OK | ⚠ ships in **`Planet.Render.Core.dll`** — the second **new** game-DLL reference. The pool is `new FreeListIndexPool(maxTextures, allowResize: false)` with 1024 slots (`KSA/Program.cs:850`), so exhausting it is **fatal, not slow**; rule V15 holds 16 slots in reserve and refuses an over-budget load |
+| `IBufferAllocator.CreateStagingPool(Queue, int, VkCommandBufferLevel = Primary)` · `Queue.Family` · `Queue.Submit(Span<VkSemaphore>, Span<VkPipelineStageFlags>, Span<CommandBuffer>, Span<VkSemaphore>, VkFence)` · `Device.{CreateCommandPool, AllocateCommandBuffer, CreateFence, WaitForFence, DestroyFence, FreeCommandBuffers, DestroyCommandPool, WaitIdle}` | GPU (Brutal.VulkanApi) | `Brutal.VulkanApi.Abstractions/StagingPoolExtensions.cs:5`; `Brutal.VulkanApi/Queue.cs:10`; `Brutal.VulkanApi.Abstractions/QueueExtensions.cs:7`; `Brutal.VulkanApi.Abstractions/DeviceExtensions.cs:193,281,291,297`; `Brutal.VulkanApi/VkDevice.cs` | parts-now | `RuntimeModLoaderGpuStates.cs:93`; `PartThumbnailGenerator.cs:135-138,341,356,361,368,372,390,493`; `RuntimeModUnloader.cs:124` | OK | parts-now owns a **private transient** `VkCommandPool` and one fence per thumbnail; the whole render is submit-and-wait on the game thread (only safe from `Program.OnDrawUiFrame`). `WaitIdle` gates purge step 1. Same Brutal-bump churn surface as thug-life/doh, but all compile-checked |
 
 ### KSA.ShaderReference (asset-reference type)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -753,6 +869,14 @@ on every game update FIRST.
 | `Program.Instance`/`MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem` + `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}` + `AssetManager.{AssetMap,GetOrLoad}` + `GpuObjectAssetRef.Handle` + `GpuTextureSystem.*` + `Pbr/Character*Reference.*` | doh, humble-arteest (KittenColor) | deep render-system reflection bridge | OK |
 | `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | mesh-deform | private/internal member names, cross-asm | OK (but `Shader` is inert for part color pipelines since 4693) |
 | `ModLibrary.AllParts`/`AllCharacters` + `SerializedCollection.{GetList,Find}` | doh, space-tape | internal static fields/methods by name | OK |
+| `ModLibrary.AllParts` | parts-now | `GetField("AllParts", Static\|NonPublic\|Public)` in `parts-now.lib/Runtime/GameRegistry.cs:72,292` — the **only** file in parts-now allowed to reflect | OK |
+| `ModLibrary.AllMeshes` | parts-now | `GetField("AllMeshes")` — `GameRegistry.cs:73` | OK |
+| `ModLibrary.AllFiles` | parts-now | `GetField("AllFiles")` — `GameRegistry.cs:74` | OK |
+| `ModLibrary.AllMaterials` | parts-now | `GetField("AllMaterials")` — `GameRegistry.cs:75` | OK |
+| `ModLibrary.AllPartGameDataReferences` | parts-now | `GetField("AllPartGameDataReferences")` — `GameRegistry.cs:76`. **Note the plural `References` suffix**, unlike its five siblings | OK |
+| `ModLibrary.AllEditorTagDefinitions` | parts-now | `GetField("AllEditorTagDefinitions")` — `GameRegistry.cs:77`; feeds validation rule V7 | OK |
+| `SerializedCollection<T>._collection` (private `ConcurrentDictionary<KeyHash,T>`) | parts-now | `GetField("_collection", Instance\|NonPublic)` per closed generic — `GameRegistry.cs:356-357`, used by `Unregister` `:154-165`. **`SerializedCollection<T>` has no removal API, so unload/reload exist only because of this** (see U4) | OK |
+| `VehicleEditor._editorTagLookup` (private static `Dictionary<uint,string>`) | parts-now | `GetField("_editorTagLookup", Static\|NonPublic)` — `GameRegistry.cs:320`. **Degraded, not fatal**: V7 falls back to the six built-in tags + `AllEditorTagDefinitions` ids | OK |
 | `Part._matrixAsmb` / `Part._matrixAsmb2Parent` | space-tape | private fields by name (cache safety) | OK |
 | `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
 | `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK (field names intact) — but the **owner moved**: `ResourceManager` is no longer on `RocketCore`, it is on the `Combustor` subclass (`SolidMotor` cores have none). Reached via a `core is Combustor` test since 5018 |
@@ -781,6 +905,15 @@ on every game update FIRST.
 | Reaction `"MMH_NTO"` (was combustion process `"MMH_NTO_1.6"`) | substance | `SubstanceLibrary.TryGetReaction(KeyHash)` → `MixtureReaction.AtMixtureRatio(DefaultMixtureRatio).ReactantMix` | `Core/Reactions.xml` (`<MixtureReaction Id="MMH_NTO">`, `DefaultMixtureRatio` 1.65) | doh | **CHANGED** (5018 — mixture ratio is no longer part of the id; old id resolves to nothing) |
 | Fur texture `"FurNoise"` | texture (indirect) | `CharacterRenderResources.FurTexture.BindlessHandle` | `Core/*` | doh | OK |
 | `MusicPlayList "SabotageMusic"` | sound | `ModLibrary.Get<MusicPlayList>("SabotageMusic")` | not stock (`Core/Sounds.xml` has `EarthSOIMusic`,…) | byo-music | n/a (placeholder; null-guarded; never stock in 4680/4750) |
+
+> **parts-now references no game asset by id and ships none.** It *consumes* the game's own
+> `<Assets>` bundle schema through the game's own serializer (`XmlHelper.Serializers`), and *writes*
+> a mod folder (`mod.toml` + `<modId>-{assets,part,gamedata}.xml`) under
+> `ModLibrary.LocalModsFolderPath` plus a `ModEntry` in `<user>/manifest.toml`. The only XML names it
+> hard-codes are the ones its validation rules match by string: `<Substance>`, `<MixtureReaction>`,
+> `<FixedReaction>`, `<ThermalReaction>`, `<GrainGeometry>`, `<Situation>`, `<EditorTagDef>` (V8,
+> rejected as out of scope) and `<Reaction Id>`, `<Grain Id>`, `<VolumetricExhaust Id>`,
+> `<SoundEvent SoundId>`, `<Mesh Id>`, `<EditorTag Value>`, `Path=` (V6/V7/V10/V11 reference checks).
 
 ---
 
@@ -861,4 +994,11 @@ the three `*Module.UpdateRenderData`, `PartModel(.Dynamic).AddInstance`,
 stride 80) and `CharacterAvatar`/`CharacterCore` (still a **struct** with `public float Scale`);
 `UnlitMesh.*`, `MaterialSet.glsl` and `ModelPbr.frag` (byte-identical → thug-life and doh Kitten
 Color safe); the `#ifdef ENABLE_TEMPERATURE` LUT (Engine Emissive).
+
+**parts-now (new since 5018)** — written against this build, so every row above is `OK` by
+construction rather than by diff. It adds **no Harmony patch** (only the mandatory `HotkeyGuard`),
+nine string-reflection names (§4) and two new game-DLL references (`Brutal.Vulkan.Vma`,
+`Planet.Render.Core`). Its risk is concentrated in the 🔶 standing invariants **U1**–**U7** in
+[`part-editor-and-robotics.md`](part-editor-and-robotics.md) → parts-now → *Update-risk findings*,
+none of which the compiler or a symbol grep can check.
 

@@ -233,9 +233,11 @@ public static class ModFolderScanner
     }
 
     /// <summary>
-    /// Checks our own registry first: a mod parts-now loaded also has a <c>Mod</c> in
-    /// <see cref="ModLibrary" />, so testing <c>ModLibrary.Find</c> first would mislabel it
-    /// <see cref="ModFolderState.LoadedAtBoot" /> and permanently block reloading it.
+    /// Checks our own registry first. <c>Mod.MakeUsing</c> deliberately stays out of
+    /// <c>ModLibrary.Lookup</c>, so <c>ModLibrary.Find</c> normally returns null for a mod parts-now
+    /// loaded — but it does NOT when that mod was also enabled at boot (a reload of a folder KSA
+    /// already knew about reuses KSA's own <c>Mod</c>). Testing the game first would mislabel those
+    /// <see cref="ModFolderState.LoadedAtBoot" /> and permanently block reloading them.
     /// </summary>
     private static ModFolderState ClassifyState(string modId)
     {
