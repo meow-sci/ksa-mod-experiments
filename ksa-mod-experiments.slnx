@@ -59,4 +59,6 @@
     <Project Path="mesh-deform.lib/mesh-deform.lib.csproj" />
     <Project Path="thug-life/thug-life.csproj" />
     <Project Path="thug-life.lib/thug-life.lib.csproj" />
+    <Project Path="parts-now/parts-now.csproj" />
+    <Project Path="parts-now.lib/parts-now.lib.csproj" />
 </Solution>
