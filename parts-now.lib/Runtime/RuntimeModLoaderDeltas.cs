@@ -202,8 +202,15 @@ public static partial class RuntimeModLoader
                 // and there the first entry of this same job already loaded the file.
                 if (ResolvesToOwnFile(file, newFiles))
                 {
-                    LogLine("'" + id + "' is a second reference to a file this load already read — "
-                        + "shared as intended, not an error.");
+                    // Not fatal — the file WAS read, by the first declaration. But this second
+                    // object is not the one that got read: KSA has no way to repoint a material
+                    // channel at the winner, so this one keeps BindlessHandle 0 (the bindless
+                    // library's empty texture) and its material renders white. Record it so the
+                    // parts that use it are marked degraded rather than silently wrong.
+                    job.UnreadDuplicateFiles.Add(file);
+                    LogLine("'" + id + "' is declared more than once in this mod. Only the first "
+                        + "declaration is read; the others fall back to the empty texture. Declare "
+                        + "the file once and share it through a single <PbrMaterial Id>.");
                     continue;
                 }
 

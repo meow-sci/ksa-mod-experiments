@@ -180,10 +180,17 @@ public static class RuntimeModUnloader
 
         try
         {
-            MeshBudget.RestoreCursors(record.CursorsBefore);
-            Log(log, "rollback: mesh allocation cursors restored to "
-                + record.CursorsBefore.VertexBytes + " vtx / "
-                + record.CursorsBefore.IndexBytes + " idx bytes (nothing was bound, so no leak).");
+            if (MeshBudget.RestoreCursors(record.CursorsBefore))
+            {
+                Log(log, "rollback: mesh allocation cursors restored to "
+                    + record.CursorsBefore.VertexBytes + " vtx / "
+                    + record.CursorsBefore.IndexBytes + " idx bytes (nothing was bound, so no leak).");
+            }
+            else
+            {
+                Log(log, "rollback: the mesh allocation cursors were NOT restored — the snapshot was "
+                    + "below the startup watermark. Those bytes stay spent for this session.");
+            }
         }
         catch (Exception ex)
         {

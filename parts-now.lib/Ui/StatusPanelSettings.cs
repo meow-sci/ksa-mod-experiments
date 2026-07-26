@@ -27,8 +27,8 @@ public sealed partial class StatusPanel
             + "must reference ids that already exist in the game.",
         "Mods KSA loaded at boot cannot be reloaded or unloaded — only mods parts-now itself loaded "
             + "this session.",
-        "Reload and unload require the mod's parts to be unused: no live vehicle may use them and "
-            + "the vehicle editor must be closed or empty.",
+        "Reload and unload require the mod's parts to be unused: no live vehicle may use one and the "
+            + "vehicle editor must not hold one. An open editor containing none of them is fine.",
         "Raytracing (IVA) is untested. With IVARayTracing enabled the shared buffer is allocated "
             + "through the raytrace allocator; verify before relying on it.",
         "Saved vehicles depend on the mod folder staying put. Deleting it breaks every vehicle that "

@@ -64,6 +64,15 @@ internal sealed class LoadJob
     /// </summary>
     internal HashSet<string> FailedBinderIds { get; } = new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// File references that were demoted to references because the same path was already declared,
+    /// so their own <c>DoLoad()</c> never ran. Tracked by <b>identity</b>, not id: the winner shares
+    /// the id, and only the loser is unusable (its <c>BindlessHandle</c> stays 0, the bindless
+    /// library's empty texture, so the material renders white).
+    /// </summary>
+    internal HashSet<object> UnreadDuplicateFiles { get; } =
+        new HashSet<object>(ReferenceEqualityComparer.Instance);
+
     /// <summary>The documents being loaded, parsed but deliberately not <c>OnDataLoad</c>ed yet.</summary>
     internal List<ParsedBundle> Bundles { get; } = new List<ParsedBundle>();
 

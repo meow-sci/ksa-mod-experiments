@@ -48,6 +48,13 @@ public sealed partial class ModFolderPanel
     private string _confirmModId = string.Empty;
     private int _confirmPartCount;
 
+    /// <summary>
+    /// Mod id whose unload the confirm modal accepted, waiting to run from the pre-GUI phase. An
+    /// unload frees ImGui textures, which is only safe before anything has drawn this frame — see
+    /// <see cref="ProcessPendingActions" />.
+    /// </summary>
+    private string _pendingUnloadModId = string.Empty;
+
     /// <summary>Draws the mod-folder panel.</summary>
     /// <param name="canLoad">
     /// <c>StatusPanel.LoadingEnabled</c> — false when the reflection self-test failed or no mesh

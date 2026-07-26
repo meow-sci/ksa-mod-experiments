@@ -188,16 +188,20 @@ public sealed partial class ModFolderPanel
     {
         if (_confirmIsUnload)
         {
-            if (RuntimeModLoader.Unload(_confirmModId, out string? unloadRefusal))
-            {
-                SetMessage($"Unloaded '{_confirmModId}'.", isError: false);
-                Rescan();
-            }
-            else
-            {
-                SetMessage(unloadRefusal ?? "the unload was refused.", isError: true);
-            }
-
+            // Deferred to the next Update(dt), NEVER run here. Purging disposes ThumbnailReferences,
+            // which calls ImGuiBackend.Vulkan.RemoveTexture (vkFreeDescriptorSets) and destroys the
+            // image view immediately. This method runs from [StarMapAfterGui], a postfix on
+            // Program.OnDrawUiViewports — but the vehicle editor's part browser is an IStaticWindow
+            // drawn by ImGuiWindow.DrawAllStaticWindows inside OnDrawUiFrame (Program.cs:2898),
+            // EARLIER in this same frame. Its ImageButton draw commands already hold those descriptor
+            // sets, and ImGui.Render() has not run yet, so freeing them here is a use-after-free.
+            // Device.WaitIdle() in the purge does not help: it drains submitted frames, and this one
+            // has not been submitted.
+            //
+            // Update(dt) runs from [StarMapBeforeGui], a prefix on OnDrawUiFrame — before anything
+            // has drawn this frame. That is where every other purge in parts-now already runs.
+            _pendingUnloadModId = _confirmModId;
+            SetMessage($"Unloading '{_confirmModId}'...", isError: false);
             return;
         }
 
@@ -208,6 +212,32 @@ public sealed partial class ModFolderPanel
         else
         {
             SetMessage(reloadRefusal ?? "the reload was refused.", isError: true);
+        }
+    }
+
+    /// <summary>
+    /// Runs an unload the confirm modal requested, from the pre-GUI phase where freeing ImGui
+    /// textures is safe. Call once per frame from <c>PartsNowSubmod.Update(dt)</c>, before anything
+    /// has drawn. A no-op when nothing is pending.
+    /// </summary>
+    public void ProcessPendingActions()
+    {
+        if (_pendingUnloadModId.Length == 0)
+        {
+            return;
+        }
+
+        string modId = _pendingUnloadModId;
+        _pendingUnloadModId = string.Empty;
+
+        if (RuntimeModLoader.Unload(modId, out string? refusal))
+        {
+            SetMessage($"Unloaded '{modId}'.", isError: false);
+            Rescan();
+        }
+        else
+        {
+            SetMessage(refusal ?? "the unload was refused.", isError: true);
         }
     }
 

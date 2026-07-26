@@ -98,9 +98,11 @@ Each folder is classified two ways:
 | `LoadedByPartsNow` | parts-now loaded it this session. Reload and Unload are available |
 | `NotLoaded` | On disk but not loaded. Load is available |
 
-Note the ordering: the scanner checks parts-now's own registry **before** `ModLibrary.Find`, because
-a mod parts-now loaded also has a `Mod` object in the game — testing the game first would mislabel
-it `LoadedAtBoot` and permanently block reloading it.
+Note the ordering: the scanner checks parts-now's own registry **before** `ModLibrary.Find`.
+`Mod.MakeUsing` deliberately stays out of `ModLibrary.Lookup`, so `ModLibrary.Find` normally returns
+null for a mod parts-now loaded — but *not* when the same folder was also enabled at boot, because a
+reload of it reuses KSA's own `Mod` object. Testing the game first would mislabel those
+`LoadedAtBoot` and permanently block reloading them.
 
 * **Load** runs the same pipeline as an install, minus the folder write. The documents come from the
   `assets` array in `mod.toml`, read in order.
@@ -474,8 +476,8 @@ It is repeated at the top of every file in the project. Two hard reasons stand b
    lists; substances, reactions and grains need reflection into `SubstanceLibrary`'s and
    `GrainGeometryLibrary`'s private dictionaries plus a call to each template's `Create()`.)
 4. **Mods loaded at boot cannot be reloaded** — only mods parts-now itself loaded this session.
-5. **Reload requires the parts to be unused** — no live vehicle may use them, and the vehicle editor
-   must be closed or empty.
+5. **Reload and unload require the mod's parts to be unused** — no live vehicle may use one, and the
+   vehicle editor must not hold one (an editor that is open but contains none of them is fine).
 6. **Raytracing (IVA) is untested.** With `GameSettings.Current.Graphics.IVARayTracing` on, the
    shared buffer is allocated through `RaytraceAllocator` and BLASes reference it. Headroom still
    works (the buffer is simply bigger), but verify with Vulkan validation enabled before claiming

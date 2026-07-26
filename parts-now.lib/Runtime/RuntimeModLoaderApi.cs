@@ -246,7 +246,7 @@ public static partial class RuntimeModLoader
             return false;
         }
 
-        if (!MeshBudget.Reserved)
+        if (!MeshBudget.IsUsable)
         {
             refusal = "no mesh headroom was reserved at startup"
                 + (MeshBudget.FailureReason is null ? string.Empty : " (" + MeshBudget.FailureReason + ")")

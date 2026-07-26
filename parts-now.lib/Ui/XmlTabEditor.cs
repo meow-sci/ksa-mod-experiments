@@ -5,6 +5,7 @@
 // unladen-swallow.lib is present, and parts-now must work standalone.
 
 using System;
+using System.Text;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 
@@ -149,14 +150,29 @@ public sealed class XmlTabEditor
             return;
         }
 
+        // Checked BEFORE the write, not caught after it. ImInputString.SetValue copies into Buffer
+        // first and only then throws on overflow, so it never gets to NullTerminate() — leaving the
+        // buffer full and unterminated. ImGui would then strlen past the end of the array on the
+        // next frame.
+        int required = Encoding.UTF8.GetByteCount(text);
+        if (required >= Capacity)
+        {
+            _message = $"That text does not fit in the {label} document: {required} bytes, "
+                + $"{Capacity - 1} maximum. Load it from a mod folder instead of pasting it.";
+            _messageIsError = true;
+            return;
+        }
+
         try
         {
             buffer.SetValue(text.AsSpan());
         }
         catch (Exception ex)
         {
-            _message = $"That text does not fit in the {label} document "
-                + $"({Capacity - 1} bytes maximum): {ex.Message}";
+            // Belt and braces: if SetValue rejects something GetByteCount accepted, the buffer may
+            // be half-written and unterminated, so drop it rather than hand it to ImGui.
+            buffer.Clear();
+            _message = $"That text could not be pasted into the {label} document: {ex.Message}";
             _messageIsError = true;
             return;
         }

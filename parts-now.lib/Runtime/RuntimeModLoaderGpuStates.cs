@@ -133,7 +133,7 @@ public static partial class RuntimeModLoader
     /// </remarks>
     private static void MarkPartsAffectedByBindFailures(LoadJob job)
     {
-        if (job.FailedBinderIds.Count == 0)
+        if (job.FailedBinderIds.Count == 0 && job.UnreadDuplicateFiles.Count == 0)
         {
             return;
         }
@@ -142,7 +142,7 @@ public static partial class RuntimeModLoader
         {
             foreach (ModuleBase.TemplateDataBase component in part.Components)
             {
-                string? blame = BlameFailedAsset(component, job.FailedBinderIds);
+                string? blame = BlameFailedAsset(component, job.FailedBinderIds, job.UnreadDuplicateFiles);
                 if (blame is null)
                 {
                     continue;
@@ -151,15 +151,25 @@ public static partial class RuntimeModLoader
                 job.Record.SetResult(
                     part.Id,
                     PartLoadStatus.Degraded,
-                    "'" + blame + "' failed to upload to the GPU — this part will render untextured "
-                    + "or without geometry.");
+                    "'" + blame + "' is not on the GPU — this part will render untextured or without "
+                    + "geometry.");
                 break;
             }
         }
     }
 
-    /// <summary>The id of the first asset this component uses that failed to upload, or null.</summary>
-    private static string? BlameFailedAsset(ModuleBase.TemplateDataBase component, HashSet<string> failed)
+    /// <summary>The id of the first asset this component uses that is unusable, or null.</summary>
+    /// <remarks>
+    /// The component's <c>Material</c> is normally a bare <c>&lt;Material Id="X"/&gt;</c> reference
+    /// stub — <c>PbrMaterialReference.OnDataLoad</c> leaves every channel null on one of those, and
+    /// that is the shape all of KSA's own content uses. So the stub has to be resolved against the
+    /// registry before its channels can be inspected; without that step this method could only ever
+    /// blame a mesh, never a texture, which is the case it exists for.
+    /// </remarks>
+    private static string? BlameFailedAsset(
+        ModuleBase.TemplateDataBase component,
+        HashSet<string> failed,
+        HashSet<object> unread)
     {
         (MeshReference? mesh, PbrMaterialReference? material) = component switch
         {
@@ -174,6 +184,7 @@ public static partial class RuntimeModLoader
             return mesh.Id;
         }
 
+        material = ResolveMaterial(material);
         if (material is null)
         {
             return null;
@@ -188,13 +199,52 @@ public static partial class RuntimeModLoader
             material.ThinFilmMap,
         })
         {
-            if (channel is not null && !string.IsNullOrEmpty(channel.Id) && failed.Contains(channel.Id))
+            if (channel is null)
             {
-                return channel.Id;
+                continue;
+            }
+
+            // Bind failures match by id; duplicate declarations must match by IDENTITY, because the
+            // winner shares the id and is perfectly usable.
+            if (unread.Contains(channel)
+                || (!string.IsNullOrEmpty(channel.Id) && failed.Contains(channel.Id)))
+            {
+                return string.IsNullOrEmpty(channel.Id) ? channel.LocalPath : channel.Id;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Swaps a <c>&lt;Material Id="X"/&gt;</c> reference stub for the registered definition that
+    /// actually carries the texture channels. Returns the input when it is already a definition, or
+    /// when the id does not resolve.
+    /// </summary>
+    private static PbrMaterialReference? ResolveMaterial(PbrMaterialReference? material)
+    {
+        if (material is null || string.IsNullOrEmpty(material.Id))
+        {
+            return material;
+        }
+
+        // A definition declares at least one channel; a stub declares none.
+        if (material.DiffuseReference is not null
+            || material.NormalReference is not null
+            || material.PBRMap is not null)
+        {
+            return material;
+        }
+
+        try
+        {
+            return GameRegistry.AllMaterials.Find(KeyHash.Make(material.Id.AsSpan())) ?? material;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("parts-now: could not resolve material '" + material.Id + "' — " + ex.Message);
+            return material;
+        }
     }
 
     /// <summary>

@@ -48,9 +48,9 @@ public sealed partial class StatusPanel
         // GameRegistry.IsHealthy, not "no problems at all": a self-test can report a degraded-feature
         // problem (a missing VehicleEditor._editorTagLookup only narrows editor-tag validation) that
         // must be shown to the user without disabling loading.
-        LoadingEnabled = GameRegistry.IsHealthy
-            && MeshBudget.Reserved
-            && MeshBudget.FailureReason is null;
+        // Exactly the predicate PartsNowSubmod.CanLoad and RuntimeModLoaderApi.CanStart use, so the
+        // banner, the disabled buttons and an actual refusal can never disagree.
+        LoadingEnabled = GameRegistry.IsHealthy && MeshBudget.IsUsable;
 
         RenderBlockedBanner(selfTestProblems);
         RenderDegradedNotice(selfTestProblems);
@@ -95,7 +95,7 @@ public sealed partial class StatusPanel
             ImGui.TextColored(PanelStyle.Error, $"  - {selfTestProblems[i]}");
         }
 
-        if (!MeshBudget.Reserved)
+        if (!MeshBudget.IsUsable)
         {
             ImGui.TextColored(
                 PanelStyle.Error,

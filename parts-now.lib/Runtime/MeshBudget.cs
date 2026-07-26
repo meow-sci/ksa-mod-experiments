@@ -59,6 +59,13 @@ public static class MeshBudget
     /// <summary>True between a successful <see cref="Reserve" /> and <see cref="OnFirstFrame" />.</summary>
     public static bool Armed => _armed;
 
+    /// <summary>
+    /// True when the headroom trick worked and runtime meshes can safely be created. The single
+    /// predicate every caller must use — a partial success (reserved, then a failed rewind) is not
+    /// usable.
+    /// </summary>
+    public static bool IsUsable => _reserved && _failureReason is null;
+
     /// <summary>Why <see cref="Reserve" /> or <see cref="OnFirstFrame" /> failed, or <c>null</c>.</summary>
     public static string? FailureReason => _failureReason;
 
@@ -211,7 +218,8 @@ public static class MeshBudget
     /// nothing created after the snapshot has been bound — bound meshes hold absolute offsets.
     /// </summary>
     /// <param name="cursors">The snapshot to restore.</param>
-    public static void RestoreCursors(Cursors cursors)
+    /// <returns>True when the cursors were rewound; false when the attempt was refused or failed.</returns>
+    public static bool RestoreCursors(Cursors cursors)
     {
         // Never rewind past the startup watermark. A default (0,0) snapshot would otherwise hand the
         // next runtime mesh offset 0, and its vkCmdCopyBuffer would overwrite the whole game's
@@ -224,17 +232,19 @@ public static class MeshBudget
                 + $"{cursors.VertexBytes}/{cursors.IndexBytes} bytes — that is below the startup "
                 + $"watermark {_watermarkVertexBytes}/{_watermarkIndexBytes} and would overwrite the "
                 + "game's own geometry.");
-            return;
+            return false;
         }
 
         try
         {
             DeviceMeshInterleaved.Shared.RunningVertexBufferSize = cursors.VertexBytes;
             DeviceMeshInterleaved.Shared.RunningIndexBufferSize = cursors.IndexBytes;
+            return true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"parts-now: failed to restore mesh allocation cursors: {ex.Message}");
+            return false;
         }
     }
 

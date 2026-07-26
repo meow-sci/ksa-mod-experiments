@@ -41,7 +41,7 @@ public sealed class PartsNowSubmod : ISubmod
     public IReadOnlyList<string> SelfTestProblems => _selfTestProblems;
 
     /// <summary>True when parts-now is able to load mods at all.</summary>
-    public bool CanLoad => GameRegistry.IsHealthy && MeshBudget.Reserved;
+    public bool CanLoad => GameRegistry.IsHealthy && MeshBudget.IsUsable;
 
     /// <summary>
     /// Called from <c>[StarMapAllModsLoaded]</c>, which StarMap fires as a Harmony postfix on
@@ -71,6 +71,11 @@ public sealed class PartsNowSubmod : ISubmod
         // Exactly once per frame, and only from here: the loader's Bind and Thumbnails states submit
         // command buffers and block on fences, which is only safe inside Program.OnDrawUiFrame.
         RuntimeModLoader.Step();
+
+        // An unload confirmed in the UI is deferred to here for the same reason a purge is: it frees
+        // ImGui textures, and by the time the panels draw, the vehicle editor's part browser has
+        // already emitted ImageButton draw commands holding those descriptor sets.
+        _modFolderPanel.ProcessPendingActions();
     }
 
     /// <inheritdoc />
