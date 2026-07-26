@@ -84,9 +84,23 @@ public sealed class LoadedModRecord
     public HashSet<string> PartIds { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Ids of every <c>PartModel</c> / <c>PartModelGlass</c> / <c>PartModelDynamic</c> template this
-    /// load introduced. The purge uses these to prune the static <c>Instances</c> /
+    /// The actual <c>PartModel</c> / <c>PartModelGlass</c> / <c>PartModelDynamic</c> template objects
+    /// this load introduced. The purge uses these to prune the static <c>Instances</c> /
     /// <c>InstancesRayTrace</c> / <c>RayTracers</c> lists, which KSA never prunes itself.
+    /// </summary>
+    /// <remarks>
+    /// Identity, not id. <c>ModuleBase.TemplateDataBase.Id</c> is an optional XML attribute that
+    /// nothing requires to be present or unique, so pruning by id would both miss every id-less
+    /// template (leaving a stale <c>PartModel</c> that <c>PartModel.Get</c> would hand back after a
+    /// reload, complete with the purged mesh's old buffer offsets) and evict another mod's instances
+    /// on an id collision.
+    /// </remarks>
+    public HashSet<object> ModelTemplates { get; } =
+        new HashSet<object>(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// Ids of the templates in <see cref="ModelTemplates" /> that declare one, for logging and
+    /// diagnostics only. Never use these to decide what to purge — see <see cref="ModelTemplates" />.
     /// </summary>
     public HashSet<string> ModelTemplateIds { get; } = new HashSet<string>(StringComparer.Ordinal);
 

@@ -129,17 +129,21 @@ public static partial class RuntimeModLoader
 
             foreach (ModuleBase.TemplateDataBase component in part.Components)
             {
-                string? templateId = component switch
+                // Collect the template OBJECTS, not their ids: TemplateDataBase.Id is an optional
+                // XML attribute, so an id-less template would otherwise never be purged and an
+                // id collision would evict another mod's model instances.
+                if (component is not (PartModelModule.Template
+                    or PartModelGlassModule.Template
+                    or PartModelDynamicModule.Template))
                 {
-                    PartModelModule.Template model => model.Id,
-                    PartModelGlassModule.Template glass => glass.Id,
-                    PartModelDynamicModule.Template dynamicModel => dynamicModel.Id,
-                    _ => null,
-                };
+                    continue;
+                }
 
-                if (!string.IsNullOrEmpty(templateId))
+                record.ModelTemplates.Add(component);
+
+                if (!string.IsNullOrEmpty(component.Id))
                 {
-                    record.ModelTemplateIds.Add(templateId);
+                    record.ModelTemplateIds.Add(component.Id);
                 }
             }
         }
@@ -176,6 +180,8 @@ public static partial class RuntimeModLoader
     {
         HashSet<IBinder> newBinders = new HashSet<IBinder>(
             job.Record.NewBinders, ReferenceEqualityComparer.Instance);
+        HashSet<FileReference> newFiles = new HashSet<FileReference>(
+            job.Record.NewFiles, ReferenceEqualityComparer.Instance);
         List<string> failures = new List<string>();
 
         foreach (ILoader loader in job.PendingLoaders)
@@ -189,6 +195,18 @@ public static partial class RuntimeModLoader
 
             if (file.IsReference())
             {
+                // A FileReference whose id collided is demoted by FileReference.Load() and never
+                // read. That is only a failure when the winner belongs to somebody else: naming the
+                // same texture from two material channels is an authoring pattern KSA itself uses
+                // (Content/Core/CharacterAssets.xml points at EmptyAoRoughMetallic.png seven times),
+                // and there the first entry of this same job already loaded the file.
+                if (ResolvesToOwnFile(file, newFiles))
+                {
+                    LogLine("'" + id + "' is a second reference to a file this load already read — "
+                        + "shared as intended, not an error.");
+                    continue;
+                }
+
                 failures.Add("'" + id + "' was demoted to a reference — something with the same id was "
                     + "already registered, so '" + file.LocalPath + "' was never read.");
                 continue;
@@ -225,5 +243,30 @@ public static partial class RuntimeModLoader
         return failures.Count + " asset(s) did not load: " + string.Join(" ", failures)
             + " FileReference.Load() logs its own exceptions rather than throwing, so the underlying "
             + "error is in the game log.";
+    }
+
+    /// <summary>
+    /// True when a demoted <see cref="FileReference" />'s id resolves to a file THIS load registered,
+    /// i.e. the duplicate is an intra-bundle share rather than a collision with something that was
+    /// already in the game.
+    /// </summary>
+    private static bool ResolvesToOwnFile(FileReference file, HashSet<FileReference> newFiles)
+    {
+        if (string.IsNullOrEmpty(file.Id))
+        {
+            return false;
+        }
+
+        try
+        {
+            FileReference? winner = GameRegistry.AllFiles.Find(KeyHash.Make(file.Id.AsSpan()));
+            return winner is not null && newFiles.Contains(winner);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("parts-now: could not resolve '" + file.Id + "' while verifying the "
+                + "loader step — " + ex.Message);
+            return false;
+        }
     }
 }

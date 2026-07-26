@@ -213,6 +213,20 @@ public static class MeshBudget
     /// <param name="cursors">The snapshot to restore.</param>
     public static void RestoreCursors(Cursors cursors)
     {
+        // Never rewind past the startup watermark. A default (0,0) snapshot would otherwise hand the
+        // next runtime mesh offset 0, and its vkCmdCopyBuffer would overwrite the whole game's
+        // geometry inside the shared buffer.
+        if (_reserved && (cursors.VertexBytes < _watermarkVertexBytes
+            || cursors.IndexBytes < _watermarkIndexBytes))
+        {
+            Console.WriteLine(
+                $"parts-now: refusing to rewind the mesh allocation cursors to "
+                + $"{cursors.VertexBytes}/{cursors.IndexBytes} bytes — that is below the startup "
+                + $"watermark {_watermarkVertexBytes}/{_watermarkIndexBytes} and would overwrite the "
+                + "game's own geometry.");
+            return;
+        }
+
         try
         {
             DeviceMeshInterleaved.Shared.RunningVertexBufferSize = cursors.VertexBytes;

@@ -94,28 +94,32 @@ internal static class RuntimeModPurgeSteps
     /// <param name="record">The record being purged.</param>
     internal static string PurgeModelInstances(LoadedModRecord record)
     {
-        HashSet<string> ids = record.ModelTemplateIds;
-        if (ids.Count == 0)
+        HashSet<object> templates = record.ModelTemplates;
+        if (templates.Count == 0)
         {
             return "no model templates to purge";
         }
 
+        // Matched by reference, never by Template.Id: TemplateDataBase.Id is optional and not
+        // required to be unique, so an id match would miss every id-less template (leaving a stale
+        // PartModel that PartModel.Get would hand to the reloaded part, still pointing at the purged
+        // mesh's old shared-buffer offsets) and would evict another mod's instances on a collision.
         int removed = 0;
 
-        removed += PartModel.Instances.RemoveAll(m => m.Template is not null && ids.Contains(m.Template.Id));
-        removed += PartModel.InstancesRayTrace.RemoveAll(m => m.Template is not null && ids.Contains(m.Template.Id));
+        removed += PartModel.Instances.RemoveAll(m => templates.Contains(m.Template));
+        removed += PartModel.InstancesRayTrace.RemoveAll(m => templates.Contains(m.Template));
 
-        removed += PartModelGlass.Instances.RemoveAll(m => m.Template is not null && ids.Contains(m.Template.Id));
-        removed += PartModelGlass.InstancesRayTrace.RemoveAll(m => m.Template is not null && ids.Contains(m.Template.Id));
+        removed += PartModelGlass.Instances.RemoveAll(m => templates.Contains(m.Template));
+        removed += PartModelGlass.InstancesRayTrace.RemoveAll(m => templates.Contains(m.Template));
 
         // PartModelDynamic has no InstancesRayTrace list — dynamic models are never ray traced.
-        removed += PartModelDynamic.Instances.RemoveAll(m => m.Template is not null && ids.Contains(m.Template.Id));
+        removed += PartModelDynamic.Instances.RemoveAll(m => templates.Contains(m.Template));
 
-        // Both module families keep their own static ray-tracer registry, keyed by template id.
-        removed += PartModelModule.Template.RayTracers.RemoveAll(t => ids.Contains(t.Id));
-        removed += PartModelGlassModule.Template.RayTracers.RemoveAll(t => ids.Contains(t.Id));
+        // Both module families keep their own static ray-tracer registry.
+        removed += PartModelModule.Template.RayTracers.RemoveAll(templates.Contains);
+        removed += PartModelGlassModule.Template.RayTracers.RemoveAll(templates.Contains);
 
-        return removed + " instance/ray-tracer entries for " + ids.Count + " model template(s)";
+        return removed + " instance/ray-tracer entries for " + templates.Count + " model template(s)";
     }
 
     /// <summary>

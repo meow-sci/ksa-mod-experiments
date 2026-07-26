@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 
 namespace MeowSci.PartsNowLib;
 
@@ -301,6 +302,32 @@ public static partial class RuntimeModLoader
         IssueList.Clear();
     }
 
+    /// <summary>
+    /// Releases the current job's GPU resources during a StarMap unload, without attempting a purge.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does NOT roll back: the game is tearing the mod down, and a purge here would
+    /// submit a <c>Device.WaitIdle</c> and free images during shutdown. Whatever the job registered
+    /// stays registered until the game exits, which is harmless — parts-now is going away.
+    /// </remarks>
+    public static void AbandonForShutdown()
+    {
+        if (_job is null)
+        {
+            return;
+        }
+
+        if (IsBusy)
+        {
+            LogLine("abandoning the in-flight job — parts-now is being unloaded.");
+        }
+
+        DisposeThumbnails(_job);
+        _job = null;
+        _state = LoadJobState.Idle;
+        _cancelRequested = false;
+    }
+
     private static bool CanHonourCancel(LoadJob job) =>
         _state != LoadJobState.RunLoaders || job.LoaderTask is null || job.LoaderTask.IsCompleted;
 
@@ -371,6 +398,8 @@ public static partial class RuntimeModLoader
             LogLine("nothing had been registered yet, so there was nothing to roll back.");
         }
 
+        DiscardWrittenModFolder(job);
+
         if (job.PreviousPurged)
         {
             LogLine("'" + job.ModId + "' is now UNLOADED: the reload purged the previous load before "
@@ -378,6 +407,39 @@ public static partial class RuntimeModLoader
         }
 
         _state = LoadJobState.Failed;
+    }
+
+    /// <summary>
+    /// Deletes a mod folder the paste flow created, when the install that created it failed.
+    /// </summary>
+    /// <remarks>
+    /// <c>ModIdValidator</c> rejects any id whose folder already exists, so a leftover folder would
+    /// make that mod id permanently unusable with no in-game way to recover. Only ever removes a
+    /// folder this very job wrote — never one that was already on disk.
+    /// </remarks>
+    private static void DiscardWrittenModFolder(LoadJob job)
+    {
+        if (!job.CreatedByPaste || !job.WroteModFolder || string.IsNullOrEmpty(job.ModDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            if (Directory.Exists(job.ModDirectory))
+            {
+                Directory.Delete(job.ModDirectory, recursive: true);
+                LogLine("removed the mod folder this failed install created (" + job.ModDirectory
+                    + "), so the id '" + job.ModId + "' can be reused.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogLine("WARNING — could not remove '" + job.ModDirectory + "' (" + ex.Message
+                + "). Delete it by hand before reusing the id '" + job.ModId + "'.");
+        }
+
+        job.WroteModFolder = false;
     }
 
     private static void DisposeThumbnails(LoadJob? job)

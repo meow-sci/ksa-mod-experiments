@@ -216,6 +216,11 @@ public static partial class RuntimeModLoader
             return false;
         }
 
+        // Clear the previous job before logging, so the unload's lines are not rendered under a stale
+        // "Done"/"Failed" banner and the results table stops showing parts that no longer exist.
+        Reset();
+
+        LogLine("unloading '" + id + "' (" + record.PartIds.Count + " part(s)).");
         foreach (string line in RuntimeModUnloader.Purge(record))
         {
             LogLines.Add(line);
@@ -224,6 +229,7 @@ public static partial class RuntimeModLoader
         refusal = null;
         return true;
     }
+
     /// <summary>Shared preconditions for all three entry points.</summary>
     private static bool CanStart(out string? refusal)
     {

@@ -41,7 +41,7 @@ public sealed class PartsNowSubmod : ISubmod
     public IReadOnlyList<string> SelfTestProblems => _selfTestProblems;
 
     /// <summary>True when parts-now is able to load mods at all.</summary>
-    public bool CanLoad => _selfTestProblems.Count == 0 && MeshBudget.Reserved;
+    public bool CanLoad => GameRegistry.IsHealthy && MeshBudget.Reserved;
 
     /// <summary>
     /// Called from <c>[StarMapAllModsLoaded]</c>, which StarMap fires as a Harmony postfix on
@@ -104,7 +104,13 @@ public sealed class PartsNowSubmod : ISubmod
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// A StarMap unload can land mid-job. <c>Mod.Unload</c> stops calling <see cref="Update" />, so
+    /// the state machine would simply stop, abandoning the current job's <c>ThumbnailRenderer</c>,
+    /// its private <c>VkCommandPool</c> and the readback buffer. Abandoning the job releases them.
+    /// </remarks>
     public void Dispose()
     {
+        RuntimeModLoader.AbandonForShutdown();
     }
 }

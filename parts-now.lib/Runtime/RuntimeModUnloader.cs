@@ -100,6 +100,23 @@ public static class RuntimeModUnloader
         }
 
         Core.Renderer? renderer = null;
+        Step(log, 0, "clear the part browser's hover preview", () =>
+        {
+            // VehicleEditor.DynamicThumbnail keeps _requestedTemplate/_activeTemplate and a _rootPart
+            // built from them. Left pointing at a purged template it draws freed buffer contents, and
+            // if its request version changes it re-runs ThumbnailCreator.AddPart -> PartInstance
+            // .GetTemplate() -> ModLibrary.Get<PartTemplate>, which throws NullReferenceException from
+            // OUTSIDE ThumbnailDynamic.Render's try/catch, i.e. straight out of Editor.OnPreRender.
+            VehicleEditor? editor = Program.Editor;
+            if (editor?.DynamicThumbnail is null)
+            {
+                return "no editor open";
+            }
+
+            editor.DynamicThumbnail.SetSelectedPart(null);
+            return "hover preview cleared";
+        });
+
         Step(log, 1, "wait for the device to go idle", () =>
         {
             // Nothing in an in-flight frame may still reference the images and buffers freed below.

@@ -123,6 +123,11 @@ public static partial class RuntimeModLoader
                 + "' but the job expected '" + job.ModDirectory + "'.");
         }
 
+        // Remembered so a later failure can delete the folder again: ModIdValidator rejects any id
+        // whose folder already exists, so leaving a failed install's folder behind would burn that
+        // mod id for the rest of the session with no in-game way to recover it.
+        job.WroteModFolder = true;
+
         LogLine("wrote " + result.WrittenFiles.Count + " file(s) to " + result.ModDirectory);
         Transition(LoadJobState.CreateMod);
     }

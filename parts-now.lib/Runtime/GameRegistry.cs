@@ -45,7 +45,18 @@ public static class GameRegistry
         "All", "Hidden", "Engines", "Capsules", "Interstage", "Radial",
     };
 
-    private static readonly List<string> Problems = new List<string>();
+    /// <summary>
+    /// Problems that make loading impossible: the six registries and the removal path. Anything in
+    /// here means parts-now cannot register or purge safely, so <see cref="IsHealthy" /> is false.
+    /// </summary>
+    private static readonly List<string> FatalProblems = new List<string>();
+
+    /// <summary>
+    /// Problems that only degrade a feature. Reported by <see cref="SelfTest" /> but deliberately
+    /// NOT fatal — losing <c>VehicleEditor._editorTagLookup</c> just narrows editor-tag validation to
+    /// the built-ins plus the registered tag definitions, which is still a usable check.
+    /// </summary>
+    private static readonly List<string> DegradedProblems = new List<string>();
 
     private static readonly SerializedCollection<PartTemplate>? PartsField;
     private static readonly SerializedCollection<MeshReference>? MeshesField;
@@ -71,7 +82,7 @@ public static class GameRegistry
         // SelfTest() rather than at the first Unregister() call during a rollback.
         if (CollectionFields<PartTemplate>.Collection is null)
         {
-            Problems.Add(
+            FatalProblems.Add(
                 "SerializedCollection<T>._collection not found — KSA internals changed "
                 + "(unload and rollback are unavailable).");
         }
@@ -101,8 +112,12 @@ public static class GameRegistry
     public static SerializedCollection<EditorTagDefinition> AllEditorTagDefs =>
         EditorTagDefsField ?? throw Missing("ModLibrary.AllEditorTagDefinitions");
 
-    /// <summary>True when every reflected member resolved; false means <see cref="SelfTest"/> has content.</summary>
-    public static bool IsHealthy => Problems.Count == 0;
+    /// <summary>
+    /// True when everything parts-now NEEDS resolved — the six <c>ModLibrary</c> registries and the
+    /// removal path. Degraded-only problems (see <see cref="EditorTagLookupAvailable" />) do not
+    /// clear this flag: they narrow one validation rule, they do not make loading unsafe.
+    /// </summary>
+    public static bool IsHealthy => FatalProblems.Count == 0;
 
     /// <summary>
     /// True when <c>VehicleEditor._editorTagLookup</c> resolved. When false,
@@ -243,10 +258,15 @@ public static class GameRegistry
     /// Call once from <c>PartsNowSubmod.Initialize()</c>; if it returns anything, log it and disable
     /// the mod's Load buttons — that turns a future KSA rename into a clear message, not a crash.
     /// </summary>
-    /// <returns>A copy of the problem list, one human-readable line per failed lookup.</returns>
+    /// <returns>
+    /// A copy of the problem list, one human-readable line per failed lookup, fatal problems first.
+    /// Use <see cref="IsHealthy" /> to decide whether to disable loading — a non-empty result may
+    /// contain only degraded-feature problems.
+    /// </returns>
     public static List<string> SelfTest()
     {
-        List<string> problems = new List<string>(Problems);
+        List<string> problems = new List<string>(FatalProblems);
+        problems.AddRange(DegradedProblems);
 
         if (problems.Count == 0)
         {
@@ -272,13 +292,13 @@ public static class GameRegistry
             FieldInfo? info = typeof(ModLibrary).GetField(field, StaticFieldFlags);
             if (info is null)
             {
-                Problems.Add("ModLibrary." + field + " not found — KSA internals changed.");
+                FatalProblems.Add("ModLibrary." + field + " not found — KSA internals changed.");
                 return null;
             }
 
             if (info.GetValue(null) is not SerializedCollection<T> collection)
             {
-                Problems.Add(
+                FatalProblems.Add(
                     "ModLibrary." + field + " is not a SerializedCollection<" + typeof(T).Name
                     + "> — KSA internals changed.");
                 return null;
@@ -288,7 +308,7 @@ public static class GameRegistry
         }
         catch (Exception ex)
         {
-            Problems.Add("ModLibrary." + field + " could not be read — " + ex.Message);
+            FatalProblems.Add("ModLibrary." + field + " could not be read — " + ex.Message);
             return null;
         }
     }
@@ -300,7 +320,7 @@ public static class GameRegistry
             FieldInfo? info = typeof(VehicleEditor).GetField("_editorTagLookup", StaticFieldFlags);
             if (info is null)
             {
-                Problems.Add(
+                DegradedProblems.Add(
                     "VehicleEditor._editorTagLookup not found — KSA internals changed "
                     + "(editor tag validation degrades to the built-in tags).");
                 return null;
@@ -308,7 +328,7 @@ public static class GameRegistry
 
             if (!typeof(Dictionary<uint, string>).IsAssignableFrom(info.FieldType))
             {
-                Problems.Add(
+                DegradedProblems.Add(
                     "VehicleEditor._editorTagLookup is not a Dictionary<uint, string> — "
                     + "KSA internals changed (editor tag validation degrades to the built-in tags).");
                 return null;
@@ -318,7 +338,7 @@ public static class GameRegistry
         }
         catch (Exception ex)
         {
-            Problems.Add("VehicleEditor._editorTagLookup could not be read — " + ex.Message);
+            DegradedProblems.Add("VehicleEditor._editorTagLookup could not be read — " + ex.Message);
             return null;
         }
     }

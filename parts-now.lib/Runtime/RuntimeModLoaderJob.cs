@@ -4,6 +4,7 @@
 // Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
 // unladen-swallow.lib is present, and parts-now must work standalone.
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using KSA;
@@ -48,6 +49,20 @@ internal sealed class LoadJob
 
     /// <summary>True when the resulting record should also gain a manifest entry.</summary>
     internal bool CreatedByPaste { get; init; }
+
+    /// <summary>
+    /// True once the paste flow actually wrote the mod folder. A failure after that point deletes it
+    /// again, because <c>ModIdValidator</c> refuses any id whose folder exists — otherwise one failed
+    /// install would make that id unusable for the rest of the session.
+    /// </summary>
+    internal bool WroteModFolder { get; set; }
+
+    /// <summary>
+    /// Ids of assets whose <c>IBinder.Bind</c> threw, so the Parts that use them can be marked
+    /// degraded rather than silently rendering white (an unbound texture keeps
+    /// <c>BindlessHandle == 0</c>, which is the bindless library's empty texture).
+    /// </summary>
+    internal HashSet<string> FailedBinderIds { get; } = new HashSet<string>(StringComparer.Ordinal);
 
     /// <summary>The documents being loaded, parsed but deliberately not <c>OnDataLoad</c>ed yet.</summary>
     internal List<ParsedBundle> Bundles { get; } = new List<ParsedBundle>();

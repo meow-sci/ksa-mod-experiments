@@ -98,6 +98,11 @@ public static partial class RuntimeModLoader
                 // One bad binder degrades its own asset; it must not abort a load whose other
                 // meshes and textures uploaded cleanly.
                 job.BindFailures++;
+                if (binder is SerializedId asset && !string.IsNullOrEmpty(asset.Id))
+                {
+                    job.FailedBinderIds.Add(asset.Id);
+                }
+
                 LogLine("could not upload " + Describe(binder) + " — " + ex.Message);
             }
         }
@@ -109,7 +114,87 @@ public static partial class RuntimeModLoader
 
         LogLine("uploaded " + (record.NewBinders.Count - job.BindFailures) + "/" + record.NewBinders.Count
             + " binder(s)" + (job.BindFailures > 0 ? " — " + job.BindFailures + " failed." : "."));
+
+        MarkPartsAffectedByBindFailures(job);
         Transition(LoadJobState.AttachGameData);
+    }
+
+    /// <summary>
+    /// Marks every Part that references an asset which failed to upload as
+    /// <see cref="PartLoadStatus.Degraded" />.
+    /// </summary>
+    /// <remarks>
+    /// Without this a failed bind is invisible: a <c>TextureReference</c> that never bound keeps
+    /// <c>BindlessHandle == 0</c>, which is the bindless library's shared <i>empty white</i> texture,
+    /// so the part renders plain white and the results table would still say OK. Matching is by id
+    /// (not identity) because at Bind time a component's <c>Mesh</c>/<c>Material</c> is still the
+    /// unresolved XML reference stub — <c>Template.Get()</c> only swaps in the registered object
+    /// during <c>WarmModels</c>. Ids are safe here: V2 requires them and V3/V4 make them unique.
+    /// </remarks>
+    private static void MarkPartsAffectedByBindFailures(LoadJob job)
+    {
+        if (job.FailedBinderIds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (PartTemplate part in job.Record.NewParts)
+        {
+            foreach (ModuleBase.TemplateDataBase component in part.Components)
+            {
+                string? blame = BlameFailedAsset(component, job.FailedBinderIds);
+                if (blame is null)
+                {
+                    continue;
+                }
+
+                job.Record.SetResult(
+                    part.Id,
+                    PartLoadStatus.Degraded,
+                    "'" + blame + "' failed to upload to the GPU — this part will render untextured "
+                    + "or without geometry.");
+                break;
+            }
+        }
+    }
+
+    /// <summary>The id of the first asset this component uses that failed to upload, or null.</summary>
+    private static string? BlameFailedAsset(ModuleBase.TemplateDataBase component, HashSet<string> failed)
+    {
+        (MeshReference? mesh, PbrMaterialReference? material) = component switch
+        {
+            PartModelModule.Template model => (model.Mesh, model.Material),
+            PartModelGlassModule.Template glass => (glass.Mesh, glass.Material),
+            PartModelDynamicModule.Template dynamicModel => (dynamicModel.Mesh, dynamicModel.Material),
+            _ => (null, null),
+        };
+
+        if (mesh is not null && !string.IsNullOrEmpty(mesh.Id) && failed.Contains(mesh.Id))
+        {
+            return mesh.Id;
+        }
+
+        if (material is null)
+        {
+            return null;
+        }
+
+        foreach (FileReference? channel in new FileReference?[]
+        {
+            material.DiffuseReference,
+            material.NormalReference,
+            material.PBRMap,
+            material.EmissiveMap,
+            material.ThinFilmMap,
+        })
+        {
+            if (channel is not null && !string.IsNullOrEmpty(channel.Id) && failed.Contains(channel.Id))
+            {
+                return channel.Id;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

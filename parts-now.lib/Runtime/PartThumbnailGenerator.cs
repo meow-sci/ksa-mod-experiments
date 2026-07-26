@@ -273,24 +273,10 @@ public sealed class PartThumbnailGenerator : IDisposable
             return;
         }
 
-        // A <Thumbnail> declared in XML carries a ModelTransform but has never had CreateImageView
-        // called, so its ImageViewEx is default and Dispose() would NRE on a null captured Device.
-        // Only dispose a reference that actually owns an image, and carry the declared
-        // ModelTransform across to the replacement so custom framing survives.
-        // (KSA's own ThumbnailCreator.CreateThumbnailImage drops it — we deliberately do not.)
-        TransformReference? declaredTransform = template.Thumbnail?.ModelTransform;
-        if (template.Thumbnail is { } previous && !previous.ImageView.IsNull())
-        {
-            previous.Dispose();
-        }
-
-        ThumbnailReference thumbnail = ThumbnailCreator.CreateThumbnailReference(renderer, "Thumbnail_" + template.Id);
-        thumbnail.ModelTransform = declaredTransform;
-        template.Thumbnail = thumbnail;
-
-        // Honours <Thumbnail><ModelTransform> when the part declares one, otherwise frames the
-        // bounding sphere using camera.GetFieldOfView() / camera.NearPlane.
-        ThumbnailCreator.MoveRootPart(root, thumbnail, camera);
+        // Framing first, against whatever reference the part already has. MoveRootPart takes a
+        // nullable ThumbnailReference and only reads its ModelTransform, so this honours a
+        // <Thumbnail><ModelTransform> declared in XML without needing an image yet.
+        ThumbnailCreator.MoveRootPart(root, template.Thumbnail, camera);
 
         ThumbnailRenderResources resources = new ThumbnailRenderResources(
             renderer,
@@ -310,9 +296,28 @@ public sealed class PartThumbnailGenerator : IDisposable
 
             if (drawCount == 0)
             {
+                // Deliberately BEFORE the image is created. RecordPartRender is what transitions the
+                // image out of VK_IMAGE_LAYOUT_UNDEFINED, so an image created for a part with no
+                // draws would be sampled by the part browser while still undefined.
                 Record(template.Id, false, "no draws collected");
                 return;
             }
+
+            // A <Thumbnail> that came from XML carries a ModelTransform but never had
+            // CreateImageView called, so its ImageViewEx is default and Dispose() would NRE on a null
+            // captured Device. Only dispose a reference that actually owns an image, and carry the
+            // declared ModelTransform across so custom framing survives a regeneration.
+            // (KSA's own ThumbnailCreator.CreateThumbnailImage drops it — we deliberately do not.)
+            TransformReference? declaredTransform = template.Thumbnail?.ModelTransform;
+            if (template.Thumbnail is { } previous && !previous.ImageView.IsNull())
+            {
+                previous.Dispose();
+            }
+
+            ThumbnailReference thumbnail =
+                ThumbnailCreator.CreateThumbnailReference(renderer, "Thumbnail_" + template.Id);
+            thumbnail.ModelTransform = declaredTransform;
+            template.Thumbnail = thumbnail;
 
             resources.UpdateDescriptorSets();
             SubmitOne(renderer, thumbRenderer, template, thumbnail, resources);

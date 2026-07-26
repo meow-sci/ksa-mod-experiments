@@ -45,16 +45,40 @@ public sealed partial class StatusPanel
     {
         ArgumentNullException.ThrowIfNull(selfTestProblems);
 
-        LoadingEnabled = selfTestProblems.Count == 0
+        // GameRegistry.IsHealthy, not "no problems at all": a self-test can report a degraded-feature
+        // problem (a missing VehicleEditor._editorTagLookup only narrows editor-tag validation) that
+        // must be shown to the user without disabling loading.
+        LoadingEnabled = GameRegistry.IsHealthy
             && MeshBudget.Reserved
             && MeshBudget.FailureReason is null;
 
         RenderBlockedBanner(selfTestProblems);
+        RenderDegradedNotice(selfTestProblems);
         RenderMeshBudget();
         RenderBindlessTextures();
         RenderJob();
         RenderSettings();
         RenderLimitations();
+    }
+
+    /// <summary>
+    /// Shows self-test problems that did NOT disable loading, so a KSA rename that only narrows a
+    /// validation rule is still visible instead of failing silently.
+    /// </summary>
+    private static void RenderDegradedNotice(IReadOnlyList<string> selfTestProblems)
+    {
+        if (selfTestProblems.Count == 0 || !GameRegistry.IsHealthy)
+        {
+            return;
+        }
+
+        ImGui.TextColored(PanelStyle.Warning, "parts-now is running with reduced validation:");
+        for (int i = 0; i < selfTestProblems.Count; i++)
+        {
+            ImGui.TextColored(PanelStyle.Warning, $"  - {selfTestProblems[i]}");
+        }
+
+        ImGui.Spacing();
     }
 
     private void RenderBlockedBanner(IReadOnlyList<string> selfTestProblems)
