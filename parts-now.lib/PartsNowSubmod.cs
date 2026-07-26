@@ -19,6 +19,11 @@ public sealed class PartsNowSubmod : ISubmod
 {
     private readonly List<string> _selfTestProblems = new List<string>();
 
+    private readonly StatusPanel _statusPanel = new StatusPanel();
+    private readonly PastePanel _pastePanel = new PastePanel();
+    private readonly ModFolderPanel _modFolderPanel = new ModFolderPanel();
+    private readonly ResultsPanel _resultsPanel = new ResultsPanel();
+
     private bool _firstFrameDone;
 
     /// <inheritdoc />
@@ -69,10 +74,27 @@ public sealed class PartsNowSubmod : ISubmod
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Never calls <c>ImGui.Begin</c>/<c>End</c> for the content area itself — the host window owns
+    /// that. <see cref="StatusPanel" /> runs first because it publishes
+    /// <see cref="StatusPanel.LoadingEnabled" />, which the two action panels take as their
+    /// <c>canLoad</c> argument so the banner and the disabled buttons can never disagree.
+    /// </remarks>
     public void RenderContent()
     {
         SubmodUI.BeginContentArea("##pn_content");
-        ImGui.TextDisabled("parts-now — not yet implemented.");
+
+        _statusPanel.Render(_selfTestProblems);
+
+        ImGui.Spacing();
+        _pastePanel.Render(_statusPanel.LoadingEnabled);
+
+        ImGui.Spacing();
+        _modFolderPanel.Render(_statusPanel.LoadingEnabled);
+
+        ImGui.Spacing();
+        _resultsPanel.Render();
+
         SubmodUI.EndContentArea();
     }
 

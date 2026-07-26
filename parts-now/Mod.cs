@@ -22,6 +22,12 @@ public class Mod
     private bool _isDisposed;
     private bool _windowVisible;
 
+    /// <summary>
+    /// Key that toggles the parts-now window, resolved once from <c>parts-now.toml</c>'s
+    /// <c>hotkey</c> setting during <see cref="OnFullyLoaded"/>.
+    /// </summary>
+    private ImGuiKey _hotkey = ImGuiKey.F10;
+
     /// <summary>StarMap: earliest hook. Nothing to do — reservation happens in OnFullyLoaded.</summary>
     [StarMapImmediateLoad]
     public void OnImmediateLoad() { }
@@ -38,6 +44,7 @@ public class Mod
         {
             Patcher.Patch();
             _submod.Initialize();
+            _hotkey = ResolveHotkey();
             _isInitialized = true;
         }
         catch (Exception ex)
@@ -70,7 +77,7 @@ public class Mod
         {
             if (!_isInitialized || _isDisposed) return;
 
-            if (ImGui.IsKeyPressed(ImGuiKey.F10))
+            if (ImGui.IsKeyPressed(_hotkey))
                 _windowVisible = !_windowVisible;
 
             if (_windowVisible)
@@ -98,6 +105,27 @@ public class Mod
         {
             Console.WriteLine($"parts-now: Error during unload: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Reads the <c>hotkey</c> setting from <c>parts-now.toml</c> and turns it into an
+    /// <see cref="ImGuiKey"/>. Anything unrecognised falls back to <see cref="ImGuiKey.F10"/>, with
+    /// one log line so a typo is visible instead of silently doing nothing.
+    /// </summary>
+    private static ImGuiKey ResolveHotkey()
+    {
+        string configured = PartsNowSettings.Hotkey;
+
+        if (Enum.TryParse(configured, ignoreCase: true, out ImGuiKey parsed)
+            && Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        Console.WriteLine(
+            $"parts-now: '{configured}' is not a recognised ImGuiKey name — falling back to F10. "
+            + "Use a member name such as F10, F12 or Home in parts-now.toml.");
+        return ImGuiKey.F10;
     }
 
     private void RenderWindow()
