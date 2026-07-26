@@ -59,6 +59,10 @@
       <HintPath>$(KSAFolder)Brutal.Vulkan.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Brutal.Vulkan.Vma" Condition="Exists('$(KSAFolder)Brutal.Vulkan.Vma.dll')">
+      <HintPath>$(KSAFolder)Brutal.Vulkan.Vma.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Planet.Render.Core" Condition="Exists('$(KSAFolder)Planet.Render.Core.dll')">
       <HintPath>$(KSAFolder)Planet.Render.Core.dll</HintPath>
       <Private>false</Private>
