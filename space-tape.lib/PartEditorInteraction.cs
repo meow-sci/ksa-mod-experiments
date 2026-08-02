@@ -1,8 +1,8 @@
 using System;
-using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -41,11 +41,6 @@ public sealed class PartEditorInteraction
     private doubleQuat _rotDragStartQuat;
     private double3 _rotDragAxisLocal;  // fixed rotation axis in parent-assembly space at drag start
     private double _rotAccumRad;        // accumulated raw signed angle since drag start
-
-    // Reflection access to Part's private matrix cache field.
-    // Note: Part property setters already invalidate _matrixAsmb, so this is a safety measure.
-    private static readonly FieldInfo? _matrixAsmbField =
-        typeof(Part).GetField("_matrixAsmb", BindingFlags.NonPublic | BindingFlags.Instance);
 
     public PartEditorInteraction(PartEditorGizmos gizmos)
     {
@@ -148,7 +143,7 @@ public sealed class PartEditorInteraction
                     && _gizmos.HighlightedSegmentIndex >= 0)
                 {
                     GenericGizmo.PerSegmentData[] rseg = _gizmos.RotationGizmo.GetSegmentDataByViewport(viewport);
-                    double3 startAxisEgo = Double3Ex.Right.Transform(rseg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
+                    double3 startAxisEgo = Directions.Right.Transform(rseg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
                     _rotDragAxisLocal = startAxisEgo.Transform(doubleQuat.Inverse(selectedPart.ParentAsmb2Ego(vehicleAsmb2Ego)));
                     _rotDragStartQuat = selectedPart.Asmb2ParentAsmb;
                     _rotAccumRad = 0.0;
@@ -244,7 +239,7 @@ public sealed class PartEditorInteraction
             if (screenDelta.NormalizeOrZero().Length() != 0.0 && _gizmos.HighlightedSegmentIndex >= 0)
             {
                 GenericGizmo.PerSegmentData[] seg = _gizmos.TranslateGizmo.GetSegmentDataByViewport(viewport);
-                double3 axisDir = Double3Ex.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
+                double3 axisDir = Directions.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
 
                 if (axisDir.Length() != 0.0)
                 {
@@ -286,7 +281,7 @@ public sealed class PartEditorInteraction
             {
                 double angle = MathEx.SafeAcos(double3.Dot(prev, curr) / (prev.Length() * curr.Length()));
                 GenericGizmo.PerSegmentData[] seg = _gizmos.RotationGizmo.GetSegmentDataByViewport(viewport);
-                double3 axisEgo = Double3Ex.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
+                double3 axisEgo = Directions.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
 
                 if (axisEgo.Length() != 0.0)
                 {
@@ -342,7 +337,7 @@ public sealed class PartEditorInteraction
             if (delta.NormalizeOrZero().Length() != 0.0 && _gizmos.HighlightedSegmentIndex >= 0)
             {
                 GenericGizmo.PerSegmentData[] seg = _gizmos.ScaleGizmo.GetSegmentDataByViewport(viewport);
-                double3 axisDir = Double3Ex.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
+                double3 axisDir = Directions.Right.Transform(seg[_gizmos.HighlightedSegmentIndex].Body2Cce).NormalizeOrZero();
 
                 if (axisDir.Length() != 0.0)
                 {
@@ -408,11 +403,18 @@ public sealed class PartEditorInteraction
 
     private static double2 CursorPos => new double2(ImGui.GetMousePos().X, ImGui.GetMousePos().Y);
 
-    // Part property setters already reset _matrixAsmb to Identity, but we reset it
-    // explicitly here as a belt-and-suspenders guard for any render paths that check it.
+    // Part's property setters already invalidate the cached transforms; this is a belt-and-suspenders
+    // guard for any render path that reads them without going through a setter first.
+    //
+    // This used to reflect Part._matrixAsmb and write double4x4.Identity, which was the game's
+    // "uncached" sentinel. KSA build 2026.8.3.5117 (rev 5112) added caching for
+    // Part.MatrixAsmb2VehicleAsmb and changed the sentinel to an all-NaN matrix, which turned that
+    // write into "the cached transform *is* identity" — silently collapsing the part's transform.
+    // Part.ResetCachedPosMatrixValues() is public (and was already public on 5018), resets all five
+    // cache fields, and cannot drift out from under us the way the sentinel did.
     private static void InvalidatePartMatrixCache(Part part)
     {
-        _matrixAsmbField?.SetValue(part, double4x4.Identity);
+        part.ResetCachedPosMatrixValues();
     }
 
     private static int IndexOf(PartEditorScene scene, Part part)

@@ -34,9 +34,9 @@ Verification baseline:
 - **`ksa-abstractions.lib` is the game-facing seam.** All cross-cutting game access is funnelled
   through small static helpers here (`VehicleProvider`, `CelestialProvider`, `SimTimeProvider`,
   `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `IvaForceRender`, `KsaPaths`) plus pure-C#
-  utilities (`ISubmod`, `EasingHelper`, `GameThread`/`GameStateQueue`/`IGameStateScheduler`,
-  `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a game update's blast
-  radius is mostly this one library.
+  utilities (`ISubmod`, `EasingHelper`, `Directions`, `GameThread`/`GameStateQueue`/
+  `IGameStateScheduler`, `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a
+  game update's blast radius is mostly this one library.
 
 ### StarMap lifecycle attributes used by `Mod.cs`
 
@@ -202,6 +202,27 @@ Update-risk findings (4680→4750): **No breaking deltas detected.**
 
 Update-risk findings (4680→4750): **No breaking deltas detected.**
 
+### Directions.cs
+
+Named unit-axis vectors (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's right-handed,
+Y-up, -Z-forward convention. Added at **5117** to replace `KSA.Double3Ex.{Up,Down,Left,Right,Forward,
+Backward}`, which rev 5067 removed (*"they were misleading and often misused"*). Values are identical
+to the removed properties, so adopting it was behavior-neutral.
+
+| # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
+|---|---|---|---|---|---|---|---|
+| 1 | Direct API (struct) | `Directions.cs:20-35` | `Brutal.Numerics.double3.UnitX/UnitY/UnitZ` — `public static double3 UnitX => new double3(1,0,0)` etc. | `Brutal.Numerics/double3.cs:47-51` | ✅ | Same | Only dependency. Not a KSA type — moves with the Brutal package, not the game build. |
+
+**Used by:** space-tape (19 call sites across `PartEditorGizmos.cs`, `PartEditorInteraction.cs`,
+`Thumbnails/SingleSubpartGenerator.cs`, `Thumbnails/SubpartThumbnailGenerator.cs`).
+
+Update-risk findings (5018→5117):
+- Deliberately **not** an alias for `Camera.ForwardView`/`RightView`/`UpView`. The game kept those for
+  genuine camera-view-frame use and explicitly narrowed their meaning in rev 5067 (*"Clarified
+  reference frame for camera vectors"*); routing frame-agnostic gizmo/thumbnail axes through a camera
+  type would re-create the ambiguity the game just removed.
+- Lowest-risk entry in this library: no KSA member is referenced at all.
+
 ### XkcdColorHelper.cs
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
@@ -292,6 +313,27 @@ Persistence only; no KSA game internals beyond `KsaPaths` + the ImGui ini API.
 
 Update-risk findings (4680→4750): **No breaking deltas detected.** Only game-adjacent surface is
 the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
+
+---
+
+## Area summary — Update-risk findings (5018 → 5117)
+
+- **No breaking deltas** for the supermod shell or any existing `ksa-abstractions.lib` helper. Every
+  patch target is byte-identical: `GameSettings.OnKeyAll(GlfwKeyEvent) → bool`
+  (`KSA/GameSettings.cs`, HotkeyGuard → **every** top-level mod),
+  `Program.DrawProgramMenusHook()` (MenuBarPatch), `Program.DrawMenuBar(Viewport,int)`,
+  `Universe.ExecuteNextVehicleSolvers(double, SimStep)` (still a single overload),
+  `PartModel..ctor(PartModelModule.Template)` + `PartModel.AddInstance` (IvaForceRender),
+  `KSAColor.Xkcd` (file unchanged).
+- **StarMap load-order invariant HOLDS:** `ModLibrary.LoadAll()` (`KSA/Program.cs:965`) still precedes
+  `ModLibrary.Bind()` (`KSA/Program.cs:994`), so `[StarMapAllModsLoaded]` still fires before
+  `DeviceMeshInterleaved.Shared.Build()`. This is parts-now's headline standing invariant (U1).
+- **New helper: `Directions.cs`** — see above. Added to absorb the rev-5067 `Double3Ex` removal in one
+  place rather than at 19 call sites, per this library's stated purpose of concentrating a game
+  update's blast radius.
+- **Brutal packages:** solution builds clean with `TreatWarningsAsErrors` and **0 warnings** against
+  the 5117 DLLs, so no nullability/signature shift landed in the ImGui surface actually used
+  (contrast the rev-4729 bump, which cost `garrys-torch.lib` a CS8604).
 
 ---
 

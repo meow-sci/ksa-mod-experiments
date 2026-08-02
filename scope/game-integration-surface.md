@@ -4,12 +4,13 @@ Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bea
 Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the 11 per-area `scope/`
 files. Use it on every KSA update to find which mods a changed game member puts at risk.
 
-**Verification baseline:** cataloged against KSA build **2026.7.9.5018**
+**Verification baseline:** cataloged against KSA build **2026.8.3.5117**
 (`C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`), diffed from the previously
-verified baseline **2026.6.9.4750** (tag `2026.6.9.4750` in the same git repo — the intermediate
-builds `4826`/`4892`/`4939`/`4980` were never separately verified). Decomp paths are relative to the
-decomp root (`KSA/…`); Content paths relative to `…\current\Content`. Per-row detail and the exact
-4750↔5018 diff live in the linked area scope files.
+verified baseline **2026.7.9.5018** (tag `2026.7.9.5018` in the same git repo). The intermediate build
+`2026.7.10.5056` was not separately verified, but the **changelog gap is zero** for this span: the two
+`version.json` files on disk cover revs 5019–5056 and 5057–5117 contiguously from the 5018 baseline.
+Decomp paths are relative to the decomp root (`KSA/…`); Content paths relative to `…\current\Content`.
+Per-row detail and the exact 5018↔5117 diff live in the linked area scope files.
 
 ---
 
@@ -243,8 +244,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Vehicle.FlightComputer : FlightComputer { get; private set; }` | direct API | `KSA/Vehicle.cs:415` | average-twr, blinky (debug) | `average-twr.lib/TwrDataReader.cs:17`; `BlinkySubmod.cs:612-618` | OK | |
-| `FlightComputer.VehicleConfig : VehicleConfigInfo { get; private set; }` | direct API | `KSA/FlightComputer.cs:101` | average-twr | `TwrDataReader.cs:17` | OK | |
-| `VehicleConfigInfo.TotalEngineVacuumThrust : float` (field) | direct API | `KSA/FlightComputer.cs:19` | average-twr | `TwrDataReader.cs:17` | OK | sum of engine vacuum thrust (N) |
+| `FlightComputer.AmbientPressure : float` (field) | direct API | `KSA/FlightComputer.cs:57` | average-twr | `TwrDataReader.cs:26` | **NEW @5117** | fed from `states.Environment.AtmosphericPressure`; 0 in vacuum |
+| `Vehicle.ComputeActiveThrust(float ambientPressure) → float` | direct API | `KSA/Vehicle.cs:6069` | average-twr | `TwrDataReader.cs:26` | **NEW @5117** | replaces `VehicleConfigInfo.TotalEngineVacuumThrust`; skips out-of-propellant engines; same call the navball TWR uses |
+| ~~`FlightComputer.VehicleConfig : VehicleConfigInfo`~~ | direct API | — | *(none)* | — | **no longer used @5117** | still exists; average-twr no longer reads it |
+| ~~`VehicleConfigInfo.TotalEngineVacuumThrust : float`~~ | direct API | — | — | — | 🔴 **REMOVED @5117 (rev 5114)** | with `TotalEngineVacuumMassFlowRate`, `TotalEngineExhaustVelocity`, `TotalEngineIsp`. Broke average-twr (CS1061) — **fixed** |
 
 ### KSA.FloatReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -507,8 +510,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `TreeChildren : List<Part>` (field) | direct API | `KSA/Part.cs:387` | blinky, its-so-shiny, flexo, kitchen-sink | `LcdGridBuilder.cs:228-230`; `HingeController.cs:201`; `FlexoPartTest.cs:227` | OK | sub-tree collection |
 | `SetStage(int)` / `Stage` (get) | direct API | `KSA/Part.cs:731,517` | blinky, its-so-shiny | `LcdGridBuilder.cs:124,127`; `ShinyGridBuilder.cs:87` | OK | |
 | `RayCastEgoSubPart(in double4x4, Ray, out …)` / `RayCastEgo(...)` / `Selected` | direct API | `KSA/Part.cs` | space-tape | `PartEditorInteraction.cs:105,116` | OK | hover/click select + native highlight |
-| `_matrixAsmb : private double4x4` | reflection-field (string) | `KSA/Part.cs:325` | space-tape | `PartEditorInteraction.cs:48`, `PartEditorUi.cs:48` | OK | cache-invalidation safety |
-| `_matrixAsmb2Parent : private double4x4` | reflection-field (string) | `KSA/Part.cs:339` | space-tape | `PartEditorUi.cs:50` | OK | cache-invalidation safety |
+| `ResetCachedPosMatrixValues() : void` | direct API | `KSA/Part.cs:1047` | space-tape | `PartEditorInteraction.cs:415`, `PartEditorUi.cs:801` | **NEW binding @5117** | clears all five transform caches; public on 5018 too. **Replaced** the `_matrixAsmb`/`_matrixAsmb2Parent` reflection below |
+| ~~`_matrixAsmb` / `_matrixAsmb2Parent` : private double4x4~~ | reflection-field (string) | `KSA/Part.cs:536,552` | *(none)* | — | ⚠️ **sentinel changed @5117 (rev 5112)** | uncached sentinel went `double4x4.Identity` → all-NaN `UncachedMatrix`; writing identity now *asserts* a cached identity transform. space-tape's reflection **retired** — see `part-editor-and-robotics.md` |
 | `Connector.TemplateBase.{Id, Transform, Flags}` + `Connector.Flag.{Internal, ToSurface, FromSurface}` (nested) | direct API (import) | `KSA/Part.cs:95-111` | space-tape | `space-tape.lib/PartImporter.cs` | OK | connector import; face-snap semantics drifted (R4) |
 | `Tree : PartTree` → `.ReinitializeDerivedValues/.RefillConsumables` | direct API | `KSA/Part.cs` | doh | `KittenSpawner.cs:278-289` | OK | backpack/propellant init |
 
@@ -853,7 +856,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 NOT compile-checked — a game rename breaks these at runtime with no build error. Re-verify each name
 on every game update FIRST.
 
-| Type.Member (string) | Mod(s) | Why string-based | 5018 |
+| Type.Member (string) | Mod(s) | Why string-based | 5117 |
 |---|---|---|---|
 | `Camera.OnFrame` (`OrbitController`/`FlyController.OnFrame`) | camera-controller-override | `AccessTools.Method(…, "OnFrame")` | OK |
 | `Controller.___Transform` (field injector) | camera-controller-override | Harmony field-injection by name | **BROKEN** (no such field on KSA controllers, 4680 & 4750) |
@@ -877,7 +880,7 @@ on every game update FIRST.
 | `ModLibrary.AllEditorTagDefinitions` | parts-now | `GetField("AllEditorTagDefinitions")` — `GameRegistry.cs:77`; feeds validation rule V7 | OK |
 | `SerializedCollection<T>._collection` (private `ConcurrentDictionary<KeyHash,T>`) | parts-now | `GetField("_collection", Instance\|NonPublic)` per closed generic — `GameRegistry.cs:356-357`, used by `Unregister` `:154-165`. **`SerializedCollection<T>` has no removal API, so unload/reload exist only because of this** (see U4) | OK |
 | `VehicleEditor._editorTagLookup` (private static `Dictionary<uint,string>`) | parts-now | `GetField("_editorTagLookup", Static\|NonPublic)` — `GameRegistry.cs:320`. **Degraded, not fatal**: V7 falls back to the six built-in tags + `AllEditorTagDefinitions` ids | OK |
-| `Part._matrixAsmb` / `Part._matrixAsmb2Parent` | space-tape | private fields by name (cache safety) | OK |
+| ~~`Part._matrixAsmb` / `Part._matrixAsmb2Parent`~~ | ~~space-tape~~ | ~~private fields by name (cache safety)~~ | **RETIRED @5117** — replaced by the public `Part.ResetCachedPosMatrixValues()`. Rev 5112 changed the uncached sentinel from identity to NaN, which turned the old identity-write from a no-op into a transform-corrupting write. **Removing a watchlist entry is the best outcome available here** — this row can no longer break silently |
 | `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
 | `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK (field names intact) — but the **owner moved**: `ResourceManager` is no longer on `RocketCore`, it is on the `Combustor` subclass (`SolidMotor` cores have none). Reached via a `core is Combustor` test since 5018 |
 | `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
@@ -917,9 +920,94 @@ on every game update FIRST.
 
 ---
 
-## 6. Confirmed-broken / changed summary (vs 5018)
+## 6. Confirmed-broken / changed summary (vs 5117)
 
-Every table row whose 5018 status is BROKEN or CHANGED. The 4750→5018 span is large (433 decomp
+### 5018 → 5117 (current span — 223 decomp files, ~11.7k inserted lines; 103 Content files)
+
+Dominated by a **crew/roster system** (KittenRoster, IVASeat, EVADoor↔seat linking, crew assignment
+UI), a **burn/orbit UX rework** (right-click burn context menu, danger arcs), **launch pads**,
+**vehicle structural destruction**, and **cloud shadows on vessels**.
+
+**CHANGED (compile breaks against 5117 — both now FIXED)**
+- `Double3Ex.{Up,Down,Left,Right,Forward,Backward}` **removed** (rev 5067: *"they were misleading and
+  often misused"*). Game migrated its own uses to new `Camera.{ForwardView,RightView,UpView}` and
+  renamed `Camera.GetForward/GetRight/GetUp` → `Get*Ecl` (**no mod calls the renamed accessors**).
+  15 CS0117 in space-tape. → new `ksa-abstractions.lib/Directions.cs` (identical values).
+  `scope/part-editor-and-robotics.md`, `scope/00-architecture-and-abstractions.md`
+- `FlightComputer.VehicleConfigInfo.TotalEngineVacuumThrust` **removed** with the rest of the
+  vacuum-referenced family (`TotalEngineVacuumMassFlowRate`, `TotalEngineExhaustVelocity`,
+  `TotalEngineIsp`), rev 5114. 1 CS1061 in average-twr. → now
+  `Vehicle.ComputeActiveThrust(FlightComputer.AmbientPressure)`, the game's own navball path.
+  `scope/telemetry.md`
+
+**CHANGED (silent — compile-clean, was actively corrupting; now FIXED)**
+- `Part`'s **uncached-matrix sentinel** changed from `double4x4.Identity` to an all-NaN
+  `UncachedMatrix` (rev 5112, `MatrixAsmb2VehicleAsmb` caching), plus three new cached fields.
+  space-tape wrote `Identity` into `_matrixAsmb`/`_matrixAsmb2Parent` **to invalidate** them — on 5117
+  that asserts a cached identity transform instead, collapsing the part transform with no build
+  error. → all three sites now call the public `Part.ResetCachedPosMatrixValues()`; the reflection is
+  retired. flexo's similar-looking `HingeController` path was **never** exposed (it touches property
+  setters, which invalidate correctly). `scope/part-editor-and-robotics.md`
+
+**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
+- ⚠️ **space-tape `<EVADoor>` writer vs `EVADoorTemplate.SeatId`** (rev 5085). `SeatId` is new and is
+  what links a door to an `IVASeat`; the EVA button now only appears when that seat is occupied.
+  space-tape emits no `SeatId`, so **authored EVA doors will be inert**. (Its existing `ConnectorId`
+  attribute was never an `EVADoorTemplate` member on 5018 either — pre-existing silent no-op.)
+  **Open — not fixed here.** `scope/part-editor-and-robotics.md`
+- ⚠️ **doh `KittenSpawner` vs the roster rework** (revs 5074/5083/5085/5102/5103). doh replicates the
+  *old* `EVADoor.CreateKittenEva()` flow; the game now sources the kitten from `Universe.KittenRoster`
+  via the door's aligned `IVASeat`, and `Vehicle` disposal finalizes kitten mission stats. The
+  `KittenEva` ctor is signature-identical so doh still runs, but it spawns **roster-less** kittens.
+  `scope/character-and-materials.md`
+- ⚠️ **con-man vs `GaugeCanvas.PlaceBesideActiveBurnGizmo()`** (revs 5092/5113). New game code
+  **writes `_customOffset`** — the exact private field con-man reflects and owns — to park the burn
+  window beside the burn gizmo. The game can now overwrite con-man's saved layout offsets.
+  `scope/ui-customization.md`
+- ⚠️ **garrys-torch / kiwis-marbles vs vehicle structural destruction** (rev 5115). Vehicles can now be
+  destroyed by exceeding a structural g-limit or dynamic-pressure limit. Torch teleports the vehicle
+  every frame; marbles rewrites orbits. `scope/vehicle-physics.md`, `scope/celestial-and-lights.md`
+- ⚠️ **`NavBallData.ThrustWeightRatio` changed meaning** (rev 5114) — now ambient-corrected and
+  propellant-aware. average-twr's readings shift with no code change. `scope/telemetry.md`
+- **Watch item — `EditorTag` gained `Booster`/`Coupling`/`Cargo`.** parts-now's `BuiltInEditorTags`
+  still lists six. Harmless today (the three are neither registered in `VehicleEditor._editorTagLookup`
+  nor declared in `PartGameData.xml`). `scope/part-editor-and-robotics.md`
+
+**VERIFIED CLEAN across 5018 → 5117**
+- **All 33 Harmony patch-target signatures byte-identical**, including the shared chokepoints
+  `GameSettings.OnKeyAll`, `Universe.ExecuteNextVehicleSolvers` (still one overload),
+  `Program.DrawProgramMenusHook`, all three `*Module.UpdateRenderData`, `PartModel(.Dynamic).AddInstance`,
+  `SuperMeshRenderSystem.RenderMainPass`, `ShaderModuleUtils.FromFile`, both controller `OnFrame`s.
+- **The entire §4 reflection watchlist resolves**, including all 7 `GaugeCanvas` fields,
+  `Camera._fovRadians`, the KittenEva→`CharacterCore.Scale` chain, `LightModule+TemplateData.ColorRgb`,
+  all six parts-now `ModLibrary.All*` registries, `SerializedCollection<T>._collection`, and
+  `VehicleEditor._editorTagLookup`. (`ModLibrary.cs`'s diff is **only** log line-number churn.)
+- **Byte-identical files:** `PartModel`, `PartModelDynamic`, `MaterialData`, `GpuMaterialSystem`,
+  `SuperMeshRenderSystem`, `PartModelRenderer`, `LightModule`, `LightSwitch`, `CatExpressionAnim`,
+  `CharacterAvatar`, `CharacterCore`, `GenericGizmo`, `OrbitLinePass`, `Controller`,
+  `KeyframeAnimationModule`, `DeviceMeshInterleaved`, `ShaderModuleUtils`, `Situation`,
+  `KinematicMeasurements`, `KSAColor`, `MusicPlayList`.
+- **humble-arteest's GLSL anchors survive.** `MeshIndirect.frag`/`MeshIndirectRaytraced.frag` changed
+  (rev 5100 cloud shadows) but only inside `getLightColor()`; the `vec3 sampledColor` anchor
+  (`:114`/`:156`) and the `inStateFlags` varying (`:30`/`:20`) are intact, and the new `GetCloudShadow`
+  resolves from `Common/Lighting.glsl:52` through the game's own include callback, which the mod
+  passes straight through. **Still needs a live render pass.**
+- 🔶 **`PerInstanceData` layout unchanged and `StateBitFlag` bits 11..31 still free** (the game uses
+  ≤ bit 6 in the mesh shaders). humble-arteest Vehicle Paint's standing invariant **holds**.
+- 🔶 **parts-now's load-order invariant holds:** `ModLibrary.LoadAll()` (`KSA/Program.cs:965`) still
+  precedes `ModLibrary.Bind()` (`:994`).
+- **thug-life:** `UnlitMesh*` shaders unchanged and both shader ids still in `DefaultAssets.xml`. The
+  MSAA / alpha-to-coverage work (revs 5057/5058) is absorbed because the mod reads
+  `Program.OffScreenPass.SampleCount` dynamically rather than hard-coding it. **Live pass still required.**
+- **mesh-deform:** `MeshIndirect.vert` byte-identical → still self-disabled, unchanged.
+- Assets removed in revs 5077/5096 (`IconSymmetry*`, `Icon*Gizmo`, `IconAngleSnapping*`,
+  `PlanetMeshVertexDataComp`) are referenced by **no** mod in this repo.
+
+---
+
+### 4750 → 5018 (previous span)
+
+Every table row whose 5018 status was BROKEN or CHANGED. The 4750→5018 span is large (433 decomp
 files, ~40k inserted lines) and dominated by three game-side rewrites: **combustion → reaction
 model**, **fuel/resource feed wiring**, and **staging → resource groups**.
 

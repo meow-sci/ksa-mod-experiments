@@ -1,6 +1,7 @@
 using System;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -124,13 +125,13 @@ public sealed class PartEditorGizmos : IDisposable
         seg[0].Active = true;
 
         seg[1].PositionEgo = positionEgo;
-        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
         seg[1].Active = true;
 
         seg[2].PositionEgo = positionEgo;
-        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Down.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
         seg[2].Active = true;
@@ -153,23 +154,23 @@ public sealed class PartEditorGizmos : IDisposable
         seg[0].Body2Cce = orientation;
         seg[0].Scale = gScale;
         seg[0].Color = new double4(1.0, 0.0, 0.0, 0.75);
-        double3 upDir0 = Double3Ex.Up.Transform(seg[0].Body2Cce).NormalizeOrZero();
+        double3 upDir0 = Directions.Up.Transform(seg[0].Body2Cce).NormalizeOrZero();
         seg[0].Active = Math.Abs(double3.Dot(upDir0, positionEgo)) >= 0.15;
 
         // segment 1: Y-axis (green)
         seg[1].PositionEgo = positionEgo;
-        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Forward.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Forward.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
-        double3 upDir1 = Double3Ex.Up.Transform(seg[1].Body2Cce).NormalizeOrZero();
+        double3 upDir1 = Directions.Up.Transform(seg[1].Body2Cce).NormalizeOrZero();
         seg[1].Active = Math.Abs(double3.Dot(upDir1, positionEgo)) >= 0.15;
 
         // segment 2: Z-axis (blue)
         seg[2].PositionEgo = positionEgo;
-        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Down.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
-        double3 upDir2 = Double3Ex.Up.Transform(seg[2].Body2Cce).NormalizeOrZero();
+        double3 upDir2 = Directions.Up.Transform(seg[2].Body2Cce).NormalizeOrZero();
         seg[2].Active = Math.Abs(double3.Dot(upDir2, positionEgo)) >= 0.15;
 
         // segment 3: screen-space ring — hidden in this implementation
@@ -195,13 +196,13 @@ public sealed class PartEditorGizmos : IDisposable
         seg[0].Active = true;
 
         seg[1].PositionEgo = positionEgo;
-        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[1].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Backward.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[1].Scale = gScale;
         seg[1].Color = new double4(0.0, 1.0, 0.0, 0.75);
         seg[1].Active = true;
 
         seg[2].PositionEgo = positionEgo;
-        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Double3Ex.Down.Transform(orientation), Math.PI / 2.0) * orientation;
+        seg[2].Body2Cce = doubleQuat.CreateFromAxisAngle(Directions.Down.Transform(orientation), Math.PI / 2.0) * orientation;
         seg[2].Scale = gScale;
         seg[2].Color = new double4(0.0, 0.0, 1.0, 0.75);
         seg[2].Active = true;

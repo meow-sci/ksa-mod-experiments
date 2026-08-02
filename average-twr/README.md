@@ -33,7 +33,7 @@ Static methods for reading TWR and computing acceleration from vehicle state.
 **Key Methods**:
 - `ReadTwr(Vehicle vehicle)` - Returns `vehicle.NavBallData.ThrustWeightRatio` (a `double`)
 - `ComputeSurfaceGravity(Vehicle vehicle)` - Gets gravity at vehicle altitude (helper; not used on the sampling path)
-- `ComputeMaxAcceleration(Vehicle vehicle)` - Returns `FlightComputer.VehicleConfig.TotalEngineVacuumThrust / TotalMass` in m/s²
+- `ComputeMaxAcceleration(Vehicle vehicle)` - Returns `Vehicle.ComputeActiveThrust(ambientPressure) / TotalMass` in m/s²
 
 **Implementation**:
 ```csharp
@@ -41,12 +41,23 @@ public static double ReadTwr(Vehicle vehicle) => vehicle.NavBallData.ThrustWeigh
 
 public static double ComputeMaxAcceleration(Vehicle vehicle)
 {
-    // Vehicle has no `TotalThrust`; vacuum thrust lives on the flight computer's config.
-    double maxThrustN = (double)vehicle.FlightComputer.VehicleConfig.TotalEngineVacuumThrust;
+    // Vehicle has no `TotalThrust`. Ask the game for the thrust its own navball TWR uses.
+    double maxThrustN = vehicle.ComputeActiveThrust(vehicle.FlightComputer.AmbientPressure);
     double totalMass = (double)vehicle.TotalMass;
     return totalMass > 0.0 ? maxThrustN / totalMass : 0.0;
 }
 ```
+
+> **Readings changed in KSA `2026.8.3.5117` (rev 5114).** Both numbers used to be **vacuum**-referenced.
+> The game removed `FlightComputer.VehicleConfig.TotalEngineVacuumThrust` and rebuilt its own TWR
+> around `ComputeActiveThrust(ambientPressure)`, so as of that build:
+>
+> - **TWR and max acceleration are corrected for atmospheric pressure** — expect lower figures at sea
+>   level and figures matching the old vacuum values once you're out of the atmosphere.
+> - **Engines that have run out of propellant no longer count** toward thrust.
+>
+> This mod follows the game rather than reconstructing the old vacuum figure, so its readings continue
+> to agree with the in-game engine-control gauge.
 
 #### TwrSampleAccumulator
 Accumulates samples and computes running statistics.

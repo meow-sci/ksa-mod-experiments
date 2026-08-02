@@ -9,6 +9,7 @@ using Core;
 using KSA;
 using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -206,7 +207,7 @@ public sealed class SingleSubpartGenerator : IDisposable
 
         float radius = root.ComputeBoundingSphereRadius(out _);
         float dist = radius / (float)Math.Sin(viewport.GetCamera().GetFieldOfView() * 0.5f);
-        root.LocalPosition = Double3Ex.Forward * (viewport.GetCamera().NearPlane + dist);
+        root.LocalPosition = Directions.Forward * (viewport.GetCamera().NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
         int size = ThumbnailRenderer.SIZE;

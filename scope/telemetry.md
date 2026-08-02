@@ -62,11 +62,11 @@ reset on `Reset()` / mod reload. No StarMap save hooks.
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
 | 1 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:11` (called `average-twr.lib/AverageTwrSubmod.cs:31`) | `Program.ControlledVehicle` — `public static Vehicle? ControlledVehicle` | `KSA/Program.cs:254` | Yes | Same (OLD `Program.cs:253`) | Returns null when no vehicle controlled; mod null-checks. |
 | 2 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `Vehicle.NavBallData` — `public ref readonly NavBallData NavBallData` | `KSA/Vehicle.cs:528` | Yes | Same (OLD `Vehicle.cs:493`) | `ref readonly` struct accessor. |
-| 3 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `NavBallData.ThrustWeightRatio` — `public double ThrustWeightRatio` (field) | `KSA/NavBallData.cs:21` | Yes | Same (OLD `NavBallData.cs:21`) | Public struct field; value 0 until flight computer populates it. |
-| 4 | Direct typed API | `average-twr.lib/TwrDataReader.cs:17` | `Vehicle.FlightComputer` — `public FlightComputer FlightComputer { get; private set; }` | `KSA/Vehicle.cs:415` | Yes | Same (OLD `Vehicle.cs:382`) | — |
-| 5 | Direct typed API | `average-twr.lib/TwrDataReader.cs:17` | `FlightComputer.VehicleConfig` — `public VehicleConfigInfo VehicleConfig { get; private set; }` | `KSA/FlightComputer.cs:101` | Yes | Same (OLD `FlightComputer.cs:101`) | Type is `VehicleConfigInfo` (nested in `FlightComputer.cs`). |
-| 6 | Direct typed API | `average-twr.lib/TwrDataReader.cs:17` | `VehicleConfigInfo.TotalEngineVacuumThrust` — `public float TotalEngineVacuumThrust` (field) | `KSA/FlightComputer.cs:19` | Yes | Same (OLD `FlightComputer.cs:19`) | Sum of engine `VacuumData.ThrustMax`; vacuum thrust, N. Mirrors game's own TWR math (`Vehicle.cs:1999`). |
-| 7 | Direct typed API | `average-twr.lib/TwrDataReader.cs:18` | `Vehicle.TotalMass` — `public float TotalMass => _props.TotalMassPropsAsmb.Props.Mass` | `KSA/Vehicle.cs:512` | Yes | Same (OLD `Vehicle.cs:479`) | kg. Mod divides thrust/mass for max accel. |
+| 3 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `NavBallData.ThrustWeightRatio` — `public double ThrustWeightRatio` (field) | `KSA/NavBallData.cs:21` | ✅ | **Semantic drift (rev 5114)** | Public struct field; value 0 until flight computer populates it. **Meaning changed on 5117**: the game now computes it as `ComputeActiveThrust(AtmosphericPressure) * throttle / weight` (`KSA/Vehicle.cs:2454-2457`) instead of `TotalEngineVacuumThrust * throttle / weight`. Same field, same type, **ambient-corrected and propellant-aware** value. No code change needed; the mod's readings shift. |
+| 4 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `Vehicle.FlightComputer` — `public FlightComputer FlightComputer { get; private set; }` | `KSA/Vehicle.cs:415` | ✅ | Same | — |
+| 5 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `Vehicle.ComputeActiveThrust(float ambientPressure) → float` | `KSA/Vehicle.cs:6069` | ✅ | **NEW binding (replaces `VehicleConfig.TotalEngineVacuumThrust`)** | Sums `EngineController.ComputeActivePerformance(state, com, ambientPressure).ThrustMax.Length()` over active engines; skips engines with no propellant. This is the same call the game's navball TWR uses. |
+| 6 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `FlightComputer.AmbientPressure` — `public float AmbientPressure` (field) | `KSA/FlightComputer.cs:57` | ✅ | **NEW binding (rev 5114)** | Populated from `states.Environment.AtmosphericPressure` each FC update (`KSA/FlightComputer.cs:296`). 0 in vacuum, which makes `ComputeActiveThrust` return `VacuumData` directly. |
+| 7 | Direct typed API | `average-twr.lib/TwrDataReader.cs:27` | `Vehicle.TotalMass` — `public float TotalMass => _props.TotalMassPropsAsmb.Props.Mass` | `KSA/Vehicle.cs:512` | ✅ | Same | kg. Mod divides thrust/mass for max accel. |
 | 8 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:11-12` | `Vehicle.Parent` — `public IParentBody Parent => Orbit.Parent` | `KSA/Vehicle.cs:332` | Yes | Same (OLD `Vehicle.cs:299`) | Only used in `ComputeSurfaceGravity`, which is **not called** on the sampling path. Still must compile. |
 | 9 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:11` | `IParentBody.MeanRadius` — `double MeanRadius { get; }` (via `IRadius`) | `KSA/IRadius.cs:5` | Yes | Same (present both, IRadius) | Dead path (see #8). |
 | 10 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:12` | `IParentBody.Mass` — `double Mass { get; }` | `KSA/IParentBody.cs:11` | Yes | Same (OLD `IParentBody.cs:11`) | Dead path (see #8). |
@@ -77,18 +77,37 @@ reset on `Reset()` / mod reload. No StarMap save hooks.
 
 **Game assets referenced** — None. No textures, meshes, audio, or part/config assets are loaded.
 
-**Update-risk findings (4680 -> 4750)**
+**Update-risk findings (5018 -> 5117)**
 
-- No breaking deltas. All 10 typed game members + the patched `OnKeyAll` are signature-identical OLD->NEW (line shifts only).
+- 🔴 **BREAK, FIXED — `VehicleConfigInfo.TotalEngineVacuumThrust` removed (rev 5114).** Build error
+  CS1061 at `average-twr.lib/TwrDataReader.cs:17`. Rev 5114 deleted the whole vacuum-referenced
+  aggregate family from `FlightComputer.VehicleConfigInfo` — `TotalEngineVacuumThrust`,
+  `TotalEngineVacuumMassFlowRate`, `TotalEngineExhaustVelocity`, `TotalEngineIsp` — along with the
+  loop in `UpdateVehicleConfig` that filled them. Changelog: *"Made the flight computer aware when
+  engines run out of propellant and stop taking credit for the thrust they produce in burn planning"*
+  / *"…dV and TWR ratings reflect the engines that are actually capable of producing thrust. TWR also
+  takes atmospheric pressure into account."*
+  **Fix applied:** `ComputeMaxAcceleration` now calls
+  `vehicle.ComputeActiveThrust(vehicle.FlightComputer.AmbientPressure)` (rows 5–6), which is exactly
+  what the game's own navball TWR uses (`KSA/Vehicle.cs:2454`).
+- ⚠️ **Semantic drift, no code change — `NavBallData.ThrustWeightRatio` changed meaning (rev 5114).**
+  Same field, same `double`, but the game now derives it from ambient-corrected, propellant-aware
+  thrust instead of vacuum thrust. `ReadTwr` therefore reports different numbers on 5117 with no
+  edit. Choosing `ComputeActiveThrust` for row 5 keeps `ReadTwr` and `ComputeMaxAcceleration`
+  measuring the *same* quantity, as they did before — the alternative (reconstructing vacuum thrust
+  from `EngineController.VacuumData`) would have silently desynced the two numbers in the UI.
+- `NavBallData.DeltaVInVacuum` was renamed to `NavBallData.DeltaV` (same rev, same reason). **Not
+  referenced by any mod in this repo** — no action.
+- All other typed members + the patched `OnKeyAll` are signature-identical 5018→5117 (line shifts only).
 - **README drift (not a break, but misleading for triage):** `average-twr/README.md` claims
   `ReadTwr` returns `float` and `ComputeMaxAcceleration` returns `vehicle.TotalThrust / vehicle.TotalMass`.
   Actual code returns `double` from `NavBallData.ThrustWeightRatio` and computes
-  `FlightComputer.VehicleConfig.TotalEngineVacuumThrust / TotalMass`. **`Vehicle.TotalThrust` does not exist**
+  `Vehicle.ComputeActiveThrust(FlightComputer.AmbientPressure) / TotalMass`. **`Vehicle.TotalThrust` does not exist**
   in either decomp version (the only `TotalThrust` is `RocketControllerData...Performance.TotalThrust`
   used for a part tooltip at `KSA/Vehicle.cs:3739`). Recommend correcting the README.
-- **Opportunity (rev 4696), not a break:** rev 4696 added a static thrust-from-template helper on
-  `RocketControllerData` and Mass/Thrust part tooltips. The mod does **not** use it (uses
-  `TotalEngineVacuumThrust` directly), so no impact; could optionally adopt later.
+- **Opportunity (rev 4696), superseded:** rev 4696 added a static thrust-from-template helper on
+  `RocketControllerData`. Moot as of 5117 — the mod now goes through `Vehicle.ComputeActiveThrust`,
+  which wraps `EngineController.ComputeActivePerformance` and is the game's own path.
 - `ComputeSurfaceGravity` (`TwrDataReader.cs:8-13`, reads `Parent.Mass`/`Parent.MeanRadius`, G=6.6743e-11)
   is dead code on the sampling path but still compiles against the live API — keep it consistent if `IParentBody` changes.
 

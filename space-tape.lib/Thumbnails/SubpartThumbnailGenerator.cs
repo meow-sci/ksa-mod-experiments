@@ -9,6 +9,7 @@ using Core;
 using KSA;
 using KSA.Rendering;
 using KSA.Rendering.Thumbnails;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SpaceTapeLib;
 
@@ -243,7 +244,7 @@ public sealed class SubpartThumbnailGenerator : IDisposable
         // Compute camera distance from bounding sphere
         float radius = root.ComputeBoundingSphereRadius(out _);
         float dist = radius / (float)Math.Sin(camera.GetFieldOfView() * 0.5f);
-        root.LocalPosition = Double3Ex.Forward * (camera.NearPlane + dist);
+        root.LocalPosition = Directions.Forward * (camera.NearPlane + dist);
         root.LocalScale = Double3Ex.One;
 
         // Prepare all views: create images and collect draw data per rotation

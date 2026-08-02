@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -42,12 +41,6 @@ public sealed class PartEditorUi
 
   // SubParts hierarchy filter
   private readonly ImInputString _hierarchyFilter = new(128);
-
-  // Reflection: invalidate Part's cached transform matrix after manual edits
-  private static readonly FieldInfo? MatrixAsmbField =
-      typeof(Part).GetField("_matrixAsmb", BindingFlags.NonPublic | BindingFlags.Instance);
-  private static readonly FieldInfo? MatrixAsmb2ParentField =
-      typeof(Part).GetField("_matrixAsmb2Parent", BindingFlags.NonPublic | BindingFlags.Instance);
 
   public void RenderEditorWindow(
       PartEditorController controller,
@@ -803,9 +796,12 @@ public sealed class PartEditorUi
     part.Asmb2ParentAsmb = placement.Rotation;
     part.Scale = placement.Scale;
 
-    // Invalidate cached matrices so the renderer picks up the updated transform
-    MatrixAsmbField?.SetValue(part, double4x4.Identity);
-    MatrixAsmb2ParentField?.SetValue(part, double4x4.Identity);
+    // Invalidate cached matrices so the renderer picks up the updated transform.
+    // See PartEditorInteraction.InvalidatePartMatrixCache — this was reflection into
+    // Part._matrixAsmb/_matrixAsmb2Parent until KSA 2026.8.3.5117 (rev 5112) changed the "uncached"
+    // sentinel from identity to NaN, which made writing identity corrupt the transform instead of
+    // clearing it.
+    part.ResetCachedPosMatrixValues();
   }
 
   // -------------------------------------------------------------------------

@@ -55,8 +55,8 @@ SubPart **thumbnail generation** (off-screen Vulkan rendering) and an animated S
 | 2 | Harmony (postfix) | `PartEditorMenuBarPatch.cs:31` | `Program.DrawProgramMenusHook()` instance void | `KSA/Program.cs:3391` | ✅ | none | Also reads `Program.MainViewport` (`:403`) + `viewport.MenuBarInUse`. |
 | 3 | Typed API (in prefix) | `PartRenderHelper.cs:23` | `PartTree.UpdateRenderData(ref readonly double4x4, bool isEditedVehicle, Viewport, int)` | `KSA/PartTree.cs:435` | ✅ | none (OLD `:431`) | Called as `(in matrix, false, viewport, frameIndex)`. |
 | 4 | Reflection (private name) | `PartCatalog.cs:20-28`, `SubPartCatalog.cs:35-39`, `Thumbnails/SubpartThumbnailCache.cs:89-99`, `Thumbnails/SubpartThumbnailGenerator.cs:397-411`, `Thumbnails/SingleSubpartGenerator.cs:295-305` | `ModLibrary.AllParts` field → `SerializedCollection<PartTemplate>.GetList()` | `KSA/ModLibrary.cs` (`AllParts`), `KSA/SerializedCollection.cs:42` (`GetList`) | ✅ | none | String literals `"AllParts"`/`"GetList"`. `AllParts` is publicly reachable in decomp (`ModLibrary.AllParts.GetList()`), so the reflection still resolves; `PartCatalog` hard-casts to `SerializedCollection<PartTemplate>`. |
-| 5 | Reflection (private field) | `PartEditorInteraction.cs:48`, `PartEditorUi.cs:48` | `Part._matrixAsmb` (private `double4x4`) | `KSA/Part.cs:325` | ✅ | none | Cache-invalidation safety only; name string. |
-| 6 | Reflection (private field) | `PartEditorUi.cs:50` | `Part._matrixAsmb2Parent` (private `double4x4`) | `KSA/Part.cs:339` | ✅ | none | Name string. |
+| 5 | Direct typed API | `PartEditorInteraction.cs:415`, `PartEditorUi.cs:801` | `Part.ResetCachedPosMatrixValues()` — `public void ResetCachedPosMatrixValues()` | `KSA/Part.cs:1047` | ✅ | **Replaced reflection (rev 5112)** | Clears all five transform caches (`_matrixAsmb`, `_positionVehicleAsmb`, `_matrixAsmb2Parent`, `_asmb2VehicleAsmb`, `_matrixAsmb2VehicleAsmb`). Public on both 5018 and 5117. Was `Part._matrixAsmb` reflection until rev 5112 changed the uncached sentinel — see *Update-risk findings*. |
+| 6 | *(retired)* | — | was `Part._matrixAsmb2Parent` reflection | — | — | **Removed** | Folded into row 5; no reflection remains in space-tape's cache-invalidation path. |
 | 7 | Typed API (scene) | `PartEditorScene.cs:62,154,216`, `PartEditorInteraction.cs:70` | `VehicleEditingSpace(double3,doubleQuat,double,…)`, `.GetMatrixAsmb2Ego(Camera)`, `.Asmb2Ecl` | `KSA/VehicleEditingSpace.cs` | ✅ | none | Isolated editor space far from celestials. |
 | 8 | Typed API (camera) | `PartEditorScene.cs:71-77,101,106-107` | `Program.GetCamera/SetCameraMode/GetHoveredCamera/MainViewport.{MapCamera,BaseCamera}/ControlledVehicle`; `Camera.SetFollow(IFollowable,bool,bool,bool alert)`, `.Following` | `KSA/Program.cs:403,450,…`, `KSA/Camera.cs` | ✅ | none | `alert:false` follow path avoids on-screen "Following…" spam. |
 | 9 | Typed API (camera snap) | `CameraSnapController.cs:75-86` | `Camera.Following` → `IFollowable.OrbitView` → `OrbitView.Azimuth/Elevation` | `KSA/OrbitView.cs`, `KSA/IFollowable.cs` | ✅ | none | Snap views write Azimuth/Elevation. |
@@ -99,6 +99,62 @@ not 4680→4750 regressions). #3: 4680 had `PushoffForce`+`LatchingImpulse` (flo
 4680 `BatteryTemplate.MaximumCapacity`/`GeneratorTemplate.Produced` were `JoulesReference` whose
 `KWh`/`W` were **float** (`KSA/JoulesReference.cs:10-16`), so `float.IsNaN(...)` compiled. In 4750
 `JoulesReference` was split into `EnergyReference` + `PowerReference` with all fields **double**.
+
+### Update-risk findings (5018 → 5117)
+
+- 🔴 **BREAKING (fixed) — `Double3Ex.{Up,Down,Left,Right,Forward,Backward}` removed (rev 5067).**
+  15 CS0117 errors across `PartEditorGizmos.cs`, `PartEditorInteraction.cs`,
+  `Thumbnails/SingleSubpartGenerator.cs`, `Thumbnails/SubpartThumbnailGenerator.cs`. Changelog:
+  *"Removed Double3Ex Up/Forward/etc. vectors as they were misleading and often misused"* /
+  *"Added named vectors to Camera as they were used legitimately for this purpose in a few cases."*
+  The game kept view-frame equivalents (`Camera.ForwardView`/`RightView`/`UpView`,
+  `KSA/Camera.cs:73-77`) and renamed its own accessors `GetForward`/`GetRight`/`GetUp` →
+  `GetForwardEcl`/`GetRightEcl`/`GetUpEcl` — **no mod in this repo calls the renamed accessors.**
+  `Double3Ex.One`/`Zero`/`NaN` survive and are still used by the thumbnail generators.
+  **Fix applied:** the six constants now live in `ksa-abstractions.lib/Directions.cs` (identical
+  values → zero behavior change); the 19 call sites use `Directions.*`. See
+  [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md).
+
+- 🔴 **SILENT BREAK (fixed) — `Part` matrix-cache invalidation sentinel changed (rev 5112).**
+  Compile-clean and actively corrupting. Rev 5112 (*"Added caching for Part.MatrixAsmb2VehicleAsmb,
+  the calculation of which was a significant cost at high time warp"*) changed the "uncached"
+  sentinel from `double4x4.Identity` to an all-NaN `Part.UncachedMatrix`, tested with
+  `_matrixAsmb.M11.Equals(double.NaN)` (`KSA/Part.cs:536-552,688,732,1035`), and added three more
+  cached fields (`_positionVehicleAsmb`, `_asmb2VehicleAsmb`, `_matrixAsmb2VehicleAsmb`).
+  space-tape wrote `double4x4.Identity` into `_matrixAsmb`/`_matrixAsmb2Parent` at three sites to
+  *invalidate* them — on 5117 that instead asserts **"the cached transform is identity,"** collapsing
+  the part's transform with no build error. The guard went from harmless-redundant to corrupting.
+  **Fix applied:** all three sites call the public `Part.ResetCachedPosMatrixValues()`
+  (`KSA/Part.cs:1047`), which clears all five caches and was already public on 5018 — so the
+  reflection was never necessary. `using System.Reflection` dropped from both files.
+  *Not to be confused with flexo's R-flexo-2*: flexo touches the **property setters**, which call
+  `ResetCachedPosMatrixValues()` internally (`KSA/Part.cs:706,720,758`), so flexo was never exposed.
+
+- ⚠️ **Behavioral, needs live pass — `EVADoorTemplate` gained `SeatId` (rev 5085).** On 5018
+  `EVADoorTemplate` had **no** serialized members; 5117 adds
+  `[XmlAttribute("SeatId")] public string SeatId` (`KSA/EVADoorTemplate.cs:7-8`), and rev 5085 made
+  the in-game **EVA button appear only when the door's aligned `IVASeat` is occupied**
+  (`EVADoor.AlignedSeat`, `EVADoor.ResolveAlignedSeats(PartTree)`). space-tape's
+  `GameDataXmlSerializer.SerializeEVADoor` (`space-tape.lib/GameDataXmlSerializer.cs:97-99`) emits
+  `<EVADoor ConnectorId="…"/>` and has no `SeatId`, so **authored EVA doors will render but never
+  offer EVA**. Separately, `ConnectorId` was **never** an `EVADoorTemplate` member on 5018 either —
+  `XmlSerializer` silently ignores it. Pre-existing no-op; the `SeatId` gap is new. Fix requires
+  adding `SeatId` to `EVADoorState`/the editor UI/the writer — **not done here** (out of scope for a
+  build fix; needs a UI decision about how the user picks a seat id).
+
+- ⚠️ **Watch item — `EditorTag` gained `Booster`/`Coupling`/`Cargo` (5117).** `KSA/EditorTag.cs:24-28`.
+  parts-now's `BuiltInEditorTags` (`parts-now.lib/Runtime/GameRegistry.cs:43-46`) still lists the
+  original six. **Harmless today**: the three new tags are *not* registered into
+  `VehicleEditor._editorTagLookup` (which force-registers only All/Capsules/Hidden/Engines/Interstage/
+  Radial, `KSA/VehicleEditor.cs:6151+`) and are *not* declared in `Content/Core/PartGameData.xml`, so
+  they are dormant statics. If a future build starts registering them, V7 validation would reject
+  bundles using them until `BuiltInEditorTags` is extended.
+
+- `PartModelModule.Template`/`PartModelGlassModule.Template` gained `[DefaultValue]` attributes
+  (5117). These affect only what the game's serializer **writes**, not what it reads, and space-tape
+  emits its own XML — no impact.
+
+---
 
 ### Update-risk findings (4750 → 5018)
 
@@ -145,9 +201,11 @@ not 4680→4750 regressions). #3: 4680 had `PushoffForce`+`LatchingImpulse` (flo
   `ToSurface`/`FromSurface` flags (`PartXmlSerializer.cs:38-39`, `GameDataXmlSerializer.cs:77-78`). The
   flag enum is intact (`Part.Connector.Flag`), but face-snap behavior, the approved face-snap target list,
   and `NoFaceSnapping` tags changed — connectors authored by the mod may snap differently than before.
-- **R5 (med) — private-name reflection** (`"AllParts"`, `"GetList"`, `Part._matrixAsmb`,
-  `Part._matrixAsmb2Parent`): no compiler protection; a rename in any future build silently disables
-  catalogs/thumbnails or the matrix-cache safety. All present in 4750 today.
+- **R5 (med) — private-name reflection** (`"AllParts"`, `"GetList"`): no compiler protection; a rename
+  in any future build silently disables catalogs/thumbnails. Both present in 5117.
+  `Part._matrixAsmb`/`_matrixAsmb2Parent` **are no longer reflected** — 5117 retired that pair in
+  favour of the public `Part.ResetCachedPosMatrixValues()` (row 5), removing this risk class from the
+  transform path entirely.
 - **R6 (low) — thumbnail framing:** fixing break #4 with `out _` discards the bounding center; off-origin
   SubParts will be slightly mis-framed vs the game's own thumbnail path.
 
@@ -448,7 +506,10 @@ like every other game DLL reference in the repo.
 5. `ThumbnailReference.GetOrCreateImGuiTexture(VkSampler)` + `ThumbnailPart.ComputeBoundingSphereRadius(out float3)` (space-tape thumbnails).
 6. `DockingPortTemplate` shape (`PushoffImpulse`/`LatchingKineticEnergy`/`StringReference ConnectorId`) — importer **and** writer.
 7. `BatteryTemplate.MaximumCapacity:EnergyReference` / `Generator.Produced` & `PowerConsumer.Consumed`:`PowerReference` (double).
-8. Reflection names: `ModLibrary.AllParts`, `SerializedCollection.GetList`, `Part._matrixAsmb`, `Part._matrixAsmb2Parent`, `PartTree.RecomputeStaticMass`.
+8. Reflection names: `ModLibrary.AllParts`, `SerializedCollection.GetList`, `PartTree.RecomputeStaticMass`. (`Part._matrixAsmb`/`_matrixAsmb2Parent` retired at 5117 — now the public `Part.ResetCachedPosMatrixValues()`.)
+8b. `Part.ResetCachedPosMatrixValues()` still public and still resets **every** transform cache — space-tape's only invalidation path.
+8c. `Double3Ex.One`/`Zero`/`NaN` still present (the six direction vectors are gone as of 5067; space-tape uses `MeowSci.KsaAbstractions.Directions`).
+8d. `EVADoorTemplate.SeatId` — whether space-tape's `<EVADoor>` writer has caught up (open as of 5117).
 9. `Part.Asmb2ParentAsmb`/`PositionParentAsmb`/`BoundingBoxVehicleAsmb`/`TreeChildren`/`SubParts` + `Vehicle.UpdateAfterPartTreeModification` (flexo runtime).
 10. `OrbitLinePass.AddLineVertex/AddLineEnd` + `GenericGizmo` ctor/`PerSegmentData`/`Static.GenericGizmoRenderData` (both grids/gizmos).
 

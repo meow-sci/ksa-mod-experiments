@@ -18,6 +18,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
+- `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. Used by space-tape.lib
 
 ---
 
