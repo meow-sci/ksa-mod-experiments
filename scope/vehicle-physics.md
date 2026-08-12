@@ -175,9 +175,47 @@ reload. TOML via `Tomlyn`.
 | 26 | Direct typed API (UI color) | `garrys-torch.lib/GarrysTorchSubmod.cs:333-334` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey` — `static Color.Preset` | `KSA/KSAColor.cs:1561`,`837` | Yes | Same (cosmetic; no changelog color changes) | Unweld-button styling only; failure is visual, not functional. |
 | 27 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `GarrysTorchSubmod.cs:158,527`) | `Universe.CurrentSystem` / `CelestialSystem.All` / `LookupCollection.UnsafeAsList` / `Vehicle.Id` | `KSA/Universe.cs:92` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
 | 28 | Harmony + Reflection | `garrys-torch/Patcher.cs:16` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:2379` | Yes | Same | Shared guard. The **only** Harmony patch this mod registers. |
-| 29 | Lifecycle | `garrys-torch/Mod.cs:19-80` | StarMap attrs (full set); weld physics in `OnAfterUi` after `VehicleSolvers.Wait()` | (StarMap.API package) | Yes | Same | — |
+| 29 | Lifecycle | `garrys-torch/Mod.cs:19-80` | StarMap attrs (full set); weld physics in `OnAfterUi` after `JobSystems.VehicleSolver.Wait()` | (StarMap.API package) | Yes | **Renamed @5261** (was `VehicleSolvers`) | See *Update-risk findings (5117 → 5261)* |
 
 **Game assets referenced** — None (TOML preset file is mod-authored under `.unscience/`, not a game asset).
+
+**Update-risk findings (5117 → 5261)**
+
+- **CONFIRMED COMPILE BREAK (revs 5208–5216, vehicle-threading rewrite):**
+  `garrys-torch.lib/GarrysTorchSubmod.cs:93` — `KSA.JobSystems.VehicleSolvers.Wait()` → **CS0117**.
+  The rework replaced the single multi-runner scheduler with two objects:
+
+  | OLD (≤5168) | NEW (5261) |
+  |---|---|
+  | `VehicleSolvers` — `JobScheduler(0.75×count)`, priority Highest | `VehicleSolver` — `JobScheduler(1)` orchestrator |
+  | — | `VehicleWorkerPool` — `DynamicWorkerPool(count−1)` parallel physics-bubble islands |
+
+  → Fixed to `JobSystems.VehicleSolver.Wait()`. **Waiting on the orchestrator alone is the complete
+  drain**, which matters because this call is correctness-critical (it prevents `Collection was
+  modified` inside `VehicleUpdateTask` and `SnapToLeader body/origin time mismatch`):
+  `DynamicWorkerPool` exposes **no `Wait()`** and is only ever driven through scoped
+  `ParallelBatch()` fork/join blocks inside `VehicleUpdateTask`/`PhysicsBubble`/
+  `Universe.ApplyVehicleSolvers`, so all pool work is joined before the queued `_vehicleUpdateTask`
+  completes. **The game itself drains identically** — `Universe.DeserializeSave` calls
+  `JobSystems.VehicleSolver.Wait()`. Reasoning is recorded at the call site.
+
+- **CONFIRMED COMPILE BREAK (rev 5211, `SimTime` → `UniverseTime`):**
+  `garrys-torch.lib/WeldEngine.cs:119` — the local `SimTime tickEndTime =
+  Universe.GetJobSimStep(...).NextTime` → **CS0246**. `SimTime` became `UniverseTime` (backed by
+  `Int128` nanoseconds instead of double seconds); `SimStep.NextTime` followed the rename.
+  → Fixed to `UniverseTime`. No arithmetic changed — the value is still passed straight into
+  `Orbit.CreateFromStateCci`, and `.Seconds()` still returns a `double` on the new type.
+
+- ⚠️ **Needs a live pass.** Both fixes are signature-correct and the drain is provably complete, but
+  the *parallelism model* underneath changed (per-vehicle parallel batch jobs, object-pooled
+  `PhysicsBubble`/`ConstraintSim`, rev 5237's stale-resource-handle crash fix). garrys-torch mutates
+  vehicle state from outside the solver, so the error spam recorded in
+  [`../ISSUES.md`](../ISSUES.md) must be re-checked in game.
+
+- `Vehicle.Teleport(Orbit?, doubleQuat?, double3?)` is **signature-identical** (line shift only), as
+  is `Universe.GetJobSimStep(double)`. `KittenEva` gained ladder/jump/control-mode members but lost
+  none, so the `_renderable` → `_characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale`
+  reflection chain still resolves.
 
 **Update-risk findings (4680 -> 4750)**
 

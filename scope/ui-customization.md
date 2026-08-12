@@ -162,6 +162,49 @@ they survive sessions. No game assets.
 
 **Game assets referenced** — None.
 
+**Update-risk findings (5117 → 5261)**
+
+- ✅ **All seven reflected fields still resolve**, still declared on `GaugeCanvas` itself, so
+  `GaugeStateAccessor.IsValid` stays true and `_canvases` remains a working canary.
+  `GaugeCanvas.OnDrawMenuBar()` is signature-identical (marque's patch target).
+- ⚠️ **BEHAVIORAL BREAK — `_enabled` is no longer sufficient to show a gauge (rev 5201).**
+  The commit added *"a per-canvas gauge visibility context system. A canvas with one or more flags
+  only draws when every flag is true for the currently controlled vehicle."* `GaugeCanvas` gained:
+  - `[XmlElement("VisibleInContext")] public List<GaugeVisibilityFlag> VisibleInContext`
+  - `public bool IsContextVisible()` — returns true only if **every** flag matches; the flags are
+    `Burn` (`BurnPlan.HasActiveBurns`), `Engines`, `EVA` (`controlledVehicle is KittenEva`),
+    `Vehicle` (**not** a `KittenEva`), `Sequence`, `Target`, `IVA` (`GetCameraMode() == IVA`),
+    `Thrusters`, `Atmosphere`
+  - `public static void ApplyContextOverrides()` — reads
+    `GameSettings.Current.GaugeContextOverrides` and **overwrites** each canvas's `VisibleInContext`
+
+  and the draw gate became:
+  ```csharp
+  if (!_enabled || !IsContextVisible() || (this == Program.CrewPortraitsCanvas && !CrewPortraitPanel.HasOccupants))
+  ```
+  con-man writes `_enabled` (`GaugeStateAccessor.cs:68`) and reads it (`:63`). Both still work, but
+  **the game can now veto the result**: a canvas carrying context flags stays hidden regardless of
+  what con-man sets, and the stock assignments are non-empty out of the box (BurnControl→`Burn`,
+  EngineControl→`Engines`, RendezvousControl→`Target`, KittenFlightControl→`EVA`,
+  AutopilotSettings→`Vehicle`, Sequence→`Sequence`).
+
+  There is also now a **second source of truth** con-man does not know about:
+  `GameSettings.Current.GaugeContextOverrides` is persisted to `settings.toml` and re-applied by
+  `ApplyContextOverrides()`, and the game ships a stock **"Context Assignments"** HUD window that
+  edits it. Likely user-visible symptom: **enabling a gauge in con-man appears to do nothing.**
+
+  **Open — not fixed.** Candidate approaches: have con-man read/clear `VisibleInContext` alongside
+  `_enabled`, or surface the context flags in con-man's own UI. Needs a decision on how con-man
+  should coexist with the stock system rather than fight it. **Needs a live pass either way.**
+- ⚠️ **New canvases this span** — EVA Control (rev 5179), Crew Portraits (5193/5194/5232), Resources
+  (5229/5231/5234/5246/5247). con-man enumerates `_canvases` dynamically so it will see them, but
+  saved layouts predate them, and Crew Portraits carries the extra `HasOccupants` gate above.
+  Rev 5228 also fixed gauge overlay content rendering one frame behind while dragging.
+- ✅ **kitchen-sink** — `PartTree.ReinitializeDerivedValues()` and the `PartModel` ctor /
+  `PartModel.AddInstance` IvaForceRender targets are signature-identical.
+- ✅ **skittles** — builds clean with `TreatWarningsAsErrors` and 0 warnings, so no `ImGui.GetStyle()`
+  surface churn landed in the Brutal bump this span.
+
 **Update-risk findings (4750 -> 5018)**
 
 - ✅ **All seven reflected fields still resolve** — and critically, all seven are still declared

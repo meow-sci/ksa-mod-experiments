@@ -13,20 +13,21 @@ decompiled-source path for each so the dependency can be re-checked against any 
 
 ## Version baseline
 
-- **Cataloged against:** KSA build **`2026.8.3.5117`** (2026-08-01) — decomp at
+- **Cataloged against:** KSA build **`2026.8.19.5261`** (2026-08-11) — decomp at
   `…/ksa-game-assemblies/current/decomp`, assets at `…/ksa-game-assemblies/current/Content`.
   Confirmed identical to the live install (`C:\Program Files\Kitten Space Agency\KSA.dll`), so
   `dotnet build` compiled against this build.
-- **Diffed from:** KSA build **`2026.7.9.5018`** — the previously verified baseline, recovered from
-  git tag `2026.7.9.5018` in the `ksa-game-assemblies` repo. The intermediate build `2026.7.10.5056`
-  was not separately verified, so the honest span is **5018 → 5117**.
-- ✅ **The changelog is complete for this span** — unlike 4750→5018. The two `version.json` files on
-  disk cover revs **5019–5056** (`ksa-game-assemblies_prev`) and **5057–5117** (`ksa-game-assemblies`)
-  contiguously from the 5018 baseline, so no revision went unreviewed.
+- **Diffed from:** KSA build **`2026.8.3.5117`** — the previously verified baseline. The intermediate
+  build `2026.8.5.5168` is on disk as `ksa-game-assemblies_prev` and was used for OLD/NEW diffing,
+  but **was never itself validated**, so the honest span is **5117 → 5261** (~140 revisions).
+  Two compile breaks found this pass in fact originate in the unvalidated **5118–5168** window.
+- ✅ **The changelog is complete for this span.** `5117` == `_prev`'s `fromRevision`, so the two
+  `version.json` files cover revs **5118–5168** (`ksa-game-assemblies_prev`) and **5169–5258**
+  (`ksa-game-assemblies`) contiguously from the 5117 baseline — no revision went unreviewed.
 - **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx` against the live
-  `5117` DLLs for *typed* breaks — **all 55 projects, 0 warnings, 0 errors**; (2) re-grep of the
-  **entire** string-reflection watchlist plus a signature diff of **every** Harmony patch target
-  across both git-tagged trees, for the silent breaks the compiler can't see; (3) byte-layout diff of
+  `5261` DLLs for *typed* breaks — **all 55 projects, 0 warnings, 0 errors** after fixes; (2) re-grep
+  of the **entire** string-reflection watchlist plus a signature diff of **every** Harmony patch
+  target across both trees, for the silent breaks the compiler can't see; (3) byte-layout diff of
   `PerInstanceData`/`MaterialData` and a content diff of every referenced GLSL/asset, including
   humble-arteest's anchor strings; (4) both `version.json` changelogs for behavioral changes that
   move no symbol.
@@ -59,7 +60,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
    compiles. Includes verifying `PerInstanceData.StateBitFlag` bits 11..31 are still unused by the
    game. See [`game-integration-surface.md`](game-integration-surface.md) → *Shaders & assets*.
 5. **Record deltas + update these docs**, then capture the fix work in a `plans/` document (see the
-   current one: [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md)).
+   current one: [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md)).
 
 ---
 
@@ -90,9 +91,9 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 |---|---|---|
 | [`game-integration-surface.md`](game-integration-surface.md) | **Master cross-reference index** — every game type/member touched, merged across mods | Start here for "does the game still have X?"; includes the string-reflection watchlist + shader/asset table |
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
-| [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch compile break** |
+| [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
 | [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
-| [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; **camera `___Transform` injector latent bug** |
+| [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; the `___Transform` injector bug is **fixed** (prefix now reads `__instance.Camera`) |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
@@ -109,78 +110,83 @@ stampy live in the repo but are **not** loaded by the supermod.)
 
 ---
 
-## Current status against `5117` (summary)
+## Current status against `5261` (summary)
 
 Full detail lives in [`game-integration-surface.md`](game-integration-surface.md) §6; the remediation
-record is in [`../plans/FIX_CURRENT_GAPS_PLAN.md`](../plans/FIX_CURRENT_GAPS_PLAN.md). The 5018→5117
-span is moderate (223 decomp files, ~11.7k inserted lines; 103 Content files) and dominated by a
-**crew/roster system** (KittenRoster, IVASeat, EVADoor↔seat linking), a **burn/orbit UX rework**,
-**launch pads**, **vehicle structural destruction**, and **cloud shadows on vessels**. Blast radius on
-unscience: **two compile breaks, one silent break, and five behavioral watch items.**
+record is in [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md). The 5117→5261 span is
+large (420 decomp files, ~16.7k inserted lines) and dominated by a **vehicle-threading rewrite**
+(`DynamicWorkerPool`/`ParallelBatch`/`PhysicsBubble` islands), the **`SimTime` → `UniverseTime`**
+128-bit-nanosecond migration, an **EVA/kitten overhaul** (control modes, ladders, jump/tumble anims),
+a **gauge/HUD context system**, and continued **render-pass modernization**. Blast radius on
+unscience: **five compile breaks across four projects, one confirmed behavioral break, and a broad
+set of watch items.**
 
-**Build-blocking (both FIXED — `dotnet build ksa-mod-experiments.slnx` is green, 0 warnings/0 errors):**
-- **space-tape.lib** — `Double3Ex.{Up,Down,Left,Right,Forward,Backward}` removed (rev 5067: *"they
-  were misleading and often misused"*). 15 CS0117. The six constants now live in
-  **`ksa-abstractions.lib/Directions.cs`** with identical values, so behavior is unchanged. The game's
-  own migration went to new `Camera.{ForwardView,RightView,UpView}` and renamed
-  `Camera.GetForward/GetRight/GetUp` → `Get*Ecl` — **no mod calls the renamed accessors.**
-- **average-twr.lib** — `FlightComputer.VehicleConfigInfo.TotalEngineVacuumThrust` removed with the
-  whole vacuum-referenced family (rev 5114). Now reads
-  `Vehicle.ComputeActiveThrust(FlightComputer.AmbientPressure)`, the same call the game's navball TWR
-  uses. **Behavior change:** TWR/accel are now ambient-corrected and propellant-aware.
+> ⚠ **Two of the five compile breaks did not originate in this build.** They landed in the
+> **5118–5168** window, which was never validated (no upgrade pass ran for `2026.8.5.5168`). Treat
+> `_prev` as a diff aid, not as a verified baseline.
 
-**Silent break (compile-clean, was actively corrupting — FIXED):**
-- **space-tape.lib** — rev 5112 changed `Part`'s uncached-matrix sentinel from `double4x4.Identity`
-  to an all-NaN `UncachedMatrix` (and added three more cached fields). space-tape wrote `Identity`
-  into `_matrixAsmb`/`_matrixAsmb2Parent` **to invalidate** them; on 5117 that instead asserts a
-  cached identity transform, collapsing the part transform with no build error. All three sites now
-  call the public **`Part.ResetCachedPosMatrixValues()`** and the reflection is retired — a watchlist
-  entry removed outright. flexo's similar `HingeController` path was never exposed (it touches
-  property setters, which invalidate correctly).
+**Build-blocking (all FIXED — `dotnet build ksa-mod-experiments.slnx` is green, 0 warnings/0 errors):**
+- **ksa-abstractions.lib / doh.lib / garrys-torch.lib** — rev 5211 replaced `SimTime` with
+  **`UniverseTime`** (`Int128` nanoseconds) and renamed `Universe.GetElapsedSimTime()` →
+  `GetElapsedTime()`. `.Seconds()` survives on the new type and every consumer either calls it or
+  passes the value into `Orbit.CreateFromStateCci`, so **no arithmetic or precision handling changed**.
+- **garrys-torch.lib** — revs 5208–5216 split `JobSystems.VehicleSolvers` into the single-runner
+  orchestrator **`VehicleSolver`** plus the **`VehicleWorkerPool`** (`DynamicWorkerPool`). The mod's
+  correctness-critical drain is now `VehicleSolver.Wait()`: the pool has no `Wait()` and is only
+  driven through scoped `ParallelBatch()` fork/join, so all pool work joins before the queued
+  `_vehicleUpdateTask` completes — **the game drains the same way in `Universe.DeserializeSave`**.
+- **parts-now.lib** *(pre-existing, 5118–5168)* — `ImageBarrierInfo.Presets.SampledReadFragment` →
+  **`SampledReadF`** (an abbreviation sweep: `…Vertex`→`…V`, `…Fragment`→`…F`, `…Compute`→`…C`).
+  Same layout/access/stage; a pure rename.
+- **thug-life.lib** *(pre-existing, 5118–5168)* — **`Program.OffScreenPass` removed.** Not a rename:
+  the game **migrated the main scene pass to dynamic rendering.** The offscreen target is now
+  `Program.OffscreenTarget` (`RenderTarget : IRenderPassInfo`), which has no `.Pass`/`.SampleCount`;
+  pass compatibility comes from `SetupGraphicsPipeline(ref info)`, which chains a
+  `VkPipelineRenderingCreateInfo` onto `pNext`, nulls `RenderPass` and fills `MultisampleState`.
+  thug-life now mirrors the game's own main-pass pipelines.
 
-**Behavioral watch items (compile-clean, need a live pass):**
-- **space-tape `<EVADoor>` writer** — `EVADoorTemplate.SeatId` is new (rev 5085) and is what links a
-  door to an `IVASeat`; the EVA button now only shows when that seat is occupied. space-tape emits no
-  `SeatId`, so authored EVA doors will be **inert**. **Open — not fixed** (needs a UI decision on how
-  the user picks a seat id). Its existing `ConnectorId` attribute was never a real
-  `EVADoorTemplate` member — pre-existing no-op.
-- **doh `KittenSpawner`** — replicates the old `CreateKittenEva()` flow; the game now sources kittens
-  from `Universe.KittenRoster` via the aligned `IVASeat`, and vehicle disposal finalizes kitten
-  mission stats. Ctor unchanged so doh still runs, but spawns **roster-less** kittens.
-- **con-man** — `GaugeCanvas.PlaceBesideActiveBurnGizmo()` (revs 5092/5113) **writes `_customOffset`**,
-  the exact private field con-man owns; the game can now overwrite saved layout offsets.
-- **garrys-torch / kiwis-marbles** — rev 5115 added vehicle destruction on structural g-limit and
-  dynamic-pressure limit. Torch teleports every frame; marbles rewrites orbits.
-- **parts-now** — `EditorTag` gained `Booster`/`Coupling`/`Cargo`; `BuiltInEditorTags` still lists six.
-  Harmless today (none are registered in `VehicleEditor._editorTagLookup` or `PartGameData.xml`).
+**Behavioral break (compile-clean, code change likely required):**
+- **con-man** — rev 5201 added a per-canvas visibility context system. The draw gate is now
+  `!_enabled || !IsContextVisible() || (CrewPortraits && !HasOccupants)`, so **setting `_enabled` is
+  no longer sufficient to show a gauge**; canvases with `VisibleInContext` flags stay hidden unless
+  every flag matches the controlled vehicle. `GameSettings.Current.GaugeContextOverrides` is a second
+  source of truth con-man doesn't know about. **Open — needs a decision on coexistence.**
+- **blinky** *(pre-existing, predates 5117)* — its default `EnginePartId`
+  `"CorePropulsionA_Prefab_EngineA1"` was removed from Content between 5018 and 5117; only
+  `EngineA2…A6` exist. `ModLibrary.Get` throws — a concrete candidate explanation for the
+  "blinky broken" entry in [`../ISSUES.md`](../ISSUES.md). **Recommend defaulting to `EngineA2`.**
 
-**Verified clean against 5117:**
-- **All 33 Harmony patch-target signatures byte-identical**, including every shared chokepoint:
-  `GameSettings.OnKeyAll` (HotkeyGuard → every mod), `Universe.ExecuteNextVehicleSolvers` (still one
-  overload), `Program.DrawProgramMenusHook`, the three `*Module.UpdateRenderData`,
-  `PartModel(.Dynamic).AddInstance`, `SuperMeshRenderSystem.RenderMainPass`, `ShaderModuleUtils.FromFile`.
-- **The entire string-reflection watchlist resolves** — all 7 `GaugeCanvas` fields, `Camera._fovRadians`,
-  the KittenEva→`CharacterCore.Scale` chain, `LightModule+TemplateData.ColorRgb`, all six parts-now
-  `ModLibrary.All*` registries, `SerializedCollection<T>._collection`, `VehicleEditor._editorTagLookup`.
-  (`ModLibrary.cs`'s diff is **only** log line-number churn.)
-- 🔶 **Both standing invariants HOLD:** `PerInstanceData.StateBitFlag` bits 11..31 are still unused by
-  the game (it uses ≤ bit 6), and `[StarMapAllModsLoaded]` still fires before `ModLibrary.Bind()`
-  (`LoadAll` `Program.cs:965` < `Bind` `:994`).
-- **humble-arteest's GLSL anchors survive** — `MeshIndirect(.Raytraced).frag` changed for rev-5100
-  cloud shadows, but only inside `getLightColor()`; `vec3 sampledColor` and the `inStateFlags` varying
-  are intact and `GetCloudShadow` resolves via the passed-through include callback.
-- **thug-life** — `UnlitMesh*` shaders and both shader ids unchanged; the MSAA/alpha-to-coverage work
-  (revs 5057/5058) is absorbed because the mod reads `Program.OffScreenPass.SampleCount` dynamically.
-- `MaterialData`, `GpuMaterialSystem`, `PartModel(.Dynamic)`, `CharacterAvatar`, `CatExpressionAnim`,
-  `LightModule`, `GenericGizmo`, `OrbitLinePass`, `Controller`, `KeyframeAnimationModule`,
-  `DeviceMeshInterleaved`, `Situation`, `KinematicMeasurements`, `KSAColor` — **byte-identical**.
-- Assets removed in revs 5077/5096 (`IconSymmetry*`, `Icon*Gizmo`, `PlanetMeshVertexDataComp`) are
-  referenced by **no** mod.
+**Verified clean against 5261:**
+- **The entire string-reflection watchlist resolves** — all 7 `GaugeCanvas` fields (still on
+  `GaugeCanvas` itself), `Camera._fovRadians`, the KittenEva→`CharacterCore.Scale` chain,
+  `CatExpressionAnim._expressionPose`, `"KSA.LightModule+TemplateData"`, the doh/humble-arteest render
+  bridge, `ShaderReference.*` + `ShaderModuleUtils.FromFile`, all seven `ModLibrary.All*` registries,
+  `SerializedCollection<T>._collection`, `VehicleEditor._editorTagLookup`,
+  `Part.ResetCachedPosMatrixValues`, `PartTree.RecomputeStaticMass`, `GameSettings.OnKeyAll`.
+- **Every Harmony patch-target signature unchanged** (line shifts only), including
+  `Universe.ExecuteNextVehicleSolvers(double, SimStep)` — still one overload — plus
+  `SuperMeshRenderSystem.RenderMainPass`, `PartModel.AddInstance`, the three `*Module.UpdateRenderData`,
+  `Vehicle.Teleport`/`RefillConsumables`, `GaugeCanvas.OnDrawMenuBar`, `Program.DrawMenuBar`.
+- **GPU byte layouts identical** — `PerInstanceData` and `MaterialData`, so doh's `handle*80+16`
+  writes and humble-arteest's padding-byte hijack are safe.
+- **Shaders** — `UnlitMesh.vert/.frag` and `MeshIndirect.vert` **identical**. `MeshIndirect.frag`
+  changed by exactly one line (rev 5196 portrait lights); humble-arteest's `vec3 sampledColor` anchor,
+  its `inStateFlags` guard and the `ENABLE_TEMPERATURE` LUT all survive — **Engine Emissive unaffected**.
+- **Suite load path intact** — `Program.OnDrawUiFrame` / `OnDrawUiViewports` / `OnFrame` /
+  `DrawProgramMenusHook` all still present, so StarMap keeps its seams.
+- **`KittenEva` changes are purely additive** (ladders, jump/tumble, `KittenControlMode`).
+- **Numerics untouched** — rev 5242's row-major quaternion/mat3 fix changed **no `Brutal.Numerics`
+  file**, so the frames garrys-torch, kiwis-marbles, thug-life and camera-controller-override rely on
+  are unchanged.
 
-**Still genuinely broken, pre-existing, NOT caused by this update:**
-- **mesh-deform** (standalone, not bundled) — dead by design change since rev 4693; self-detects and
-  disables. `MeshIndirect.vert` is byte-identical 5018→5117, so its probe is still correct.
+**Known-broken reconciliation:**
+- **camera-controller-override `___Transform`** — ✅ **now FIXED in the repo**; the prefix reads
+  `__instance.Camera`. Earlier scope/ text describing it as broken was stale.
+- **zippo `GetField("Color")`** — ❌ still broken (real field is `ColorRgb`); unchanged by this build.
+- **humble-arteest Vehicle Paint / mesh-deform** — ❌ still dead by design since rev 4693; both
+  self-disable. Anchors still resolve.
 
-**Not cleared statically — a live in-game pass is still required** for the five behavioral items
-above plus render correctness for thug-life's quad, humble-arteest's paint/emissive, blinky /
-its-so-shiny grids, and space-tape / flexo gizmos. A green `dotnet build` does not cover these.
+**Not cleared statically — a live in-game pass is still required** for thug-life's rebuilt pipeline,
+garrys-torch's drain under the new parallel model, con-man's gauge gating, blinky after a default-part
+change, doh's fur (rev 5230), and kitten-animations against the new anim states. A green
+`dotnet build` does not cover these, and there is no test suite in this repo.

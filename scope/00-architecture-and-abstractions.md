@@ -150,8 +150,26 @@ Update-risk findings (4680→4750): **No breaking deltas detected.**
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
-| 1 | Direct API (method) | `SimTimeProvider.cs:9` | `Universe.GetElapsedSimTime()` — `public static SimTime GetElapsedSimTime()` | `KSA/Universe.cs:1991` | Yes | None (OLD `:1440`) | |
-| 2 | Direct API (type) | `:9` | `SimTime` — `public readonly struct SimTime(double seconds) : IEquatable<SimTime>` | `KSA/SimTime.cs:6` | Yes | None | |
+| 1 | Direct API (method) | `SimTimeProvider.cs:9` | `Universe.GetElapsedTime()` — `public static UniverseTime GetElapsedTime()` | `KSA/Universe.cs:2124` | Yes | **RENAMED @5261** (was `GetElapsedSimTime()`) | rev 5211 |
+| 2 | Direct API (type) | `:9` | `UniverseTime` — `public readonly struct UniverseTime : IEquatable<UniverseTime>`, backed by `Int128` nanoseconds | `KSA/UniverseTime.cs:6` | Yes | **RENAMED + RETYPED @5261** (was `SimTime`, double seconds, `KSA/SimTime.cs`) | rev 5211 |
+| 3 | Direct API (method) | consumers | `UniverseTime.Seconds()` — `public double Seconds()` | `KSA/UniverseTime.cs:95` | Yes | None | **The compatibility hinge** — still returns `double`, so no caller arithmetic changed |
+
+Update-risk findings (5117 → 5261):
+
+- **CONFIRMED COMPILE BREAK (rev 5211):** *"Replaced SimTime with UniverseTime, backed by 128-bit
+  nanoseconds. This is a prelude to creating 64-bit nanosecond integer BubbleTime within physics
+  steps…"* → **CS0246** at `SimTimeProvider.cs:9`. Because this is the suite's single game-facing
+  time seam, the failure blocked **all 55 projects** — the rest of the solution's errors were hidden
+  behind it until this one was fixed.
+- **Fix is type-only.** `.Seconds()` survives on the new struct and every consumer either calls it
+  (`geeforce.lib/GeeForceSubmod.cs:34`, `steely-eyed-missile-kitten.lib/Monitoring/MonitoringLoop.cs:45`,
+  `steely-eyed-missile-kitten/Mod.cs:158`) or passes the value straight into
+  `Orbit.CreateFromStateCci` (`kiwis-marbles.lib/CelestialWeldEngine.cs:33`). **No precision or
+  arithmetic handling needed changing**, despite the double→`Int128` backing swap.
+- **The wrapper keeps the name `SimTimeProvider`.** Renaming the class to match the game would churn
+  four call sites across three mods for no functional gain; noted as an optional follow-up, not done.
+  This is exactly the blast-radius concentration this library exists for — one game rename cost
+  **one line** here plus two incidental direct callers (`doh.lib`, `garrys-torch.lib`) that bypass it.
 
 Update-risk findings (4680→4750): **No breaking deltas detected.**
 
@@ -313,6 +331,27 @@ Persistence only; no KSA game internals beyond `KsaPaths` + the ImGui ini API.
 
 Update-risk findings (4680→4750): **No breaking deltas detected.** Only game-adjacent surface is
 the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
+
+---
+
+## Area summary — Update-risk findings (5117 → 5261)
+
+- **One breaking delta in `ksa-abstractions.lib`:** `SimTimeProvider` (rev 5211 `SimTime` →
+  `UniverseTime`) — see that helper's section above. It blocked the whole solution because every
+  project depends on this library; fixing it revealed the remaining four compile breaks.
+- **Every other patch target is byte-identical** (line shifts only): `GameSettings.OnKeyAll`
+  (HotkeyGuard → **every** top-level mod), `Program.DrawProgramMenusHook()` (MenuBarPatch),
+  `Program.DrawMenuBar(Viewport,int)`, `Universe.ExecuteNextVehicleSolvers(double, SimStep)` (still a
+  single overload — important, since it is resolved with no param array),
+  `PartModel..ctor(PartModelModule.Template)` + `PartModel.AddInstance` (IvaForceRender).
+- **StarMap seams intact:** `Program.OnDrawUiFrame`, `OnDrawUiViewports`, `OnFrame` and
+  `DrawProgramMenusHook` all still present, so the suite's load path is unaffected. The
+  `[StarMapAllModsLoaded]`-before-`ModLibrary.Bind()` invariant was not re-derived this pass.
+- **Brutal packages:** solution builds clean with `TreatWarningsAsErrors` and **0 warnings** against
+  the 5261 DLLs, so no nullability/signature shift landed in the ImGui surface actually used
+  (contrast the rev-4729 bump, which cost `garrys-torch.lib` a CS8604 — now gone).
+- ⚠️ **Note for the next pass:** `ksa-game-assemblies_prev` (`2026.8.5.5168`) was **never validated**.
+  Two of this pass's five compile breaks originated in that window. Treat `_prev` as a diff aid only.
 
 ---
 

@@ -122,16 +122,9 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
             .AddAttribute(1, 0, VkFormat.R32G32SFloat, ByteSize.Of<float3>())
             .Check();
 
-        var multisample = new VkPipelineMultisampleStateCreateInfo
-        {
-            RasterizationSamples = Program.OffScreenPass.SampleCount,
-        };
-
         var info = new VkGraphicsPipelineCreateInfo
         {
             Layout = layout,
-            RenderPass = Program.OffScreenPass.Pass,
-            Subpass = 0,
             StageCount = stages.Count,
             Stages = stages,
             DynamicState = renderer.DynamicStateInfo,
@@ -141,8 +134,23 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
             RasterizationState = Presets.Rasterization.Fill.CullNone,
             DepthStencilState = RenderingPresets.ReverseZDepthStencil.DepthTestWrite,
             ColorBlendState = Presets.BlendState.BlendColorAlpha,
-            MultisampleState = &multisample,
         };
+
+        // KSA 2026.8.19.5261 migrated the main scene pass from classic Vulkan render
+        // passes to dynamic rendering. Program.OffScreenPass (RenderPassState, with
+        // .Pass/.SampleCount) no longer exists; the offscreen target is now
+        // Program.OffscreenTarget (RenderTarget : IRenderPassInfo), and pass
+        // compatibility is established by SetupGraphicsPipeline, which chains a
+        // VkPipelineRenderingCreateInfo describing the colour/depth formats onto
+        // pNext, sets RenderPass to VK_NULL_HANDLE, and fills in MultisampleState
+        // with the target's sample count. So RenderPass/Subpass/MultisampleState must
+        // NOT be set by hand here — this call supplies all three. Must stay
+        // immediately before CreateGraphicsPipeline: the structures it points pNext
+        // at are owned and overwritten by the RenderTarget on each call.
+        // This mirrors the game's own main-pass pipelines (GenericMeshRenderer,
+        // PartModelRenderer, PartModelGlass).
+        Program.OffscreenTarget.SetupGraphicsPipeline(ref info);
+
         return device.CreateGraphicsPipeline(default(VkPipelineCache), info, null);
     }
 

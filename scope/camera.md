@@ -81,6 +81,23 @@ visibility/header state, not animation data.
 
 **Game assets referenced** — None. The mod only manipulates camera transforms via math (`Brutal.Numerics`); it loads no textures, models, shaders, or `Content/` files.
 
+**Update-risk findings (5117 → 5261)**
+
+- ✅ **No breaking deltas.** `RenderCore.Input.Controllers/Controller.cs` is **byte-identical** between
+  OLD (5168) and NEW (5261), including the public `Camera` field the prefix reads.
+  `OrbitController.OnFrame` and `FlyController.OnFrame` both still resolve by string.
+- ✅ **glass** — `Camera._fovRadians` (the single most important glass check), `ChangeFieldOfView` and
+  `UpdateProjection` all still resolve on `KSA/Camera.cs`.
+- ✅ The `___Transform` field injector is **retired**, so the historic `Apply`-time throw (which used
+  to abort the rest of the supermod's patch chain) cannot recur. The master index's §4/§6 entries
+  still described it as broken; corrected this pass to match what `camera-controller-override.lib`
+  actually does.
+- ⚠️ **Camera behavioral watch items (compile-clean, need a live pass):** docking-camera orientation
+  no longer baked at toggle time (rev 5191), docking camera un-flipped (5222), 0.1 m stand-off from
+  the docking ring + reticle from actual viewport size (5255), portrait-camera FOV (5195) and a
+  temporary side view for kittens on ladders (5245). These change what the camera *does* without
+  moving a symbol glass or camera-controller-override binds to.
+
 **Update-risk findings (4680 -> 4750)**
 
 - **No 4680->4750 deltas in any resolvable target.** `OrbitController.OnFrame`, `FlyController.OnFrame`,

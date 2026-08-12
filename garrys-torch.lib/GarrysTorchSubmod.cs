@@ -90,7 +90,17 @@ public sealed class GarrysTorchSubmod : ISubmod
 
         // Drain in-flight vehicle solver workers before touching vehicle state.
         // Cheap when nothing is running (just polls runner state).
-        KSA.JobSystems.VehicleSolvers.Wait();
+        //
+        // KSA 2026.8.19.5261 (revs 5208-5216) split the old multi-runner
+        // JobSystems.VehicleSolvers scheduler into a single-runner orchestrator
+        // (VehicleSolver) plus a DynamicWorkerPool (VehicleWorkerPool) of parallel
+        // physics-bubble islands. Waiting on the orchestrator is still the correct
+        // and complete drain: the pool is only ever driven through scoped
+        // ParallelBatch() fork/join blocks inside VehicleUpdateTask/PhysicsBubble/
+        // ApplyVehicleSolvers, so all pool work is joined before the queued
+        // _vehicleUpdateTask completes. The game itself drains the same way in
+        // Universe.DeserializeSave.
+        KSA.JobSystems.VehicleSolver.Wait();
 
         var toRemove = new List<WeldEntry>();
         foreach (var weld in _welds)

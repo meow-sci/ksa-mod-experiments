@@ -119,6 +119,44 @@ Vehicle/character filterable combos, offset/count, color picker + XKCD combo, pe
 - **Fur texture** `"FurNoise"` reached indirectly via `CharacterRenderResources.FurTexture` (game loads it; mod only reads `.BindlessHandle`).
 - No shader files referenced directly. Tint takes effect through `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`, **identical** both builds).
 
+### Update-risk findings (5117 → 5261)
+
+- **CONFIRMED COMPILE BREAK (rev 5211) — doh.** `doh.lib/Spawning/KittenSpawner.cs:167,257` called
+  `Universe.GetElapsedSimTime()`, renamed to `Universe.GetElapsedTime()` when `SimTime` became
+  `UniverseTime` (`Int128` nanoseconds). Both sites feed the value straight into
+  `Orbit.CreateFromStateCci(parent, <time>, pos, vel, colour)`, whose parameter followed the same
+  rename, so the fix is the method name only — **no precision or arithmetic handling changed**.
+- ✅ **The whole avatar reflection chain still resolves** — `KittenEva` (compared by type-name string),
+  `KittenEva._renderable`, `KittenRenderable._characterAvatar`, `CharacterAvatar.Core` (still a
+  **value-type field**, which garrys-torch's `SetValue` depends on), `CharacterCore.Scale`, and
+  `CatExpressionAnim._expressionPose` (still declared on `CatExpressionAnim` itself, byte-identical
+  OLD↔NEW).
+- ✅ **`KittenEva` changes are purely additive** — rev 5179 added `KittenControlMode` (View/Direct),
+  revs 5203/5233/5249 added ladder grab/board and jump/tumble/landing state. New members only
+  (`LadderHost`, `HasGrabCandidate`, `AnimPlaybackRate`, `AnimJumpChainStage`, `SetControlMode`, …);
+  **nothing doh, garrys-torch or kitten-animations reads was removed.**
+- ✅ **GPU layouts identical** — `MaterialData` is byte-identical, so doh's staged `BigBuffer` writes
+  at `handle*80+16` (`AlbedoColor` at offset 16, stride 80) still land correctly; `PerInstanceData`
+  is byte-identical, so humble-arteest's padding-byte hijack is safe. The render bridge
+  (`Program.MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem`,
+  `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}`, `AssetManager.AssetMap`) all still resolves.
+- ✅ **humble-arteest Engine Emissive unaffected.** `Content/Core/Shaders/Mesh/MeshIndirect.frag`
+  changed by **exactly one line** — rev 5196 added
+  `lightColor += SamplePortraitLight(inWorldPosition, N, sampledColor, metallic);` for IVA portrait
+  lights. The mod's `vec3 sampledColor …;` anchor (line 114) and its `inStateFlags` guard both still
+  match, and the `ENABLE_TEMPERATURE` LUT still lives in that file.
+  `MeshIndirect.vert` is **byte-identical** (mesh-deform's anchor target).
+- ❌ **humble-arteest Vehicle Paint / mesh-deform remain dead by design** (rev 4693
+  `CompileVariantWithCustomOptions` recompiles from disk and ignores `ShaderReference.Shader`). Both
+  self-detect and disable. `ShaderReference.{Shader,DoLoad,ModPath,LocalPath}` and
+  `RenderCore.ShaderModuleUtils.FromFile` all still resolve, so the probes still work.
+- ⚠️ **Behavioral watch items (need a live pass):** rev 5230 *"Fixed Fur not rendering after a bug was
+  introduced when setting up lights for the kitten cam"* — re-check doh's fur/attachment
+  `MaterialIndices` path. Revs 5203/5233/5235/5244/5249 add ladder and jump/tumble anim states, the
+  prime suspect area for the **"kitten animations always the same expression"** entry in
+  [`../ISSUES.md`](../ISSUES.md). Rev 5193 added kitten cameras + portrait UI, and rev 5198 fixed
+  drawn kittens leaking into the editor — both touch doh's spawn/render assumptions.
+
 ### Update-risk findings (4750 → 5018)
 
 - **BREAKING (fixed):** the combustion model was replaced by a reaction model.

@@ -239,7 +239,7 @@ lost on reload. No StarMap save hooks, no disk I/O.
 | 2 | Render asset (shader) | `thug-life.lib/ThugLifeQuadRenderer.cs:114` | `ModLibrary.Get<ShaderReference>("UnlitMeshVert")` | id→path in `Core/DefaultAssets.xml:66`; file `Core/Shaders/Mesh/UnlitMesh.vert` | Yes | None (`:62`→`:66`) | Stock shader; **not** MeshIndirect/Model* — untouched by 4693/4745. |
 | 3 | Render asset (shader) | `thug-life.lib/ThugLifeQuadRenderer.cs:115` | `ModLibrary.Get<ShaderReference>("UnlitMeshFrag")` | id→path in `Core/DefaultAssets.xml:67`; file `Core/Shaders/Mesh/UnlitMesh.frag` | Yes | None (`:63`→`:67`) | Frag hard-writes `alpha=1.0` (cut-out via geometry, per renderer comment). |
 | 4 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:117` | `RenderTechnique.CreateShaderStages(Device, Span<ShaderReference>, Span<VkSpecializationInfo>=default)` | `RenderCore/RenderTechnique.cs:37` | Yes | None (`:36`→`:37`) | `ShaderReference : FileReference, IKeyed` (`KSA/ShaderReference.cs:20`). |
-| 5 | Direct (render-pass) | `thug-life.lib/ThugLifeQuadRenderer.cs:127,133` | `Program.OffScreenPass` (RenderPassState) → `.SampleCount`, `.Pass` | `KSA/Program.cs:375` | Yes | None (`:374`→`:375`) | Matches offscreen MSAA sample count; targets offscreen (not MainPass). 4694 touched offscreen/thumbnail but the property + members are intact. |
+| 5 | Direct (render-pass) | `thug-life.lib/ThugLifeQuadRenderer.cs:139` | `Program.OffscreenTarget.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)` — `RenderTarget : IRenderPassInfo` | `KSA/Program.cs:432`, `KSA.Rendering/RenderTarget.cs` | Yes | **REPLACED @5261** — was `Program.OffScreenPass` (`RenderPassState`) → `.SampleCount`, `.Pass` | Game migrated the main scene pass to **dynamic rendering**; the old property no longer exists. See *Update-risk findings (5117 → 5261)*. |
 | 6 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:140,141,143` | `Presets.InputAssembly.TriangleList`; `Presets.Rasterization.Fill.CullNone`; `Presets.BlendState.BlendColorAlpha` | `RenderCore.Pipelines/SimplePipelineCreator.cs:15` (+ Brutal abstractions) | Yes | None | Pipeline state presets; compile-verified by build. |
 | 7 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:142` | `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` | `RenderCore` (used widely, e.g. `KSA.Rendering.Water.Rendering/OceanRenderer.cs:292`) | Yes | None | Reverse-Z depth test+write. 4730/4733 depth-prepass changes did not alter this preset. |
 | 8 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:137,138`; `:50`,`TextureFactory.cs:30,34,53` | `Renderer.{Device,Allocator,Graphics,DynamicStateInfo,ViewportState}` | `KSA` Renderer / RenderCore | Yes | None | Compile-verified. |
@@ -260,6 +260,50 @@ lost on reload. No StarMap save hooks, no disk I/O.
 
 Texture is generated programmatically (`ThugLifeTexturePattern.cs`, `R8G8B8A8UNorm`) — no
 external texture asset dependency.
+
+**Update-risk findings (5117 → 5261)**
+
+- **CONFIRMED COMPILE BREAK — `Program.OffScreenPass` removed.** `ThugLifeQuadRenderer.cs:127,133`
+  read `Program.OffScreenPass.SampleCount` and `.Pass` → **2× CS0117**.
+
+  **This is an architecture change, not a rename.** KSA migrated the main scene pass from classic
+  Vulkan render passes to **dynamic rendering**. The offscreen target is now
+  `Program.OffscreenTarget` (`RenderTarget : IRenderPassInfo`) — the same object assigned to
+  `PassContext.MainOpaquePass` — and it has **no `.Pass` and no `.SampleCount`** (it exposes
+  `Samples`). `IRenderPassInfo` now declares exactly one member:
+  `SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`, which:
+  - chains a `VkPipelineRenderingCreateInfo` (colour/depth/stencil formats) onto `info.Next`,
+  - sets `info.RenderPass = VkRenderPass.NullHandle`,
+  - overwrites `MultisampleState` with the target's `Samples`,
+  - supplies `ViewportState` when absent.
+
+  → **Fix:** `BuildPipeline` no longer sets `RenderPass`, `Subpass` or a hand-rolled
+  `MultisampleState`; it calls `Program.OffscreenTarget.SetupGraphicsPipeline(ref info)` immediately
+  before `CreateGraphicsPipeline`. This mirrors the game's own main-pass pipelines
+  (`KSA/GenericMeshRenderer.cs:305`, `KSA/PartModelRenderer.cs:184,269`, `KSA/PartModelGlass.cs:269`).
+  **The call must stay immediately before pipeline creation** — the structures it points `pNext` at
+  are owned by the `RenderTarget` and overwritten on every call.
+
+- ⚠️ **Originated in the unvalidated 5118–5168 window**, not in 5261: `Program.OffScreenPass` exists
+  at tag `2026.8.3.5117` (`Program.cs:411`) and is absent from both `5168` and `5261`. It is **not**
+  a regression introduced by this build.
+- ⚠️ **Needs a live pass (F12).** thug-life drives its own Vulkan pipeline, descriptor set, VB/IB and
+  texture upload; only an in-game look confirms the quad still rasterizes. The mod's reverse-Z depth
+  preset (`RenderingPresets.ReverseZDepthStencil.DepthTestWrite`) and blend state are unchanged.
+- ✅ `SuperMeshRenderSystem.RenderMainPass(CommandBuffer)` — **signature-identical** (line shift only),
+  so the postfix still attaches. `UnlitMesh.vert` / `UnlitMesh.frag` and both shader ids
+  (`UnlitMeshVert`, `UnlitMeshFrag`) are **byte-identical** this span.
+- ✅ `PartTree.CreateFromNewPartTree`, `EngineController.SetIsActive(Vehicle?, bool)`, the three
+  `*Module.UpdateRenderData` prefixes and `PartModel.AddInstance` are all signature-identical.
+  `PerInstanceData`'s byte layout is **identical**, so the padding-byte hijack remains safe.
+- ⚠️ **blinky's default engine part id does not exist** — `"CorePropulsionA_Prefab_EngineA1"`
+  (`blinky.lib/LcdGridConfig.cs:47`, `BlinkySubmod.cs:51`). It was removed from
+  `Content/Core/CorePropulsionAAssets.xml` **between 5018 and 5117** (absent at 5117/5168/5261); only
+  `EngineA2`–`EngineA6` exist (`A2` "LR91 Sea", `A3`/`A6` "LR91 Vac", `A4` "VTR-10", `A5` "LR91 Vac +
+  Verniers"). `ModLibrary.Get` throws on a missing id, making this a concrete candidate explanation
+  for the **"blinky broken"** entry in [`../ISSUES.md`](../ISSUES.md) — the 5117 pass checked blinky's
+  patch targets (all byte-identical) but never its part id. **Pre-existing; recommend defaulting to
+  `EngineA2`. Not changed here** (behavioral, outside the compile-blocking scope).
 
 **Update-risk findings (4750 -> 5018)**
 

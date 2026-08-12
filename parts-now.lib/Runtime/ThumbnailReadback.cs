@@ -53,7 +53,7 @@ internal sealed class ThumbnailReadback : IDisposable
 
         ImageTransition toTransferSrc = new ImageTransition(
             image,
-            ImageBarrierInfo.Presets.SampledReadFragment,
+            ImageBarrierInfo.Presets.SampledReadF,
             ImageBarrierInfo.Presets.TransferSrc);
         commandBuffer.TransitionImages2(new ReadOnlySpan<ImageTransition>(in toTransferSrc));
 
@@ -81,7 +81,7 @@ internal sealed class ThumbnailReadback : IDisposable
         ImageTransition backToSampled = new ImageTransition(
             image,
             ImageBarrierInfo.Presets.TransferSrc,
-            ImageBarrierInfo.Presets.SampledReadFragment);
+            ImageBarrierInfo.Presets.SampledReadF);
         commandBuffer.TransitionImages2(new ReadOnlySpan<ImageTransition>(in backToSampled));
     }
 

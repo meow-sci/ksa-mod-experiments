@@ -164,7 +164,7 @@ public sealed class KittenSpawner
                 pos.ReferenceOrbit!);
 
             // Create orbit and teleport
-            var simTime = Universe.GetElapsedSimTime();
+            var simTime = Universe.GetElapsedTime();
             var orbitColor = pos.ReferenceOrbit?.OrbitLineColor ?? new byte4(255, 200, 0, 255);
             var orbit = Orbit.CreateFromStateCci(
                 pos.Parent!, simTime, kittenPosCci, kittenVelCci, orbitColor);
@@ -254,7 +254,7 @@ public sealed class KittenSpawner
             return new PositionResult { Error = $"Celestial body '{request.ParentBodyName}' not found." };
 
         // Create a reference orbit from the absolute position
-        var simTime = Universe.GetElapsedSimTime();
+        var simTime = Universe.GetElapsedTime();
         var tempOrbit = Orbit.CreateFromStateCci(
             parent, simTime, request.PositionCci!.Value, request.VelocityCci!.Value, new byte4(255, 200, 0, 255));
 

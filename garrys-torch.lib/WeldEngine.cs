@@ -100,7 +100,7 @@ public static class WeldEngine
         }
 
         // Stamp the orbit with the time that the just-completed vehicle worker
-        // tick advanced to, NOT Universe.GetElapsedSimTime() (which is the
+        // tick advanced to, NOT Universe.GetElapsedTime() (which is the
         // PREVIOUS tick's end time — _lastSimStep doesn't roll forward until
         // the next PrepareFrame's ApplyVehicleSolvers).
         //
@@ -116,7 +116,7 @@ public static class WeldEngine
         // GetJobSimStep is the same pure helper the game itself calls in
         // PrepareFrame to build the SimStep that's about to be queued, so this
         // value matches what the next-tick workers will be aligned to.
-        SimTime tickEndTime = Universe.GetJobSimStep(Program.GetPlayerDeltaTime()).NextTime;
+        UniverseTime tickEndTime = Universe.GetJobSimStep(Program.GetPlayerDeltaTime()).NextTime;
 
         Orbit newOrbit = Orbit.CreateFromStateCci(
             entry.Source.Parent,

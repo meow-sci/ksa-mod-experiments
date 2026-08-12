@@ -400,6 +400,33 @@ like every other game DLL reference in the repo.
   `<VolumetricExhaust Id>`, `<SoundEvent SoundId>`, `<Mesh Id>`, `<EditorTag Value>` and any
   `Path=` attribute (reference checks).
 
+### Update-risk findings (5117 → 5261)
+
+- **CONFIRMED COMPILE BREAK — `ImageBarrierInfo.Presets.SampledReadFragment` renamed to
+  `SampledReadF`.** `parts-now.lib/Runtime/ThumbnailReadback.cs:56,84` → **2× CS0117**. The presets
+  were swept for abbreviated names (`SampledReadVertex`→`SampledReadV`,
+  `SampledReadFragment`→`SampledReadF`, `SampledReadCompute`→`SampledReadC`, and likewise for the
+  `DepthSampledRead*` family). The replacement is **semantically identical** —
+  `ShaderReadOnlyOptimal` / `ShaderReadBit` / `FragmentShaderBit`, the same layout, access mask and
+  pipeline stage — so the transition to `TransferSrc` and back for the thumbnail readback is
+  unchanged. → Fixed by rename.
+- ⚠️ **Originated in the unvalidated 5118–5168 window**, not in 5261: `SampledReadFragment` exists at
+  tag `2026.8.3.5117` and is absent from both `5168` and `5261`, and the `Presets` list is
+  **byte-identical between OLD (5168) and NEW (5261)**. Not a regression from this build.
+- ✅ **No other parts-now break.** All seven `ModLibrary.All*` reflection targets still resolve
+  (`AllParts`, `AllCharacters`, `AllMeshes`, `AllFiles`, `AllMaterials`,
+  `AllPartGameDataReferences`, `AllEditorTagDefinitions`), as do
+  `SerializedCollection<T>._collection` (the only reason unload/reload exists) and
+  `VehicleEditor._editorTagLookup`. `Part.ResetCachedPosMatrixValues()` and
+  `PartTree.RecomputeStaticMass` are intact; `PartModelRenderer.UpdateRenderData(Viewport,int)` is
+  signature-identical.
+- ⚠️ **Editor/connector watch items (compile-clean, need a live pass):** bendable fuel-line hoses
+  (rev 5171), roll (Q/E) while snapped to a connector (rev 5258), aeroshroud surface-attach connector
+  flags (rev 5202), flipped-connector fixes across CoreElectricalA/FuelTankA/PassageA/PropulsionA
+  (revs 5238/5239), a GLB→XML importer warning for suspicious connector orientations (rev 5225), and
+  new `MeshColliderTemplate` / `ConvexHullColliderTemplate` types (rev 5185) that space-tape's XML
+  emitters do not yet know about.
+
 ### Update-risk findings
 
 > These are the standing invariants to re-verify on **every** game update. Each one fails **silently
