@@ -227,3 +227,73 @@ These need a **live in-game pass** (F11 for the supermod; thug-life F12, doh F8,
 4. **blinky** — after an `EngineA1` → `EngineA2` default change (§4.2).
 5. **doh / humble-arteest** — fur (rev 5230) and Engine Emissive after the portrait-light shader edit.
 6. **kitten-animations** — against the new ladder/jump/tumble anim states.
+
+---
+
+## 7. Follow-up (2026-08-22) — cross-platform build portability
+
+Not a game-drift finding: `dotnet build` with **no env overrides** failed on macOS. Two distinct
+causes, both in build config rather than in any KSA binding.
+
+### 7.1 `KSAFolder` did not resolve off-Windows — 41 × CS0246 *(fixed in `Directory.Build.props`)*
+
+`Directory.Build.props` hardcoded `C:\Program Files\Kitten Space Agency\`. Every `<Reference>` is
+guarded by `Condition="Exists('$(KSAFolder)<Assembly>.dll')"`, so on a non-Windows host **all 37 game
+references silently vanish** and `ksa-abstractions.lib` — which the whole suite depends on — fails
+with 41 `CS0246`s on the `KSA`/`Brutal` namespaces. This reads like a catastrophic game rewrite and is
+not one; it is the trap documented in the `upgrade-ksa` skill, step 2.
+
+`$(USERPROFILE)` is also empty off-Windows, so `SelectedDistModDir` evaluated to the *relative* path
+`\Documents\My Games\Kitten Space Agency\\mods\` — the `AfterBuild` deploy would have scattered
+literal-backslash directories inside each project folder.
+
+Resolved by a tiered, OS-aware resolution in `Directory.Build.props` (`KSA_DLL_DIR` env → sibling
+`ksa-game-assemblies` checkout → per-OS developer default), plus an OS-aware `KSAUserDir`.
+
+### 7.2 `CommunityToolkit.HighPerformance` reference — 3 × CS0246 *(fixed by removing the dependency)*
+
+With `KSAFolder` resolving to the sibling checkout's `current/dll/`, three files still failed:
+
+| File | Error |
+|---|---|
+| `doh.lib/Materials/MaterialSystemAccessor.cs:10` | `CS0246: … 'CommunityToolkit' …` |
+| `humble-arteest.lib/KittenColor.cs:10` | same |
+| `humble-arteest.lib/Experiments/MaterialColorTest.cs:9` | same |
+
+**Root cause is tooling, not the game.** `CommunityToolkit.HighPerformance.dll` ships in the KSA
+install, but `ksa-game-assemblies/copy-ksa.ts:15` copies only
+`["Brutal*.dll", "KSA.dll", "Planet*.dll", "Bepu*.dll"]` — so the 37-DLL `current/dll/` tree is **not
+a self-sufficient reference set**, and any build pointed at it (which is now the default sibling tier)
+loses that assembly.
+
+**Fix — drop the dependency rather than widen the copy set.** All three sites made the *same single
+call*, `span.AsBytes()` on a `Span<float4>`, to reach a `Span<byte>` for a Vulkan upload.
+`CommunityToolkit.HighPerformance.SpanExtensions.AsBytes<T>` is a thin wrapper over
+`MemoryMarshal.AsBytes<T>` with the same `where T : unmanaged` constraint, and all three files already
+imported `System.Runtime.InteropServices` — so the swap is semantically identical and needed no new
+using. `mesh-deform.lib.csproj` carried the reference with **no usage at all**; removed too.
+
+This matches existing repo precedent: `blinky.lib/BlinkySubmod.cs:622` already reaches
+`MemoryOwner<>` fields by reflection specifically to *"check presence without adding a package
+dependency."*
+
+- `Span<float4>` → `MemoryMarshal.AsBytes(span)` in the three files above; `using
+  CommunityToolkit.HighPerformance;` removed from each.
+- `<Reference Include="CommunityToolkit.HighPerformance">` removed from `doh.lib.csproj`,
+  `humble-arteest.lib.csproj`, `mesh-deform.lib.csproj`.
+- **Net effect: one fewer game-DLL coupling** for doh and humble-arteest.
+
+### 7.3 Result
+
+`dotnet build` with **no environment overrides**: clean `dotnet clean` + rebuild, **57/57 projects,
+0 warnings, 0 errors** on macOS against `2026.8.19.5261`.
+
+Behavior is unchanged — `MemoryMarshal.AsBytes` produces the identical byte span, so doh's and
+humble-arteest's `handle*80+16` albedo writes are untouched. Both still carry the §6 live-pass
+requirement; this change neither clears nor adds to it.
+
+### 7.4 Open — upstream, in `ksa-game-assemblies`
+
+`copy-ksa.ts:15` still produces an incomplete reference tree. Nothing in unscience needs
+`CommunityToolkit.HighPerformance.dll` any more, so this is no longer build-blocking, but the next
+mod to reach for a non-`Brutal*`/`KSA`/`Planet*`/`Bepu*` game assembly will hit the same wall.

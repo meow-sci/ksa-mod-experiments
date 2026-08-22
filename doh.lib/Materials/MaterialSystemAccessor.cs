@@ -7,7 +7,6 @@ using Brutal;
 using Brutal.Numerics;
 using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
-using CommunityToolkit.HighPerformance;
 using Core;
 using KSA;
 using RenderCore;
@@ -293,7 +292,7 @@ public static class MaterialSystemAccessor
             var span = new Span<float4>(ref colorCopy);
 
             commandBuffer.Begin();
-            VkUtils.StageAndUploadToBuffer(stagingPool, bigBuffer.VkBuffer, targetOffset, span.AsBytes(), commandBuffer);
+            VkUtils.StageAndUploadToBuffer(stagingPool, bigBuffer.VkBuffer, targetOffset, MemoryMarshal.AsBytes(span), commandBuffer);
             commandBuffer.End();
 
             return true;

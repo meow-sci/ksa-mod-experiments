@@ -6,7 +6,6 @@ using Brutal;
 using Brutal.Numerics;
 using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
-using CommunityToolkit.HighPerformance;
 using KSA;
 using RenderCore;
 
@@ -170,7 +169,7 @@ public static class MaterialColorTest
             var span = new Span<float4>(ref colorCopy);
 
             commandBuffer.Begin();
-            VkUtils.StageAndUploadToBuffer(stagingPool, bigBuffer.VkBuffer, targetOffset, span.AsBytes(), commandBuffer);
+            VkUtils.StageAndUploadToBuffer(stagingPool, bigBuffer.VkBuffer, targetOffset, MemoryMarshal.AsBytes(span), commandBuffer);
             commandBuffer.End();
 
             _statusMessage = $"Uploaded AlbedoColor ({newColor.X:F2}, {newColor.Y:F2}, {newColor.Z:F2}, {newColor.W:F2}) " +

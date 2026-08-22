@@ -26,15 +26,42 @@
         <Optimize>true</Optimize>
     </PropertyGroup>
 
-    <!-- KSA Game Installation Path -->
-    <PropertyGroup>
-    <KSAFolder Condition="'$(KSAFolder)' == ''">C:\Program Files\Kitten Space Agency\</KSAFolder>
-    <KSAUserDir Condition="'$(KSAUserDir)' == ''">$(USERPROFILE)\Documents\My Games\Kitten Space Agency\</KSAUserDir>
-    <KSAUserModDir>$(KSAUserDir)\mods\</KSAUserModDir>
-    <KSAProgramFilesModDir>C:\Program Files\Kitten Space Agency\Content\</KSAProgramFilesModDir>
-    <!-- <SelectedDistModDir>$(KSAProgramFilesModDir)</SelectedDistModDir> -->
-    <!-- StarMap not yet working with user mods directory -->
-    <SelectedDistModDir>$(KSAUserModDir)</SelectedDistModDir>
+    <!--
+        ===== KSA game paths =====
 
+        KSAFolder — directory containing the KSA reference assemblies (KSA.dll,
+        Brutal.*.dll, Planet.*.dll) the projects compile against. Resolution
+        order, first match wins; every tier works on any host OS:
+
+          1. KSA_DLL_DIR env var (or -p:KSA_DLL_DIR=...). This is what CI uses.
+          2. A `ksa-game-assemblies` checkout cloned NEXT TO this repo
+             (DLLs in its current/dll/ folder) — clone-and-go, no config.
+             gatos sits next to purrtty, so the sibling tier resolves identically.
+          3. Per-OS developer defaults (game install on Windows; the
+             ksa-game-assemblies checkout on macOS/Linux).
+
+        Only gatOS.GameMod references these assemblies (§2.1 of OS_PLAN.md): the
+        references are condition-guarded, so every game-free project (and its tests)
+        builds even when the KSA DLLs are absent.
+
+        SelectedDistModDir — where the built mod folder is deployed by the
+        GameMod project (it appends gatOS/). Override with GATOS_DIST_DIR
+        (CI zips that folder); defaults to the per-OS KSA mods dir.
+    -->
+    <PropertyGroup>
+        <KSAFolder Condition="'$(KSAFolder)' == '' AND '$(KSA_DLL_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(KSA_DLL_DIR)'))</KSAFolder>
+        <KSAFolder Condition="'$(KSAFolder)' == '' AND Exists('$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/')">$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/</KSAFolder>
+        <KSAFolder Condition="'$(KSAFolder)' == '' AND '$(OS)' == 'Windows_NT'">C:\Program Files\Kitten Space Agency\</KSAFolder>
+        <KSAFolder Condition="'$(KSAFolder)' == ''">$(HOME)/repos/meow-sci/ksa-game-assemblies/current/dll/</KSAFolder>
+
+        <KSAUserDir Condition="'$(KSAUserDir)' == '' AND '$(OS)' == 'Windows_NT'">$(USERPROFILE)\Documents\My Games\Kitten Space Agency\</KSAUserDir>
+        <KSAUserDir Condition="'$(KSAUserDir)' == ''">$(HOME)/repos/meow-sci/mods/</KSAUserDir>
+
+        <!-- mods -->
+        <KSAUserModDir>$(KSAUserDir)mods\</KSAUserModDir>
+        <KSAProgramFilesModDir>$(KSAFolder)Content\</KSAProgramFilesModDir>
+        <SelectedDistModDir Condition="'$(SelectedDistModDir)' == '' AND '$(GATOS_DIST_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(GATOS_DIST_DIR)'))</SelectedDistModDir>
+        <!-- <SelectedDistModDir Condition="'$(SelectedDistModDir)' == ''">$(KSAProgramFilesModDir)</SelectedDistModDir> -->
+        <SelectedDistModDir Condition="'$(SelectedDistModDir)' == ''">$(KSAUserModDir)</SelectedDistModDir>
     </PropertyGroup>
 </Project>

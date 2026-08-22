@@ -73,8 +73,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.AssetManager<T>
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `AssetMap : protected ConcurrentDictionary<AssetName,T>` | reflection-field (hierarchy) | `KSA/AssetManager.cs:11` | doh, humble-arteest | `doh.lib/Materials/MaterialSystemAccessor.cs:68`; `humble-arteest.lib/KittenColor.cs:56-74` | OK | walks base types |
-| `GetOrLoad(AssetName) : T` | reflection-method | `KSA/AssetManager.cs:49` | doh | `MaterialSystemAccessor.cs:82,152` | OK | returns `GpuObjectAssetRef` |
+| `AssetMap : protected ConcurrentDictionary<AssetName,T>` | reflection-field (hierarchy) | `KSA/AssetManager.cs:11` | doh, humble-arteest | `doh.lib/Materials/MaterialSystemAccessor.cs:67`; `humble-arteest.lib/KittenColor.cs:55-73` | OK | walks base types |
+| `GetOrLoad(AssetName) : T` | reflection-method | `KSA/AssetManager.cs:49` | doh | `MaterialSystemAccessor.cs:81,151` | OK | returns `GpuObjectAssetRef` |
 
 ### KSA.Asteroid / KSA.Comet
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -292,19 +292,19 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.GpuObjectAssetRef
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `.Handle : int` | reflection-field | `KSA/GpuObjectAssetRef.cs` | doh | `MaterialSystemAccessor.cs:155,184,250` | OK | map name→buffer index |
+| `.Handle : int` | reflection-field | `KSA/GpuObjectAssetRef.cs` | doh | `MaterialSystemAccessor.cs:154,183,249` | OK | map name→buffer index |
 
 ### KSA.GpuObjectSystem<T>
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `BigBuffer : BufferEx` (public get/protected set) | reflection-field | `KSA/GpuObjectSystem.cs:18` | doh, humble-arteest | `MaterialSystemAccessor.cs:72`; `KittenColor.cs:192-216` | OK | GPU material buffer |
-| `DeviceCtx : IVulkanContext` (protected) | reflection-field (hierarchy) | `KSA/GpuObjectSystem.cs:16` | doh, humble-arteest | `MaterialSystemAccessor.cs:76`; `KittenColor.cs:56-74` | OK | |
-| `CreateObject(AssetName, T) : bool` | reflection-method (hierarchy) | `KSA/GpuObjectSystem.cs:45` | doh | `MaterialSystemAccessor.cs:79,124` | OK | clone material |
+| `BigBuffer : BufferEx` (public get/protected set) | reflection-field | `KSA/GpuObjectSystem.cs:18` | doh, humble-arteest | `MaterialSystemAccessor.cs:71`; `KittenColor.cs:191-215` | OK | GPU material buffer |
+| `DeviceCtx : IVulkanContext` (protected) | reflection-field (hierarchy) | `KSA/GpuObjectSystem.cs:16` | doh, humble-arteest | `MaterialSystemAccessor.cs:75`; `KittenColor.cs:55-73` | OK | |
+| `CreateObject(AssetName, T) : bool` | reflection-method (hierarchy) | `KSA/GpuObjectSystem.cs:45` | doh | `MaterialSystemAccessor.cs:78,123` | OK | clone material |
 
 ### KSA.GpuTextureSystem
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `GetOrLoad`; `{SamplerRepeatHandle, DefaultWhiteTexture, DefaultBlackTexture}` | reflection-field/method | `KSA/GpuTextureSystem.cs:26,32,34` | doh | `MaterialSystemAccessor.cs:85-91`; `MaterialFactory.cs:541-577` | OK | texture bindless lookup; file byte-identical |
+| `GetOrLoad`; `{SamplerRepeatHandle, DefaultWhiteTexture, DefaultBlackTexture}` | reflection-field/method | `KSA/GpuTextureSystem.cs:26,32,34` | doh | `MaterialSystemAccessor.cs:84-90`; `MaterialFactory.cs:541-577` | OK | texture bindless lookup; file byte-identical |
 
 ### KSA.GrainGeometryLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -400,7 +400,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.MaterialData
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `MaterialData` (`[StructLayout(Sequential,Pack=1)]`; `AlbedoColor` @offset **16**) | direct API + GPU write | `KSA/MaterialData.cs:6-23` | doh, humble-arteest (KittenColor) | `MaterialFactory.cs:247-257`; `KittenColor.cs:192-216` | OK | **byte-identical**; staged Vulkan write at `handle*80+16` stays correct |
+| `MaterialData` (`[StructLayout(Sequential,Pack=1)]`; `AlbedoColor` @offset **16**) | direct API + GPU write | `KSA/MaterialData.cs:6-23` | doh, humble-arteest (KittenColor) | `MaterialFactory.cs:247-257`; `KittenColor.cs:191-215` | OK | **byte-identical**; staged Vulkan write at `handle*80+16` stays correct |
 
 ### KSA.MeshReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -631,9 +631,9 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `OffScreenPass : RenderPassState` (→ `.SampleCount`, `.Pass`) | direct (render-pass) | `KSA/Program.cs:375` | thug-life | `ThugLifeQuadRenderer.cs:127,133` | OK | offscreen MSAA; 4694 touched offscreen/thumbnail, members intact |
 | `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:248` | OK | |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
-| `Instance : static (singleton)` | reflection (private) | `KSA/Program.cs:371` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:54,57`; `KittenColor.cs:56-74` | OK | render-systems root |
-| `MaterialSystem : GpuMaterialSystem` (field) | reflection-field | `KSA/Program.cs:94` | doh, humble-arteest | `MaterialSystemAccessor.cs:64`; `KittenColor.cs:56-74` | OK | |
-| `SuperMeshRenderSystem` (field) → `.TextureSystem : GpuTextureSystem` | reflection-field | `KSA/Program.cs:96`; `KSA/SuperMeshRenderSystem.cs:39` | doh | `MaterialSystemAccessor.cs:85,88,91` | OK | |
+| `Instance : static (singleton)` | reflection (private) | `KSA/Program.cs:371` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:53,56`; `KittenColor.cs:55-73` | OK | render-systems root |
+| `MaterialSystem : GpuMaterialSystem` (field) | reflection-field | `KSA/Program.cs:94` | doh, humble-arteest | `MaterialSystemAccessor.cs:63`; `KittenColor.cs:55-73` | OK | |
+| `SuperMeshRenderSystem` (field) → `.TextureSystem : GpuTextureSystem` | reflection-field | `KSA/Program.cs:96`; `KSA/SuperMeshRenderSystem.cs:39` | doh | `MaterialSystemAccessor.cs:84,87,90` | OK | |
 | `CharacterRenderSystem` (field) | reflection-field | `KSA/Program.cs` (`KSA/CharacterRenderSystem.cs:7`) | doh | `MaterialFactory.cs:504-525` | OK | |
 | `RenderedViewport` / `LinearClampedSampler` / `LightSystem` | direct (render) | `KSA/Program.cs:391,407,126` | space-tape | `space-tape.lib/Thumbnails/*` | OK | thumbnail render loop |
 | `LinearClampedSampler : static VkSampler` | direct (render) | `KSA/Program.cs:427` | space-tape, parts-now | `parts-now.lib/Ui/ResultsPanel.cs:133` | OK | passed to `ThumbnailReference.GetOrCreateImGuiTexture` for the results-table thumbnails |
@@ -848,7 +848,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `ImGui.GetIO().WantTextInput` | direct API | `Brutal.ImGuiApi/*` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | detects ImGui text-input focus; watch on Brutal bumps |
 | `ImGuiStyle.Colors : float4_60` / `ImGuiStylePtr` (60-color array + 72 style members) | direct API | `Brutal.ImGuiApi/ImGuiStyle.cs:188`; `ImGuiStylePtr.cs` | skittles, con-man | `skittles.lib/ThemeDefinition.cs:89-90`; `ConManSubmod.cs:68-73` | OK | hard-codes 60 colors + fixed style-var list; a Brutal slot/member add is silently dropped — watch every Brutal bump |
 | `ImGuiCol` (enum, 60 slots `Text`…`ModalWindowDimBg` + `COUNT`) | enum | `Brutal.ImGuiApi/ImGuiCol.cs:5-65` | skittles | `skittles.lib/ThemeSerializer.cs:12-31` | OK | hard-coded `60` count must match |
-| `VkUtils.StageAndUploadToBuffer` / `BufferEx.VkBuffer` / `IVulkanContext.Device.CreateStagingPool` / `ByteSize.Of<T>()` | GPU write (Brutal.VulkanApi) | `Brutal.VulkanApi(.Abstractions)` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:283-296`; `KittenColor.cs:192-216` | OK | GPU material-buffer write; rev-4729 Brutal bump is the churn surface (build passes) |
+| `VkUtils.StageAndUploadToBuffer` / `BufferEx.VkBuffer` / `IVulkanContext.Device.CreateStagingPool` / `ByteSize.Of<T>()` | GPU write (Brutal.VulkanApi) | `Brutal.VulkanApi(.Abstractions)` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:282-295`; `KittenColor.cs:191-215` | OK | GPU material-buffer write; rev-4729 Brutal bump is the churn surface (build passes). The `Span<float4>`→bytes conversion now uses the BCL `MemoryMarshal.AsBytes`; the `CommunityToolkit.HighPerformance` game-DLL reference it used to need is **retired** — that DLL is not in `ksa-game-assemblies/current/dll/` (`copy-ksa.ts` does not copy it), so the reference broke any build pointed at that tree |
 | `SimpleVkTexture` / `VkUtils.UploadBufferToImage` + pipeline/descriptor primitives (`DescriptorSetLayoutEx`, `DescriptorPoolEx`, `VertexInput`, `ShaderStages`, `CommandBuffer`) | GPU (Brutal.VulkanApi/RenderCore) | `Brutal.VulkanApi`, `RenderCore`, `Core` | thug-life | `ThugLifeTextureFactory.cs:33,64`; `ThugLifeQuadRenderer.cs` | OK | custom Vulkan pipeline; highest churn surface (rev 4729); 4750 build passes |
 
 ---

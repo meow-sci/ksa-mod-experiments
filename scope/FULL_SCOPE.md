@@ -35,6 +35,12 @@ decompiled-source path for each so the dependency can be re-checked against any 
   **cannot be cleared statically** — see *Current status* for what still needs a live in-game pass.
 - The repo's own `decomp/ksa` copy is **older still** (June 12) and is not authoritative — always diff
   against the `ksa-game-assemblies` git tags.
+- **Follow-up 2026-08-22 — the build is now cross-platform.** `dotnet build` with no environment
+  overrides was failing off-Windows (41 × CS0246 from an unresolvable `KSAFolder`, then 3 more from a
+  `CommunityToolkit.HighPerformance` reference the `ksa-game-assemblies` DLL copy set omits). Both are
+  build config, not game drift; fixed, and the suite now builds **57/57 projects, 0 warnings,
+  0 errors** on macOS against `5261`. Detail in
+  [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) §7.
 
 When a new game version arrives, bump this baseline and re-run the workflow below.
 

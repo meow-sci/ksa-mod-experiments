@@ -59,10 +59,6 @@
       <HintPath>$(KSAFolder)Brutal.Core.Strings.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="CommunityToolkit.HighPerformance" Condition="Exists('$(KSAFolder)CommunityToolkit.HighPerformance.dll')">
-      <HintPath>$(KSAFolder)CommunityToolkit.HighPerformance.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
 </Project>

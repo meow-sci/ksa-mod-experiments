@@ -59,4 +59,7 @@ The library exposes a clean API surface for `unladen-swallow` RPC endpoints:
 ## Dependencies
 
 - `ksa-abstractions.lib` — VehicleProvider, CelestialProvider
-- KSA game DLLs: KSA.dll, Planet.Core.dll, Planet.Render.Core.dll, Brutal.Core.Numerics.dll, Brutal.Vulkan.dll, Brutal.VulkanApi.Abstractions.dll, CommunityToolkit.HighPerformance.dll
+- KSA game DLLs: KSA.dll, Planet.Core.dll, Planet.Render.Core.dll, Brutal.Core.Common.dll, Brutal.Core.Numerics.dll, Brutal.Core.Strings.dll, Brutal.ImGui.dll, Brutal.ImGui.Abstractions.dll, Brutal.Vulkan.dll, Brutal.Vulkan.Abstractions.dll, BepuUtilities.dll
+  - **Not** `CommunityToolkit.HighPerformance.dll` — the one call that needed it (`Span<float4>` → bytes)
+    now uses the BCL `MemoryMarshal.AsBytes`. That DLL ships with the game but is **not** copied into
+    `ksa-game-assemblies/current/dll/`, so referencing it broke any build pointed at that tree.
