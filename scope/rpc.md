@@ -164,3 +164,22 @@ ignite/shutdown.
   zippo→`scope/celestial-and-lights.md`, vehicle-resolution→`scope/00-architecture-and-abstractions.md`.
   Camera's pre-existing `___Transform` field-injector defect (see `scope/camera.md`) would surface
   through `POST /camera/animate` as an inert animation, not an HTTP error.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **unladen-swallow has no direct game reads and none of its delegated libs broke.** Every endpoint's
+  target surface is unchanged this span: blinky (`PartTree.CreateFromNewPartTree`,
+  `EngineController.SetIsActive`), its-so-shiny, glass (`Camera._fovRadians` — `Camera.cs` is
+  byte-identical), camera-controller-override (`OrbitController`/`FlyController.OnFrame`), garrys-torch
+  (`JobSystems.VehicleSolver.Wait()`, `Vehicle.Teleport`), eternal-flame
+  (`Vehicle.RefillConsumables`, `Battery.Refill`) and kiwis-marbles (`Celestial.SetOrbit`).
+- ✅ **`GameThread` marshaling clean.** The StarMap hooks the queue drains on
+  (`Program.OnDrawUiFrame` / `OnFrame`) are unchanged.
+- ⚠️ **`POST /camera/animate` is now genuinely live.** It was inert while
+  camera-controller-override's `___Transform` field injector was broken; that was fixed at 5261 and
+  remains fixed at 5348. Worth exercising over HTTP as part of the live pass — it is the quickest way to
+  drive the camera mods without UI clicking.
+- ℹ️ **Transport is game-free.** GenHTTP, the routing table and the DTOs couple to nothing in KSA and can
+  only break via package churn. No GenHTTP bump this span.

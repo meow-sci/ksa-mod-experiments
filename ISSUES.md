@@ -10,6 +10,53 @@
 
 ---
 
+## Triage notes — KSA `2026.8.22.5348` upgrade (2026-08-23)
+
+Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compile break this pass
+(space-tape, resolved by **removing the mod** — it was defunct); the build is green, 55/55 projects,
+0 warnings, 0 errors. Everything below still needs a live pass.
+
+- **kitten animations always the same expression** — 🔍 **FIRST CONCRETE MECHANISM FOUND.**
+  Rev 5278 (*"Fixed seated crew and EVA crew animation updating once per visible viewport instead of
+  once per frame"*) added `private ulong _lastPoseUpdateFrameNumber` to `KSA/AnimatedRenderable.cs` and
+  changed the pose gate from `if (!FreezeAnimation)` to
+  `if (Program.FrameNumber != _lastPoseUpdateFrameNumber)`. kitten-animations busts
+  `CatExpressionAnim._expressionPose` to force a re-pose — **a second pose evaluation in the same frame
+  is now silently dropped.** `CatExpressionAnim` is byte-identical and `_expressionPose` still resolves,
+  so the reflection is not the problem; the *timing* is. **Test this first.** If confirmed, the fix is
+  to trigger the expression change on a frame boundary rather than inline.
+- **con-man (new this pass)** — ⚠️ rev 5293 added a global **Hud Scale** applied *after* per-canvas
+  scale. `GaugeCanvas` now divides by `GameSettings.GetGaugeScale()` and wraps draws in
+  `ConsoleStyle.BeginGaugeHostScope`. con-man's saved `_windowPosition`/`_windowSize`/`_customScale` are
+  in a space it doesn't model, so **layouts saved at one Hud Scale will restore wrong at another.**
+  Stacks on the still-open rev-5201 context-visibility gate. Plan doc §4.1.
+- **blinky broken** — ❌ **still open, and the previously identified root cause was only half-fixed.**
+  `blinky.lib/BlinkySubmod.cs:35` was moved to `CorePropulsionA_Prefab_EngineA3`, but
+  **`blinky.lib/LcdGridConfig.cs:47` — the persisted default — is still `EngineA1`**, an id that does not
+  exist in Content at 5117, 5168, 5261 or 5348. `ModLibrary.Get` throws. Fix `LcdGridConfig` too.
+  Good news: rev 5326 moved `PowerManager.PopulateGraph` behind the part window's "Draw Graph" toggle,
+  so blinky's grid rebuilds should be **dramatically faster** — re-measure.
+- **eternal flame refill not working while engines are lit** — no new evidence. `Battery.cs` is
+  **byte-identical**, and `Vehicle.RefillConsumables()` / `Battery.Refill(ref BatteryState)` are
+  unchanged. The rev-5326 power rework touched circuit construction and draw, not refill. The 5261 leads
+  (rev 5227 ×10 battery capacity; revs 5252/5253 control lockout) still stand.
+- **garry's torch / flexo throw errors** — no signature drift in either mod's patch targets. New
+  suspects this span: the **physics-bubble merge/split rewrite** (revs 5331/5339 — bubble ownership moved
+  into `VehicleUpdateTask`, merge checks multithreaded off the render thread) and **ground-clutter
+  collisions** (revs 5263/5303/5307, default off, destroy on >25 J/kg impact). garrys-torch teleports a
+  vehicle every frame, so both are plausible interactions. **Re-test: the spam may have changed shape.**
+- **humble arteest vehicle paint broken** — unchanged: still dead by design since rev 4693, still
+  self-disables. `MeshIndirect.frag` changed by one line (portrait-light rename) and the
+  `vec3 sampledColor` anchor still resolves. Engine Emissive and Kitten Color unaffected.
+- **new zippo feature — refill electricity** — unchanged; still a feature request, not a break.
+  (Separately: zippo's long-recorded `GetField("Color")` bug is **closed** — the code reads `"ColorRgb"`,
+  which is correct. The scope docs describing it as broken were stale and have been fixed.)
+- **space-tape** — 🗑️ **removed from the repo this pass.** Rev 5329 deleted `PartTemplate.Decoupler`;
+  the mod was defunct, so it and its `.lib` were deleted rather than ported. Note the stale deploy folder
+  `~/repos/meow-sci/mods/mods/space-tape/` will keep loading the old DLL until deleted by hand.
+
+---
+
 ## Triage notes — KSA `2026.8.19.5261` upgrade (2026-08-11)
 
 Full review: [`plans/KSA_5261_UPGRADE.md`](plans/KSA_5261_UPGRADE.md). Five compile breaks were fixed

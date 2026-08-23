@@ -198,3 +198,33 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
   - zippo: `"KSA.LightModule+TemplateData"`, `Components`, `Intensity`/`Value`, `ColorRgb`/`R`/`G`/`B`/`OnDataLoad`, `KSAColor.Xkcd` props (plus one typed dep, `KSA.IndexedColor`, which breaks loudly at compile).
   - red-alert: `ColorRgbReference.{R,G,B,OnDataLoad}` + generic field-copy clone.
   - kiwis-marbles: **none** (fully typed) — lowest risk of the three.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **zippo's colour bug is CLOSED — and the earlier scope text was stale.** The `GetField("Color")`
+  entry recorded as BROKEN since 4680 no longer exists: `zippo.lib/LightController.cs:59,80` reads
+  `"ColorRgb"`, which is the real field (`LightModule.TemplateData.ColorRgb : ColorRgbReference`).
+  There is no `GetField("Color")` anywhere in the repo. Fixed by commit `07787ea`; §4 and §6 of the
+  master index have been corrected.
+- ✅ **zippo / red-alert reflection all resolves.** `PartTemplate.Components` (still a public field),
+  the hard-coded nested-type name `"KSA.LightModule+TemplateData"`, `TemplateData.Intensity`
+  (`FloatReference`), `TemplateData.ColorRgb`, and `ColorRgbReference.{R,G,B}` (`public float`, `:10,13,16`)
+  plus `OnDataLoad` — every one present and unchanged.
+- ⚠️ **Lights now register for every viewport** (rev 5301, `ViewportLightModes` / clustered lighting).
+  `KSA/LightModule.cs:125,141` went from `else if (viewport == Program.MainViewport)` to a bare `else`,
+  so lights zippo and red-alert drive are now evaluated in crew-portrait and other secondary viewports
+  too. The rest of `LightModule.cs` diffs only by decompiler cosmetics (`Parent` → `base.Parent`, from the
+  rev-5329 `IPartParent` split). **Needs a live look** for double-lighting or a cost spike, not a code
+  change.
+- ✅ **red-alert's other targets unchanged.** `PowerConsumer.LightSwitch` (`:28`), `Part.LightSwitch`
+  (`Part.cs:678`), `PowerConsumerTemplate.LightSwitch`, `SolarPanel` and
+  `KeyframeAnimationModule.TimeGoal` are all present; `SolarPanel.cs` and `KeyframeAnimationModule.cs`
+  diff only by `Parent` → `base.Parent` cosmetics.
+- ✅ **kiwis-marbles clean.** `Celestial.SetOrbit(Orbit)` and `Celestial.UpdatePerFrameData` are unchanged,
+  and the CCI reads are safe: rev 5280's `CelestialFrameMath` extraction preserved every
+  `GetCcf2Cci`/`GetCci2Ccf`/`GetCci2Cce`/`GetCce2Cci` signature and its semantics.
+  `Universe.CurrentSystem` → `CelestialSystem.All` → `LookupCollection<T>.UnsafeAsList()` is unchanged.
+- ℹ️ `IOrbiter.ShowOrbit` (marque's write target) is unchanged; the only diff in `IOrbiter.cs` is the
+  game switching its own overlay draws to `ImGuiHelper.GetOverlayDrawList(inViewport)` (rev 5265).

@@ -18,7 +18,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
-- `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. Used by space-tape.lib
+- `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. No current consumer (its only user, space-tape, was removed in `2026.8.22.5348`)
 
 ---
 
@@ -323,13 +323,13 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Kitten Animations, Kiwi's Marbles, Red Alert, Skittles, Space Tape, Unladen Swallow, Zippo
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Flexo, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (22 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, red-alert.lib, skittles.lib, space-tape.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 
@@ -345,43 +345,13 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 
 ## Part Editor Mods
 
-### [space-tape](space-tape) / [space-tape.lib](space-tape.lib)
-In-game Part editor. Compose new Parts from existing SubParts by placing them in 3D space with transform controls. Saves Part definitions as KSA mod XML files.
-- Owns SubPart thumbnail generation and cache
-- Thumbnail rendering quietly restores KSA camera follow/control state without emitting `Following ...` timed alerts
-- Unscience panel minimal flow: `Load SubParts` + `Open/Close Part Editor`
-- Load SubParts modal with generation controls (Images per SubPart, image size, Generate/Re-generate, generation progress)
-- Dedicated SubParts floating window tied to Part Editor lifecycle
-- SubParts window view controls: grid/list mode toggle, thumbnail size, animation delay, filter, and large viewer toggle
-- Load/import workflow uses compact 2x2 filterable combo table (category/part + import source)
-- Save flow moved to toolbar `Save` button with a modal popup
-- SubPart catalog browser with animated thumbnail previews
-- 3D editing scene with gizmos for translate/rotate/scale and origin axis marker
-- Hover highlight and click-to-select SubParts in the 3D viewport with native highlight/selection shaders
-- Quick-flip rotation hotkeys (D = +45° Y-axis, F = +45° X-axis)
-- Plane-locked drag — P key cycles pan modes (Normal / YZ / XZ / XY), click-and-drag to move SubParts constrained to a plane
-- Camera snap views (Front, Back, Left, Right, Top, Bottom) for standard orthographic vantage points
-- Grid plane overlay — translucent origin-centered reference grids with independent X/Y/Z plane toggles plus configurable size, spacing, regular color, and axis-line color/alpha
-- Grid rendering uses KSA's orbit line renderer to preserve line alpha without modifying core shader files
-- Import existing game parts (SubParts, Connectors, Tanks, Batteries, Generators, etc.)
-- Import hardening: logs and skips invalid imported SubPart records; editor gizmo rendering guards invalid mesh data while Space Tape is active
-- Fuel tank definition (Cylindrical/Spherical) with full material/density/mass config
-- Connector system — define attachment points with position, rotation, and flag types (Internal/ToSurface/FromSurface)
-- Coupling support — Decoupler, Docking Port, and EVA Door with connector references
-- Multiple Batteries, Generators, and Power Consumers per part
-- 3D connector gizmo visualization (color-coded by flag type, highlights selected)
-- ImGui property panel with transform editing, GameData sections (Tank, Power, Connectors, Coupling)
-- Saves Part XML + GameData XML to space-tape-parts mod directory with Tomlyn mod.toml management
-- Hot-reload spike for registering parts at runtime without restart
-- **space-tape.lib**: `SpaceTapeSubmod` (ISubmod entry point), `CameraSnapController` (camera snap and OrbitLinePass grid renderer), `PartEditorInteraction` (hover/select/drag/quick-flip/plane-drag), `PartCatalog`, `PartImporter`, `GameDataEditorUi`, `ConnectorGizmo`
-
 ### [flexo](flexo) / [flexo.lib](flexo.lib)
 Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime.
 - Hinge creator: select fixed and moving Parts from a vehicle, define rotation axis, degree range, resting position, and motor speed
 - TOML-based persistence — flexo definitions saved to `~/.flexo/flexo_part_*.toml`
 - Vehicle scanning — detect flexo parts on the active vehicle by matching Part template IDs and connectivity
 - Runtime hinge control — open/close/reset buttons, manual angle slider, animated rotation via `Part.Asmb2ParentAsmb`
-- 3D editor scene with camera snaps, lighting, hover/select interaction (reuses space-tape patterns)
+- 3D editor scene with camera snaps, lighting, hover/select interaction
 - Live preview — rotate Parts in the editor to verify hinge axis and range before saving
 - Unscience integration as ISubmod with runtime panel and floating editor window
 - **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`

@@ -362,3 +362,48 @@ Expression buttons, MMU-animation grid, walking buttons, duration slider.
   vs `.ToString().AsSpan()`); `SetAnimation`, `AnimProcessors`, `MaterialIndices` are unaffected.
 - rev 4699 (`KittenEva.IsControllable => true`) is additive and *helps* `GetControlledVehicle()`
   return a `KittenEva`; not a break.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ⚠️ **kitten-animations vs the new per-frame pose guard (rev 5278) — the headline finding this span.**
+  `KSA/AnimatedRenderable.cs` gained `private ulong _lastPoseUpdateFrameNumber = ulong.MaxValue;` and the
+  pose path is now gated on `if (Program.FrameNumber != _lastPoseUpdateFrameNumber)` — previously
+  `if (!FreezeAnimation)`. The changelog entry: *"Fixed seated crew and EVA crew animation updating once
+  per visible viewport instead of once per frame. Base pose sampling and full skeleton propagation now
+  run once per frame."* `CatExpressionAnim` is **byte-identical** and `_expressionPose` still resolves,
+  but the mod's cache-bust forces a **second pose evaluation in the same frame, which is now dropped**.
+  This is the first concrete mechanism found for the standing *"kitten animations don't properly play
+  each one, always the same"* entry in [`../ISSUES.md`](../ISSUES.md). **Open — live pass required.**
+- ✅ **doh's MMU attachment survives a retype.** Rev 5269 (MMU fold-away anim) changed
+  `CharacterAvatar.Attachments.Mmu.MmuMesh` from `StaticMeshRenderable` to `AnimatedRenderable`, and
+  `CharacterAvatar` now builds it with `MeshRendererSkinnedPbr` + an `AnimationScrubSampler ArmScrub`.
+  `doh.lib/Spawning/KittenSpawner.cs:542-556` walks by **field name** and then finds `MaterialIndices`
+  anywhere in the runtime type hierarchy — and `AnimatedRenderable` declares
+  `protected readonly int[] MaterialIndices` (`:35`) exactly as `StaticMeshRenderable` does (`:31`).
+  **No change needed**, but confirm the MMU still recolours in game.
+- ✅ **The whole KittenEva reflection chain is intact and still field-shaped.**
+  `KittenEva` (type-name compare) → `KittenEva._renderable` (`:15`) → `KittenRenderable._characterAvatar`
+  (`:12`) → `CharacterAvatar.Core` (`public CharacterCore Core;`, `:209`) → `CharacterCore.Scale`
+  (`public float Scale = 0.01f;`). **`Core` and `Scale` are both still plain fields**, so garrys-torch's
+  `FieldInfo.SetValue` path still works. Rev 5329 turned `Module.Parent` into a property — audited, and
+  no mod in this area reflects on it.
+- ✅ **GPU byte layouts identical.** `MaterialData` and both `PerInstanceData` structs diff clean, so
+  doh's `handle*80+16` `BigBuffer` writes and humble-arteest's `StateBitFlag` padding-byte hijack are
+  safe. The render bridge (`Program.{Instance,MaterialSystem,SuperMeshRenderSystem,CharacterRenderSystem}`,
+  `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}`, `AssetManager.*`, `BindlessHandle`, `Handle`)
+  resolves unchanged.
+- ✅ **humble-arteest Engine Emissive unaffected.** `MeshIndirect.frag` changed by exactly one line
+  (`SamplePortraitLight` → `SampleMeshForwardLights`, rev 5301); the `vec3 sampledColor` anchor is still
+  at `:114`, `inStateFlags` is intact, and the `ENABLE_TEMPERATURE` LUT still lives in that file.
+  `MeshIndirect.vert` is **byte-identical**. `PartModel/PartModelDynamic.AddInstance` signatures unchanged.
+- ❌ **humble-arteest Vehicle Paint** — still dead by design since rev 4693; self-disables. Unchanged.
+- ⚠️ **doh — new raytracing paths.** Rev 5312 added receive-only raytracing for IVA kittens;
+  `ModelPbr.frag` gained a `RAYTRACED_REFLECTIONS` variant (three new samplers at set 7) and
+  `AnimatedRenderable` gained `RaytracedMeshBucketHandles`. The `albedo` path doh's material clones drive
+  is unchanged and `Common/MaterialSet.glsl` is untouched — but confirm cloned materials still read
+  correctly with raytracing on.
+- ℹ️ Additive kitten work this span, no binding impact: seated idle + fidget (5268), MMU fold-away (5269),
+  low-gravity walk/run (5284), swimming + `KittenLocomotion` swim state (5314), crew-portrait bone
+  tracking and FOV (5270/5273), vehicle destruction now kills crew (5316).

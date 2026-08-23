@@ -178,3 +178,22 @@ call `Camera.ChangeFieldOfView`, `KSA/Camera.cs:769,774`) are suppressed by the 
   (compile-time) and would fail the build if changed — lower risk.
 - `KSA.Camera` remains in the `KSA` namespace (file `KSA/Camera.cs`) in both versions; note an unrelated
   `Brutal.GltfApi.Camera` also exists — the typed `using KSA;` keeps the binding unambiguous.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **`KSA/Camera.cs` is byte-identical between 5261 and 5348.** glass is completely clean this span:
+  `Camera._fovRadians` (private field, by name), `Camera.ChangeFieldOfView(float)` and
+  `Camera.UpdateProjection()` all resolve exactly as before.
+- ✅ **camera-controller-override clean.** `AccessTools.Method(typeof(OrbitController), "OnFrame")` and
+  the `FlyController` equivalent both still resolve; the `___Transform` field-injector bug stays
+  **retired** — the prefix reads the public `__instance.Camera`
+  (`CameraControllerOverridePatches.cs:42-54`).
+- ✅ **Coordinate frames unchanged.** Rev 5280's `CelestialFrameMath` extraction preserved every public
+  `Celestial` frame accessor, so camera-controller-override's ego-space math is unaffected.
+- ℹ️ **New camera surface this span, none of it breaking:** per-kitten crew-portrait cameras with a FOV
+  slider and Head/Neck/Chest bone targeting (revs 5270/5273), a resizable kitten-cam gauge (5297),
+  portrait cameras skipped when not visible (5295), stars no longer rendered in kitten cams (5292), and
+  `ViewportLightModes` so each viewport picks its own light path (5301). If glass's FOV override ever
+  needs to apply per-viewport rather than globally, these are the seams to look at.

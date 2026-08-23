@@ -237,3 +237,35 @@ duplicated local `HotkeyGuard` should be consolidated onto `ksa-abstractions.lib
 **Game assets referenced** — None.
 
 **Update-risk findings (4680→4750)** — No breaking deltas detected. The only game integration is `HotkeyGuard` (`GameSettings.OnKeyAll`, unchanged) and StarMap lifecycle. Nothing else to break.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **marque clean.** `GaugeCanvas.OnDrawMenuBar()` (its Harmony prefix target) is unchanged, and so are
+  `IOrbiter.ShowOrbit`, `Universe.CurrentSystem`, `CelestialSystem.GetWorldSun()` and the
+  `Astronomical.Children` walk in `marque.lib/MarqueLib.cs`. Rev 5332 changed `Program.DrawMenuBar` only
+  by wrapping the Save/Load `MenuItem` in `if (!IsEditorOpen)` — the menu marque injects into is intact.
+  Rev 5265 (*"all ImGuiHelper functions require a draw list"*) is game-internal; `IOrbiter.cs`'s own
+  overlay draws moved to `ImGuiHelper.GetOverlayDrawList(inViewport)`, which marque does not call.
+- ❌ **mesh-deform — still broken, and unchanged from 5261.** `Content/Core/Shaders/Mesh/MeshIndirect.vert`
+  is **byte-identical** between the two builds, and its struct anchor still does not match:
+  `MeshDeformShaders.cs:166` tests for `"    uint EmissiveColor;\n};"`, but the file has
+  `uint EmissiveColor;` at `:16` followed by `#endif` at `:17`. The mod self-disables. Its
+  world-position anchor (`MeshDeformShaders.cs:362`, `"    vec4 worldPosVec4 = worldMatrix * vec4(inPos,
+  1.0);"`) **does** still match, at `:63`. Its reflection targets (`ShaderReference.{Shader, DoLoad,
+  ModPath}`, `ShaderModuleUtils.FromFile`) and its two patch targets
+  (`PartModelModule.UpdateRenderData`, `PartModel.AddInstance`) all resolve. **Not a new regression.**
+- ✅ **byo-music clean.** `ModLibrary.Get<MusicPlayList>` is unchanged; its `"SabotageMusic"` id is still
+  non-stock and still null-guarded.
+- ✅ **steely-eyed-missile-kitten clean** — see [`telemetry.md`](telemetry.md). The `Situation` enum names
+  it compares against are unchanged; its readings shift with the rev-5317/5318/5340 flight-computer and
+  part-characteristics fixes.
+- ✅ **jplrepo's IL transpiler still matches.** It injects `SaveMenuCursorPos()` before the **first**
+  `ImGui.SetCursorPosY` call in `Program.DrawMenuBar`. Rev 5332 rewrote that method, but the
+  version-string positioning block is untouched: `DrawProgramMenusHook()` → `SetCursorPosY` →
+  `SetCursorPosX` → `EndMenuBar`, with still exactly **one** `SetCursorPosY`, at `Program.cs:509→512`
+  (was `:506→509`). `Program.DrawProgramMenusHook()` — its prefix target — is unchanged.
+  This is the most fragile binding in the suite (IL shape, not a symbol) and should be re-checked every
+  time `DrawMenuBar` moves.
+- ℹ️ **stampy** — no game touchpoints changed this span.

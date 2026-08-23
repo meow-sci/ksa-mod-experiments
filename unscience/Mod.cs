@@ -22,7 +22,6 @@ using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
-using MeowSci.SpaceTapeLib;
 using MeowSci.FlexoLib;
 using MeowSci.KitchenSinkLib;
 using MeowSci.PartsNowLib;
@@ -81,7 +80,6 @@ public class Mod
             _submods.Add(new PartsNowSubmod());
             _submods.Add(new RedAlertSubmod());
             _submods.Add(skittles);
-            _submods.Add(new SpaceTapeSubmod());
             _submods.Add(new ThugLifeSubmod());
             _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new ZippoSubmod());
@@ -106,7 +104,6 @@ public class Mod
 
             // Wire up Patcher dependencies and apply patches
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
-            SpaceTapeSubmod.HideHostWindow = () => _windowVisible = false;
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
             Patcher.MenuBarToggle = () => _windowVisible = !_windowVisible;
 

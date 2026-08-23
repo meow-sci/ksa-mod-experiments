@@ -1,215 +1,45 @@
 # Part Editor & Robotics — Game Integration Scope
 
-Permanent reference for how the **space-tape** (in-game Part editor), **flexo**
-(robotics / hinges) and **parts-now** (runtime Part/SubPart loading) mods bind to the
-Kitten Space Agency (KSA) game, so that future game updates that break them can be
-detected and root-caused quickly.
+Permanent reference for how the **flexo** (robotics / hinges) and **parts-now** (runtime
+Part/SubPart loading) mods bind to the Kitten Space Agency (KSA) game, so that future game updates
+that break them can be detected and root-caused quickly.
 
-- **Game versions compared:** NEW = `2026.6.9.4750` · OLD = `2026.6.8.4680`
-- **Decomp (source of truth):**
-  - NEW `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-  - OLD `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
-- **Build status against NEW (4750):** `space-tape.lib` **does not compile** (4 break groups, all root-caused below). `flexo.lib` **compiles clean**.
-- **parts-now is newer than this file's 4680↔4750 diff.** It was written against **`2026.7.9.5018`**,
-  the current `scope/FULL_SCOPE.md` baseline, and every decomp path in its table below is a line
-  number in the **5018** tree (`…/ksa-game-assemblies/current/decomp`). Its "Δ vs OLD" column is
-  therefore always `new` — the mod did not exist at 4750.
-- **Important:** several space-tape breaks predate 4680 (the mod was last built against an
-  even older game build). The "Δ vs OLD" column states whether 4680 already had the NEW
-  shape, so you can tell genuine 4680→4750 regressions from older drift.
+> **space-tape was removed at `2026.8.22.5348`** and is no longer part of this area — see the stub
+> section below. Historical tables and findings for it live in git history and in
+> [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) / earlier upgrade plans.
+
+- **Current baseline:** `2026.8.22.5348`, diffed from `2026.8.19.5261`. See
+  [`FULL_SCOPE.md`](FULL_SCOPE.md) for the version block and
+  [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md) for the current review.
+- **Build status against 5348:** `flexo.lib` and `parts-now.lib` both **compile clean**
+  (whole solution: 55/55 projects, 0 warnings, 0 errors).
+- **Decomp (source of truth):** `~/repos/meow-sci/ksa-game-assemblies/current/decomp` (NEW) and
+  `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp` (OLD).
+- **Older sections below keep their original version pairs** (4680↔4750, 5018↔5117, 5117↔5261) — each
+  heading states its own span, so genuine regressions can be told apart from older drift.
 
 Legend for *In NEW?*: ✅ present & signature-compatible · ⚠️ present but changed · ❌ removed/renamed.
 
 ---
 
-## space-tape
+## space-tape — **REMOVED @5348**
 
-### Purpose
-In-game **Part editor**: compose new Parts by placing existing **SubParts** in an isolated 3D
-scene (translate/rotate/scale gizmos), define tanks/connectors/power/coupling, and export a KSA
-mod (Assets XML + GameData XML) under a managed `space-tape-parts` mod directory. Also owns
-SubPart **thumbnail generation** (off-screen Vulkan rendering) and an animated SubPart browser.
+space-tape was defunct and was deleted from the repo during the `2026.8.22.5348` upgrade pass
+(mod + `.lib`, solution entries, and the supermod wiring in `unscience/Mod.cs`). The trigger was
+rev **5329**, which deleted `KSA.DecouplerTemplate` and the `PartTemplate.Decoupler` field —
+decouplers are now a module (`KSA.Decoupler.TemplateData`, `[XmlType(TypeName = "Decoupler")]`) inside
+`PartTemplate.Components` — breaking `space-tape.lib/PartImporter.cs:124,128,129` with three × CS1061.
 
-### Unscience integration
-- `SpaceTapeSubmod : ISubmod` (`space-tape.lib/SpaceTapeSubmod.cs`) is the entry point; appears as a
-  panel in the Unscience Toolbox. `static Current` is read by the render Harmony prefix.
-- `Initialize()` applies two Harmony patch sets (`PartRenderHelper.Patch()`, `PartEditorMenuBarPatch.Patch()`).
-- Standalone path: `space-tape/Mod.cs` + `space-tape/Patcher.cs` (F11). `Patcher.Patch()` also calls
-  `HotkeyGuard.Patch` + `IvaForceRender.Patch` (both from `MeowSci.KsaAbstractions`).
+Its integration points, its long-standing API-drift cluster (thumbnail API, energy/power
+`float`→`double`, docking-port fields, `ComputeBoundingSphereRadius`) and its editor-tag / part-size
+watch items are all **retired**. Kept here only so a future reader who finds space-tape in git history
+knows why it is gone; see [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md) §2.
 
-### UI / hotkeys
-- F11 toggle (standalone). In-editor: `D`=+45° Y, `F`=+45° X, `P`=cycle pan-plane mode.
-- Adds a top-level **"Part Editor"** game menu (menu-bar Harmony postfix) while the editor scene is active.
-- Floating windows: Part Editor, SubParts browser (animated thumbnails), large SubPart Viewer.
-
-### Persistence
-- Writes **Assets XML** (`<Part>` + `<PartGameData>`) and manages **`mod.toml`** (Tomlyn) in the
-  `space-tape-parts` output mod dir (`PartModWriter.cs`, `PartXmlSerializer.cs`, `GameDataXmlSerializer.cs`).
-- Hot-reload spike registers saved `PartTemplate`s into `ModLibrary` at runtime.
-
-### Integration points
-
-| # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
-|---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Harmony (prefix) | `PartRenderHelper.cs:9,13` | `PartModelRenderer.UpdateRenderData(Viewport, int)` **static void** | `KSA/PartModelRenderer.cs:658` | ✅ | none (OLD `:625`, identical) | Overload array `new[]{typeof(Viewport),typeof(int)}` MUST stay; this exact overload is the keystone render hook. |
-| 2 | Harmony (postfix) | `PartEditorMenuBarPatch.cs:31` | `Program.DrawProgramMenusHook()` instance void | `KSA/Program.cs:3391` | ✅ | none | Also reads `Program.MainViewport` (`:403`) + `viewport.MenuBarInUse`. |
-| 3 | Typed API (in prefix) | `PartRenderHelper.cs:23` | `PartTree.UpdateRenderData(ref readonly double4x4, bool isEditedVehicle, Viewport, int)` | `KSA/PartTree.cs:435` | ✅ | none (OLD `:431`) | Called as `(in matrix, false, viewport, frameIndex)`. |
-| 4 | Reflection (private name) | `PartCatalog.cs:20-28`, `SubPartCatalog.cs:35-39`, `Thumbnails/SubpartThumbnailCache.cs:89-99`, `Thumbnails/SubpartThumbnailGenerator.cs:397-411`, `Thumbnails/SingleSubpartGenerator.cs:295-305` | `ModLibrary.AllParts` field → `SerializedCollection<PartTemplate>.GetList()` | `KSA/ModLibrary.cs` (`AllParts`), `KSA/SerializedCollection.cs:42` (`GetList`) | ✅ | none | String literals `"AllParts"`/`"GetList"`. `AllParts` is publicly reachable in decomp (`ModLibrary.AllParts.GetList()`), so the reflection still resolves; `PartCatalog` hard-casts to `SerializedCollection<PartTemplate>`. |
-| 5 | Direct typed API | `PartEditorInteraction.cs:415`, `PartEditorUi.cs:801` | `Part.ResetCachedPosMatrixValues()` — `public void ResetCachedPosMatrixValues()` | `KSA/Part.cs:1047` | ✅ | **Replaced reflection (rev 5112)** | Clears all five transform caches (`_matrixAsmb`, `_positionVehicleAsmb`, `_matrixAsmb2Parent`, `_asmb2VehicleAsmb`, `_matrixAsmb2VehicleAsmb`). Public on both 5018 and 5117. Was `Part._matrixAsmb` reflection until rev 5112 changed the uncached sentinel — see *Update-risk findings*. |
-| 6 | *(retired)* | — | was `Part._matrixAsmb2Parent` reflection | — | — | **Removed** | Folded into row 5; no reflection remains in space-tape's cache-invalidation path. |
-| 7 | Typed API (scene) | `PartEditorScene.cs:62,154,216`, `PartEditorInteraction.cs:70` | `VehicleEditingSpace(double3,doubleQuat,double,…)`, `.GetMatrixAsmb2Ego(Camera)`, `.Asmb2Ecl` | `KSA/VehicleEditingSpace.cs` | ✅ | none | Isolated editor space far from celestials. |
-| 8 | Typed API (camera) | `PartEditorScene.cs:71-77,101,106-107` | `Program.GetCamera/SetCameraMode/GetHoveredCamera/MainViewport.{MapCamera,BaseCamera}/ControlledVehicle`; `Camera.SetFollow(IFollowable,bool,bool,bool alert)`, `.Following` | `KSA/Program.cs:403,450,…`, `KSA/Camera.cs` | ✅ | none | `alert:false` follow path avoids on-screen "Following…" spam. |
-| 9 | Typed API (camera snap) | `CameraSnapController.cs:75-86` | `Camera.Following` → `IFollowable.OrbitView` → `OrbitView.Azimuth/Elevation` | `KSA/OrbitView.cs`, `KSA/IFollowable.cs` | ✅ | none | Snap views write Azimuth/Elevation. |
-| 10 | Render/GPU (grid) | `CameraSnapController.cs:199-201` | `OrbitLinePass.AddLineVertex(Viewport, float3, byte4)` + `AddLineEnd(Viewport)` **static** | `KSA/OrbitLinePass.cs:284,275` | ✅ | none | Grid drawn via orbit-line renderer (alpha-correct, no shader edits). |
-| 11 | Render/GPU (gizmos) | `ConnectorGizmo.cs:27-34,55-56`, `PartEditorScene.cs:65-68,161`, `PartEditorGizmos.cs` | `GenericGizmo(MeshReference, IGizmoRenderData, int)`, `.GetSegmentDataByViewport(Viewport) → PerSegmentData[]`, `GenericGizmo.Static.GenericGizmoRenderData`, `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | `KSA/GenericGizmo.cs:208,277,15,170` | ✅ | none | Connector cubes/arrows + origin axis + transform gizmos. |
-| 12 | Game assets (mesh) | `ConnectorGizmo.cs:28,32`, `PartEditorScene.cs:66` | `ModLibrary.Get<MeshReference>("Box")`, `("ArrowMesh")` | `KSA/ModLibrary.cs` | ✅ | none | Hard-coded mesh ids; missing ids → gizmo creation fails (caught). |
-| 13 | Typed API (build parts) | `PartEditorScene.cs:246-280` | `new Part(string, PartTemplate)`, `Part.{PositionParentAsmb,Asmb2ParentAsmb,Scale}`, `PartTree.CreateFromNewPartTree(Part)`, `Part.Modules.Get<MeshViewModule>()/<PartModelModule>()`, `Part.Modules.Add(...)`, `new MeshViewModule(string, MeshReference)`, `MeshReference.{PositionCompare,BoundingSphereRadius}` | `KSA/Part.cs`, `KSA/PartTree.cs`, `KSA/MeshViewModule.cs` | ✅ | none | Builds runtime `Part`s for the editor scene; ensures MeshView for raycasting. |
-| 14 | Typed API (raycast/select) | `PartEditorInteraction.cs:86,105,116` | `Camera.ScreenToEgoRay(double2)`, `Part.RayCastEgoSubPart(in double4x4, Ray, out …)`, `Part.RayCastEgo(...)`, `Part.Selected` | `KSA/Part.cs`, `KSA/Camera.cs` | ✅ | none | Hover/click select + native highlight/selection shaders. |
-| 15 | Typed API (import) | `PartImporter.cs` (see breaks) | `PartTemplate.{SubPartInstances,DisplayName,EditorTags,InertMasses,Components,Connectors,Batteries,Generators,PowerConsumers,Decoupler,DockingPort,EVADoor,IsSubPart,IsHidden,Thumbnail}` (**`Tank` removed in 5018** — tanks are now `Tank.TemplateData` entries inside `Components`); `EditorTag.Tag`; `Part.Connector.TemplateBase.{Id,Transform,Flags}`; `Part.Connector.Flag.{Internal,ToSurface,FromSurface}`; tank `Cylindrical/SphericalTankTemplate.{Length,OuterRadius,WallThickness,Material.Id}`; `CustomMassTemplate.Mass` | `KSA/PartTemplate.cs`, `KSA/EditorTag.cs`, `KSA/Part.cs:95-111`, `KSA/*TankTemplate.cs` | ⚠️ | energy/docking types changed (breaks #2/#3 below); rest unchanged | `EditorTag` is still `record struct` w/ `public readonly string Tag` (compiles). `Decoupler.Force` still `float`. |
-| 16 | Render/GPU (thumbnails) | `Thumbnails/SubpartThumbnailGenerator.cs`, `SingleSubpartGenerator.cs`, `ThumbnailCameraState.cs` | `ThumbnailRenderer(Renderer)` (`.SIZE/.ColorFormat/.Sampler/.PerInstance…/.PerDraw…/.RecordPartRender`), `ThumbnailPart`, `ThumbnailRenderResources`, `ThumbnailReference`, `Program.{GetRenderer,RenderedViewport,LinearClampedSampler,LightSystem}`, `GameSettings.Current.Graphics.PartThumbnailSize` (ushort) | `KSA.Rendering.Thumbnails/*`, `KSA.Rendering/*`, `KSA/Program.cs:126,391,407,450` | ⚠️ | `ThumbnailReference`/`ThumbnailPart` APIs changed (breaks #1/#4) | Off-screen Vulkan render loop; rev 4694 thumbnail/offscreen rework, rev 4696 sizes. |
-| 17 | Harmony (IVA) | `space-tape/Patcher.cs:20,35`; toggled `SubPartsWindow.cs:102-104` | via `IvaForceRender` → patches `PartModel..ctor(PartModelModule.Template)` + `PartModel.AddInstance(...)` | `ksa-abstractions.lib/IvaForceRender.cs`; `KSA/PartModel.cs` | ✅ | none | "Render IVA SubParts" toggle; depends on `PartModel` ctor overload + `AddInstance` name. |
-| 18 | Lifecycle | `space-tape/Mod.cs`, `Patcher.cs`; `SpaceTapeSubmod.cs` | StarMap attributes; `ISubmod`; `HotkeyGuard` | `MeowSci.KsaAbstractions` | ✅ | none | Per CLAUDE.md HotkeyGuard rule. |
-
-### Game assets referenced
-- Gizmo meshes by id: **`"Box"`**, **`"ArrowMesh"`** (`ConnectorGizmo.cs`, `PartEditorScene.cs`).
-- Default tank wall material id **`"Aluminum.2014(s)"`** (`PartImporter.cs:176`, `GameDataModels.cs:12`).
-- Writes part **Assets XML / GameData XML** + **`mod.toml`** into the `space-tape-parts` mod folder.
-- GameData XML element/attribute schema it emits (see runtime risks): `<Part>`, `<SubPart Id InstanceOf>`,
-  `<Connector Id><Flags>…</Flags>`, `<PartGameData>`, `<EditorTag Value>`, `<CustomMass><Mass Kg>`,
-  `<CylindricalTank|SphericalTank>`, `<Battery><MaximumCapacity KWh>`, `<Generator><Produced W>`,
-  `<PowerConsumer><Consumed W>`, `<Decoupler ConnectorId Force>`, `<DockingPort ConnectorId Force>`, `<EVADoor ConnectorId>`.
-
-### CONFIRMED BREAKS & fixes (4680→4750)
-
-> All 4 listed groups reproduced and root-caused. No *additional* compile errors were found in
-> the imports path (`EditorTag.Tag`, `StringReference→string`, `DecouplerTemplate.Force`, tank
-> fields all still compile).
-
-| Break | mod file:line | old API (what the mod calls) | new API (4750 decomp) | exact fix |
-|-------|---------------|------------------------------|------------------------|-----------|
-| **#1 Thumbnail texture register** | `Thumbnails/SubpartViewerWindow.cs:365,407`; `SubPartsWindow.cs:221,227` | `ThumbnailReference.CreateImGuiThumbnail(VkSampler)` (does not exist) | `ThumbnailReference.GetOrCreateImGuiTexture(VkSampler inSampler) → ImTextureRef` (`KSA.Rendering.Thumbnails/ThumbnailReference.cs:36`). `DestroyImGuiThumbnail()` + `ImGuiImageRef` prop unchanged. | Rename call `X.CreateImGuiThumbnail(Program.LinearClampedSampler)` → `X.GetOrCreateImGuiTexture(Program.LinearClampedSampler)`. Return value can be ignored; the subsequent `.ImGuiImageRef` reads still work (the method populates it). |
-| **#2 Energy/power are now `double`** | `PartImporter.cs:95,104,113` (CS1503 double→float) | `float.IsNaN(b.MaximumCapacity.KWh)` / `g.Produced.W` / `pc.Consumed.W` — args are now `double` | `BatteryTemplate.MaximumCapacity` is `EnergyReference` (`KWh` is **double**, `KSA/EnergyReference.cs:32`); `GeneratorTemplate.Produced` & `PowerConsumerTemplate.Consumed` are `PowerReference` (`W` is **double**, `KSA/PowerReference.cs:10`). Both have implicit `operator double`. | Change `float.IsNaN(` → `double.IsNaN(` on lines 95, 104, 113. The `(double)…KWh`/`.W` and `(double)(float)<ref>` branches already compile (implicit double). |
-| **#3 DockingPort pushoff is an impulse** | `PartImporter.cs:135` (`'DockingPortTemplate' does not contain 'Force'`) | `template.DockingPort.Force` (does not exist) | `DockingPortTemplate` (`KSA/DockingPortTemplate.cs`): `PushoffImpulse` (`ImpulseReference`, default 5000 Ns), `LatchingKineticEnergy` (`EnergyReference`, 50 J), `ConnectorId` now `StringReference` **[XmlElement]**. `ImpulseReference` has `GetNewtonSeconds()`/implicit `double` (Ns). | `Force = template.DockingPort.Force` → `Force = template.DockingPort.PushoffImpulse.GetNewtonSeconds()` (or `(double)template.DockingPort.PushoffImpulse`). Semantics change N→N·s; the mod's `DockingPortState.Force` (double) now stores newton-seconds — ideally rename to `PushoffImpulseNs`. **Also fix the writer** (see runtime risk R1) or saved docking ports won't load. |
-| **#4 Bounding-sphere needs out-center** | `Thumbnails/SingleSubpartGenerator.cs:207`; `SubpartThumbnailGenerator.cs:244` | `root.ComputeBoundingSphereRadius()` (no overload) | `ThumbnailPart.ComputeBoundingSphereRadius(out float3 outCenter) → float` (`KSA.Rendering.Thumbnails/ThumbnailPart.cs:150`). Return type still `float`. | `root.ComputeBoundingSphereRadius()` → `root.ComputeBoundingSphereRadius(out _)`. (Quality option: capture `out float3 center` and offset like `ThumbnailCreator.MoveRootPart` `KSA.Rendering/ThumbnailCreator.cs:201-208` so off-origin SubParts frame centered.) |
-
-**Δ vs OLD for the breaks:** #1 and #4 already had the NEW shape in **4680** (so they are pre-4680 drift,
-not 4680→4750 regressions). #3: 4680 had `PushoffForce`+`LatchingImpulse` (floats, attributes) +
-`ConnectorId` (string attribute) — still no `.Force` — and 4750 then replaced those with
-`PushoffImpulse`/`LatchingKineticEnergy`/`StringReference`. **#2 is a genuine 4680→4750 regression**:
-4680 `BatteryTemplate.MaximumCapacity`/`GeneratorTemplate.Produced` were `JoulesReference` whose
-`KWh`/`W` were **float** (`KSA/JoulesReference.cs:10-16`), so `float.IsNaN(...)` compiled. In 4750
-`JoulesReference` was split into `EnergyReference` + `PowerReference` with all fields **double**.
-
-### Update-risk findings (5018 → 5117)
-
-- 🔴 **BREAKING (fixed) — `Double3Ex.{Up,Down,Left,Right,Forward,Backward}` removed (rev 5067).**
-  15 CS0117 errors across `PartEditorGizmos.cs`, `PartEditorInteraction.cs`,
-  `Thumbnails/SingleSubpartGenerator.cs`, `Thumbnails/SubpartThumbnailGenerator.cs`. Changelog:
-  *"Removed Double3Ex Up/Forward/etc. vectors as they were misleading and often misused"* /
-  *"Added named vectors to Camera as they were used legitimately for this purpose in a few cases."*
-  The game kept view-frame equivalents (`Camera.ForwardView`/`RightView`/`UpView`,
-  `KSA/Camera.cs:73-77`) and renamed its own accessors `GetForward`/`GetRight`/`GetUp` →
-  `GetForwardEcl`/`GetRightEcl`/`GetUpEcl` — **no mod in this repo calls the renamed accessors.**
-  `Double3Ex.One`/`Zero`/`NaN` survive and are still used by the thumbnail generators.
-  **Fix applied:** the six constants now live in `ksa-abstractions.lib/Directions.cs` (identical
-  values → zero behavior change); the 19 call sites use `Directions.*`. See
-  [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md).
-
-- 🔴 **SILENT BREAK (fixed) — `Part` matrix-cache invalidation sentinel changed (rev 5112).**
-  Compile-clean and actively corrupting. Rev 5112 (*"Added caching for Part.MatrixAsmb2VehicleAsmb,
-  the calculation of which was a significant cost at high time warp"*) changed the "uncached"
-  sentinel from `double4x4.Identity` to an all-NaN `Part.UncachedMatrix`, tested with
-  `_matrixAsmb.M11.Equals(double.NaN)` (`KSA/Part.cs:536-552,688,732,1035`), and added three more
-  cached fields (`_positionVehicleAsmb`, `_asmb2VehicleAsmb`, `_matrixAsmb2VehicleAsmb`).
-  space-tape wrote `double4x4.Identity` into `_matrixAsmb`/`_matrixAsmb2Parent` at three sites to
-  *invalidate* them — on 5117 that instead asserts **"the cached transform is identity,"** collapsing
-  the part's transform with no build error. The guard went from harmless-redundant to corrupting.
-  **Fix applied:** all three sites call the public `Part.ResetCachedPosMatrixValues()`
-  (`KSA/Part.cs:1047`), which clears all five caches and was already public on 5018 — so the
-  reflection was never necessary. `using System.Reflection` dropped from both files.
-  *Not to be confused with flexo's R-flexo-2*: flexo touches the **property setters**, which call
-  `ResetCachedPosMatrixValues()` internally (`KSA/Part.cs:706,720,758`), so flexo was never exposed.
-
-- ⚠️ **Behavioral, needs live pass — `EVADoorTemplate` gained `SeatId` (rev 5085).** On 5018
-  `EVADoorTemplate` had **no** serialized members; 5117 adds
-  `[XmlAttribute("SeatId")] public string SeatId` (`KSA/EVADoorTemplate.cs:7-8`), and rev 5085 made
-  the in-game **EVA button appear only when the door's aligned `IVASeat` is occupied**
-  (`EVADoor.AlignedSeat`, `EVADoor.ResolveAlignedSeats(PartTree)`). space-tape's
-  `GameDataXmlSerializer.SerializeEVADoor` (`space-tape.lib/GameDataXmlSerializer.cs:97-99`) emits
-  `<EVADoor ConnectorId="…"/>` and has no `SeatId`, so **authored EVA doors will render but never
-  offer EVA**. Separately, `ConnectorId` was **never** an `EVADoorTemplate` member on 5018 either —
-  `XmlSerializer` silently ignores it. Pre-existing no-op; the `SeatId` gap is new. Fix requires
-  adding `SeatId` to `EVADoorState`/the editor UI/the writer — **not done here** (out of scope for a
-  build fix; needs a UI decision about how the user picks a seat id).
-
-- ⚠️ **Watch item — `EditorTag` gained `Booster`/`Coupling`/`Cargo` (5117).** `KSA/EditorTag.cs:24-28`.
-  parts-now's `BuiltInEditorTags` (`parts-now.lib/Runtime/GameRegistry.cs:43-46`) still lists the
-  original six. **Harmless today**: the three new tags are *not* registered into
-  `VehicleEditor._editorTagLookup` (which force-registers only All/Capsules/Hidden/Engines/Interstage/
-  Radial, `KSA/VehicleEditor.cs:6151+`) and are *not* declared in `Content/Core/PartGameData.xml`, so
-  they are dormant statics. If a future build starts registering them, V7 validation would reject
-  bundles using them until `BuiltInEditorTags` is extended.
-
-- `PartModelModule.Template`/`PartModelGlassModule.Template` gained `[DefaultValue]` attributes
-  (5117). These affect only what the game's serializer **writes**, not what it reads, and space-tape
-  emits its own XML — no impact.
+Two of its game touchpoints live on in other mods and remain catalogued below:
+`PartModelRenderer.UpdateRenderData(Viewport, int)` and `GenericGizmo` / `OrbitLinePass` → **flexo**.
 
 ---
 
-### Update-risk findings (4750 → 5018)
-
-- 🔴 **BREAKING (fixed) — `PartTemplate.Tank` removed.** In 5018 a part's tank is no longer a single
-  `AsmbTankTemplate? Tank` field. Tanks moved into the generic component list as
-  `Tank.TemplateData` (`[XmlType(TypeName = "Tank")] class TemplateData : TemplateDataBase` with an
-  `[XmlElement("CylindricalTank"|"SphericalTank")] AsmbTankTemplate? Tank`), reachable via
-  `PartTemplate.Components`. The game itself now walks it that way
-  (`PartTemplate.CalculateMass`/`AccumulateStorageVolume`, `KSA/PartTemplate.cs:633,675`).
-  `PartImporter` now iterates `Components` and imports **every** `Tank.TemplateData` it finds — so
-  multi-tank parts are supported, where the old single-field read could only ever see one.
-  `AsmbTankTemplate` itself and both subclasses (`CylindricalTankTemplate`, `SphericalTankTemplate`)
-  are unchanged, so `ImportTank` needed no edit.
-  - ⚠ **Round-trip follow-up (not yet done):** `GameDataXmlSerializer` still emits tanks in the old
-    shape. Verify the emitted `<CylindricalTank|SphericalTank>` is nested where 5018's deserializer
-    expects a `Tank` component, or saved parts will lose their tanks — same class of runtime break as
-    R1 below. **Needs a live save/load pass.**
-- ✅ Everything else in this area is stable: `PartModelRenderer.UpdateRenderData(Viewport, int)` (the
-  Harmony target shared with flexo) is signature-identical, `Part.Asmb2ParentAsmb` and
-  `PartTree.RecomputeStaticMass` are unchanged, and `ThumbnailReference`/`ThumbnailPart` did not
-  change at all 4750→5018.
-- ⚠ Carried forward: the **staging → resource groups** rewrite deleted `StageList.cs`/`Staging.cs`
-  and added `ResourceGroups`/`ResourceGroupList`/`ResourceGroupsPanel`. `Part.Stage`/`SetStage` are
-  unchanged, but this is the game-side landing of the 4731/4741 "Stages"→"Resource Groups" editor
-  rename already tracked in R2.
-
-### Other update-risk findings
-- **R1 (runtime, high) — DockingPort GameData XML mismatch:** `GameDataXmlSerializer.SerializeDockingPort`
-  (`GameDataXmlSerializer.cs:89-92`) writes `<DockingPort ConnectorId="…" Force="…"/>` as **attributes**.
-  In 4750 `DockingPortTemplate.ConnectorId` is an **`[XmlElement] StringReference`** and there is **no
-  `Force`** (it's `PushoffImpulse`/`LatchingKineticEnergy` elements). Saved docking ports will silently
-  deserialize with empty ConnectorId and no pushoff. Fix: emit `<DockingPort><ConnectorId Value="…"/><PushoffImpulse Ns="…"/></DockingPort>`.
-- **R2 (runtime, med) — editor categories/tags drift (rev 4731/4741):** tags are now registered at
-  startup from `CoreEditorTagsGameData.xml` via `VehicleEditor.RegisterTag` (`PartTemplate.cs:127-129`),
-  and **"Interstage" was removed as a category** (rev 4741 → Coupling/Structural). `EditorTag.Interstage`
-  still exists as a struct constant (`KSA/EditorTag.cs:20`) but is no longer a valid editor category. Tags
-  the mod imports/round-trips that don't match a registered tag won't filter correctly. The mod's
-  `<EditorTag Value="…">` write still maps to `EditorTagsStrings` (`[XmlElement("EditorTag")] StringReference`),
-  so it deserializes, but the *value* must be a live tag. Also rev 4732 renamed "Stages"→"Resource Groups".
-- **R3 (runtime, low) — part size filter (rev 4721):** `PartTemplate.Diameter` is now `DistanceReference`
-  (`PartTemplate.cs:76-77`) and part-size data was added to part XML. The mod never writes `<Diameter>`,
-  so mod-built parts may be missing from size-filtered lists.
-- **R4 (med) — face-snapping connector semantics (rev 4687–4740):** the mod writes connector
-  `ToSurface`/`FromSurface` flags (`PartXmlSerializer.cs:38-39`, `GameDataXmlSerializer.cs:77-78`). The
-  flag enum is intact (`Part.Connector.Flag`), but face-snap behavior, the approved face-snap target list,
-  and `NoFaceSnapping` tags changed — connectors authored by the mod may snap differently than before.
-- **R5 (med) — private-name reflection** (`"AllParts"`, `"GetList"`): no compiler protection; a rename
-  in any future build silently disables catalogs/thumbnails. Both present in 5117.
-  `Part._matrixAsmb`/`_matrixAsmb2Parent` **are no longer reflected** — 5117 retired that pair in
-  favour of the public `Part.ResetCachedPosMatrixValues()` (row 5), removing this risk class from the
-  transform path entirely.
-- **R6 (low) — thumbnail framing:** fixing break #4 with `out _` discards the bounding center; off-origin
-  SubParts will be slightly mis-framed vs the game's own thumbnail path.
-
----
 
 ## flexo
 
@@ -526,23 +356,24 @@ like every other game DLL reference in the repo.
 
 ## Quick re-verification checklist (run on each new game build)
 
-1. `PartModelRenderer.UpdateRenderData(Viewport,int)` still **static** with that exact overload (both mods, keystone).
-2. `PartTree.UpdateRenderData(ref readonly double4x4,bool,Viewport,int)` unchanged (both render prefixes).
-3. `Program.DrawProgramMenusHook()` + `Viewport.MenuBarInUse` (space-tape menu).
-4. `Universe.ExecuteNextVehicleSolvers` still single overload (flexo by-name patch).
-5. `ThumbnailReference.GetOrCreateImGuiTexture(VkSampler)` + `ThumbnailPart.ComputeBoundingSphereRadius(out float3)` (space-tape thumbnails).
-6. `DockingPortTemplate` shape (`PushoffImpulse`/`LatchingKineticEnergy`/`StringReference ConnectorId`) — importer **and** writer.
-7. `BatteryTemplate.MaximumCapacity:EnergyReference` / `Generator.Produced` & `PowerConsumer.Consumed`:`PowerReference` (double).
-8. Reflection names: `ModLibrary.AllParts`, `SerializedCollection.GetList`, `PartTree.RecomputeStaticMass`. (`Part._matrixAsmb`/`_matrixAsmb2Parent` retired at 5117 — now the public `Part.ResetCachedPosMatrixValues()`.)
-8b. `Part.ResetCachedPosMatrixValues()` still public and still resets **every** transform cache — space-tape's only invalidation path.
-8c. `Double3Ex.One`/`Zero`/`NaN` still present (the six direction vectors are gone as of 5067; space-tape uses `MeowSci.KsaAbstractions.Directions`).
-8d. `EVADoorTemplate.SeatId` — whether space-tape's `<EVADoor>` writer has caught up (open as of 5117).
-9. `Part.Asmb2ParentAsmb`/`PositionParentAsmb`/`BoundingBoxVehicleAsmb`/`TreeChildren`/`SubParts` + `Vehicle.UpdateAfterPartTreeModification` (flexo runtime).
-10. `OrbitLinePass.AddLineVertex/AddLineEnd` + `GenericGizmo` ctor/`PerSegmentData`/`Static.GenericGizmoRenderData` (both grids/gizmos).
+flexo:
+
+1. `PartModelRenderer.UpdateRenderData(Viewport,int)` still **static** with that exact overload (keystone; the explicit `[Viewport,int]` array must keep resolving uniquely).
+2. `PartTree.UpdateRenderData(ref readonly double4x4,bool,Viewport,int)` unchanged (render prefix).
+3. `Universe.ExecuteNextVehicleSolvers` still single overload (flexo by-name patch).
+4. `PartTree.RecomputeStaticMass` still present and still **private** (flexo/kitchen-sink `Traverse` it). A public `PartTree.RefreshStaticMass()` wrapper exists as of 5348.
+5. `Part.Asmb2ParentAsmb`/`PositionParentAsmb`/`BoundingBoxVehicleAsmb`/`TreeChildren`/`SubParts` + `Vehicle.UpdateAfterPartTreeModification` (flexo runtime).
+6. `OrbitLinePass.AddLineVertex/AddLineEnd` + `GenericGizmo` ctor/`PerSegmentData`/`Static.GenericGizmoRenderData` (grids/gizmos).
+7. Editor scaling is **uniform and clamped 0.5×–2×** as of rev 5329 (was triaxial), and modules implement `IRescale.SetScale(in ScaleFactors)` — check flexo's `Part.Scale` writes are still accepted.
+
+> Items 3, 5, 6, 8b, 8c and 8d of the old list were **space-tape-only** and were retired when the mod
+> was removed at 5348 (`Viewport.MenuBarInUse`, the thumbnail-API pair, `DockingPortTemplate`,
+> `BatteryTemplate`/`Generator`/`PowerConsumer` reference types, `Part.ResetCachedPosMatrixValues`,
+> `Double3Ex`, `EVADoorTemplate.SeatId`).
 
 parts-now (all silent at runtime — see *Update-risk findings* above for the full reasoning):
 
-11. **U1** — `Program.cs` still calls `ModLibrary.LoadAll()` **before** `ModLibrary.Bind()`, and StarMap still implements `[StarMapAllModsLoaded]` as a postfix on `LoadAll`.
+8. **U1** — `Program.cs` still calls `ModLibrary.LoadAll()` **before** `ModLibrary.Bind(_renderer)` (`Program.cs:942` @5348), and StarMap still implements `[StarMapAllModsLoaded]` as a postfix on `LoadAll`. As of rev 5340 a `Loading.Task("Part Validation")` pass (`:1214`) instantiates **every** registered part after `Bind` — watch its warnings for parts-now-generated parts.
 12. **U2** — `DeviceMeshInterleaved.Shared.Build()` still one-shot; `Rebuild()` still cannot grow; `RunningVertex/IndexBufferSize` still public static settable `uint`; `IsBuilt` still readable.
 13. Reflection names: `ModLibrary.{AllParts, AllMeshes, AllFiles, AllMaterials, AllPartGameDataReferences, AllEditorTagDefinitions}`, `SerializedCollection<T>._collection`, `VehicleEditor._editorTagLookup` — plus **U4** (still no removal API on `SerializedCollection<T>`).
 14. **U3** — `ThumbnailRenderResources.AddDraw` + `PartModel(.Glass/.Dynamic).WriteInstancesToGpu` still dereference `Material.DiffuseReference`/`.NormalReference`/`.PBRMap` unguarded (if not, relax V9).
@@ -550,3 +381,36 @@ parts-now (all silent at runtime — see *Update-risk findings* above for the fu
 16. Thumbnail surface: `ThumbnailCreator.{ResetRootPart,AddPart,MoveRootPart,CollectDraws,CreateThumbnailReference}`, `ThumbnailRenderer.{SIZE,ColorFormat,RecordPartRender,*DescriptorSetLayout,Sampler}`, `ThumbnailReference.ImageView`, `ThumbnailDynamic.{UpdateGlobalCameraData,SetSelectedPart}`, `Program.ThumbnailViewport`, `Camera.Unfollow(bool)`.
 17. Asset-pipeline surface: `XmlHelper.Serializers[typeof(AssetBundle)]`, `Mod.MakeUsing`/`Preload`, `ModLibrary.{Loaders,Binders,Manifest,LocalModsFolderPath,MOD_TOML,CONTENT_FOLDER}`, `ModManifest.Save`, `ModEntry`, `FileReference.{LocalPath,IsReference,Load}`, `TextureReference.Dispose(Device)` — and **U8/U9** (GLB mesh-naming rule, `Load()`'s swallowed exceptions).
 18. `BindlessTextureLibrary.{TextureCount,MaxTextures}` (`Planet.Render.Core`) + `Renderer.Allocator : KsaVmaAllocator` (`Brutal.Vulkan.Vma`) still resolve — the two new game DLL references.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ❌ **space-tape removed.** Rev 5329 deleted `KSA.DecouplerTemplate` and `PartTemplate.Decoupler`
+  (decouplers are now `Decoupler.TemplateData` inside `PartTemplate.Components`, with `ConnectorId` and
+  `Force` as **fields**, `[XmlType(TypeName = "Decoupler")]` so the XML shape is unchanged). Three ×
+  CS1061 in `space-tape.lib/PartImporter.cs:124,128,129`. The mod was defunct and was deleted.
+- ⚠️ **parts-now — every part is now instantiated at load** (rev 5340). `Program.cs:1212-1215` runs
+  `PartArchetypes.WarnOnMalformedParts()` inside `Loading.Task("Part Validation")`, constructing a real
+  `Part` from every non-subpart template in `ModLibrary.AllParts` and calling
+  `Tree.ReinitializeDerivedValues()`. Rev 5329 added `PartTemplate.WarnOnDuplicateModuleIds()`.
+  **Expect new load-time warnings for generated parts.** Not an error path for the mod.
+- ✅ **parts-now's ordering invariant holds.** `ModLibrary.Bind(_renderer)` is at `KSA/Program.cs:942`
+  (was `:985` at 5261) — still before the validation pass at `:1214`, and `[StarMapAllModsLoaded]`
+  still fires before it. `MeshBudget.cs:23,177` cite the stale `:985`; comment-only.
+- ⚠️ **Editor scaling changed triaxial → uniform, clamped 0.5×–2×** (rev 5329), and many modules gained
+  the new `IRescale` interface (`SetScale(in ScaleFactors)`). flexo writes `Part.Scale` — worth a live
+  check that the editor still accepts its values.
+- ✅ **flexo's patch target unchanged.** `PartModelRenderer.UpdateRenderData(Viewport, int)` is still a
+  single `static void` on `PartModelRenderer`; flexo's explicit `[Viewport, int]` overload array still
+  resolves uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)` overload lives on other
+  types). `GenericGizmo` and `OrbitLinePass` are unchanged.
+- ✅ **`PartTree.RecomputeStaticMass` still present and still private**, so flexo's and kitchen-sink's
+  `Traverse.Method("RecomputeStaticMass")` still works. `PartTree` **gained a public
+  `RefreshStaticMass()`** wrapper — an available simplification, not a fix.
+- ✅ **`Part`'s API churned but missed both mods.** Rev 5329 removed `Part.Sequence`, `SetSequence(int)`,
+  `ActivateInStage`, `DeactivateInStage` and `ScaleTotal`; neither flexo nor parts-now referenced any of
+  them. `Part.Asmb2ParentAsmb`, `PositionParentAsmb` and `Scale` are unchanged.
+- ✅ **`ModuleBase.Parent` became a property** (rev 5329, `IPartParent` split out of `Module`). Neither
+  mod reflects on it. parts-now's seven `ModLibrary.All*` lookups and
+  `SerializedCollection<T>._collection` / `VehicleEditor._editorTagLookup` all still resolve.

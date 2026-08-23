@@ -340,3 +340,52 @@ external texture asset dependency.
   offscreen pass thug-life renders into — signatures intact, but a *behavioral* depth/MSAA
   change here would manifest as a visual glitch rather than a crash. Re-verify visually
   after large render-system updates.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ⚠️ **thug-life — the render environment moved under it; two items are not statically clearable.**
+  Every binding is intact: `SuperMeshRenderSystem.RenderMainPass(CommandBuffer)` signature unchanged,
+  `Program.OffscreenTarget` unchanged (`KSA/Program.cs:438`) so the 5261 dynamic-rendering rebuild still
+  applies, and `UnlitMesh.vert`/`UnlitMesh.frag` are **byte-identical** with their `UnlitMeshVert` /
+  `UnlitMeshFrag` ids still in `Content/Core/DefaultAssets.xml`. What changed around it:
+  1. **Rev 5315 — Vulkan 1.3 → 1.4.** thug-life builds its own pipeline, descriptor set, VB/IB and
+     texture upload against the game's device. 1.4 is backward compatible; exercise it once in game.
+  2. **Rev 5283 — UI coverage culling.** `Content/Core/Shaders/UiCoverage/*` (seven new ids in
+     `DefaultAssets.xml`) plus `GaugeCanvas.RegisterOpaqueCoverage`; expensive shaders are skipped behind
+     opaque UI. thug-life's quad is a **postfix on the main pass** and registers no coverage, so it should
+     be unaffected — but a mis-culled or z-fighting quad only shows in game.
+- ✅ **blinky / its-so-shiny — the O(N³) power DFS is gone, and this is favourable.** Rev 5326 reworked
+  vehicle power onto `PartTree.ElectricalCircuits` and moved `PowerManager.PopulateGraph` out of the
+  constructor (`KSA/PowerManager.cs:14` @5261) into `OnDrawUi`, behind
+  `if (base.ShowFlow && !_displayGraphBuilt)` (`:130-138` @5348) — **the graph is now built only when
+  "Draw Graph" is ticked in the part window.** The changelog reports a 4500-consumer craft going from
+  3.3 s to ~0.3 ms per power rebuild.
+
+  `blinky.lib/LcdGridBuilder.cs:319` splits grids specifically *"to reduce ResourceManager.PopulateGraph
+  cost from O(N³) to O(N³/K²)"* (see also `:62`, `:114`), and `its-so-shiny.lib/ShinyGridBuilder.cs:42`
+  places *"distinct battery anchors [for] the per-PowerConsumer DFS in PowerManager.PopulateGraph"*.
+  Both now solve a problem the game no longer has. **No change made** — removing those optimisations is a
+  behavioral change to grid construction and belongs in its own task.
+
+  Counterweight: `Part.Modules` is now `new ModuleList(keepModuleIdIndex: true)` for **every** part, so
+  blinky's thousands of pixel parts each carry an id index. Worth a perf glance in game.
+- ✅ **blinky's diagnostics still resolve.** `ResourceManagerBase.PopulateGraph` remains, as do the
+  `NearestToFurtherestNode` / `NearestToFurtherestNodeSameStage` fields read reflectively at
+  `BlinkySubmod.cs:625-626`, and `ResourceManager` is still reached via the `core is Combustor` test.
+- ✅ **All three render-skip prefixes unchanged** —
+  `PartModelModule`/`PartModelDynamicModule`/`PartModelGlassModule.UpdateRenderData(in double4x4, bool,
+  Viewport, int)`. `PartTree.CreateFromNewPartTree(Part)` and `EngineController.SetIsActive(Vehicle?, bool)`
+  are also unchanged (`EngineController` additionally gained `ISequenced` + a `Sequence` property, rev 5329
+  — additive).
+- ⚠️ **Lights now register for every viewport** (rev 5301 `ViewportLightModes`): `LightModule.cs:125,141`
+  went from `else if (viewport == Program.MainViewport)` to a bare `else`. its-so-shiny's grids light more
+  viewports than before (including crew-portrait cams) — check for double-lighting or a cost spike.
+- ℹ️ Rev 5333 fixed *"deactivating an engine mid-burn would leave it stuck on forever"*, and rev 5318 fixed
+  *"assigning a part to sequence 0 silently zeroing the vehicle's delta-v and TWR"* — both are game bug
+  fixes in paths blinky drives.
+- ❌ **Still open (pre-existing):** `blinky.lib/LcdGridConfig.cs:47` still defaults `EnginePartId` to
+  `"CorePropulsionA_Prefab_EngineA1"`, an id absent from Content since before 5117 —
+  `ModLibrary.Get` throws. `BlinkySubmod.cs:35` was moved to `EngineA3`; the persisted config default was
+  not. Best remaining candidate for *"blinky broken"* in [`../ISSUES.md`](../ISSUES.md).

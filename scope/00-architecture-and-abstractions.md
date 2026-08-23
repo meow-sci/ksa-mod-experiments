@@ -231,8 +231,8 @@ to the removed properties, so adopting it was behavior-neutral.
 |---|---|---|---|---|---|---|---|
 | 1 | Direct API (struct) | `Directions.cs:20-35` | `Brutal.Numerics.double3.UnitX/UnitY/UnitZ` — `public static double3 UnitX => new double3(1,0,0)` etc. | `Brutal.Numerics/double3.cs:47-51` | ✅ | Same | Only dependency. Not a KSA type — moves with the Brutal package, not the game build. |
 
-**Used by:** space-tape (19 call sites across `PartEditorGizmos.cs`, `PartEditorInteraction.cs`,
-`Thumbnails/SingleSubpartGenerator.cs`, `Thumbnails/SubpartThumbnailGenerator.cs`).
+**Used by:** *(none as of 5348)* — its 19 call sites all lived in space-tape, which was removed.
+Kept because it is a cheap, correct abstraction and the next editor-side mod will want it.
 
 Update-risk findings (5018→5117):
 - Deliberately **not** an alias for `Camera.ForwardView`/`RightView`/`UpView`. The game kept those for
@@ -290,7 +290,7 @@ Update-risk findings (4680→4750):
   instance-list / `Template.Internal` API this helper uses.
 - **IvaForceRender wiring — FIXED (Phase 4).** `unscience/Patcher.cs` now calls
   `IvaForceRender.Patch(_harmony)` in `Patch()` and `IvaForceRender.Unpatch(_harmony)` in `Unload()`
-  (previously wired only in the standalone `kitchen-sink/Patcher.cs:23,39` and `space-tape/Patcher.cs:20,35`).
+  (previously wired only in the standalone `kitchen-sink/Patcher.cs:23,39`).
   The supermod's "Force IVA Rendering" toggle therefore now also handles interior parts spawned *after* the
   toggle (ctor postfix) and editor-preview internal meshes (`AddInstance` postfix), not just the
   `Enabled`-setter mutation of already-loaded `PartModel.Instances` templates. (The separate kitchen-sink
@@ -394,7 +394,7 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
   `Template.Internal` API is unchanged.
 - **Coverage gap CLOSED (Phase 4):** the unscience supermod now applies `IvaForceRender.Patch`
   (`unscience/Patcher.cs`), so the ctor/`AddInstance` postfixes run in supermod mode too — not just the
-  direct `Enabled`-setter mutation path. (Previously only the standalone kitchen-sink/space-tape mods applied it.)
+  direct `Enabled`-setter mutation path. (Previously only the standalone kitchen-sink mod applied it.)
 - **Patch chain hardened (Phase 4):** `unscience/Patcher.cs` now applies/removes each feature's patches in
   isolation (per-feature try/catch — `TryApply`/`TryRemove`), so a single feature failing to patch logs and is
   skipped instead of aborting every feature after it. This was prompted by the camera `___Transform` defect
@@ -405,3 +405,46 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
   deltas are catalogued in the respective feature `scope/` files. The two patches owned by this area
   (inline `EternalFlamePatches` → `Universe.ExecuteNextVehicleSolvers`; `MenuBarPatch` →
   `Program.DrawProgramMenusHook`) are verified clean.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **The shared provider chokepoint is unchanged.** `Universe.CurrentSystem`
+  (`public static CelestialSystem? CurrentSystem { get; private set; }`) → `CelestialSystem.All`
+  (`LookupCollection<Astronomical>`) → `LookupCollection<T>.UnsafeAsList()` all diff clean, so
+  `VehicleProvider`, `CelestialProvider` and every feature mod's UI that reaches vehicles/celestials
+  through them are safe.
+- ✅ **`HotkeyGuard` clean.** `GameSettings.OnKeyAll(GlfwKeyEvent)` is unchanged, and so is the
+  `Program.OnKey` call chain it sits in — so the guard still blocks game hotkeys for **every** top-level
+  mod (marque's local copy included).
+- ✅ **StarMap's seams are present.** `Program.OnDrawUiFrame`, `Program.OnFrame` and
+  `Program.DrawProgramMenusHook` all still exist, so the suite's load path is intact. Rev 5332 changed
+  `Program.DrawMenuBar` only by gating the Save/Load `MenuItem` on `!IsEditorOpen`; unscience's
+  `MenuBarPatch` (a `DrawProgramMenusHook` prefix) is unaffected.
+- ⚠️ **`ReflectionHelpers` has no property fallback — and rev 5329 made that matter.**
+  `GetFieldValue`/`SetFieldValue` call `Type.GetField` only. Rev 5329 split `IPartParent` out of `Module`
+  and moved `Parent` from a `Module<T>` **field** (`public required Part Parent;`) to a
+  `ModuleBase.Parent` **auto-property** (`public required Part Parent { get; set; }`).
+  **Audited: no mod in the suite reflects on `Parent`,** so nothing broke — but this is the exact shape of
+  failure `ReflectionHelpers` cannot survive, and it should be the first thing checked whenever a game
+  refactor moves members between base types. Consider adding a property fallback.
+- ✅ **`SimTimeProvider` clean.** `Universe.GetElapsedTime() : UniverseTime` and `.Seconds()` are
+  unchanged from the 5261 migration.
+- ✅ **`IvaForceRender` clean.** `PartModel..ctor(PartModelModule.Template)`, `PartModel.AddInstance`,
+  `PartModel.Instances`, `PartModel.ViewportData.Get`, `PartModelModule.Template.Internal` and
+  `CameraMode.IVA` all resolve unchanged. Rev 5312 added receive-only raytracing for IVA kittens — worth
+  a live look, not a code change.
+- ✅ **`PartHelpers` clean.** `Part`, `PartTree`, `Part.Modules`, `Part.SubParts`, `Part.Asmb2ParentAsmb`
+  and `Part.PositionParentAsmb` are unchanged. Note rev 5329 **removed** `Part.Sequence`,
+  `SetSequence(int)`, `ActivateInStage`, `DeactivateInStage` and `ScaleTotal` — **no unscience code
+  referenced any of them**, confirmed by the green build and by grep.
+- ✅ **`XkcdColorHelper`, `GameThread`/`GameStateQueue`, `EasingHelper`, `Directions`, `KsaPaths`,
+  `SubmodUI`, `UnscienceState`** — no breaking deltas; the whole solution builds with
+  `TreatWarningsAsErrors` on and **0 warnings**, so no Brutal/ImGui nullability shift landed in the
+  surface the suite uses.
+- ❌ **Still open:** `unscience/Patcher.cs` never calls `IvaForceRender.Patch`, so kitchen-sink's IVA
+  force-render remains partial inside the supermod. Unchanged by this build.
+- ℹ️ **space-tape is gone.** Its `ISubmod` registration, `ProjectReference` and the
+  `SpaceTapeSubmod.HideHostWindow` wiring were removed from `unscience/Mod.cs` and
+  `unscience/unscience.csproj`. **The supermod now aggregates 22 submods, not 23.**

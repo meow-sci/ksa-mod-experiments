@@ -332,3 +332,42 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
   (`Battery.Refill`/`Part.Scale`/`Vehicle.Teleport`); i-feel-seen **replaces** render computation
   via skip-original prefixes. None of these were affected by the 4680->4750 signature surface;
   the only build-induced breakage is the garrys-torch CS8604 (Brutal nullability, rev 4729).
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **The physics-bubble rewrite does not move the eternal-flame seam.**
+  `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` keeps its signature and remains
+  a **single overload**, so the prefix shared by eternal-flame, flexo and kitchen-sink still attaches.
+  Its **body** was substantially rewritten (revs 5331/5339): physics-bubble ownership moved entirely into
+  `VehicleUpdateTask`, merge/split checks were made much less naive and moved onto the vehicle solver
+  worker threads, and the method no longer walks `_physicsBubbles` itself — it now calls
+  `RemoveEligibleVehicles()` / `PrepareVehicleWorkers()` / `SyncGroundClutter()` and queues
+  `_vehicleUpdateTask`. The prefix still runs **before** `JobSystems.VehicleSolver.ExecuteJobs()`, so the
+  refill timing is preserved.
+- ✅ **garrys-torch's drain is intact.** `JobSystems.VehicleSolver` (single-runner `JobScheduler`,
+  priority `Highest`) and `JobSystems.VehicleWorkerPool` (`DynamicWorkerPool`) are both unchanged;
+  `GarrysTorchSubmod.cs:103` calls `KSA.JobSystems.VehicleSolver.Wait()`, which still exists.
+  (Several nearby comments still say `VehicleSolvers` — comment-only staleness from the 5261 rename.)
+- ✅ **eternal-flame's refill path is byte-identical.** `KSA/Battery.cs` diffs clean;
+  `Battery.Refill(ref BatteryState)`, `Vehicle.RefillConsumables()` and
+  `PartTree.Batteries.GetModuleAndAllMutableStatesForInitialization(...)` are all unchanged.
+  The rev-5326 power rework touched circuit *construction* and *draw*, not refill.
+- ✅ **garrys-torch / i-feel-seen typed surfaces unchanged.**
+  `Vehicle.Teleport(Orbit?, doubleQuat?, double3?)`, `Vehicle.GetWorldMatrix(Camera)`,
+  `Vehicle.UpdateRenderData(...)` and `Camera.GetPositionEgo` all keep their signatures.
+  `Vehicle.IsControllable` is unchanged (`Vehicle.cs:582`).
+- ✅ **Coordinate frames unchanged.** Rev 5280 extracted CCF/CCI/CCE quaternion composition into
+  `KSA/CelestialFrameMath.cs` (`ComputeCcf2Cci`, `ComposeCcf2Cce`), but `Celestial.GetCcf2Cci`,
+  `GetCci2Ccf`, `GetCci2Cce` and `GetCce2Cci` keep the same signatures and semantics — a pure
+  extraction. garrys-torch's `GetCci2Cce` welding math is unaffected.
+- ✅ **The KittenEva → `CharacterCore.Scale` chain is intact and still field-shaped**, so garrys-torch's
+  `SetValue` still works. Rev 5329 turned `Module.Parent` into a property; garrys-torch does not
+  reflect on it.
+- ⚠️ **Ground-clutter collisions are new** (revs 5263/5274/5303/5307), default **off** behind
+  *Settings → Simulation → Ground Clutter → "[Experimenta] Enable Collisions"*. Clutter is destroyed above
+  25 J/kg impact energy, and kitten contact counts. garrys-torch teleports a vehicle **every frame** —
+  with the setting on, that could now interact with clutter statics. Worth a live check.
+- ℹ️ Re-test the [`../ISSUES.md`](../ISSUES.md) error spam for garrys-torch and flexo under the rewritten
+  bubble model; the spam's shape may have changed.

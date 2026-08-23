@@ -189,3 +189,31 @@ not serialized, reset to defaults on reload. `IsRecording` defaults `false`
   Neither average-twr nor geeforce calls these, but they compile into the shared assembly — listed here so a
   future break in those members is attributed correctly.
 - Both mods are **read-only telemetry**: the only Harmony patch is the shared `HotkeyGuard`; no game state is mutated.
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ✅ **geeforce clean.** `KSA/KinematicMeasurements.cs` is **byte-identical**, so
+  `KinematicMeasurements.AccelerationBody` reads exactly as before.
+- ⚠️ **average-twr's numbers will move, with no symbol change.** Three game fixes land in the values it
+  reads:
+  - **rev 5317** — *"Fixed a typo in row × col vector multiplication that was causing TVC gains to be
+    wrong in many cases"*, plus retuned gains and a fix for over-aggressive throttle limiting based on
+    TVC authority. `FlightComputer` constants changed accordingly
+    (`MAX_TRANSIENT_BURN_FRACTION` 0.3 → 0.5; `TVC_SETTLE_TOLERANCE` → `TVC_SETTLE_POINTING_TOLERANCE`,
+    0.02 → 0.0017453…).
+  - **rev 5318** — *"Fixed assigning a part to sequence 0 in the editor silently zeroing the vehicle's
+    delta-v and TWR."* Vehicles that previously reported zero TWR will now report a real value.
+  - **rev 5340** — part characteristics are now computed by instantiating a real `Part` and inspecting
+    its game data rather than from XML templates; total engine thrust and Isp are shown as a **vector
+    sum** of all engines. This is the same direction as the rev-5114 change already recorded above
+    (`TotalEngineVacuumThrust` → ambient-corrected `ComputeActiveThrust`).
+
+  **No code change needed** — `NavBallData.ThrustWeightRatio` and the `FlightComputer.VehicleConfig`
+  surface are unchanged; the readings simply shift. `KSA/NavBallData.cs` diffs clean.
+- ℹ️ **`FlightComputer` gained `Burn.LastIgnitionDenied` and auto→manual burn-mode fallback** when
+  ignition is denied (rev 5317), and *"Fixed being always kicked out of auto burn mode when loading a
+  save game."* Relevant to steely-eyed's mission evaluation if it tracks burn mode.
+- ✅ **steely-eyed clean.** The `Situation` enum is unchanged, so its `.ToString()` name comparisons
+  (`"Landed"`, `"Floating"`, …) still match. Its SQLite/YAML surface is game-free.

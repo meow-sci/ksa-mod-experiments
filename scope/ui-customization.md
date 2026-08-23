@@ -335,3 +335,46 @@ instances; no `Content/` paths).
   the param type changes; `Traverse.Method("RecomputeStaticMass")` (#27) is the only
   string-named member in this mod and fails *silently* (caught, logged) if renamed.
 ```
+
+---
+
+## Area summary — Update-risk findings (5261 → 5348)
+
+- ⚠️ **con-man vs the new global Hud Scale (rev 5293) — the headline finding this span.**
+  All seven reflected `GaugeCanvas` fields still resolve and their declarations are **byte-identical at
+  the same line numbers** (`KSA/GaugeCanvas.cs:92,115,130,132,134,136,143`); `_windowTitle` is still
+  `protected` on `GaugeCanvas` itself. The **arithmetic around them changed**:
+
+  | `KSA/GaugeCanvas.cs` | 5261 | 5348 |
+  |---|---|---|
+  | `:534` → `:536` | `ScreenReference.PixelsToUv(pixelsSize)` | `PixelsToUv(pixelsSize / GameSettings.GetGaugeScale())` |
+  | `:815` → `:817` | `SetNextWindowSizeConstraints(2f, 2048f, …)` | `… 2048f * MathF.Max(1f, GetGaugeScale()), …` |
+  | `:856` → `:859-866` | — | new `ConsoleStyle.BeginGaugeHostScope(GetGaugeScale() * clamp(ContentScale, 0.6, 3))` around the draw, closed at `:884` |
+
+  con-man captures and restores `_windowPosition` / `_windowSize` / `_customScale` / `_customOffset`
+  (`GaugeStateAccessor.cs:28-34`; arithmetic documented at `LayoutManager.cs:151-152`), so **layouts
+  saved at one Hud Scale restore at the wrong size and position at another.** Layouts saved and
+  restored at the same Hud Scale should be fine. **Open — needs a live pass before any code change.**
+  Suggested approach: record `GameSettings.GetGaugeScale()` alongside each saved layout and normalise
+  on restore.
+- ⚠️ **Still open from 5261:** the rev-5201 per-canvas `IsContextVisible()` gate. The crew-portraits
+  canvas gained a **third** gate this span — `GameSettings.ShowCrewPortraitCameras()` (rev 5276), so
+  the draw condition is now
+  `!_enabled || !IsContextVisible() || (CrewPortraits && (!ShowCrewPortraitCameras() || !HasOccupants))`
+  (`:719`).
+- ℹ️ **Also new on `GaugeCanvas`:** `RecalculateAll()` → `RecalculateAll(bool forceReattach = false)`
+  (optional param, source-compatible; con-man does not call it); `Detached = false` reset on reattach
+  (`:954`); `RegisterOpaqueCoverage(...)` and `DrawWidgetText(...)` added for the rev-5283 UI coverage
+  culling. `GaugeCanvas.OnDrawMenuBar()` — marque's patch target — is **unchanged**.
+- ⚠️ **skittles — `GameSettings.Interface.FontSize` was removed** (rev 5277) and `GetInterfaceScale()`
+  redefined from `FontSize / 20f` to a dedicated 50–200 % `Interface.Scale`; `GetFontSize()` is now
+  `max(1, round(20 * GetInterfaceScale()))`. skittles touches only `ImGui.GetStyle()` and reads neither
+  setting, so **no code change** — but rev 5277 also made `ConsoleStyle` ImGui windows scale with the new
+  setting, so themed sizes/paddings should get a live eyeball at a non-100 % Interface Scale.
+- ✅ **kitchen-sink clean.** `PartTree.ReinitializeDerivedValues()` still exists (call sites moved from
+  `Vehicle.cs` to `PartArchetypes.cs`/`EVADoor.cs`); `IvaForceRender`'s targets — `PartModel..ctor`,
+  `PartModel.AddInstance`, `PartModel.Instances`, `PartModelModule.Template.Internal`, `CameraMode.IVA` —
+  are all unchanged. `PartTree.RecomputeStaticMass` still private and `Traverse`-able.
+  Rev 5312 added raytracing to IVA kittens — worth a live look at IVA force-render.
+- ❌ **Still open:** the unscience supermod never calls `IvaForceRender.Patch`, so kitchen-sink's IVA
+  force-render remains partial inside the supermod. Unchanged by this build.
