@@ -104,7 +104,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant. **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now, dont-stifle-me | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` (both new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
@@ -132,7 +132,7 @@ watch items, one favourable regression.**
 - **space-tape** — rev 5329 moved decouplers from `PartTemplate.Decoupler` (a `DecouplerTemplate`
   field, now deleted) into `PartTemplate.Components` as `Decoupler.TemplateData`. Three × CS1061 in
   `space-tape.lib/PartImporter.cs`. **space-tape is defunct; the mod and its `.lib` were deleted**
-  and unwired from the solution and the supermod. The supermod now bundles **22** submods.
+  and unwired from the solution and the supermod. The supermod now bundles **23** submods (dont-stifle-me added 2026-08-23).
   The on-disk XML shape `<Decoupler ConnectorId=… Force=… />` is unchanged — only the typed reader broke.
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
@@ -147,6 +147,14 @@ watch items, one favourable regression.**
   entry in [`../ISSUES.md`](../ISSUES.md).
 - **thug-life** — everything it binds to is intact, but rev 5315 moved the game to **Vulkan 1.4** and
   rev 5283 added **UI coverage culling**. Neither can be cleared from source.
+
+**Added against 5348 (not a break — a response to one):**
+- **dont-stifle-me** (new 2026-08-23) — revs in this span clamped top-level part scale to **0.5x–2x**
+  and made scale-gizmo drags **uniform** (`VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale`,
+  both new methods). The mod patches exactly those two (+ a per-frame `UpdateScaleGizmo` postfix) to
+  restore the 5261 freedom behind a toggle. All five targets are by-name — see
+  [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → dont-stifle-me. Needs a live
+  editor pass; not yet verified in-game.
 
 **Favourable — no change needed:**
 - **blinky / its-so-shiny** — rev 5326 moved `PowerManager.PopulateGraph` out of the constructor and

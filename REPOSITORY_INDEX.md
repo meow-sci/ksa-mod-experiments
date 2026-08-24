@@ -321,7 +321,7 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 ## Unified Supermod
 
 ### [unscience](unscience)
-Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, and skittles. Standalone mods continue to work independently.
+Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
 - Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Flexo, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (22 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
@@ -371,6 +371,14 @@ Runtime Part / SubPart loader. Paste Part XML into a brand new mod folder, or lo
 - **parts-now.lib**: `PartsNowSubmod` (ISubmod entry point), `GameRegistry` (the only reflection into `ModLibrary` internals), `MeshBudget` (shared-buffer headroom + leak accounting), `BundleParser` / `BundleValidator` (V1–V15), `RuntimeModLoader` (load state machine), `RuntimeModUnloader` (safety gate + purge/rollback), `PartThumbnailGenerator`, `ModIdValidator` / `ModFolderWriter` / `ModFolderScanner`, `StatusPanel` / `PastePanel` / `ModFolderPanel` / `ResultsPanel`
 
 ---
+
+### [dont-stifle-me](dont-stifle-me) / [dont-stifle-me.lib](dont-stifle-me.lib)
+Vehicle editor un-limiter. KSA build `2026.8.22.5348` clamped top-level part scaling to 0.5x–2x and made the scale gizmo uniform across all axes; this mod restores the old freedom behind a single toggle.
+- Master **Don't stifle me** checkbox plus two sub-options (remove clamp, per-axis scaling), all default on, flip live
+- Postfix on `VehicleEditor.ScaleBoundsFor` widens bounds to `(1e-6, +inf)`; prefix on `UpdateSelectedScale` applies the drag to the dragged axis only
+- Reuses the game's private `QuantizeScale` / `ForEachPartWithSymmetry` so 0.25 m diameter snapping and symmetry still work
+- F11 window toggle standalone; bundled in unscience as a submod
+- Known limit: connectors/mass follow the largest axis (game's `ScaleFactors`), so non-uniform parts may have off-surface connectors
 
 ## Orbit & Navigation Mods
 

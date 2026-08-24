@@ -59,4 +59,6 @@
     <Project Path="thug-life.lib/thug-life.lib.csproj" />
     <Project Path="parts-now/parts-now.csproj" />
     <Project Path="parts-now.lib/parts-now.lib.csproj" />
+    <Project Path="dont-stifle-me/dont-stifle-me.csproj" />
+    <Project Path="dont-stifle-me.lib/dont-stifle-me.lib.csproj" />
 </Solution>

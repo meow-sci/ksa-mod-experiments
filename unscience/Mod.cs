@@ -27,6 +27,7 @@ using MeowSci.KitchenSinkLib;
 using MeowSci.PartsNowLib;
 using MeowSci.RedAlertLib;
 using MeowSci.ThugLifeLib;
+using MeowSci.DontStifleMeLib;
 
 namespace MeowSci.Unscience;
 
@@ -66,6 +67,7 @@ public class Mod
             _submods.Add(cameraOverride);
             _submods.Add(new ConManSubmod());
             _submods.Add(new DohSubmod());
+            _submods.Add(new DontStifleMeSubmod());
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new FlexoSubmod());
             _submods.Add(new GarrysTorchSubmod());

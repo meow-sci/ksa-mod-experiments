@@ -37,6 +37,7 @@
     <ProjectReference Include="..\red-alert.lib\red-alert.lib.csproj" />
     <ProjectReference Include="..\thug-life.lib\thug-life.lib.csproj" />
     <ProjectReference Include="..\parts-now.lib\parts-now.lib.csproj" />
+    <ProjectReference Include="..\dont-stifle-me.lib\dont-stifle-me.lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>

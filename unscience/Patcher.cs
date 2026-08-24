@@ -13,6 +13,7 @@ using MeowSci.ItsSoShinyLib;
 using MeowSci.KsaAbstractions;
 using MeowSci.FlexoLib;
 using MeowSci.ThugLifeLib;
+using MeowSci.DontStifleMeLib;
 
 namespace MeowSci.Unscience;
 
@@ -64,6 +65,7 @@ internal static class Patcher
         TryApply("engine-emissive", () => EngineEmissivePatches.Apply(_harmony!));
         TryApply("flexo", () => FlexoPatches.Apply(_harmony!));
         TryApply("iva-force-render", () => IvaForceRender.Patch(_harmony!));
+        TryApply("dont-stifle-me", () => EditorScalePatches.Apply(_harmony!));
         Console.WriteLine("unscience: Harmony patches applied");
     }
 
@@ -95,6 +97,7 @@ internal static class Patcher
                 TryRemove("i-feel-seen", () => IFeelSeenPatches.Remove(_harmony!));
                 TryRemove("engine-emissive", () => EngineEmissivePatches.Remove(_harmony!));
                 TryRemove("flexo", () => FlexoPatches.Remove(_harmony!));
+                TryRemove("dont-stifle-me", () => EditorScalePatches.Remove(_harmony!));
                 TryRemove("vehicle-paint", () => VehiclePaintPatches.Remove(_harmony!));
                 TryRemove("thug-life", () => ThugLifeRenderPatches.Remove(_harmony!));
                 TryRemove("iva-force-render", () => IvaForceRender.Unpatch(_harmony!));

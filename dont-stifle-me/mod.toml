@@ -1,0 +1,7 @@
+name = "dont-stifle-me"
+description = "Removes the vehicle editor part-scale clamp (0.5x-2x) and restores per-axis (non-uniform) part scaling"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.DontStifleMe"
