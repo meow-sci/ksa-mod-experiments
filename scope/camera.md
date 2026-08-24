@@ -110,7 +110,7 @@ visibility/header state, not animation data.
   animation drives the live camera. **Secondary impact this also fixed:** Harmony 2.4.2 validates injected
   `___` field names at patch time and **throws** when none binds — so `CameraControllerOverridePatches.Apply`
   threw inside `unscience/Patcher.cs`, and because that call sat mid-chain, every feature applied *after* it
-  (eternal-flame, glass, i-feel-seen, vehicle-paint, engine-emissive, flexo) silently failed to patch in the
+  (eternal-flame, glass, i-feel-seen, vehicle-paint, engine-emissive, and the since-removed flexo) silently failed to patch in the
   supermod. The supermod patch chain is now also hardened so any single feature's apply failure is isolated
   (logged + skipped) rather than aborting the rest. (`Transform` is the correct member name only on the
   unrelated `RenderCore.Input.Controllers.CameraController` family.)

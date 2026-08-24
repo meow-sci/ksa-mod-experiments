@@ -25,7 +25,8 @@ decompiled-source path for each so the dependency can be re-checked against any 
   `version.json` alone (175 changelog lines) covers every revision from the baseline. Nothing went
   unreviewed.
 - **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx` against the `5348`
-  reference DLLs for *typed* breaks — **55/55 projects, 0 warnings, 0 errors**; (2) re-grep of the
+  reference DLLs for *typed* breaks — **55/55 projects, 0 warnings, 0 errors** at the time of the pass
+  (the suite went to 57 with dont-stifle-me and back to **55** when flexo was removed; still 0/0); (2) re-grep of the
   **entire** string-reflection watchlist plus a signature diff of **every** Harmony patch target
   across both trees, for the silent breaks the compiler can't see — including a **field-vs-property
   audit** prompted by rev 5329 moving `Module.Parent` to a property; (3) byte-layout diff of
@@ -102,17 +103,17 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
 | [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; the `___Transform` injector bug is **fixed** (prefix now reads `__instance.Camera`) |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
-| [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
+| [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now, dont-stifle-me | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
 Bundled in the unscience supermod (22): average-twr, blinky, camera-controller-override, con-man,
-doh, eternal-flame, flexo, garrys-torch, geeforce, glass, humble-arteest, i-feel-seen, its-so-shiny,
-kitchen-sink, kitten-animations, kiwis-marbles, parts-now, red-alert, skittles, thug-life,
-unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
+doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, humble-arteest, i-feel-seen,
+its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, red-alert, skittles,
+thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
 jplrepo live in the repo but are **not** loaded by the supermod.)
 
 ---
@@ -132,7 +133,7 @@ watch items, one favourable regression.**
 - **space-tape** — rev 5329 moved decouplers from `PartTemplate.Decoupler` (a `DecouplerTemplate`
   field, now deleted) into `PartTemplate.Components` as `Decoupler.TemplateData`. Three × CS1061 in
   `space-tape.lib/PartImporter.cs`. **space-tape is defunct; the mod and its `.lib` were deleted**
-  and unwired from the solution and the supermod. The supermod now bundles **23** submods (dont-stifle-me added 2026-08-23).
+  and unwired from the solution and the supermod.
   The on-disk XML shape `<Decoupler ConnectorId=… Force=… />` is unchanged — only the typed reader broke.
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
@@ -153,6 +154,28 @@ watch items, one favourable regression.**
   [`character-and-materials.md`](character-and-materials.md) and [`../ISSUES.md`](../ISSUES.md).
 - **thug-life** — everything it binds to is intact, but rev 5315 moved the game to **Vulkan 1.4** and
   rev 5283 added **UI coverage culling**. Neither can be cleared from source.
+  **FIXED 2026-08-23 (load-order, not a 5348 break):** the submod reported *"init failed: Object
+  reference not set to an instance of an object"* because it built its Vulkan pipeline in
+  `Initialize()`, i.e. from `[StarMapAllModsLoaded]` — which StarMap fires from a postfix on
+  `ModLibrary.LoadAll()` (`KSA/Program.cs:897`), **before** the game creates
+  `Program.OffscreenTarget` in `BuildRenderTargets()` (`:934`). GPU init is now lazy, on the first
+  anchored entry. The same pass moved the per-frame MVP off `Program.GetMainCamera()` onto
+  `Program.GetRenderCamera()`, since `RenderMainPass` runs once per visible viewport (the two
+  crew-portrait viewports included). See [`pixel-grids-and-render.md`](pixel-grids-and-render.md)
+  → thug-life.
+
+**Removed by choice (not a game break):**
+- **flexo** (robotics — articulated hinge/rotor Parts) — **deleted 2026-08-23.** `flexo.lib` compiled
+  clean against 5348 and every patch target it depended on verified OK, but the approach never worked
+  in-game (it leaned on undocumented `Part` transform/bounds cache-invalidation semantics) and will not
+  be reattempted this way. Mod + `.lib`, both solution entries, the `unscience.csproj`
+  `ProjectReference` and the supermod wiring are all removed. Two game surfaces went **unowned** with
+  it: `PartModelRenderer.UpdateRenderData(Viewport, int)` (the keystone render hook flexo inherited
+  from space-tape) and `OrbitLinePass.AddLineVertex`/`AddLineEnd` — neither needs re-verification on
+  future builds. `GenericGizmo` survives under dont-stifle-me, and `PartTree.RecomputeStaticMass` stays
+  on the string-reflection watchlist for kitchen-sink. kitchen-sink's *Flexo Part/Subpart Test* panels
+  are named after it but are independent and were kept. See
+  [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → flexo.
 
 **Added against 5348 (not a break — a response to one):**
 - **dont-stifle-me** (new 2026-08-23) — revs in this span clamped top-level part scale to **0.5x–2x**
@@ -192,12 +215,17 @@ watch items, one favourable regression.**
 - **humble-arteest Vehicle Paint / mesh-deform** — ❌ still dead by design since rev 4693; both
   self-disable. mesh-deform's `MeshIndirect.vert` struct anchor still does not match (the file is
   byte-identical to 5261, so this is unchanged, not a new regression).
-- **blinky default `EnginePartId`** — ❌ still open: `LcdGridConfig.cs:47` is still
-  `"CorePropulsionA_Prefab_EngineA1"`, an id absent from Content since before 5117.
+- **blinky broken** — ✅ **closed 2026-08-23.** Root cause was the **propellant feed**, not just the
+  part id: the 5018 fuel rewrite made a *declared feed connector* mandatory for the first hop out of a
+  consumer part, so blinky's `Part`↔`Part` connection fed nothing and no pixel could ever light.
+  blinky now connects `RocketCore.FeedConnectors` → fuel part, and both `EnginePartId` defaults moved
+  from the removed `EngineA1` to `EngineA3`. See
+  [`pixel-grids-and-render.md`](pixel-grids-and-render.md) → *Root cause of "blinky broken"*.
 - **unscience never wires `IvaForceRender.Patch`** — ❌ still open.
 
 **Not cleared statically — a live in-game pass is still required** for con-man's HUD scaling,
-kitten-animations' reworked expressions and clip override, thug-life under Vulkan 1.4 + UI culling, blinky's grid timing and
-default part, parts-now against the new load-time part validation (rev 5340), doh's MMU attachment
+kitten-animations' reworked expressions and clip override, thug-life under Vulkan 1.4 + UI culling (its
+init-order NRE is fixed, but the quad itself still needs eyes on it), blinky's grid timing and
+repaired propellant feed, parts-now against the new load-time part validation (rev 5340), doh's MMU attachment
 after its `AnimatedRenderable` retype, and the `ISSUES.md` error spam under the rewritten physics
 bubbles. A green `dotnet build` does not cover these, and there is no test suite in this repo.

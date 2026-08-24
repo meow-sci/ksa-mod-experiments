@@ -13,7 +13,7 @@ namespace MeowSci.PartsNowLib;
 
 /// <summary>
 /// The three tabbed XML documents of the paste panel — <b>Assets</b>, <b>Part</b> and
-/// <b>GameData</b>, matching flexo's export tabs — with a clipboard button, a clear button and a
+/// <b>GameData</b> — with a clipboard button, a clear button and a
 /// character counter each.
 /// </summary>
 /// <remarks>

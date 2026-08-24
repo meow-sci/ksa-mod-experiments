@@ -34,7 +34,7 @@ public sealed class BlinkySubmod : ISubmod
     private float _configEngineScale = 0.010f;
     private string _enginePartId = "CorePropulsionA_Prefab_EngineA3";
     private int _configLayoutIndex = 0; // 0=Flat, 1=Cylinder
-    private int _enginePresetIndex = 2;
+    private int _enginePresetIndex = 1;
     private readonly ImInputString _engineFilter = new(128);
 
     // Vehicle selection for grid creation
@@ -45,10 +45,11 @@ public sealed class BlinkySubmod : ISubmod
     private readonly Queue<(double delayBefore, Action action)> _deferredActions = new();
     private double _deferredTimer = 0;
 
-    // Known engine part IDs for quick-select
+    // Known engine part IDs for quick-select.
+    // EngineA1 is deliberately absent: it was removed from the game's Content between
+    // builds 5018 and 5117, and ModLibrary.Get throws for ids that no longer exist.
     private static readonly string[] EnginePresets = new[]
     {
-        "CorePropulsionA_Prefab_EngineA1",
         "CorePropulsionA_Prefab_EngineA2",
         "CorePropulsionA_Prefab_EngineA3",
         "CorePropulsionA_Prefab_EngineA4",
@@ -102,6 +103,9 @@ public sealed class BlinkySubmod : ISubmod
 
         //  Non-LCD engine warning for controlled vehicle 
         RenderNonLcdEngineWarning();
+
+        //  Ignition / throttle warning for controlled vehicle 
+        RenderIgnitionWarning();
 
         //  Render engine meshes checkbox 
         bool renderEngines = BlinkyPatchState.RenderPixelParts;
@@ -166,6 +170,50 @@ public sealed class BlinkySubmod : ISubmod
 
         ImGui.PopStyleColor();
         ImGui.PopStyleColor();
+
+        ImGui.Spacing();
+    }
+
+    //  Ignition Warning 
+
+    /// <summary>
+    /// Pixels are lit by activating real engines, so nothing shows unless the vehicle is
+    /// ignited with a non-zero throttle. Surfaces that here rather than leaving the player
+    /// staring at a dark grid.
+    /// </summary>
+    private void RenderIgnitionWarning()
+    {
+        var vehicle = VehicleProvider.GetControlledVehicle();
+        if (vehicle == null) return;
+
+        bool hasGrid = false;
+        foreach (var gs in BlinkyGridManager.Grids.Values)
+        {
+            if (gs.VehicleId == vehicle.Id) { hasGrid = true; break; }
+        }
+        if (!hasGrid) return;
+
+        bool ignited = vehicle.IsSet(VehicleEngine.MainIgnite, false);
+        float throttle = vehicle.GetManualThrottle();
+        bool autoBurn = vehicle.FlightComputer.BurnMode == FlightComputerBurnMode.Auto;
+
+        if (ignited && throttle > 0f && !autoBurn) return;
+
+        string reason = autoBurn
+            ? "burn mode is Auto, which clears ignition every frame"
+            : !ignited ? "the vehicle is not ignited" : "the throttle is at zero";
+
+        ImGui.TextColored(KSAColor.Xkcd.CandyPink, $"Pixels cannot light — {reason}");
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip("Each pixel is a real engine.\nIt only fires while the vehicle is ignited and the throttle is above zero.");
+
+        if (!ignited && !autoBurn)
+        {
+            ImGui.SameLine(0, 8);
+            if (ImGui.SmallButton(" Ignite ##bk_ignite"))
+                vehicle.SetEnum(VehicleEngine.MainIgnite);
+        }
 
         ImGui.Spacing();
     }
@@ -348,6 +396,13 @@ public sealed class BlinkySubmod : ISubmod
         ImGui.SameLine(0, 12);
         if (ImGui.Button($"Diagnose##{gridId}"))
             DiagnoseGrid(gs);
+
+        ImGui.SameLine(0, 12);
+        if (ImGui.Button($"Repair Feed##{gridId}"))
+            RepairGridFeed(gs);
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled("(?)");
+        ImGui.SetItemTooltip("Re-wire this grid's engines into the vehicle's propellant network.\nNeeded for grids found by scanning, or built before the feed-wiring fix.\nWithout a declared feed connection an engine can never light.");
         
         ImGui.Spacing();
         ImGui.Spacing();
@@ -568,12 +623,35 @@ public sealed class BlinkySubmod : ISubmod
         Console.WriteLine($"blinky: {msg}");
     }
 
+    //  Fuel Feed Repair 
+
+    private void RepairGridFeed(GridState gs)
+    {
+        try
+        {
+            int fed = LcdGridBuilder.RepairFuelFeeds(gs.Vehicle, gs.BlinkyGrid);
+            int total = gs.BlinkyGrid.Grid.Count * 2;
+            SetCreateMessage(fed > 0
+                ? $"Grid '{gs.GridName}': {fed}/{total} pixel parts wired to propellant"
+                : $"Grid '{gs.GridName}': could not wire any pixel part to propellant — check console log", fed == 0);
+        }
+        catch (Exception ex)
+        {
+            SetCreateMessage($"Repair failed: {ex.Message}", true);
+            Console.WriteLine($"blinky: Repair error: {ex}");
+        }
+    }
+
     //  Ignition Diagnostics 
 
     /// <summary>
-    /// Logs diagnostic information about a sample pixel engine in the grid to help
-    /// diagnose why engines might not be igniting. Output goes to Console.WriteLine
-    /// which surfaces in the game's log / debug console.
+    /// Logs why a grid's pixel engines are or are not lighting. Output goes to
+    /// Console.WriteLine, which surfaces in the game's log / debug console.
+    ///
+    /// A pixel lights only when all of these hold: the vehicle is ignited with a non-zero
+    /// throttle, the EngineController is active, and the engine's Combustor resolved a
+    /// ResourceManager whose ConsumptionOrder reaches at least one tank. That last one is
+    /// the usual failure — it needs a connection on a declared feed connector.
     /// </summary>
     private static void DiagnoseGrid(GridState gs)
     {
@@ -582,73 +660,120 @@ public sealed class BlinkySubmod : ISubmod
         var vehicle = gs.Vehicle;
         var grid = gs.BlinkyGrid.Grid;
 
-        // Vehicle-level engine inputs
-        Console.WriteLine($"blinky:   vehicle.GetManualThrottle() = {vehicle.GetManualThrottle():F4}");
-        Console.WriteLine($"blinky:   vehicle.FlightComputer.BurnMode = {vehicle.FlightComputer.BurnMode}");
+        // Vehicle-level engine inputs — no throttle or no ignition means no pixel lights
+        Console.WriteLine($"blinky:   vehicle EngineOn (MainIgnite) = {vehicle.IsSet(VehicleEngine.MainIgnite, false)}");
+        Console.WriteLine($"blinky:   vehicle.GetManualThrottle()   = {vehicle.GetManualThrottle():F4}");
+        Console.WriteLine($"blinky:   vehicle.FlightComputer.BurnMode = {vehicle.FlightComputer.BurnMode} (Auto clears EngineOn every frame)");
 
-        // Pixel engine count
         int pairCount = grid.Engines.Count;
         Console.WriteLine($"blinky:   pixel pairs (positions) in grid = {pairCount}");
         if (pairCount == 0)
         {
             Console.WriteLine("blinky:   WARNING: grid has no pixel pairs — grid scan may have failed");
+            Console.WriteLine("blinky: ===== END DIAGNOSE =====");
             return;
         }
 
-        // Sample the first pixel engine controller
+        // Grid-wide propellant tally — the single most useful number here
+        int fedControllers = 0, totalControllers = 0;
+        foreach (var controllers in grid.Engines.Values)
+        {
+            for (int i = 0; i < controllers.Length; i++)
+            {
+                totalControllers++;
+                if (ReachesPropellant(controllers[i])) fedControllers++;
+            }
+        }
+        Console.WriteLine($"blinky:   controllers reaching propellant = {fedControllers}/{totalControllers}");
+        if (fedControllers == 0)
+            Console.WriteLine("blinky:   >>> no pixel can light. Press 'Repair Feed' to wire the engines' declared feed connectors to a tank.");
+
+        // Sample the first pixel engine controller in detail
         var firstEntry = System.Linq.Enumerable.First(grid.Engines);
         var (row, col) = firstEntry.Key;
-        var controllers = firstEntry.Value;
-        Console.WriteLine($"blinky:   sampling pixel ({row},{col}): {controllers.Length} controller(s)");
+        var sample = firstEntry.Value;
+        Console.WriteLine($"blinky:   sampling pixel ({row},{col}): {sample.Length} controller(s)");
 
-        for (int ci = 0; ci < controllers.Length; ci++)
+        for (int ci = 0; ci < sample.Length; ci++)
+            DiagnoseController(sample[ci], ci);
+
+        Console.WriteLine("blinky: ===== END DIAGNOSE =====");
+    }
+
+    /// <summary>True when any Combustor core of this controller resolved a tank to draw from.</summary>
+    private static bool ReachesPropellant(EngineController controller)
+    {
+        var cores = controller.Cores;
+        if (cores == null) return false;
+
+        for (int i = 0; i < cores.Length; i++)
         {
-            var ctrl = controllers[ci];
-            Console.WriteLine($"blinky:   controller[{ci}]:");
-            Console.WriteLine($"blinky:     IsActive          = {ctrl.IsActive}");
-            Console.WriteLine($"blinky:     Parent.FullPart.Id = {ctrl.Parent.FullPart.Id}");
-            Console.WriteLine($"blinky:     Part.Stage         = {ctrl.Parent.FullPart.Stage}");
+            if (cores[i] is not Combustor combustor) continue;
+            var order = combustor.ResourceManager?.ConsumptionOrder;
+            if (order != null && order.Length > 0)
+                return true;
+        }
+        return false;
+    }
 
-            if (ctrl.Cores != null && ctrl.Cores.Length > 0)
-            {
-                var core = ctrl.Cores[0];
-                // As of KSA 2026.7.9.5018 ResourceManager moved off the RocketCore base
-                // onto Combustor; SolidMotor cores have no resource manager at all.
-                var rm = core is Combustor combustor ? combustor.ResourceManager : null;
-                if (rm != null)
-                {
-                    Console.WriteLine($"blinky:     ResourceManager.FlowRule = {rm.FlowRule}");
-                    // NearestToFurtherestNodeSameStage and NearestToFurtherestNode are
-                    // MemoryOwner<> types from CommunityToolkit.HighPerformance — use
-                    // reflection to check presence without adding a package dependency.
-                    var rmType = rm.GetType().BaseType ?? rm.GetType();
-                    var sameStageField = rmType.GetField("NearestToFurtherestNodeSameStage", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    var nearestField = rmType.GetField("NearestToFurtherestNode", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    var sameStageVal = sameStageField?.GetValue(rm);
-                    var nearestVal = nearestField?.GetValue(rm);
-                    Console.WriteLine($"blinky:     NearestToFurtherestNodeSameStage is null = {sameStageVal == null}");
-                    Console.WriteLine($"blinky:     NearestToFurtherestNode is null = {nearestVal == null}");
-                }
-                else
-                {
-                    Console.WriteLine("blinky:     ResourceManager is null");
-                }
-            }
-            else
-            {
-                Console.WriteLine("blinky:     Cores is null or empty");
-            }
+    private static void DiagnoseController(EngineController ctrl, int index)
+    {
+        var part = ctrl.Parent.FullPart;
 
-            // Check connections on the part
-            var partConns = ctrl.Parent.FullPart.Connections;
-            Console.WriteLine($"blinky:     Part.Connections.Count = {partConns.Count}");
-            foreach (var conn in partConns)
+        Console.WriteLine($"blinky:   controller[{index}]:");
+        Console.WriteLine($"blinky:     IsActive           = {ctrl.IsActive}");
+        Console.WriteLine($"blinky:     Parent.FullPart.Id = {part.Id}");
+        Console.WriteLine($"blinky:     Part.Stage         = {part.Stage}");
+        Console.WriteLine($"blinky:     MinimumThrottle    = {ctrl.MinimumThrottle:F4}");
+
+        var cores = ctrl.Cores;
+        if (cores == null || cores.Length == 0)
+        {
+            Console.WriteLine("blinky:     Cores is null or empty");
+        }
+        else
+        {
+            for (int i = 0; i < cores.Length; i++)
             {
-                var other = conn.OtherPart(ctrl.Parent.FullPart);
-                Console.WriteLine($"blinky:       conn -> '{other?.Id}' stage={other?.Stage}");
+                // Since KSA 2026.7.9.5018 the ResourceManager lives on Combustor, not on the
+                // RocketCore base; SolidMotor cores legitimately have none.
+                if (cores[i] is not Combustor combustor)
+                {
+                    Console.WriteLine($"blinky:     core[{i}] '{cores[i].TemplateId}' is not a Combustor (no resource manager)");
+                    continue;
+                }
+
+                var rm = combustor.ResourceManager;
+                if (rm == null)
+                {
+                    Console.WriteLine($"blinky:     core[{i}] '{combustor.TemplateId}': ResourceManager is null");
+                    continue;
+                }
+
+                var order = rm.ConsumptionOrder;
+                int tanks = 0;
+                if (order != null)
+                {
+                    foreach (var level in order)
+                        tanks += level?.Length ?? 0;
+                }
+                Console.WriteLine($"blinky:     core[{i}] '{combustor.TemplateId}': FlowRule={rm.FlowRule}, levels={order?.Length ?? 0}, tanks={tanks}, feedConnectors={combustor.FeedConnectors.Length}");
+
+                var feeds = combustor.FeedConnectors;
+                for (int f = 0; f < feeds.Length; f++)
+                {
+                    var conn = feeds[f].Connection;
+                    var other = conn?.OtherPart(part);
+                    Console.WriteLine($"blinky:       feed connector '{feeds[f].Id}' -> {(other == null ? "NOT CONNECTED" : $"'{other.Id}' stage={other.Stage}")}");
+                }
             }
         }
 
-        Console.WriteLine("blinky: ===== END DIAGNOSE =====");
+        Console.WriteLine($"blinky:     Part.Connections.Count = {part.Connections.Count}");
+        foreach (var conn in part.Connections)
+        {
+            var other = conn.OtherPart(part);
+            Console.WriteLine($"blinky:       conn -> '{other?.Id}' stage={other?.Stage}");
+        }
     }
 }

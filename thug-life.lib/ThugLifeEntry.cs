@@ -27,4 +27,10 @@ public sealed class ThugLifeEntry
 
     /// <summary>If false the entry stays in the list but is skipped during rendering.</summary>
     public bool Visible = true;
+
+    /// <summary>
+    /// Non-null while the entry is sliding into place; the manager drives
+    /// <see cref="Position"/> from it each frame and clears it once the slide lands.
+    /// </summary>
+    public ThugLifeSlide? Slide;
 }

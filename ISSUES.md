@@ -1,6 +1,5 @@
-- blinky broken
+- blinky broken — **root-caused and fixed 2026-08-23 (propellant feed), needs a live pass** (see triage note below)
 - eternal flame broken (seems like refill not working while engines are lit.. maybe race condition on data mutations since DMZ changes?)
-- flexo throws errors but works
 - garry's torch - works but throws errors
 - humble arteest vehicle paint broken
 - kitten animations don't properly play each one, always the same — **root-caused and reworked 2026-08-23, needs a live pass** (see triage note below)
@@ -49,21 +48,49 @@ Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compi
   `ConsoleStyle.BeginGaugeHostScope`. con-man's saved `_windowPosition`/`_windowSize`/`_customScale` are
   in a space it doesn't model, so **layouts saved at one Hud Scale will restore wrong at another.**
   Stacks on the still-open rev-5201 context-visibility gate. Plan doc §4.1.
-- **blinky broken** — ❌ **still open, and the previously identified root cause was only half-fixed.**
-  `blinky.lib/BlinkySubmod.cs:35` was moved to `CorePropulsionA_Prefab_EngineA3`, but
-  **`blinky.lib/LcdGridConfig.cs:47` — the persisted default — is still `EngineA1`**, an id that does not
-  exist in Content at 5117, 5168, 5261 or 5348. `ModLibrary.Get` throws. Fix `LcdGridConfig` too.
-  Good news: rev 5326 moved `PowerManager.PopulateGraph` behind the part window's "Draw Graph" toggle,
-  so blinky's grid rebuilds should be **dramatically faster** — re-measure.
+- **blinky broken** — ✅ **ROOT-CAUSED AND FIXED (2026-08-23). The engine-part-id theory was only a
+  side bug; the real cause is the propellant feed.** Grids built and added mass, but no pixel could
+  ever light because the pixel engines reached **no propellant**, so
+  `EngineControllerState.IsPropellantAvailable` stayed false and `FlightComputer.CommandEngineThrottles`
+  never commanded a throttle. With no plume there is nothing to see — the meshes are scaled to ~1% and
+  are effectively invisible on their own, which is why the render checkbox appeared to do nothing.
+
+  The 5018 fuel/resource rewrite added two gates blinky's wiring failed:
+  1. `ResourceManager.CanFlowAcross` (`KSA/ResourceManager.cs:279-282`) rejects the first hop out of a
+     consumer part unless the connection sits on a connector declared by the part template's
+     `ConsumerFeedWiring`/`FeedsFrom` (`IsDeclaredFeedConnection`).
+  2. `ResourceManagerBase.CanFlowAcross` requires the connection to carry the combustor's
+     `PlumbingCapability` — `BulkFluid` here.
+
+  blinky connected `Part`↔`Part`. `Part.EndpointCapabilities` is `null` for non-fuel-port parts and
+  `Intersect(null, null)` yields `Electricity | ServiceFluid`, so neither gate passed: `PopulateGraph`
+  never left the engine and `ConsumptionOrder` stayed empty.
+
+  **Fixed** by connecting the engine's own declared feed connector (`RocketCore.FeedConnectors`, e.g.
+  EngineA3's `_connector3`, authored `BulkFluid`) to the fuel part — `LcdGridBuilder.ConnectToFuel`.
+  Also fixed: `LcdGridConfig.EnginePartId` now defaults to `EngineA3` (`EngineA1` is gone from
+  Content and removed from the preset list); `SetMinimumThrottle` moved before the PartTree rebuild so
+  `PartTree.EngineThrottleMin` picks it up; new post-build propellant verification logging; a
+  **Repair Feed** button + `POST /blinky/grids/repair` for grids found by scanning or built by the old
+  code; a UI warning when the vehicle is not ignited or the throttle is zero; and the diagnose path
+  now reads `Combustor.ResourceManager.ConsumptionOrder` typed instead of by string reflection.
+
+  Not a 5348 regression — both gates exist at 5261, so blinky has been dark since 5018.
+
+  Still to verify live: grid build timing (rev 5326 moved `PowerManager.PopulateGraph` behind the part
+  window's "Draw Graph" toggle, so rebuilds should be dramatically faster — re-measure), and that the
+  a/b thrust cancellation still nets to zero with propellant actually flowing.
 - **eternal flame refill not working while engines are lit** — no new evidence. `Battery.cs` is
   **byte-identical**, and `Vehicle.RefillConsumables()` / `Battery.Refill(ref BatteryState)` are
   unchanged. The rev-5326 power rework touched circuit construction and draw, not refill. The 5261 leads
   (rev 5227 ×10 battery capacity; revs 5252/5253 control lockout) still stand.
-- **garry's torch / flexo throw errors** — no signature drift in either mod's patch targets. New
+- **garry's torch throws errors** — no signature drift in its patch targets. New
   suspects this span: the **physics-bubble merge/split rewrite** (revs 5331/5339 — bubble ownership moved
   into `VehicleUpdateTask`, merge checks multithreaded off the render thread) and **ground-clutter
   collisions** (revs 5263/5303/5307, default off, destroy on >25 J/kg impact). garrys-torch teleports a
   vehicle every frame, so both are plausible interactions. **Re-test: the spam may have changed shape.**
+  (This entry used to be paired with flexo; **flexo was removed 2026-08-23** — the mod never worked and
+  the robotics approach will not be reattempted, so its half of the issue is closed by deletion.)
 - **humble arteest vehicle paint broken** — unchanged: still dead by design since rev 4693, still
   self-disables. `MeshIndirect.frag` changed by one line (portrait-light rename) and the
   `vec3 sampledColor` anchor still resolves. Engine Emissive and Kitten Color unaffected.

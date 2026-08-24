@@ -339,7 +339,7 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
 
 - ✅ **The physics-bubble rewrite does not move the eternal-flame seam.**
   `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` keeps its signature and remains
-  a **single overload**, so the prefix shared by eternal-flame, flexo and kitchen-sink still attaches.
+  a **single overload**, so the prefix shared by eternal-flame, kiwis-marbles and kitchen-sink still attaches.
   Its **body** was substantially rewritten (revs 5331/5339): physics-bubble ownership moved entirely into
   `VehicleUpdateTask`, merge/split checks were made much less naive and moved onto the vehicle solver
   worker threads, and the method no longer walks `_physicsBubbles` itself — it now calls
@@ -369,5 +369,5 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
   *Settings → Simulation → Ground Clutter → "[Experimenta] Enable Collisions"*. Clutter is destroyed above
   25 J/kg impact energy, and kitten contact counts. garrys-torch teleports a vehicle **every frame** —
   with the setting on, that could now interact with clutter statics. Worth a live check.
-- ℹ️ Re-test the [`../ISSUES.md`](../ISSUES.md) error spam for garrys-torch and flexo under the rewritten
-  bubble model; the spam's shape may have changed.
+- ℹ️ Re-test the [`../ISSUES.md`](../ISSUES.md) error spam for garrys-torch under the rewritten
+  bubble model; the spam's shape may have changed. (The paired flexo entry is moot — flexo was removed.)

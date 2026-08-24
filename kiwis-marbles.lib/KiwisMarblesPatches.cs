@@ -15,7 +15,7 @@ namespace MeowSci.KiwisMarblesLib;
 /// <c>ExecuteNextVehicleSolvers</c> therefore runs with every position current, no worker in flight, and
 /// before the next <c>CelestialUpdateTask</c> snapshots <c>Celestial.Orbit</c> — so the welded orbit is what
 /// gets propagated instead of being overwritten. Same hook the other solver-timed submods use
-/// (eternal-flame, flexo, kitchen-sink).
+/// (eternal-flame, kitchen-sink).
 /// </remarks>
 public static class KiwisMarblesPatches
 {

@@ -46,7 +46,7 @@ plain calls plus a small, self-testing reflection layer.
 
 ### 1. Paste XML into a brand new mod folder
 
-Intended for XML produced by another tool (flexo's export tabs, or hand-written).
+Intended for XML produced by another tool, or hand-written.
 Pasted XML is **always** materialised into a real KSA mod folder — nothing is loaded from memory.
 
 1. Fill in **Mod Id**, **Display Name**, **Author**, **Version**. The mod id is validated live
@@ -521,7 +521,6 @@ positive diagnosis rather than a guess.
 ## Related
 
 * [`parts-now`](../parts-now/README.md) — the standalone StarMap wrapper (F10 window)
-* [`flexo`](../flexo/README.md) — articulated (robotic) Parts
 * [`scope/part-editor-and-robotics.md`](../scope/part-editor-and-robotics.md) — the authoritative map
   of every game integration point parts-now depends on
 * [`plans/done/PARTS_NOW_PLAN.md`](../plans/done/PARTS_NOW_PLAN.md) — the design document, including

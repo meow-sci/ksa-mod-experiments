@@ -57,7 +57,7 @@ with `CelestialSystem.UpdatePerFrameData()`) → `ExecuteNextVehicleSolvers` →
 Mutating a celestial from the StarMap render hooks (`[StarMapBeforeGui]`, the old approach) therefore both
 races a worker that may be reading `Orbit` and gets its result overwritten by the staged propagation. The one
 safe main-thread window is between the Apply calls and the next Execute calls, which is exactly where a
-`Priority.First` prefix on `Universe.ExecuteNextVehicleSolvers` lands (the same hook eternal-flame, flexo and
+`Priority.First` prefix on `Universe.ExecuteNextVehicleSolvers` lands (the same hook eternal-flame and
 kitchen-sink use). In that window all target positions (celestial or vehicle) are current, no job is in flight,
 and the welded orbit is what the next `CelestialUpdateTask` propagates. `ISubmod.Update(dt)` is intentionally
 a no-op; unweld restores are queued and applied in the same window.

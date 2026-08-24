@@ -79,6 +79,7 @@ public sealed class SwallowServer
         // GET/POST/DELETE /blinky/grids
         // POST            /blinky/grids/scan
         // POST            /blinky/grids/scan-all
+        // POST            /blinky/grids/repair
         // POST/DELETE     /blinky/animate
         // POST            /blinky/animate/builtin
         // POST            /blinky/static
@@ -91,7 +92,8 @@ public sealed class SwallowServer
                 .Add(BlinkyListEndpoint.Create())
                 .Add(BlinkyGridsEndpoint.Create())
                 .Add("scan", BlinkyGridScanEndpoint.Create())
-                .Add("scan-all", BlinkyGridScanAllEndpoint.Create()))
+                .Add("scan-all", BlinkyGridScanAllEndpoint.Create())
+                .Add("repair", BlinkyGridRepairEndpoint.Create()))
             .Add("animate", Layout.Create()
                 .Add(BlinkyAnimateEndpoint.Create())
                 .Add("builtin", BlinkyBuiltInScrollEndpoint.Create()))

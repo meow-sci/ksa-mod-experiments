@@ -42,9 +42,11 @@ public class LcdGridConfig
 
     /// <summary>
     /// Engine part template ID for each pixel. Must exist in ModLibrary.
-    /// Available liquid engine templates: CorePropulsionA_Prefab_EngineA1 through EngineA6.
+    /// Available liquid engine templates: CorePropulsionA_Prefab_EngineA2 through EngineA6.
+    /// (EngineA1 was removed from the game's Content between builds 5018 and 5117 —
+    /// <c>ModLibrary.Get</c> throws for it, which failed every build that used the default.)
     /// </summary>
-    public string EnginePartId { get; set; } = "CorePropulsionA_Prefab_EngineA1";
+    public string EnginePartId { get; set; } = "CorePropulsionA_Prefab_EngineA3";
 
     /// <summary>
     /// Uniform scale applied to each pixel engine part.

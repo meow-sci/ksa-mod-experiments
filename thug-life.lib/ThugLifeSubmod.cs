@@ -49,6 +49,7 @@ public sealed class ThugLifeSubmod : ISubmod
 
     public void Update(double dt)
     {
+        _manager?.Update(dt);
     }
 
     public void Dispose()
@@ -64,6 +65,8 @@ public sealed class ThugLifeSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##tl_content");
 
+        // The GPU resources come up lazily on the first entry (see ThugLifeRenderManager),
+        // so "not ready" here means a real fault, not "not built yet".
         if (_manager == null || !_manager.IsReady)
         {
             ImGui.TextColored(new float4(1f, 0.3f, 0.3f, 1f),
@@ -192,6 +195,19 @@ public sealed class ThugLifeSubmod : ISubmod
         }
         if (!canCreate) ImGui.EndDisabled();
 
+        // One-click preset. Only offered for a kitten, since KittenGlassesPreset's pose is
+        // tuned to land on a cat's face and means nothing on a rocket.
+        Vehicle? selected = _pendingVehicleIndex >= 0 ? vehicles[_pendingVehicleIndex] : null;
+        if (KittenGlassesPreset.IsKitten(selected))
+        {
+            ImGui.SameLine();
+            if (ImGui.Button(" animate thug ##tl_anim"))
+                AnimateKittenGlasses(selected!);
+            ImGui.SetItemTooltip(
+                "Drop the tuned sunglasses onto this kitten's face.\n"
+                + "No part selection needed - falls back to the kitten's root part.");
+        }
+
         if (!string.IsNullOrEmpty(_createError))
         {
             ImGui.Spacing();
@@ -201,15 +217,12 @@ public sealed class ThugLifeSubmod : ISubmod
 
     private void CreateEntry(Vehicle vehicle)
     {
-        if (_pendingPartIndex < 0 || _pendingPartIndex >= _topLevelParts.Count)
+        Part? anchor = ResolveSelectedAnchor();
+        if (anchor == null)
         {
             _createError = "Select a part first.";
             return;
         }
-        Part topPart = _topLevelParts[_pendingPartIndex];
-        Part anchor = topPart;
-        if (_pendingSubPartIndex > 0 && _pendingSubPartIndex - 1 < _subParts.Count)
-            anchor = _subParts[_pendingSubPartIndex - 1];
 
         if (_manager == null) { _createError = "Renderer not ready."; return; }
 
@@ -223,13 +236,78 @@ public sealed class ThugLifeSubmod : ISubmod
             Height = _pendingHeight,
             Visible = true,
         };
-        _manager.Add(entry);
+        // The first Add is what brings the GPU pipeline up, so this is where a render
+        // fault surfaces to the player.
+        if (!_manager.Add(entry))
+        {
+            _createError = _manager.LastError ?? "thug-life renderer is unavailable.";
+            return;
+        }
+
         _createError = null;
         Console.WriteLine($"thug-life: anchored sunglasses to {vehicle.Id} / {anchor.Id}");
 
         // Reset offsets but keep dropdowns where they are so the user can iterate.
         _pendingPosition = new float3(0f, 0f, 0f);
         _pendingRotation = new float3(0f, 0f, 0f);
+    }
+
+    /// <summary>
+    /// One-click kitten glasses: anchors the tuned preset and slides it onto the face.
+    /// The create form's position/rotation/size fields are deliberately ignored — the whole
+    /// point of the button is that it needs no tuning.
+    /// </summary>
+    private void AnimateKittenGlasses(Vehicle kitten)
+    {
+        if (_manager == null) { _createError = "Renderer not ready."; return; }
+
+        Part? anchor = ResolveSelectedAnchor() ?? FirstTopLevelPart(kitten);
+        if (anchor == null)
+        {
+            _createError = $"'{kitten.Id}' has no part to anchor to.";
+            return;
+        }
+
+        var entry = new ThugLifeEntry
+        {
+            Vehicle = kitten,
+            Part = anchor,
+            Position = KittenGlassesPreset.StartPosition,
+            Rotation = KittenGlassesPreset.Rotation,
+            Width = KittenGlassesPreset.Width,
+            Height = KittenGlassesPreset.Height,
+            Visible = true,
+            Slide = new ThugLifeSlide(
+                KittenGlassesPreset.StartPosition,
+                KittenGlassesPreset.EndPosition,
+                KittenGlassesPreset.SlideSeconds),
+        };
+
+        if (!_manager.Add(entry))
+        {
+            _createError = _manager.LastError ?? "thug-life renderer is unavailable.";
+            return;
+        }
+
+        _createError = null;
+        Console.WriteLine($"thug-life: animating sunglasses onto kitten {kitten.Id} / {anchor.Id}");
+    }
+
+    /// <summary>The part (or subpart) currently picked in the create form, or null if none.</summary>
+    private Part? ResolveSelectedAnchor()
+    {
+        if (_pendingPartIndex < 0 || _pendingPartIndex >= _topLevelParts.Count) return null;
+        if (_pendingSubPartIndex > 0 && _pendingSubPartIndex - 1 < _subParts.Count)
+            return _subParts[_pendingSubPartIndex - 1];
+        return _topLevelParts[_pendingPartIndex];
+    }
+
+    /// <summary>A kitten on EVA is rooted at its MMU backpack part; that is the fallback anchor.</summary>
+    private static Part? FirstTopLevelPart(Vehicle vehicle)
+    {
+        foreach (var part in vehicle.Parts.Parts)
+            return part;
+        return null;
     }
 
     // ---- Entry Section ----

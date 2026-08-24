@@ -130,7 +130,7 @@ the sections below without any window framing.
 |---|---|
 | `PlaybackSection` | live locomotion readout; override on/off, restart, freeze, clear; blend time and playback-rate multiplier |
 | `AnimationLibrarySection` | one collapsible group per catalog group, one button per clip, active clip highlighted, tooltip shows asset id + length |
-| `ExpressionSection` | variant selector, five triggers + clear, strength/ease-in/hold/ease-out sliders, latch, live status |
+| `ExpressionSection` | variant selector, five triggers + clear, strength/ease-in/hold/ease-out drag fields (type-to-exceed), latch, live status |
 | `StrengthSection` | per-processor override checkbox + slider, plus a live weight readout |
 | `TuningSection` | animation-facing `KittenLocomotionTuning.Current` fields, scoped reset, live and derived blend weights |
 
@@ -141,18 +141,26 @@ unscience under its own collapsible header.
 
 ## Configuration
 
-| Setting | Range | Notes |
-|---|---|---|
-| Blend Time | 0 – 2 s | cross-fade into the forced clip |
-| Playback Rate | 0 – 5 x | multiplies animation delta time; 0 freezes |
-| Expression Strength | 0 – 1 | how strongly the expression pose is mixed |
-| Expression Ease In / Out | 0 – 3 s | ramp up / down |
-| Expression Hold | 0 – 30 s | time at full strength |
-| Ear Motion | 0 – 1 | `CatEarAnim.ExpressionWeight` |
-| Eye Look Angle | 0 – 90° | `CatEyeAnim.MaxLookAtAngle` (game default 30) |
-| Eye Pitch Offset | -90 – 90° | `CatEyeAnim.LookPitchOffsetDeg` |
-| Personality Face | 0 – 1 | weight of the permanent mood face |
-| Reactive Face Cap | 0 – 1 | upper bound on the acceleration-driven face |
+| Setting | Widget | Range | Notes |
+|---|---|---|---|
+| Blend Time | drag | 0 – 2 s | cross-fade into the forced clip |
+| Playback Rate | drag | 0 – 5 x | multiplies animation delta time; 0 freezes |
+| Expression Strength | drag | 0 – 1 | how strongly the expression pose is mixed |
+| Expression Ease In / Out | drag | 0 – 3 s | ramp up / down |
+| Expression Hold | drag | 0 – 30 s | time at full strength |
+| Ear Motion | slider | 0 – 1 | `CatEarAnim.ExpressionWeight` |
+| Eye Look Angle | drag | 0 – 90° | `CatEyeAnim.MaxLookAtAngle` (game default 30) |
+| Eye Pitch Offset | drag | -90 – 90° | `CatEyeAnim.LookPitchOffsetDeg` |
+| Personality Face | slider | 0 – 1 | weight of the permanent mood face |
+| Reactive Face Cap | slider | 0 – 1 | upper bound on the acceleration-driven face |
+
+**Ranges are drag limits, not hard limits.** Every **drag** field above is an ImGui
+`DragFloat`: the listed range bounds what the mouse can reach, but **double-click or
+ctrl+click** opens a text box whose input is *not* clamped — type `120` into
+*Expression Hold* and you get a two-minute hold. This is the whole reason the timers are
+drag widgets: `SliderFloat` clamps typed input unconditionally, so a slider can never go
+past its range. The three weight caps marked **slider** stay clamped on purpose — a
+processor weight outside 0 – 1 is not meaningful.
 
 Nothing is persisted; every setting resets on unload.
 

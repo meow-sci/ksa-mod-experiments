@@ -1,3 +1,12 @@
+> ⚠️ **ARCHIVED — flexo was removed from the repo on 2026-08-23.** The mod was built, but it never
+> worked in-game: the hinge implementation depended on undocumented `Part` transform/bounds
+> cache-invalidation semantics and produced persistent runtime error spam. **Robotics will not be
+> reattempted this way here.** This file is kept only as a record of what was designed and why the
+> approach was abandoned — do not treat any of it as a live specification. See
+> [`../../scope/part-editor-and-robotics.md`](../../scope/part-editor-and-robotics.md) → flexo.
+
+---
+
 # Flexo — Robotics Mod for KSA
 
 ## Problem Statement

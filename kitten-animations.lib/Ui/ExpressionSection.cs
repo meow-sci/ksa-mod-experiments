@@ -109,18 +109,18 @@ public static class ExpressionSection
         if (ImGui.BeginTable("##ka_expr_env", 4, flags))
         {
             ImGui.TableNextRow();
-            Slider("Strength", "##ka_expr_strength", expressions.PeakWeight, 0f, 1f,
+            Field("Strength", "##ka_expr_strength", expressions.PeakWeight, 0.01f, 0f, 1f,
                 "How strongly the expression pose is mixed over the body animation.\n1 = the full authored pose.",
                 v => expressions.PeakWeight = v);
-            Slider("Hold (s)", "##ka_expr_hold", expressions.HoldDuration, 0f, 30f,
+            Field("Hold (s)", "##ka_expr_hold", expressions.HoldDuration, 0.05f, 0f, 30f,
                 "Seconds held at full strength before easing out.",
                 v => expressions.HoldDuration = v);
 
             ImGui.TableNextRow();
-            Slider("Ease In (s)", "##ka_expr_in", expressions.EaseInDuration, 0f, 3f,
+            Field("Ease In (s)", "##ka_expr_in", expressions.EaseInDuration, 0.01f, 0f, 3f,
                 "Quadratic ramp-up time from zero weight.",
                 v => expressions.EaseInDuration = v);
-            Slider("Ease Out (s)", "##ka_expr_out", expressions.EaseOutDuration, 0f, 3f,
+            Field("Ease Out (s)", "##ka_expr_out", expressions.EaseOutDuration, 0.01f, 0f, 3f,
                 "Linear ramp-down time back to zero weight.",
                 v => expressions.EaseOutDuration = v);
 
@@ -134,8 +134,18 @@ public static class ExpressionSection
         ImGui.SetItemTooltip("Ignore Hold/Ease Out and keep the expression at full strength until Clear is pressed.");
     }
 
-    private static void Slider(string label, string id, float value,
-                               float min, float max, string tooltip, Action<float> apply)
+    /// <summary>
+    /// One label + value cell of the envelope table.
+    ///
+    /// Deliberately a <c>DragFloat</c>, not a <c>SliderFloat</c>: min/max still bound the
+    /// mouse drag, but ImGui does not clamp typed input on a drag widget unless
+    /// <c>ImGuiSliderFlags.ClampOnInput</c> is set — so ctrl+click / double-click can push a
+    /// hold or an ease past the range the mouse can reach. A <c>SliderFloat</c> clamps typed
+    /// input unconditionally and cannot offer that. Do not add
+    /// <c>ClampOnInput</c>/<c>AlwaysClamp</c> here.
+    /// </summary>
+    private static void Field(string label, string id, float value, float speed,
+                              float min, float max, string tooltip, Action<float> apply)
     {
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
@@ -143,10 +153,14 @@ public static class ExpressionSection
         ImGui.TableNextColumn();
         ImGui.SetNextItemWidth(-1);
         float working = value;
-        if (ImGui.SliderFloat(id, ref working, min, max, "%.2f"))
+        if (ImGui.DragFloat(id, ref working, speed, min, max, "%.2f"))
             apply(working);
-        ImGui.SetItemTooltip(tooltip);
+        ImGui.SetItemTooltip(tooltip + TypeToExceedHint);
     }
+
+    /// <summary>Appended to every envelope tooltip so the out-of-range path is discoverable.</summary>
+    private const string TypeToExceedHint =
+        "\n\nDrag to adjust within range; double-click or ctrl+click to type a value beyond it.";
 
     private static void RenderStatus(AnimationUiContext ctx)
     {

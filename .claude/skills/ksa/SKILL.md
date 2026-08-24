@@ -58,7 +58,7 @@ State that must be visible to the **physics solvers each sim step** (battery cha
 | Parts/SubParts rendering, raycasting, mouse picking | [parts.md](parts.md) |
 | GPU materials, kitten tinting/spawning, vehicle paint shader swap, engine emissive | [materials.md](materials.md) |
 | Lights, solar panels, KeyframeAnimationModule, runtime LightPart creation | [lights.md](lights.md) |
-| Robotics — rotating parts at runtime (hinges/rotors) | [robotics.md](robotics.md) |
+| Robotics — rotating parts at runtime (hinges/rotors) — 🚫 **abandoned approach, reference only** | [robotics.md](robotics.md) |
 | HUD GaugeCanvas, View-menu injection, celestial/orbit reparenting, ImGui theming | [gauges-orbits.md](gauges-orbits.md) |
 | Camera controller patching | [camera.md](camera.md) |
 | In-world textured quad (render-to-texture) | [quad.md](quad.md) |
@@ -215,7 +215,7 @@ After modifying module state (e.g. activating/deactivating engines), call:
 vehicle.Parts.RecomputeAllDerivedData();
 ```
 
-For engine control see [vehicle-api.md](vehicle-api.md); for lights/solar/keyframe animation see [lights.md](lights.md); for rotating parts at runtime see [robotics.md](robotics.md).
+For engine control see [vehicle-api.md](vehicle-api.md); for lights/solar/keyframe animation see [lights.md](lights.md); for rotating parts at runtime see [robotics.md](robotics.md) (🚫 abandoned approach — reference only).
 
 ## Dynamically Adding Parts at Runtime
 

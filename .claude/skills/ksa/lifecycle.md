@@ -152,7 +152,7 @@ Backed by a `ConcurrentQueue<WorkItem>` + `TaskCompletionSource` (`RunContinuati
 
 ## Solver-timing hooks — `Universe.ExecuteNextVehicleSolvers`
 
-Some state must be set **before the physics solvers run each sim step**, not in the render loop (the render frame and the sim step run at different cadences). Examples: refilling battery charge so the sim sees it (`eternal-flame`), driving robotics transforms before the solver reads them (`flexo`).
+Some state must be set **before the physics solvers run each sim step**, not in the render loop (the render frame and the sim step run at different cadences). Examples: refilling battery charge so the sim sees it (`eternal-flame`), repositioning welded celestials (`kiwis-marbles`), mutating a vehicle part tree (`kitchen-sink`).
 
 ```csharp
 var original = AccessTools.Method(typeof(Universe), nameof(Universe.ExecuteNextVehicleSolvers));

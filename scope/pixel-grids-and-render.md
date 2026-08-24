@@ -85,17 +85,20 @@ part Ids. No StarMap save hooks.
 | 8 | Direct | `blinky.lib/LcdGridBuilder.cs:37,237,135` | `Vehicle.Parts` (PartTree, get+set); `PartTree.Root`; `PartTree.Parts` | `KSA/Vehicle.cs:264`; `KSA/PartTree.cs` | Yes | None | `Vehicle.Parts` is a public field. |
 | 9 | Direct | `blinky.lib/LcdGridBuilder.cs:103-104,228-230` | `Part.TreeParent` (Part?); `Part.TreeChildren` (List<Part>) | `KSA/Part.cs:385,387` | Yes | None | Manual tree wiring. |
 | 10 | Direct | `blinky.lib/LcdGridBuilder.cs:124,127` | `Part.SetStage(int)`; `Part.Stage` (get) | `KSA/Part.cs:731`, `:517` | Yes | None (`:730`→`:731`) | |
-| 11 | Direct | `blinky.lib/LcdGridBuilder.cs:352,214,216` | `Part.Connection.Connect(IConnector, IConnector)`; `Part.Connections` (List<Connection>); `Connection.Disconnect()` | `KSA/Part.cs:285,391,301` | Yes | None (`:284`→`:285`) | `Connect` takes `IConnector` (Part implements it), **not** `(Part,Part)`. |
+| 11 | Direct | `blinky.lib/LcdGridBuilder.cs:466` (connect); `:243,245` (disconnect) | `Part.Connection.Connect(IConnector, IConnector)`; `Part.Connections` (List<Connection>); `Connection.Disconnect()`; `Connector.CanConnect()`; `Connector.Connection` | `KSA/Part.cs:530,391,546,343,238` | Yes | None | 🔴 **Semantics matter, not just the signature.** The engine side MUST be the engine's own declared feed `Connector` — a bare `Part`↔`Part` connection is rejected by `ResourceManager.CanFlowAcross` (see #22). The fuel side stays a `Part` (`Part.CanConnect()` is always `true`, `KSA/Part.cs:1887`), so one tank anchors the whole grid. |
 | 12 | Direct | `blinky.lib/LcdGridBuilder.cs:299,302,305` | `Part.PositionParentAsmb` (double3); `Part.Asmb2ParentAsmb` (doubleQuat); `Part.Scale` (double3) — all settable | `KSA/Part.cs:449,463,499` | Yes | None | |
 | 13 | Direct | `blinky.lib/LcdGridBuilder.cs:327,469`; `PixelGrid.cs:47,90` | `Part.SubtreeModules` (ModuleList); `ModuleList.Get<T>()` for `Tank`, `EngineController` | `KSA/Part.cs:409`; `KSA/ModuleList.cs`; `KSA/Tank.cs`, `KSA/EngineController.cs` | Yes | None | `Get<T>()` returns array (`.Length`/index used). |
 | 14 | Direct | `blinky.lib/LcdGridBuilder.cs:326,377,324` | `Part.IsSubPart`; `Part.Template` (PartTemplate); `Vehicle.Parts.Parts` | `KSA/Part.cs:657,323` | Yes | None | |
-| 15 | Direct | `blinky.lib/LcdGridBuilder.cs:472` | `EngineController.MinimumThrottle` (float, settable) | `KSA/EngineController.cs` | Yes | None | |
+| 15 | Direct | `blinky.lib/LcdGridBuilder.cs:654` | `EngineController.MinimumThrottle` (float, settable) | `KSA/EngineController.cs:38` | Yes | None | Set **before** the PartTree rebuild — `PartTree.RecomputeRocketControls` (`KSA/PartTree.cs:762-770`) folds it into `PartTree.EngineThrottleMin`, which clamps the vehicle's manual throttle. |
 | 16 | Direct | `blinky.lib/BlinkyGridManager.cs:224,252,266`; `NonLcdEngineCache.cs:46` | `EngineController.SetIsActive(Vehicle?, bool)` — pixel on/off | `KSA/EngineController.cs:46` | Yes | None | Called with `null` vehicle arg. |
 | 17 | Direct | `blinky.lib/NonLcdEngineCache.cs:36` | `EngineController.IsActive` (get) | `KSA/EngineController.cs:24` | Yes | None | |
 | 18 | Direct | `blinky.lib/BlinkyGridManager.cs:258` | `Vehicle.SetEnum(Enum?)` with `VehicleEngine.MainIgnite` | `KSA/Vehicle.cs:4838`; `KSA/VehicleEngine.cs:5` | Yes | None | Ignites vehicle before lighting pixels. |
-| 19 | Reflection (string field names) | `blinky.lib/BlinkySubmod.cs:623-624` | `ResourceManagerBase.NearestToFurtherestNodeSameStage` / `NearestToFurtherestNode` (public instance fields, looked up via `rm.GetType().BaseType.GetField(name)`) | `KSA/PowerManager.cs` (base `ResourceManagerBase`), used throughout | Yes | None | **Diagnose-only debug path.** String-named; would silently print null if renamed. Not on any normal code path. |
-| 20 | Direct (debug) | `blinky.lib/BlinkySubmod.cs:586-587,612-618,645` | `Vehicle.GetManualThrottle()`; `Vehicle.FlightComputer`; `EngineController.Cores` (RocketCore[]); `RocketCore.ResourceManager`; `ResourceManager.FlowRule`; `Connection.OtherPart(Part)` | `KSA/Vehicle.cs:822,415`; `KSA/EngineController.cs:18`; `KSA/RocketCore.cs:14`; `KSA/Part.cs:264` | Yes | None | Diagnose button only. `FlowRule` enum + `NearestToFurtherestSameStage` member present (`KSA/FlowRule.cs`). |
+| 19 | Direct (diagnostics) | `blinky.lib/BlinkySubmod.cs:712,753,760` | `Combustor.ResourceManager` (field); `ResourceManagerBase.ConsumptionOrder` (`Tank[][]?` property); `ResourceManagerBase.FlowRule` | `KSA/Combustor.cs:13`; `KSA/ResourceManagerBase.cs:69,25` | Yes | New this change | **Replaced the old string-reflection probe** of `NearestToFurtherestNode*`: `ConsumptionOrder` is public and already resolves the active `FlowRule`, so the diagnose path is now fully typed and no longer fails silently on a rename. |
+| 20 | Direct (debug) | `blinky.lib/BlinkySubmod.cs:664-666,762` | `Vehicle.GetManualThrottle()`; `Vehicle.FlightComputer`; `Vehicle.IsSet<VehicleEngine>(T, bool)`; `EngineController.Cores` (RocketCore[]); `Connection.OtherPart(Part)` | `KSA/Vehicle.cs:1193,461,5989`; `KSA/EngineController.cs:36` (`Cores`); `KSA/Part.cs:493` | Yes | `IsSet` newly used | `IsSet(VehicleEngine.MainIgnite, false)` routes to the private `Vehicle.IsEngine` (`KSA/Vehicle.cs:6041-6055`) and reads `_manualControlInputs.EngineOn` — the only public read of the ignition flag. |
 | 21 | Abstraction | `blinky.lib/BlinkyGridManager.cs:280`; `BlinkySubmod.cs` | `VehicleProvider.GetAllVehicles()` / `GetControlledVehicle()` (ksa-abstractions.lib) | `MeowSci.KsaAbstractions` (repo lib) | Yes | None | Game coupling lives in ksa-abstractions scope. |
+| 22 | Direct | `blinky.lib/LcdGridBuilder.cs:491-501` | `RocketCore.FeedConnectors` (`Part.Connector[]`, bound in `RocketCore.OnFullPartCreated` → `BindFeedPoints` from the template's `ConsumerFeedWiring`/`FeedsFrom`) | `KSA/RocketCore.cs:20,26,61,96` | Yes | New this change | 🔴 **The load-bearing dependency of the whole ignition path.** `ResourceManager.CanFlowAcross` (`KSA/ResourceManager.cs:274-282`) rejects the first hop out of the consumer part unless the connection sits on one of these connectors (`IsDeclaredFeedConnection`, `:305`). If the template wiring resolves to nothing, `FeedConnectors` is empty and the engine reaches no propellant. |
+| 23 | Direct | `blinky.lib/LcdGridBuilder.cs:628`; `BlinkySubmod.cs:712` | `Combustor` type test on `RocketCore`; `Combustor.ResourceManager`; `ResourceManagerBase.ConsumptionOrder` | `KSA/Combustor.cs:7,13`; `KSA/ResourceManagerBase.cs:69` | Yes | New this change | Post-build propellant verification. `Combustor.ComputePropellantAvailable` (`KSA/Combustor.cs:60`) is `ResourceManager?.ResourceAvailable(...) ?? false`, so an empty `ConsumptionOrder` means the pixel can never light. `SolidMotor` cores legitimately have no `ResourceManager`. |
+| 24 | Direct | `blinky.lib/LcdGridBuilder.cs:307` | `PartTree.ResourceGroupList` (public field); `ResourceGroupList.CalculateStages(bool = false)` | `KSA/PartTree.cs:27`; `KSA/ResourceGroupList.cs:100` | Yes | New this change | Public trigger for the **internal** `PartTree.RecreateResourceManagers` (`KSA/PartTree.cs:592`) — used by `RepairFuelFeeds` to rebuild the fuel graphs without rebuilding the part tree. If `CalculateStages` stops calling it, repair silently no-ops. |
 
 **Game assets referenced**
 
@@ -104,11 +107,57 @@ part Ids. No StarMap save hooks.
 | `CorePropulsionA_Prefab_EngineA1` | Engine part template (default in `LcdGridConfig.cs:47`) | `ModLibrary.Get<PartTemplate>` id | `<Part Id=...>` in `Core/CorePropulsionAAssets.xml:466` | Yes | None | 
 | `CorePropulsionA_Prefab_EngineA2..A6` | Engine part templates (UI presets `BlinkySubmod.cs:49-57`; default A3) | `ModLibrary.Get<PartTemplate>` id | `Core/CorePropulsionAAssets.xml` + `<PartGameData>` in `Core/CorePropulsionAGameData.xml:99,154,209,248,321` | Yes | None |
 
-Note: `EngineA1` exists as a **`<Part>` template** (so the `ModLibrary.Get<PartTemplate>`
-default resolves) but is **not** in the build-menu catalog (`CorePropulsionAGameData.xml`
-lists only A2–A6 + `EngineA1_Dev`). This catalog asymmetry is identical in OLD and NEW —
-not a 4750 delta — and is harmless because blinky bypasses the catalog and instantiates
-the template directly. The UI default (A3) is fully cataloged.
+Note (superseded): the 4750 pass recorded `EngineA1` as present-as-`<Part>` but absent from
+the build-menu catalog. At **5348 it is gone from Content entirely** — neither
+`CorePropulsionAAssets.xml` nor `CorePropulsionAGameData.xml` mentions it, and only A2–A6 exist.
+`ModLibrary.Get` throws for it. Both the UI preset list and `LcdGridConfig.EnginePartId` now
+default to **A3**, and `EngineA1` has been removed from `BlinkySubmod.EnginePresets`.
+
+---
+
+### 🔴 Root cause of "blinky broken" — the propellant feed (fixed 2026-08-23)
+
+This is the long-standing `ISSUES.md` entry. The grid built and changed vehicle mass, but no
+pixel ever lit, because **the pixel engines could not reach propellant**, so
+`EngineControllerState.IsPropellantAvailable` stayed false and
+`FlightComputer.CommandEngineThrottles` (`KSA/FlightComputer.cs:421-443`) never commanded a
+throttle no matter how many times the engine was activated. With no plume there is nothing to
+see — the meshes themselves are scaled to ~1% and are effectively invisible by design.
+
+The 5018 fuel/resource rewrite added two gates that blinky's original wiring fails:
+
+1. **`ResourceManager.CanFlowAcross` (`KSA/ResourceManager.cs:279-282`)** rejects the first hop
+   out of the consumer part unless the connection sits on a connector declared in the part
+   template's `ConsumerFeedWiring`/`FeedsFrom` (`IsDeclaredFeedConnection`, `:305`).
+2. **`ResourceManagerBase.CanFlowAcross` (`KSA/ResourceManagerBase.cs:209-212`)** requires the
+   connection to carry the combustor's `PlumbingCapability` — `BulkFluid` for these liquid engines.
+
+blinky connected `Part`↔`Part` (`Part.Connection.Connect(pixelPart, fuelPart)`). `Part` implements
+`Connection.IConnector`, but `Part.EndpointCapabilities` (`KSA/Part.cs:1066`) is `null` for anything
+that is not a fuel-port part, and `ConnectorCapabilityExtensions.Intersect(null, null)` yields
+`Electricity | ServiceFluid` — no `BulkFluid`. The connection also is not a declared feed connection.
+Both gates fail, `PopulateGraph` never leaves the engine, `ConsumptionOrder` is empty, and
+`Combustor.ComputePropellantAvailable` returns false forever.
+
+**Fix** — connect the engine's own declared feed `Connector` (`RocketCore.FeedConnectors`, e.g.
+EngineA3's `_connector3`, authored `<Capabilities>BulkFluid</Capabilities>` in
+`Core/CorePropulsionAGameData.xml:189-193`) to the fuel `Part`. `Intersect(connectorCaps, null)`
+returns the connector's own capabilities, so `BulkFluid` survives, and the connection is by
+definition a declared feed connection. The fuel side stays a bare `Part` because
+`Part.CanConnect()` is unconditionally `true` — one tank can anchor every pixel in the grid.
+See integration points #11, #22–#24.
+
+This was **not** a 5348 regression: the same two gates are present at 5261, so blinky has been
+dark since the 5018 feed rewrite.
+
+⚠️ **Second, softer requirement — the tank must hold the right propellant.** Every liquid
+`CorePropulsionA_Prefab_EngineA2..A6` thrust chamber is authored `<Reaction Id="Hydrolox">`
+(`Core/CorePropulsionAGameData.xml:10,39,68,137,201,313,392`), and `ResourceManager.CreateOrders`
+(`KSA/ResourceManager.cs:335`) only admits tanks where `tank.ContainsAny(Mix)`. A vehicle whose tanks
+carry anything else will still show a dark grid despite correct wiring, so
+`VerifyPropellantFeeds` names the desired mix in its warning. blinky calls
+`ResourceGroupList.CalculateStages()` with `reconfigureTankContents: false`, so it never rewrites the
+vehicle's tank mixes out from under the real engines.
 
 **Update-risk findings (4750 -> 5018)**
 
@@ -222,11 +271,26 @@ is applied via `ThugLifeRenderPatches.Apply` (`thug-life/Patcher.cs:18`,
 `unscience/Patcher.cs:35`) and dispatches to the static
 `ThugLifeRenderManager.Instance`/`.Active` so each host (standalone vs supermod) drives
 its own manager on its own assembly load context. GPU resources own pipeline + texture +
-buffers; render disables itself on first error (`ThugLifeRenderManager.cs:80-84`).
+buffers; render disables itself on first error (`ThugLifeRenderManager.cs:101-121`).
+
+**Init timing (load-order constraint)** — the GPU resources are built **lazily, on the
+first entry** (`ThugLifeRenderManager.EnsureGpuResources`, `:76-97`), never in the
+constructor. StarMap fires `[StarMapAllModsLoaded]` from a postfix on
+`ModLibrary.LoadAll()` (`KSA/Program.cs:897`), but the game does not create
+`Program.OffscreenTarget` until `BuildRenderTargets()` further down that same boot method
+(`KSA/Program.cs:934`) — so building the pipeline at `Initialize()` dereferenced a null
+`RenderTarget` and the submod reported *"init failed: Object reference not set to an
+instance of an object"*. ⚠ Any future work that moves GPU allocation back into
+`Initialize()` re-introduces this. Same discipline as the sibling gatOS port.
 
 **UI/hotkeys** — Standalone window "Thug Life", 500x600, **F12**
 (`thug-life/Mod.cs:51,78`). Create form (vehicle / part / optional subpart filtered
 combos + position/rotation/width/height), per-entry transform + Visible + Remove sections.
+An **animate thug** button (`ThugLifeSubmod.cs:198-210`) appears beside *Add Sunglasses*
+only when the selected vehicle is a `KSA.KittenEva`; it applies the fixed pose in
+`KittenGlassesPreset.cs` and slides the entry into place via `ThugLifeSlide`, driven from
+`ThugLifeRenderManager.Update(dt)` (called from the submod's `Update`, i.e. `OnBeforeUi`
+in both hosts). The slide is pure mod-side math — it touches no game API.
 
 **Persistence** — None. Entries are in-memory only (`ThugLifeRenderManager._entries`);
 lost on reload. No StarMap save hooks, no disk I/O.
@@ -239,17 +303,19 @@ lost on reload. No StarMap save hooks, no disk I/O.
 | 2 | Render asset (shader) | `thug-life.lib/ThugLifeQuadRenderer.cs:114` | `ModLibrary.Get<ShaderReference>("UnlitMeshVert")` | id→path in `Core/DefaultAssets.xml:66`; file `Core/Shaders/Mesh/UnlitMesh.vert` | Yes | None (`:62`→`:66`) | Stock shader; **not** MeshIndirect/Model* — untouched by 4693/4745. |
 | 3 | Render asset (shader) | `thug-life.lib/ThugLifeQuadRenderer.cs:115` | `ModLibrary.Get<ShaderReference>("UnlitMeshFrag")` | id→path in `Core/DefaultAssets.xml:67`; file `Core/Shaders/Mesh/UnlitMesh.frag` | Yes | None (`:63`→`:67`) | Frag hard-writes `alpha=1.0` (cut-out via geometry, per renderer comment). |
 | 4 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:117` | `RenderTechnique.CreateShaderStages(Device, Span<ShaderReference>, Span<VkSpecializationInfo>=default)` | `RenderCore/RenderTechnique.cs:37` | Yes | None (`:36`→`:37`) | `ShaderReference : FileReference, IKeyed` (`KSA/ShaderReference.cs:20`). |
-| 5 | Direct (render-pass) | `thug-life.lib/ThugLifeQuadRenderer.cs:139` | `Program.OffscreenTarget.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)` — `RenderTarget : IRenderPassInfo` | `KSA/Program.cs:432`, `KSA.Rendering/RenderTarget.cs` | Yes | **REPLACED @5261** — was `Program.OffScreenPass` (`RenderPassState`) → `.SampleCount`, `.Pass` | Game migrated the main scene pass to **dynamic rendering**; the old property no longer exists. See *Update-risk findings (5117 → 5261)*. |
+| 5 | Direct (render-pass) | `thug-life.lib/ThugLifeQuadRenderer.cs:152` | `Program.OffscreenTarget.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)` — `RenderTarget : IRenderPassInfo` | `KSA/Program.cs:438`, `KSA.Rendering/RenderTarget.cs` | Yes | **REPLACED @5261** — was `Program.OffScreenPass` (`RenderPassState`) → `.SampleCount`, `.Pass` | Game migrated the main scene pass to **dynamic rendering**; the old property no longer exists. **Null until `BuildRenderTargets()` (`Program.cs:934`), which runs AFTER `ModLibrary.LoadAll()` (`:897`) — i.e. after `[StarMapAllModsLoaded]`. Pipeline build must stay lazy (see *Init timing* above).** |
 | 6 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:140,141,143` | `Presets.InputAssembly.TriangleList`; `Presets.Rasterization.Fill.CullNone`; `Presets.BlendState.BlendColorAlpha` | `RenderCore.Pipelines/SimplePipelineCreator.cs:15` (+ Brutal abstractions) | Yes | None | Pipeline state presets; compile-verified by build. |
 | 7 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:142` | `RenderingPresets.ReverseZDepthStencil.DepthTestWrite` | `RenderCore` (used widely, e.g. `KSA.Rendering.Water.Rendering/OceanRenderer.cs:292`) | Yes | None | Reverse-Z depth test+write. 4730/4733 depth-prepass changes did not alter this preset. |
 | 8 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:137,138`; `:50`,`TextureFactory.cs:30,34,53` | `Renderer.{Device,Allocator,Graphics,DynamicStateInfo,ViewportState}` | `KSA` Renderer / RenderCore | Yes | None | Compile-verified. |
-| 9 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:238,263,240` | `Program.GetMainCamera()` (Camera); `Camera.MVP.viewProjection` | `KSA/Program.cs:489`; `Camera.MVP` (used `Program.cs:2394`) | Yes | None (`:488`→`:489`) | `GetMainCamera()` returns non-null `Camera`; mod null-checks defensively. |
-| 10 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:248` | `Program.SetViewport(CommandBuffer)` | `KSA/Program.cs:3781` | Yes | None (`:3724`→`:3781`) | |
-| 11 | Direct | `thug-life.lib/ThugLifeRenderManager.cs:38` | `Program.GetRenderer()` (Renderer) | `KSA/Program.cs:450` | Yes | None (`:449`→`:450`) | |
-| 12 | Direct (ego transform) | `thug-life.lib/ThugLifeQuadRenderer.cs:267,268,269` | `Vehicle.GetMatrixAsmb2Ego(Camera)`; `Part.PositionEgo(ref readonly double4x4)`; `Part.Asmb2Ego(doubleQuat)`; `Vehicle.Asmb2Ego` (doubleQuat) | `KSA/Vehicle.cs:833,449`; `KSA/Part.cs:677,682` | Yes | None | Per-frame model-ego matrix; caller passes `in` to the `ref readonly` param. |
-| 13 | Direct (UI) | `thug-life.lib/ThugLifeSubmod.cs:120,126,135` | `Vehicle.Parts.Parts`; `Part.Template.Id`; `Part.Id`; `Part.SubParts` | `KSA/Part.cs:323,655`; `KSA/PartTree.cs` | Yes | None | Combo population. |
+| 9 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:252,256,277` | `Program.GetRenderCamera()` (= `RenderedViewport.GetCamera()`); `Camera.MVP.viewProjection` | `KSA/Program.cs:594`, `:472`; `Camera.MVP` | Yes | **CHANGED (mod-side)** — was `Program.GetMainCamera()` (`:584`) | `RenderMainPass` runs once per **visible viewport** (main + the two always-visible 128² crew-portrait viewports since 5261), and ego space is camera-relative, so the main camera drew the portrait passes with the wrong clip transform. Now uses the camera of the viewport being rendered. Mod null-checks defensively. |
+| 10 | Direct (render) | `thug-life.lib/ThugLifeQuadRenderer.cs:264` | `Program.SetViewport(CommandBuffer)` | `KSA/Program.cs:3781` | Yes | None (`:3724`→`:3781`) | |
+| 11 | Direct | `thug-life.lib/ThugLifeRenderManager.cs:81` | `Program.GetRenderer()` (Renderer) | `KSA/Program.cs:535` | Yes | None | Called from the lazy `EnsureGpuResources()`, not from the constructor. |
+| 12 | Direct (ego transform) | `thug-life.lib/ThugLifeQuadRenderer.cs:281,282,283` | `Vehicle.GetMatrixAsmb2Ego(Camera)`; `Part.PositionEgo(ref readonly double4x4)`; `Part.Asmb2Ego(doubleQuat)`; `Vehicle.Asmb2Ego` (doubleQuat) | `KSA/Vehicle.cs:833,449`; `KSA/Part.cs:677,682` | Yes | None | Per-frame model-ego matrix; caller passes `in` to the `ref readonly` param. |
+| 13 | Direct (UI) | `thug-life.lib/ThugLifeSubmod.cs:122,128,137` | `Vehicle.Parts.Parts`; `Part.Template.Id`; `Part.Id`; `Part.SubParts` | `KSA/Part.cs:323,655`; `KSA/PartTree.cs` | Yes | None | Combo population. |
 | 14 | GPU lib (Brutal/RenderCore) | `ThugLifeTextureFactory.cs:33,64`; `ThugLifeQuadRenderer.cs` (pipeline/descriptor/buffers) | `SimpleVkTexture`; `VkUtils.UploadBufferToImage`/`StageAndUploadToBuffer`; `BufferEx`, `DescriptorSetLayoutEx`, `DescriptorPoolEx`, `VertexInput`, `ShaderStages`, `CommandBuffer` | `Brutal.VulkanApi(.Abstractions)`, `RenderCore`, `Core` | Yes | None | **4729 bumped Brutal packages** — highest churn surface; compile against 4750 DLLs passes, so the used API is intact. |
-| 15 | Abstraction | `thug-life.lib/ThugLifeSubmod.cs:101` | `VehicleProvider.GetAllVehicles()` (ksa-abstractions.lib) | `MeowSci.KsaAbstractions` | Yes | None | |
+| 15 | Abstraction | `thug-life.lib/ThugLifeSubmod.cs:103` | `VehicleProvider.GetAllVehicles()` (ksa-abstractions.lib) | `MeowSci.KsaAbstractions` | Yes | None | |
+| 16 | Direct (type test) | `thug-life.lib/KittenGlassesPreset.cs:38` | `KittenEva` (`: Vehicle`) — `vehicle is KittenEva`, gates the **animate thug** button | `KSA/KittenEva.cs:13` | Yes | **NEW (mod-side, 2026-08-23)** | Type identity only, no members touched. A rename/reparent of `KittenEva` is a compile error, not silent drift. Seated kittens are not vehicles and are out of scope here. |
+| 17 | Direct (UI) | `thug-life.lib/ThugLifeSubmod.cs:308` | `Vehicle.Parts.Parts` — first top-level part as the kitten fallback anchor | `KSA/PartTree.cs:67` | Yes | **NEW (mod-side, 2026-08-23)** | A `KittenEva` is constructed around its MMU backpack part as root (`KSA/EVADoor.cs:210`), so this is non-empty in practice; null-checked regardless. |
 
 **Game assets referenced**
 
@@ -385,7 +451,9 @@ external texture asset dependency.
 - ℹ️ Rev 5333 fixed *"deactivating an engine mid-burn would leave it stuck on forever"*, and rev 5318 fixed
   *"assigning a part to sequence 0 silently zeroing the vehicle's delta-v and TWR"* — both are game bug
   fixes in paths blinky drives.
-- ❌ **Still open (pre-existing):** `blinky.lib/LcdGridConfig.cs:47` still defaults `EnginePartId` to
-  `"CorePropulsionA_Prefab_EngineA1"`, an id absent from Content since before 5117 —
-  `ModLibrary.Get` throws. `BlinkySubmod.cs:35` was moved to `EngineA3`; the persisted config default was
-  not. Best remaining candidate for *"blinky broken"* in [`../ISSUES.md`](../ISSUES.md).
+- ✅ **Closed 2026-08-23 — `LcdGridConfig.EnginePartId` now defaults to `EngineA3`**, and `EngineA1`
+  is gone from `BlinkySubmod.EnginePresets`. It was absent from Content since before 5117 and
+  `ModLibrary.Get` throws for it.
+- ✅ **Closed 2026-08-23 — the real *"blinky broken"* root cause was the propellant feed**, not the
+  part id. See *Root cause of "blinky broken"* above and integration points #11, #22–#24. The part-id
+  bug only bit callers that used the config default; the feed bug killed every grid regardless.

@@ -76,6 +76,15 @@ public record BlinkyScanGridRequest(
 /// <summary>Result for POST /blinky/grids/scan-all.</summary>
 public record BlinkyScanAllResult(int Discovered, string[] Grids);
 
+/// <summary>Request body for POST /blinky/grids/repair — re-wires a grid's propellant feed.</summary>
+public record BlinkyRepairGridRequest(
+    string VehicleId,
+    string GridName
+);
+
+/// <summary>Result for POST /blinky/grids/repair.</summary>
+public record BlinkyRepairResult(string VehicleId, string GridName, int FedParts, int TotalParts);
+
 /// <summary>Request body for POST /blinky/pattern.</summary>
 public record BlinkyPatternRequest(
     string VehicleId,

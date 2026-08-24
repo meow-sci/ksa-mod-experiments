@@ -98,9 +98,9 @@ per-member attribute in the code marking those touches. Consequences:
 | Chokepoint | Breaks |
 |---|---|
 | `GameSettings.OnKeyAll` (via `HotkeyGuard`) | **every top-level mod** (marque ships a local copy) |
-| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink (+ garrys-torch via `JobSystems.VehicleSolvers.Wait()`) |
+| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, kiwis-marbles, kitchen-sink (+ garrys-torch via `JobSystems.VehicleSolvers.Wait()`) |
 | `Universe.CurrentSystem` → `CelestialSystem.All` → `LookupCollection.UnsafeAsList()` (`VehicleProvider`/`CelestialProvider`) | ~every feature mod's UI |
-| the three `*Module.UpdateRenderData` prefixes, `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData` | blinky, its-so-shiny, humble-arteest, i-feel-seen, space-tape |
+| the three `*Module.UpdateRenderData` prefixes, `PartModel.AddInstance` | blinky, its-so-shiny, humble-arteest, i-feel-seen, mesh-deform (`PartModelRenderer.UpdateRenderData` went unowned when flexo was removed) |
 | `ksa-abstractions.lib` helpers (`PartHelpers`, `IvaForceRender`, `XkcdColorHelper`, `GameThread`) | the mods listed per-helper in `scope/00-architecture-and-abstractions.md` |
 | StarMap.API lifecycle attrs + `Program.OnDrawUiFrame`/`OnFrame` hooks it patches | the whole suite's load path (a StarMap release is its own event, not a game update) |
 
@@ -136,18 +136,18 @@ Flag every commit line touching a subsystem unscience couples to:
 
 | Changelog keywords | Mods at risk | Area file |
 |---|---|---|
-| `Vehicle`, `Teleport`, `RefillConsumables`, solver/`JobSystems`, `IsControllable`, controllability gating | eternal-flame, garrys-torch, i-feel-seen, kiwis-marbles, doh, flexo, kitchen-sink | `vehicle-physics.md` |
+| `Vehicle`, `Teleport`, `RefillConsumables`, solver/`JobSystems`, `IsControllable`, controllability gating | eternal-flame, garrys-torch, i-feel-seen, kiwis-marbles, doh, kitchen-sink | `vehicle-physics.md` |
 | electrical, `Battery`, `Joules`/`Energy…`/`Power…`, `SolarPanel`, `Generator`, `PowerConsumer` | eternal-flame, its-so-shiny, red-alert, space-tape | `vehicle-physics.md`, `part-editor-and-robotics.md` |
 | `Celestial`, `Orbit`/`SetOrbit`, `IOrbiter`, `ShowOrbit`, orbit lines, SOI | kiwis-marbles, marque, space-tape (grid via `OrbitLinePass`) | `celestial-and-lights.md` |
 | `LightModule`, `LightSwitch`, `ColorRgb`/`FloatReference`, `KeyframeAnimationModule` | zippo, red-alert, its-so-shiny | `celestial-and-lights.md` |
-| `Camera`, `Controller`/`OrbitController`/`FlyController`, FOV, `Viewport` | glass, camera-controller-override, space-tape, flexo | `camera.md` |
+| `Camera`, `Controller`/`OrbitController`/`FlyController`, FOV, `Viewport` | glass, camera-controller-override | `camera.md` |
 | `FlightComputer`, `NavBall`, `Situation`, kinematics/accel, `VehicleConfigInfo` | average-twr, geeforce, steely-eyed-missile-kitten | `telemetry.md` |
-| `Part`/`PartTree`/`PartTemplate`, connectors, face-snapping, editor tags/categories, thumbnails, part size | space-tape, flexo, blinky, its-so-shiny | `part-editor-and-robotics.md` |
+| `Part`/`PartTree`/`PartTemplate`, connectors, face-snapping, editor tags/categories, thumbnails, part size, **editor scale clamp / scale gizmo** | parts-now, dont-stifle-me, blinky, its-so-shiny, kitchen-sink | `part-editor-and-robotics.md` |
 | render pass, shaders/GLSL, `SuperMeshRenderSystem`, `PerInstanceData`, `MaterialData`, `GpuMaterialSystem`, MSAA, Vulkan | **thug-life, humble-arteest, mesh-deform, doh, blinky, its-so-shiny** | `pixel-grids-and-render.md`, `character-and-materials.md` |
 | `KittenEva`, `CharacterAvatar`, animations, `CatExpressionAnim`, `EVADoor`, characters | doh, kitten-animations, garrys-torch | `character-and-materials.md` |
 | `GaugeCanvas`, HUD, gauges, menu bar / `View` menu / file bar | con-man, marque, unscience `MenuBarPatch` | `ui-customization.md` |
 | `ImGui`, `Brutal.*` package bump, nullability | **any mod** — see the `TreatWarningsAsErrors` note in step 2 | wherever it lands |
-| `ModLibrary` asset ids, part templates, meshes, FMOD/audio, substances | blinky, its-so-shiny, thug-life, doh, humble-arteest, space-tape, flexo, byo-music, mesh-deform | master index §5 |
+| `ModLibrary` asset ids, part templates, meshes, FMOD/audio, substances | blinky, its-so-shiny, thug-life, doh, humble-arteest, parts-now, byo-music, mesh-deform | master index §5 |
 
 > A changelog line that moves **no symbol** can still break a mod. Worked example from the trees on
 > disk: rev 4940 *"Added Hud dropdown to file bar … including new layouts feature as well as the
@@ -297,7 +297,7 @@ this set even on a clean changelog and a green build. Sources:
 | `GpuMaterialSystem.BigBuffer` staged Vulkan writes at `handle*80+16` | **doh**, **humble-arteest** Kitten Color | `MaterialData` layout + `ModelPbr.frag`/`Common/MaterialSet.glsl` albedo path |
 | Temperature/TFI emissive LUT read (`#ifdef ENABLE_TEMPERATURE`) | **humble-arteest** Engine Emissive | which shader file hosts the LUT (it *moved* files in rev 4693 and the feature survived) |
 | `*Module.UpdateRenderData` render-skip prefixes; `PartTree.CreateFromNewPartTree`; `EngineController.SetIsActive` | **blinky**, **its-so-shiny**, **i-feel-seen** | patch target signatures + per-frame cost assumptions |
-| `GenericGizmo` + `OrbitLinePass` (editor gizmos, grid lines) | **space-tape**, **flexo** | ctor/render-data shapes |
+| `GenericGizmo` (scale gizmo segment data) | **dont-stifle-me** | ctor/render-data shapes. `OrbitLinePass` is **unowned** since flexo's removal — nothing left to check |
 
 Runtime safety net is uneven here: some features self-disable on detection, others just draw wrong.
 **A silently mis-drawn quad, an unpainted part, or a grid that renders at the wrong scale is only
@@ -355,7 +355,6 @@ Use this so nothing is missed. Detail (with `file:line` and decomp paths) lives 
 | humble-arteest | **GLSL text-edit shader swap**, `PerInstanceData` byte hijack, emissive LUT | `character-and-materials.md` |
 | kitten-animations | `AnimatedRenderable.SetAnimation`, `CatExpressionAnim._expressionPose` cache bust | `character-and-materials.md` |
 | space-tape | part templates/components, thumbnails, connectors, editor tags, XML emitters, gizmos | `part-editor-and-robotics.md` |
-| flexo | `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass` (Traverse), editor scene | `part-editor-and-robotics.md` |
 | skittles | `ImGui.GetStyle()` only — no Harmony, no KSA types (still exposed to Brutal.ImGui churn) | `ui-customization.md` |
 | con-man | **7 private `GaugeCanvas` fields** by name | `ui-customization.md` |
 | kitchen-sink | `ReinitializeDerivedValues`, `IvaForceRender` template mutation + ctor patch | `ui-customization.md` |
@@ -408,7 +407,7 @@ carry it forward or close it — but never file it as caused by the new build:
   ("Interstage" removed, "Stages"→"Resource Groups", tags moved to XML — 4731/4732/4741);
   face-snapping/connector rules (4687–4740); part-size XML (4721).
 - [`ISSUES.md`](../../../ISSUES.md) additionally carries **user-reported** breakage (blinky, eternal
-  flame refill during burns, flexo/garrys-torch error spam, kitten-animations repeating one
+  flame refill during burns, garrys-torch error spam, kitten-animations repeating one
   expression). Treat these as prior art when triaging, and check whether the new build explains any.
 
 ---
@@ -423,8 +422,8 @@ a live pass rather than asserting they pass:
   simply inert. Confirm in game (the log is `Console.WriteLine`), or dump real structure at runtime
   via ksa skill [`debug.md`](../ksa/debug.md).
 - **Render correctness** — thug-life's quad, humble-arteest's paint/emissive, blinky/its-so-shiny grid
-  scale and lighting, space-tape/flexo gizmos and grid lines. Only a live flight/editor session
-  confirms these draw correctly.
+  scale and lighting, dont-stifle-me's scale gizmo. Only a live flight/editor session confirms these
+  draw correctly.
 
 Practical live pass: build, launch KSA, open the **unscience** window (**F11**) — 22 submods load
 through it, so it is the fastest broad smoke test — then exercise the specific mods implicated by the
@@ -468,7 +467,7 @@ via toolchain/package churn:
 - unladen-swallow's GenHTTP server, routing, DTOs (its *endpoint bodies* call other libs — those calls
   are in scope; the transport is not).
 - TOML persistence (Tomlyn) and its file layouts: skittles themes, con-man layouts, garrys-torch
-  presets, flexo definitions; steely-eyed's SQLite database and YAML mission schema.
+  presets, parts-now's `parts-now.toml`; steely-eyed's SQLite database and YAML mission schema.
 - Pure-ImGui layout/state code, easing math, ring buffers, topological sorts, the `client/` TypeScript
   and `mkmod.ts`.
 - The **StarMap.API** loader ABI (and the other NuGet deps: Lib.Harmony, Tomlyn, GenHTTP,

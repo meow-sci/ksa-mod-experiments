@@ -237,14 +237,22 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
     /// <summary>
     /// Records the draw for a single entry. Caller must already be inside the offscreen
     /// render pass (i.e. invoked from a postfix on <c>SuperMeshRenderSystem.RenderMainPass</c>).
+    ///
+    /// Matrices come from <c>Program.GetRenderCamera()</c> — the camera of the viewport
+    /// currently being rendered — NOT the main camera. <c>RenderMainPass</c> runs once per
+    /// visible viewport, which since KSA 5261 includes the two crew-portrait viewports (they
+    /// are always visible). Ego space is camera-relative and the view-projection is
+    /// per-camera, so the main camera would draw the portrait passes with the wrong clip
+    /// transform.
     /// </summary>
     public void RecordDraw(CommandBuffer cmd, ThugLifeEntry entry)
     {
         if (_disposed || !entry.Visible) return;
-        if (!TryComputeModelEgo(entry, out float4x4 modelEgo)) return;
 
-        var camera = Program.GetMainCamera();
+        var camera = Program.GetRenderCamera();
         if (camera == null) return;
+        if (!TryComputeModelEgo(entry, camera, out float4x4 modelEgo)) return;
+
         float4x4 mvp = modelEgo * camera.MVP.viewProjection;
 
         cmd.BindPipeline(VkPipelineBindPoint.Graphics, _pipeline);
@@ -265,11 +273,9 @@ public sealed unsafe class ThugLifeQuadRenderer : IDisposable
         cmd.DrawIndexed(_indexCount, 1, 0, 0, 0);
     }
 
-    private static bool TryComputeModelEgo(ThugLifeEntry entry, out float4x4 model)
+    private static bool TryComputeModelEgo(ThugLifeEntry entry, Camera camera, out float4x4 model)
     {
         model = float4x4.Identity;
-        var camera = Program.GetMainCamera();
-        if (camera == null) return false;
         if (entry.Vehicle == null || entry.Part == null) return false;
 
         double4x4 vehMat = entry.Vehicle.GetMatrixAsmb2Ego(camera);

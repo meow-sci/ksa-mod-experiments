@@ -8,8 +8,12 @@ A KSA mod that dynamically creates LCD pixel grids of engine parts at runtime an
 1. Looking up an engine `PartTemplate` from `ModLibrary`
 2. Creating `Part` instances for each grid cell (a/b pairs for balanced thrust)
 3. Wiring them to the vehicle's root part via manual `TreeParent`/`TreeChildren` assignment
-4. Rebuilding the `PartTree` once with `PartTree.CreateFromNewPartTree()`
-5. Naming them `pixel_{gridName}_{row}_{col}_{a|b}` for grid lookup
+4. Connecting each pixel engine's **declared feed connector** to a fuel-bearing part so it can draw propellant
+5. Rebuilding the `PartTree` once with `PartTree.CreateFromNewPartTree()`
+6. Naming them `pixel_{gridName}_{row}_{col}_{a|b}` for grid lookup
+
+A pixel "lights" by activating a real engine, so what you actually see is the engine's exhaust
+plume — the meshes are scaled to ~1% and are effectively invisible on their own.
 
 Each vehicle can have multiple grids, distinguished by a user-chosen **grid name**. Grid names must contain only alphanumeric characters and hyphens (`[a-zA-Z0-9-]`) — underscores are reserved as the part ID delimiter.
 
@@ -39,6 +43,54 @@ Paints a set of pixels directly. Supports intelligent reset mode that only chang
 ### Global Scan (Debug Menu)
 Auto-discovers all named blinky grids on all loaded vehicles by parsing `pixel_{gridName}_{row}_{col}_{a|b}` part IDs and registering each discovered grid.
 
+### Propellant Feed
+
+Pixel engines only fire if they can reach propellant. KSA's resource graph refuses the first hop out
+of a consumer part unless the connection sits on a connector the part template declares in its
+`ConsumerFeedWiring`/`FeedsFrom` wiring **and** that connection carries the combustor's plumbing
+capability (`BulkFluid` for these engines). blinky therefore connects
+`RocketCore.FeedConnectors[i]` (e.g. EngineA3's `_connector3`) to a fuel-bearing `Part`, and
+stage-aligns each pixel part to its fuel anchor so the `…SameStage` flow rules still find the tank.
+
+A bare part-to-part connection satisfies neither requirement — that was the long-standing bug where
+grids added vehicle mass but never lit.
+
+After building, the console reports how many pixel parts reached at least one tank:
+
+```
+blinky: fuel-fed 128/128 pixel parts via their declared feed connectors
+blinky: propellant feed check — 128/128 pixel parts reached at least one tank
+```
+
+Gas-generator cores that burn a propellant the vehicle does not carry are reported as starved; that
+is expected and does not stop the main thrust chamber from firing.
+
+> **The pixel engines burn Hydrolox.** Every liquid `CorePropulsionA_Prefab_EngineA2..A6` thrust
+> chamber is authored `<Reaction Id="Hydrolox">`, so the host vehicle's tanks must actually contain
+> LH2/LOX. If they hold something else, `Tank.ContainsAny(Mix)` fails and the grid stays dark even
+> with perfect wiring — the console reports `no pixel can light. The engines burn 'Hydrolox'…`.
+> blinky never reconfigures the vehicle's tank contents, so it cannot break the real engines.
+
+### Repair Feed
+
+Grids discovered by the **global scan** — after a save/load, or built by an older blinky — have no
+declared feed connection and stay dark. **Repair Feed** (per-grid button, or
+`POST /blinky/grids/repair`) re-wires them in place and forces the resource managers to rebuild via
+`ResourceGroupList.CalculateStages()`, without rebuilding the part tree.
+
+### Ignition & Throttle
+
+Nothing lights unless the vehicle is ignited (`VehicleEngine.MainIgnite`) **and** the throttle is
+above zero. blinky ignites the vehicle for you whenever it drives pixels, and warns in the window
+when the throttle is at zero or the flight computer is in `Auto` burn mode (which clears ignition
+every frame).
+
+### Diagnose
+
+Logs, per grid: vehicle ignition/throttle/burn-mode, how many engine controllers reach propellant,
+and for a sample pixel — controller activity, stage, each declared feed connector's target, and the
+`ResourceManager` flow rule with its `ConsumptionOrder` level/tank counts.
+
 ### Render Toggle
 Checkbox to toggle engine mesh rendering for a significant performance boost — hides part meshes while keeping the pixel grid fully functional.
 
@@ -51,6 +103,7 @@ All endpoints require a `vehicleId` and `gridName` to identify which grid to con
 | `/blinky/static` | POST | Display a static set of pixels (with optional reset/diff) |
 | `/blinky/off` | POST | Turn off all pixels and stop any scroll |
 | `/blinky/grids` | GET | List all registered grids (optional `vehicleId` query filter) |
+| `/blinky/grids/repair` | POST | Re-wire a registered grid's propellant feed |
 
 ## Grid Configuration
 
@@ -62,7 +115,7 @@ All endpoints require a `vehicleId` and `gridName` to identify which grid to con
 | Spacing (m) | 5.0 | Metres between pixel centres |
 | Position X/Y/Z | 0, 0, 0 | Offset from vehicle root origin |
 | Engine Scale | 0.010 | Scale factor for engine part meshes |
-| Engine | EngineA3 | Part template ID (A1–A6 filtered quick-select) |
+| Engine | EngineA3 | Part template ID (A2–A6 filtered quick-select; `EngineA1` no longer exists in the game) |
 
 ## Grid Naming
 
@@ -89,8 +142,9 @@ blinky.lib/                   ← Core reusable logic (headless)
 ├── PixelGrid.cs              ← Vehicle pixel grid scanner + engine controller cache
 ├── PixelPatterns.cs           ← Built-in pattern functions
 ├── LcdGridConfig.cs          ← Grid configuration data class
-├── LcdGridBuilder.cs         ← Runtime Part creation and manual tree wiring
+├── LcdGridBuilder.cs         ← Runtime Part creation, tree wiring, propellant feed, repair
 ├── BlinkyPixelGrid.cs        ← PixelGrid wrapper with owned-parts lifecycle
+├── NonLcdEngineCache.cs      ← Lazily cached non-pixel EngineControllers per vehicle
 ├── BuiltInScrollPixels.cs    ← Default built-in scroll animation pixel data
 └── blinky.lib.csproj
 ```

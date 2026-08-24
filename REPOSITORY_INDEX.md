@@ -161,6 +161,10 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
 - **BlinkyGridManager** — static singleton managing grids by `(vehicleId, gridName)` compound key, shared with RPC endpoints
 - **Global scan** — discovers blinky grids across all loaded vehicles (Debug menu)
+- **Propellant feed** — each pixel engine is wired to a fuel-bearing part through its own **declared feed connector** (`RocketCore.FeedConnectors`); KSA rejects any other route, so this is what makes the pixels actually light
+- **Repair Feed** — re-wires a grid's propellant feed in place (for grids found by scanning, or built before the feed-wiring fix) and rebuilds the resource managers
+- **Ignition/throttle warning** — flags when the vehicle is shut down, in Auto burn mode, or at zero throttle, any of which keeps the grid dark
+- **Diagnose** — logs per-controller ignition state, feed connector wiring, and `ResourceManager.ConsumptionOrder` tank counts
 - **Static display** — paints a set of pixels with optional intelligent diff (reset mode)
 - **Off** — turns off all pixels and stops any running scroll on a specific grid
 - Pattern presets: All On, Checkerboard, Alt Rows, Alt Cols
@@ -168,7 +172,7 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - Build/Destroy individual grids at any time; vehicle combo selector with filter
 - Per-grid collapsible UI sections with info table, pattern buttons, and destroy
 - Menu bar with Debug menu for global grid scanning
-- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder`, `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
+- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder` (`BuildGrid`, `DestroyGrid`, `ScanExistingGrid`, `RepairFuelFeeds`), `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [its-so-shiny](its-so-shiny) / [its-so-shiny.lib](its-so-shiny.lib)
 Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-in `LightPart` instead of engine parts, avoiding engine ignition, thrust cancellation, and fuel/resource graph complexity.
@@ -205,11 +209,14 @@ Bring Your Own Music - Custom music player. Plays audio playlists from defined a
 Apply the "thug life" pixel-art sunglasses meme as a 2D textured quad anchored to any vehicle's part or subpart in 3D space.
 - Programmatic 15x4 R8G8B8A8UNorm texture (no PNG asset shipped) built from an ASCII pattern in `ThugLifeTexturePattern.cs`
 - Quad drawn in the offscreen MSAA pass via a Harmony postfix on `SuperMeshRenderSystem.RenderMainPass` using KSA's stock `UnlitMeshVert`/`UnlitMeshFrag` shaders
+- GPU pipeline/texture/buffers are created **lazily on the first entry** — `Program.OffscreenTarget` does not exist yet at `[StarMapAllModsLoaded]` time
+- Per-frame MVP uses `Program.GetRenderCamera()` so the quad is correct in every rendered viewport, crew portraits included
 - Per-entry vehicle / part / subpart pickers with filtered combos
 - Per-entry position offset, rotation (pitch/yaw/roll), and width/height — all in the anchor part's local frame
 - Multiple simultaneous sunglasses; visible toggle and remove per entry
+- **animate thug**: one-click button shown when the selected target is an EVA kitten (`KittenEva`) — anchors a pre-tuned pose (rot `-90,0,90`, `0.975` x `0.2` m) and slides it from `0.251,0,-2` onto the face at `0.251,0,-0.761` over 1.2 s (ease-out); no part selection needed
 - F12 toggle for the standalone window; **also bundled into the unscience supermod**
-- **thug-life.lib**: `ThugLifeSubmod` (ISubmod UI), `ThugLifeRenderManager` (static `Active`/`Instance` for the render postfix, owns entry list + GPU resources), `ThugLifeQuadRenderer` (pipeline + descriptor + VB/IB + per-frame ego-space MVP draw), `ThugLifeTextureFactory` (`SimpleVkTexture` + sampler upload), `ThugLifeRenderPatches` (shared `Apply`/`Remove` Harmony postfix used by both standalone Patcher and unscience Patcher), `ThugLifeEntry`, `ThugLifeTexturePattern`
+- **thug-life.lib**: `ThugLifeSubmod` (ISubmod UI), `ThugLifeRenderManager` (static `Active`/`Instance` for the render postfix, owns entry list + lazily-created GPU resources), `ThugLifeQuadRenderer` (pipeline + descriptor + VB/IB + per-frame ego-space MVP draw), `ThugLifeTextureFactory` (`SimpleVkTexture` + sampler upload), `ThugLifeRenderPatches` (shared `Apply`/`Remove` Harmony postfix used by both standalone Patcher and unscience Patcher), `ThugLifeEntry`, `ThugLifeSlide` (ease-out position animation), `KittenGlassesPreset` (the animate-thug pose + `IsKitten`), `ThugLifeTexturePattern`
 
 ---
 
@@ -247,12 +254,13 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /health` — server liveness check
 - `GET /fov` — returns current FOV state (current, override, isActive)
 - `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
-- Expanded blinky API (13 endpoints) covering grid lifecycle, animation control, render settings, and engine control:
+- Expanded blinky API (14 endpoints) covering grid lifecycle, animation control, render settings, and engine control:
 - `GET /blinky/grids` — list registered grids (optional `vehicleId` filter)
 - `POST /blinky/grids` — build and register a new grid on a vehicle
 - `DELETE /blinky/grids` — destroy/unregister a grid (`vehicleId` and `gridName` query params)
 - `POST /blinky/grids/scan` — scan a specific vehicle for an existing named grid
 - `POST /blinky/grids/scan-all` — discover and register grids across all vehicles
+- `POST /blinky/grids/repair` — re-wire a registered grid's propellant feed so its engines can light
 - `POST /blinky/animate` — start scrolling animation from client-supplied pixels
 - `DELETE /blinky/animate` — stop an active scroll without clearing current pixels
 - `POST /blinky/animate/builtin` — start built-in scrolling animation payload
@@ -285,7 +293,7 @@ HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA m
 - `GET /torch/presets` — list all named weld presets
 - `POST /torch/presets` — save or update a named preset (`{ "name": "...", "data": {...} }`)
 - `DELETE /torch/presets` — delete a named preset (`{ "name": "..." }`)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `ShinyListEndpoint`, `ShinyGridsEndpoint`, `ShinyGridScanEndpoint`, `ShinyGridScanAllEndpoint`, `ShinyAnimateEndpoint`, `ShinyStaticEndpoint`, `ShinyPatternEndpoint`, `ShinyOffEndpoint`, `ShinyAppearanceEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `its-so-shiny.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
+- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyGridRepairEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `ShinyListEndpoint`, `ShinyGridsEndpoint`, `ShinyGridScanEndpoint`, `ShinyGridScanAllEndpoint`, `ShinyAnimateEndpoint`, `ShinyStaticEndpoint`, `ShinyPatternEndpoint`, `ShinyOffEndpoint`, `ShinyAppearanceEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `its-so-shiny.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
 
 ---
 
@@ -326,7 +334,7 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Eternal Flame, Flexo, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (22 total)
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (22 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
@@ -347,17 +355,6 @@ Placeholder/template mod with basic mod structure. Requires proper naming and im
 ---
 
 ## Part Editor Mods
-
-### [flexo](flexo) / [flexo.lib](flexo.lib)
-Robotics mod. Introduces articulated Parts (hinges, rotors) to KSA's static Part system. Design robotic parts in a dedicated editor, then control them at runtime.
-- Hinge creator: select fixed and moving Parts from a vehicle, define rotation axis, degree range, resting position, and motor speed
-- TOML-based persistence — flexo definitions saved to `~/.flexo/flexo_part_*.toml`
-- Vehicle scanning — detect flexo parts on the active vehicle by matching Part template IDs and connectivity
-- Runtime hinge control — open/close/reset buttons, manual angle slider, animated rotation via `Part.Asmb2ParentAsmb`
-- 3D editor scene with camera snaps, lighting, hover/select interaction
-- Live preview — rotate Parts in the editor to verify hinge axis and range before saving
-- Unscience integration as ISubmod with runtime panel and floating editor window
-- **flexo.lib**: `FlexoSubmod` (ISubmod entry point), `FlexoDataManager` (TOML persistence), `HingeController` (per-instance rotation math), `FlexoEditorScene`, `FlexoEditorInteraction`, `FlexoEditorUi`
 
 ### [parts-now](parts-now) / [parts-now.lib](parts-now.lib)
 Runtime Part / SubPart loader. Paste Part XML into a brand new mod folder, or load / reload / unload an existing mod folder, without restarting the game. New parts appear in the vehicle editor's part browser immediately with thumbnails and game data attached.

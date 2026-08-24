@@ -28,7 +28,7 @@ Verification baseline:
   standalone mod host.
 - **Single consolidated Harmony instance.** `unscience/Patcher.cs` owns exactly one
   `new Harmony("MeowSci.Unscience")`. Each feature lib exposes a static `Apply(Harmony)`/`Remove(Harmony)`
-  patch class (or, for flexo, a `PatchAll` over its assembly); the supermod applies them all onto
+  patch class; the supermod applies them all onto
   its one instance instead of each mod owning its own. `HotkeyGuard` (from the seam lib) is applied
   first, exactly once.
 - **`ksa-abstractions.lib` is the game-facing seam.** All cross-cutting game access is funnelled
@@ -85,7 +85,6 @@ are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
 | `IFeelSeenPatches` | i-feel-seen.lib | 66 | 102 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` (**string**) | prefix | string-named — see i-feel-seen scope |
 | `VehiclePaintPatches` | humble-arteest.lib | 67 | 106 | `PartModel.AddInstance` | prefix | render — see humble-arteest scope |
 | `EngineEmissivePatches` | humble-arteest.lib | 68 | 103 | `PartModelDynamic.AddInstance` | prefix | render — see humble-arteest scope |
-| `FlexoPatches` | flexo.lib | 69 | 104 | `PartModelRenderer.UpdateRenderData(Viewport,int)` + (via `PatchAll`) `FlexoSolverPatch`→`Universe.ExecuteNextVehicleSolvers` | prefix | see flexo scope |
 | `IvaForceRender` | **ksa-abstractions.lib** | 70 | 108 | IVA render gate (see ui-customization scope) | prefix | wired 2026-08-23 |
 | `EditorScalePatches` | dont-stifle-me.lib | 71 | 105 | `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` | postfix/prefix | see part-editor-and-robotics scope |
 | `KittenAnimationPatches` | kitten-animations.lib | 72 | 109 | `AnimatedRenderable.UpdateAnimation(double)` (**string** via `AccessTools.Method`) | prefix `(AnimatedRenderable __instance, ref double dt)` | ⚠️ **hot path** — runs for every animated renderable every frame; must stay a reference compare + early return. See character-and-materials scope |
@@ -114,7 +113,7 @@ Notes:
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
-| 1 | Harmony prefix (`Priority.First`) | `Patcher.cs:96` (lookup), `:104` (patch), `:109-112` (remove) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` — `public static void` | `KSA/Universe.cs:1660` | Yes | None — identical sig (OLD `:1109`) | Looked up by name only (`nameof`, no param-type array), so a param change would NOT break the lookup unless the method became overloaded. Prefix dispatches to `EternalFlameSubmod.Instance?.UpdateBeforeVehicleSolvers()`, wrapped in try/catch. Same target flexo also patches. |
+| 1 | Harmony prefix (`Priority.First`) | `Patcher.cs:96` (lookup), `:104` (patch), `:109-112` (remove) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` — `public static void` | `KSA/Universe.cs:1660` | Yes | None — identical sig (OLD `:1109`) | Looked up by name only (`nameof`, no param-type array), so a param change would NOT break the lookup unless the method became overloaded. Prefix dispatches to `EternalFlameSubmod.Instance?.UpdateBeforeVehicleSolvers()`, wrapped in try/catch. Same target kiwis-marbles and kitchen-sink also patch. |
 
 ---
 
@@ -301,7 +300,9 @@ Update-risk findings (4680→4750):
   The supermod's "Force IVA Rendering" toggle therefore now also handles interior parts spawned *after* the
   toggle (ctor postfix) and editor-preview internal meshes (`AddInstance` postfix), not just the
   `Enabled`-setter mutation of already-loaded `PartModel.Instances` templates. (The separate kitchen-sink
-  vehicle-solver prefix behind the Flexo "Update Physics" button remains standalone-only — out of scope here.)
+  vehicle-solver prefix behind kitchen-sink's "Flexo Part Test" *Update Physics* button remains
+  standalone-only — out of scope here. Note that kitchen-sink's Flexo\* test panels are named after the
+  removed flexo mod but are independent of it and were kept.)
 
 ### KsaPaths.cs
 

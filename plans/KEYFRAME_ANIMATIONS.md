@@ -2,6 +2,13 @@
 
 Covers: how `KeyframeAnimationModule` works end-to-end, how `CoreElectricalA_Prefab_SolarPanelB` is the first example, and how to author custom parts with animated rotor/hinge subparts.
 
+> **Note (2026-08-23):** this file was `FLEXO_NEW_ANIMATIONS.md`. The **flexo** robotics mod has since
+> been removed from the repo — it never worked and the `Asmb2ParentAsmb` hinge approach will not be
+> reattempted here. The comparisons against it below are kept because they document *why* the game's
+> own `KeyframeAnimationModule` is the better path; read every "use Flexo's approach" as "the approach
+> flexo took, which this repo no longer implements". The `KeyframeAnimationModule` research itself is
+> unaffected and still current.
+
 ---
 
 ## 1. The Animation Pipeline at a Glance
@@ -485,7 +492,7 @@ For most use cases (deploy/retract toggle), only `TimeGoal` needs to be set — 
 
 The animation is **visual-only** (affects rendering transforms only). It does **not** update physics, collision, or mass properties. Unlike Flexo's `Part.Asmb2ParentAsmb` approach, no call to `Vehicle.UpdateAfterPartTreeModification()` is needed.
 
-If you need physics-accurate animated parts (e.g., a moving landing leg that must interact with terrain), continue using Flexo's approach of manipulating `Asmb2ParentAsmb` directly.
+If you need physics-accurate animated parts (e.g., a moving landing leg that must interact with terrain), you would have to manipulate `Asmb2ParentAsmb` directly — the approach flexo took, and the reason it never worked reliably (see [`../scope/part-editor-and-robotics.md`](../scope/part-editor-and-robotics.md) → flexo).
 
 ---
 
@@ -546,9 +553,11 @@ _harmony.PatchAll(typeof(AnimationContextMenuPatch));
 
 ---
 
-## 8. Comparison: KSA KeyframeAnimationModule vs Flexo's Approach
+## 8. Comparison: KSA KeyframeAnimationModule vs the flexo approach
 
-| Aspect | KeyframeAnimationModule (GLB) | Flexo Hinge (Asmb2ParentAsmb) |
+*(flexo is removed; this column describes what it did, for contrast.)*
+
+| Aspect | KeyframeAnimationModule (GLB) | flexo hinge (`Asmb2ParentAsmb`) — removed |
 |---|---|---|
 | **Animation source** | Pre-authored .glb keyframes | Runtime quaternion math |
 | **Physics** | Visual only — no physics update | Full physics: CoM, aero, bounding box |
@@ -560,7 +569,8 @@ _harmony.PatchAll(typeof(AnimationContextMenuPatch));
 | **State persistence** | `State.TimeCurrent` in sim state | Managed by `HingeController` |
 
 For a **solar panel** or **decorative rotating antenna** → use `KeyframeAnimationModule`.  
-For a **landing leg** or **robotic arm** that must interact with terrain/physics → use Flexo's approach.
+For a **landing leg** or **robotic arm** that must interact with terrain/physics → there is no supported
+path in this repo any more; flexo's `Asmb2ParentAsmb` route is the one that was tried and abandoned.
 
 ---
 

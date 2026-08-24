@@ -10,6 +10,14 @@ install. No `KSAFolder` trap this pass.
 > `<OLD>.build` == NEW's `fromRevision`, so NEW's `version.json` alone covers the whole span
 > (revs **5262–5348**, 175 changelog lines). No revision went unreviewed.
 
+> 📌 **Post-pass amendment (2026-08-23): flexo was removed from the repo.** It is named throughout the
+> tables below because it was present and **verified clean** during this review — it was *not* a break.
+> It was deleted afterwards by choice: the robotics approach never worked in-game and will not be
+> reattempted this way. Everything below that reads "flexo" is a record of what was true at review
+> time; nothing in it is still actionable. Two surfaces went **unowned** with it —
+> `PartModelRenderer.UpdateRenderData(Viewport, int)` and `OrbitLinePass` — and the solution went back
+> to **55 projects** / **22 submods**. See `scope/part-editor-and-robotics.md` → flexo.
+
 ---
 
 ## 1. Result
@@ -28,7 +36,7 @@ concentrated in four places (§4).
 | 1 | `space-tape.lib` | **removed member** (`PartTemplate.Decoupler`) | ✅ yes (rev 5329) | **mod removed** |
 | 2 | con-man | semantic drift (`GameSettings.GetGaugeScale()`) | ✅ yes (rev 5293) | needs live re-verification |
 | 3 | kitten-animations | new-gating (per-frame pose guard) | ✅ yes (rev 5278) | needs live re-verification |
-| 4 | thug-life | render-env change (Vulkan 1.4, UI coverage culling) | ✅ yes (revs 5315, 5283) | needs live re-verification |
+| 4 | thug-life | render-env change (Vulkan 1.4, UI coverage culling) — plus a **pre-existing init-order NRE, fixed 2026-08-23** | ✅ yes (revs 5315, 5283) | init fixed; quad still needs live re-verification |
 | 5 | blinky / its-so-shiny | semantic drift — **favourable** (power graph now on-demand) | ✅ yes (rev 5326) | no change needed |
 
 ---
@@ -146,6 +154,18 @@ Related and additive (not breaks): revs 5268 (seated idle + fidget), 5269 (MMU f
 ### 4.3 thug-life — new render environment, statically unverifiable ⚠️
 
 **New in 5348.** Change class: **render-environment**. Verdict: **needs live in-game re-verification.**
+
+> **Update 2026-08-23 — a separate, real defect was found and fixed in game.** The submod's ImGui
+> window showed *"init failed: Object reference not set to an instance of an object"*. This was **not**
+> a 5348 break: `ThugLifeRenderManager`'s constructor built the Vulkan pipeline, and it is constructed
+> from `[StarMapAllModsLoaded]`, which StarMap fires from a postfix on `ModLibrary.LoadAll()`
+> (`KSA/Program.cs:897`) — **before** the game creates `Program.OffscreenTarget` in
+> `BuildRenderTargets()` (`:934`). `Program.OffscreenTarget.SetupGraphicsPipeline(...)` therefore
+> dereferenced null. GPU init is now **lazy, on the first anchored entry** (the discipline the sibling
+> gatOS port already used). The same pass switched the per-frame MVP from `Program.GetMainCamera()`
+> to `Program.GetRenderCamera()`, because `RenderMainPass` runs once per visible viewport — including
+> the two always-visible crew-portrait viewports — and ego space is camera-relative. The Vulkan 1.4 /
+> UI-coverage-culling questions below are unaffected and still need eyes in game.
 
 Everything thug-life binds to is intact:
 - `SuperMeshRenderSystem.RenderMainPass(CommandBuffer)` — signature unchanged.
@@ -330,7 +350,7 @@ so StarMap keeps its seams.
 | **garrys-torch CS8604 (rev-4729 Brutal nullability)** | ✅ Closed — build is warning-free. |
 | **unscience supermod never wires `IvaForceRender.Patch`** | ❌ Still open — unchanged by this build. kitchen-sink's IVA force-render remains partial inside the supermod. |
 | **`Vehicle.IsControllable` gating (4699)** | ✅ Unchanged at 5348 (`Vehicle.cs:582`). |
-| **Editor tag/category schema; face-snapping; part-size XML** | These were space-tape watch items. **Moot** — mod removed. Rev 5329 did change editor scaling (triaxial → uniform, clamped 0.5×–2×), which now affects only flexo/parts-now. |
+| **Editor tag/category schema; face-snapping; part-size XML** | These were space-tape watch items. **Moot** — mod removed. Rev 5329 did change editor scaling (triaxial → uniform, clamped 0.5×–2×), which now affects only parts-now and dont-stifle-me (flexo has since been removed too). |
 | **blinky default `EnginePartId = "CorePropulsionA_Prefab_EngineA1"`** | ❌ Still open. `BlinkySubmod.cs:35` was moved to `EngineA3`, but `LcdGridConfig.cs:47` — the persisted default — is **still `EngineA1`**, an id that does not exist in Content at 5261 or 5348. `ModLibrary.Get` throws. Still the best candidate for *"blinky broken"* in `ISSUES.md`. |
 
 ---
@@ -343,7 +363,8 @@ repo** — `dotnet build` plus a live session is the whole verification story.
 1. **con-man** — save a layout, change **Hud Scale**, reload the layout (§4.1).
 2. **kitten-animations** — cycle expressions and confirm they still change (§4.2). This is the first
    pass with a concrete mechanism for the standing `ISSUES.md` complaint.
-3. **thug-life** — F12, confirm the quad draws correctly under Vulkan 1.4 and is not culled by the new
+3. **thug-life** — F12, confirm the window opens without the init error (fixed 2026-08-23), that
+   *Add Sunglasses* brings the pipeline up, and that the quad draws correctly under Vulkan 1.4 and is not culled by the new
    UI coverage pass (§4.3).
 4. **blinky** — build a grid and watch load/rebuild timing now that the power DFS is on-demand (§4.4);
    separately, fix the `LcdGridConfig` default engine id (§6).
@@ -353,8 +374,9 @@ repo** — `dotnet build` plus a live session is the whole verification story.
    IVA kitten raytracing (rev 5312) doesn't disturb material cloning.
 7. **its-so-shiny / red-alert / zippo** — lights now register for all viewports (rev 5301); confirm no
    double-lighting in crew-portrait viewports.
-8. **eternal-flame / garrys-torch / flexo** — re-check the `ISSUES.md` error spam under the rewritten
-   physics-bubble model (revs 5331/5339).
+8. **eternal-flame / garrys-torch** — re-check the `ISSUES.md` error spam under the rewritten
+   physics-bubble model (revs 5331/5339). (flexo was the third mod in this item; it has been removed,
+   so its half of the spam is closed by deletion.)
 
 Fastest route: build, launch KSA, open the unscience window (**F11** — 22 submods load through it),
 then exercise the specific mods above. unladen-swallow's HTTP endpoints (`0.0.0.0:7887`) can drive

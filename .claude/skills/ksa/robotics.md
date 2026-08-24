@@ -1,6 +1,17 @@
 # Robotics — Rotating Parts at Runtime
 
-How `flexo` articulates parts (hinges/rotors) by rotating a Part about a local axis each frame. This is the general pattern for moving any Part within a live vehicle without the editor.
+> 🚫 **This approach is abandoned in this repo. Do not build a new mod on it.**
+> The `flexo` mod that implemented it was **removed on 2026-08-23** — it never worked reliably in-game.
+> The technique below depends on undocumented `Part` transform/bounds cache-invalidation semantics, so
+> render and physics state drift apart with no compile error and it produces persistent runtime error
+> spam. **Robotics will not be reattempted this way here.** If a request needs animated parts, use the
+> game's own `KeyframeAnimationModule` instead (visual-only, but supported) — see
+> [`plans/KEYFRAME_ANIMATIONS.md`](../../../plans/KEYFRAME_ANIMATIONS.md).
+>
+> This file is retained only as a description of the game's transform surface and of the failure modes,
+> so a future reader understands what was tried. Code references to `flexo.lib` below no longer exist.
+
+How the removed `flexo` mod articulated parts (hinges/rotors) by rotating a Part about a local axis each frame — the general pattern for moving any Part within a live vehicle without the editor, and why it did not hold up.
 
 ## Core transform
 
@@ -83,7 +94,7 @@ No special module — pure template-id matching against a vehicle scan:
 
 - `VehicleProvider.GetControlledVehicle()` → `PartHelpers.GetAllParts(vehicle)` (recurses `vehicle.Parts.Parts` + `Part.SubParts`).
 - Match `part.Template.Id == FixedPartTemplateId` / `MovingPartTemplateId`. Any fixed+moving pair on the same vehicle qualifies.
-- (Connectivity check available via `partA.Connections` + `connection.OtherPart(partA)`, but flexo doesn't require it.)
+- (Connectivity check available via `partA.Connections` + `connection.OtherPart(partA)`, but flexo did not require it.)
 
 ## Summary ordering
 

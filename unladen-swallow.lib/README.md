@@ -34,6 +34,7 @@ All responses use:
 - `DELETE /blinky/grids?vehicleId=...&gridName=...`
 - `POST /blinky/grids/scan`
 - `POST /blinky/grids/scan-all`
+- `POST /blinky/grids/repair` — re-wires a registered grid's propellant feed (`{ vehicleId, gridName }`) so its engines can light; needed for grids found by scanning
 
 ### Blinky Display Control
 

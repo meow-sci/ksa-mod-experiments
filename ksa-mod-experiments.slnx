@@ -47,8 +47,6 @@
     <Project Path="steely-eyed-missile-kitten/steely-eyed-missile-kitten.csproj" />
     <Project Path="doh/doh.csproj" />
     <Project Path="doh.lib/doh.lib.csproj" />
-    <Project Path="flexo/flexo.csproj" />
-    <Project Path="flexo.lib/flexo.lib.csproj" />
     <Project Path="kitchen-sink/kitchen-sink.csproj" />
     <Project Path="kitchen-sink.lib/kitchen-sink.lib.csproj" />
     <Project Path="red-alert/red-alert.csproj" />

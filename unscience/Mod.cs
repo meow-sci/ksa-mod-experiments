@@ -22,7 +22,6 @@ using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
-using MeowSci.FlexoLib;
 using MeowSci.KitchenSinkLib;
 using MeowSci.PartsNowLib;
 using MeowSci.RedAlertLib;
@@ -69,7 +68,6 @@ public class Mod
             _submods.Add(new DohSubmod());
             _submods.Add(new DontStifleMeSubmod());
             _submods.Add(new EternalFlameSubmod());
-            _submods.Add(new FlexoSubmod());
             _submods.Add(new GarrysTorchSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(new GlassSubmod());

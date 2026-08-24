@@ -1,4 +1,4 @@
-# flexo robotics
+# flexo robotics — ABANDONED (mod removed 2026-08-23; not to be reattempted this way)
 
 
 

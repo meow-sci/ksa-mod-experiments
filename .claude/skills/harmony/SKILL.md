@@ -34,7 +34,7 @@ There is **no** `[Patch]`/`[Unpatch]`/`ModInfo` attribute on these methods. The 
 ### The Harmony instance
 
 - Stored as a single nullable **static field**: `private static Harmony? _harmony;`
-- The ID is a **string literal**, either the mod folder name (`"zippo"`, `"flexo"`, `"thug-life"`) or a fully-qualified namespace (`"MeowSci.Blinky"`, `"MeowSci.Unscience"`). Pick one and reuse the exact same string for `UnpatchAll`.
+- The ID is a **string literal**, either the mod folder name (`"zippo"`, `"parts-now"`, `"thug-life"`) or a fully-qualified namespace (`"MeowSci.Blinky"`, `"MeowSci.Unscience"`). Pick one and reuse the exact same string for `UnpatchAll`.
 - Created either inline (`= new Harmony("zippo")`) or lazily in `Patch()` (`_harmony = new Harmony("MeowSci.Blinky")`). Lazy creation pairs naturally with `_harmony = null` in `Unload()`.
 
 ### HotkeyGuard is mandatory (see CLAUDE.md)
@@ -111,7 +111,7 @@ internal static class Patcher
 }
 ```
 
-The two styles compose: `flexo` calls `PatchAll(...)` AND `FlexoPatches.Apply(...)` (the latter needed because one patch requires a custom priority that attributes don't set here). The `unscience` supermod consolidates many `.lib` patch sets under **one** Harmony instance by calling each lib's `Apply`/`Remove` in turn.
+The two styles compose: a mod can call `PatchAll(...)` for its attribute-declared patches AND a static `Apply(...)` for the ones needing a custom priority that attributes don't set here. The `unscience` supermod consolidates many `.lib` patch sets under **one** Harmony instance by calling each lib's `Apply`/`Remove` in turn.
 
 ## The `*Patches.cs` manual-patch helper (Style B canonical form)
 
@@ -263,17 +263,17 @@ _ctorOriginal = AccessTools.Constructor(typeof(PartModel), new[] { typeof(PartMo
 harmony.Patch(_ctorOriginal, postfix: new HarmonyMethod(_ctorPostfix));
 ```
 
-**Setting patch priority for ordering.** When your prefix must run before everything else on a hot game method (flexo's solver on `Universe.ExecuteNextVehicleSolvers`), set priority on the `HarmonyMethod`:
+**Setting patch priority for ordering.** When your prefix must run before everything else on a hot game method (the shared solver hook on `Universe.ExecuteNextVehicleSolvers`), set priority on the `HarmonyMethod`:
 
 ```csharp
-var prefix = new HarmonyMethod(typeof(FlexoSolverPatch), nameof(BeforeVehicleSolvers))
+var prefix = new HarmonyMethod(typeof(MySolverPatch), nameof(BeforeVehicleSolvers))
 {
     priority = Priority.First
 };
 harmony.Patch(original, prefix: prefix);
 ```
 
-**Calling a private game method via `Traverse`.** flexo invokes a private recompute after editing parts:
+**Calling a private game method via `Traverse`.** kitchen-sink invokes a private recompute after editing parts:
 
 ```csharp
 Traverse.Create(vehicle.Parts).Method("RecomputeStaticMass").GetValue();
@@ -320,8 +320,7 @@ private static void Postfix() { /* ImGui.BeginMenu(...) ... */ }
 | `PartModelDynamic.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest engine emissive temperature/TFI |
 | `PartModel` ctor / `PartModel.AddInstance` | postfix | IvaForceRender — force interior meshes visible |
 | `PartModelModule.UpdateRenderData` (+ Dynamic/Glass variants) | prefix (skip) | blinky/shiny — conditionally skip rendering `pixel_`/`shiny_` parts; mesh-deform Part capture |
-| `PartModelRenderer.UpdateRenderData(Viewport, int)` | prefix | flexo — render editor parts in main pass (note arg-type overload match) |
-| `Universe.ExecuteNextVehicleSolvers` | prefix (`Priority.First`) | flexo — run hinge solver before vehicle solvers |
+| `Universe.ExecuteNextVehicleSolvers` | prefix (`Priority.First`) | eternal-flame / kiwis-marbles / kitchen-sink — mutate sim state before the vehicle solvers read it |
 | `SuperMeshRenderSystem.RenderMainPass` | postfix | thug-life — record extra quad draws into the command buffer |
 | `Controller.OnFrame` (Orbit/Fly) | prefix (`___Transform`) | camera-controller-override — keyframe camera playback |
 | `Program.DrawProgramMenusHook` / `GaugeCanvas.OnDrawMenuBar` | postfix | menu-bar UI injection |

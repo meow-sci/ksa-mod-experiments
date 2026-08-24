@@ -1,18 +1,19 @@
 # Part Editor & Robotics — Game Integration Scope
 
-Permanent reference for how the **flexo** (robotics / hinges), **parts-now** (runtime
-Part/SubPart loading) and **dont-stifle-me** (editor scale un-limiter) mods bind to the Kitten Space Agency (KSA) game, so that future game updates
+Permanent reference for how the **parts-now** (runtime Part/SubPart loading) and **dont-stifle-me**
+(editor scale un-limiter) mods bind to the Kitten Space Agency (KSA) game, so that future game updates
 that break them can be detected and root-caused quickly.
 
-> **space-tape was removed at `2026.8.22.5348`** and is no longer part of this area — see the stub
-> section below. Historical tables and findings for it live in git history and in
-> [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) / earlier upgrade plans.
+> **space-tape and flexo were both removed at `2026.8.22.5348`** and are no longer part of this area —
+> see the stub sections below. Historical tables and findings for them live in git history and in
+> [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) / earlier upgrade plans. With flexo
+> gone this area has **no robotics implementation** — the title is kept for the game surface it maps.
 
 - **Current baseline:** `2026.8.22.5348`, diffed from `2026.8.19.5261`. See
   [`FULL_SCOPE.md`](FULL_SCOPE.md) for the version block and
   [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md) for the current review.
-- **Build status against 5348:** `flexo.lib` and `parts-now.lib` both **compile clean**
-  (whole solution: 55/55 projects, 0 warnings, 0 errors).
+- **Build status against 5348:** `parts-now.lib` and `dont-stifle-me.lib` both **compile clean**
+  (whole solution: 55/55 projects, 0 warnings, 0 errors, after flexo's removal).
 - **Decomp (source of truth):** `~/repos/meow-sci/ksa-game-assemblies/current/decomp` (NEW) and
   `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp` (OLD).
 - **Older sections below keep their original version pairs** (4680↔4750, 5018↔5117, 5117↔5261) — each
@@ -35,8 +36,9 @@ Its integration points, its long-standing API-drift cluster (thumbnail API, ener
 watch items are all **retired**. Kept here only so a future reader who finds space-tape in git history
 knows why it is gone; see [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md) §2.
 
-Two of its game touchpoints live on in other mods and remain catalogued below:
-`PartModelRenderer.UpdateRenderData(Viewport, int)` and `GenericGizmo` / `OrbitLinePass` → **flexo**.
+Two of its game touchpoints were inherited by flexo — `PartModelRenderer.UpdateRenderData(Viewport, int)`
+and `OrbitLinePass` — and went **unowned** when flexo was removed in turn. `GenericGizmo` is the one
+survivor, now used by **dont-stifle-me**.
 
 ---
 
@@ -93,72 +95,47 @@ red notice in the UI), not at compile time. Every one is also listed in
 
 ---
 
-## flexo
+## flexo — **REMOVED @5348**
 
-### Purpose
-Adds articulated Parts (**hinges/rotors**) on top of KSA's static Part system. A dedicated editor
-defines a hinge (fixed part, moving part, axis, degree range, resting angle, motor speed); at runtime
-the mod scans the controlled vehicle, finds matching parts, and rotates the moving sub-tree each
-physics step while keeping render + physics state coherent.
+flexo (robotics — articulated hinge/rotor Parts on top of KSA's static Part system) was deleted from
+the repo at baseline `2026.8.22.5348`. It was **not** a compile break: `flexo.lib` built clean against
+5348. It was removed because the approach never worked in-game and will not be reattempted this way —
+the hinge implementation depended on undocumented `Part` transform/bounds cache-invalidation semantics
+(recorded below as **R-flexo-2**, the area's highest silent-breakage risk) and was the source of the
+long-standing "flexo throws errors but works" entry in [`../ISSUES.md`](../ISSUES.md).
 
-### Unscience integration
-- `FlexoSubmod : ISubmod` (`flexo.lib/FlexoSubmod.cs`); `static Current` read by the solver prefix.
-- `flexo/Patcher.cs` applies `HotkeyGuard.Patch` then `FlexoPatches.Apply(_harmony)`.
-- `FlexoPatches.Apply` = `harmony.PatchAll(assembly)` (render prefix) + `FlexoSolverPatch.Apply` (manual prefix).
+Removed in one pass: `flexo/` and `flexo.lib/`, both solution entries, the `unscience.csproj`
+`ProjectReference`, and the supermod wiring in `unscience/Mod.cs` (`FlexoSubmod`) and
+`unscience/Patcher.cs` (`FlexoPatches.Apply` / `.Remove`). No game part XML was ever written by flexo,
+so nothing on disk needs migrating; its orphaned TOML under `~/.flexo/flexo_part_*.toml` can be deleted
+by hand.
 
-### UI / hotkeys
-- F11 toggle (standalone). Runtime panel: Scan Vehicle, Reload Definitions, per-hinge Open/Close/Reset + angle/speed.
-- Editor floating window reuses space-tape-style scene (camera snaps, lighting, origin gizmo, live preview).
+**Retired integration points** (no longer verify these on a game update):
 
-### Persistence
-- **TOML only** — `~/.flexo/flexo_part_*.toml` via Tomlyn (`flexo.lib/Data/FlexoDataManager.cs`). Flexo does
-  **not** write any game part XML, so it has no game-XML-schema runtime risk.
+- `PartModelRenderer.UpdateRenderData(Viewport, int)` Harmony prefix — flexo was its **last** consumer
+  after space-tape went, so this keystone hook is now unowned by any unscience mod.
+- `OrbitLinePass.AddLineVertex` / `.AddLineEnd` — likewise unowned; flexo's editor scene was the last user.
+- The whole hinge rotation surface: `Part.Asmb2ParentAsmb`, `Part.PositionParentAsmb`,
+  `Part.BoundingBoxVehicleAsmb` / `ComputeBoundingBoxVehicleAsmb()`, `Part.TreeChildren`, `Part.SubParts`
+  setter-touch cache invalidation, `Vehicle.UpdateAfterPartTreeModification()`.
+- `PartTree.RecomputeStaticMass()` via `Traverse` (**R-flexo-3**, string-reflection watchlist entry — now
+  off the list).
+- Risk items **R-flexo-1** (by-name `ExecuteNextVehicleSolvers` prefix), **R-flexo-2** (private
+  cache-invalidation contract), **R-flexo-3** and **R-flexo-4** (solver-phase tree mutation) are all closed.
 
-### Integration points
+**Still live elsewhere, keep verifying:**
 
-| # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
-|---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Harmony (prefix) | `FlexoPatches.cs:9,13` | `PartModelRenderer.UpdateRenderData(Viewport, int)` **static void** | `KSA/PartModelRenderer.cs:658` | ✅ | none (OLD `:625`) | Same keystone hook as space-tape; overload array `[Viewport,int]` must stay. |
-| 2 | Harmony (prefix, by-name) | `FlexoPatches.cs:76-81,84` | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` **static** | `KSA/Universe.cs:1660` | ✅ | none (OLD `:1109`, same 2 params) | Patched via `AccessTools.Method(typeof(Universe), "ExecuteNextVehicleSolvers")` **without** a param array; prefix `BeforeVehicleSolvers(double dtPlayer)` injects `dtPlayer` **by name**. Works because there is one overload. If the method is ever overloaded, by-name resolution becomes ambiguous → patch fails. |
-| 3 | Typed API (in prefix) | `FlexoPatches.cs:23` | `PartTree.UpdateRenderData(ref readonly double4x4, bool, Viewport, int)` | `KSA/PartTree.cs:435` | ✅ | none | Renders editor parts. |
-| 4 | Reflection (private method) | `Runtime/HingeController.cs:186` | `PartTree.RecomputeStaticMass()` (**private** void) via `Traverse.Create(Vehicle.Parts).Method("RecomputeStaticMass")` | `KSA/PartTree.cs:306` | ✅ | none | Name string `"RecomputeStaticMass"`; no compiler protection. |
-| 5 | Typed API (rotation) | `Runtime/HingeController.cs:34,103,107,122,143,171` | `Part.Asmb2ParentAsmb { get; set; }` (`doubleQuat`) | `KSA/Part.cs:463` | ✅ | none | Core hinge rotation write; settable property. |
-| 6 | Typed API (rotation) | `Runtime/HingeController.cs:35,106,139,170` | `Part.PositionParentAsmb` (`double3`) | `KSA/Part.cs` | ✅ | none | Orbits descendants around pivot. |
-| 7 | Typed API (physics) | `Runtime/HingeController.cs:124,152,172` | `Part.BoundingBoxVehicleAsmb { get; set; }` + `Part.ComputeBoundingBoxVehicleAsmb()` | `KSA/Part.cs:515,853` | ✅ | none | Keeps cached bounds coherent after rotation. |
-| 8 | Typed API (tree) | `Runtime/HingeController.cs:201` | `Part.TreeChildren` (`List<Part>`) | `KSA/Part.cs:387` | ✅ | none | Collects rigid sub-tree to co-rotate. |
-| 9 | Typed API (subparts) | `Runtime/HingeController.cs:168` | `Part.SubParts` (`ReadOnlySpan<Part>`) | `KSA/Part.cs:655` | ✅ | none | Touches setters to force cache invalidation (fragile, see R-flexo-2). |
-| 10 | Typed API (vehicle) | `Runtime/HingeController.cs:186,191` | `Vehicle.Parts` (`PartTree`), `Vehicle.UpdateAfterPartTreeModification()` void | `KSA/Vehicle.cs:1277` | ✅ | none | Recomputes mass/aero/CoM after part-tree mutation. |
-| 11 | Typed API (scan) | `Runtime/FlexoRuntime.cs:47,54,55,70` | `Part.Template.Id` (template-id match) | `KSA/Part.cs`, `KSA/PartTemplate.cs` | ✅ | none | Vehicle scan pairs fixed/moving by template id. |
-| 12 | Typed API (connectivity) | `Runtime/FlexoRuntime.cs:114-117` | `Part.Connections`, `Connection.OtherPart(Part)` | `KSA/Part.cs`, `KSA/Connection.cs` | ✅ | none | `IsConnected` helper (defined, currently unused). |
-| 13 | Render/GPU (editor) | `Editor/FlexoEditorScene.cs`, `Editor/FlexoCameraSnap.cs` | `OrbitLinePass.AddLineVertex/AddLineEnd`; `GenericGizmo(...)`; `VehicleEditingSpace`; `Program` camera APIs | `KSA/OrbitLinePass.cs:284,275`, `KSA/GenericGizmo.cs:208`, `KSA/VehicleEditingSpace.cs` | ✅ | none | Reuses space-tape scene patterns; compiled clean. |
-| 14 | Abstractions | `Runtime/FlexoRuntime.cs:36,44` | `VehicleProvider.GetControlledVehicle()` (wraps `Program.ControlledVehicle`), `PartHelpers.GetAllParts(Vehicle)` | `ksa-abstractions.lib` | ✅ | none | Controlled-vehicle access goes through the shared abstraction. |
-| 15 | Lifecycle | `flexo/Mod.cs`, `Patcher.cs`, `FlexoSubmod.cs` | StarMap; `ISubmod`; `HotkeyGuard` | `MeowSci.KsaAbstractions` | ✅ | none | HotkeyGuard applied per rule. |
+- `Universe.ExecuteNextVehicleSolvers(double, SimStep)` — eternal-flame, kiwis-marbles, kitchen-sink and
+  the unscience supermod all prefix it (by `nameof`, not by string), see
+  [`vehicle-physics.md`](vehicle-physics.md) and [`celestial-and-lights.md`](celestial-and-lights.md).
+- `GenericGizmo` — **dont-stifle-me** uses `VehicleEditor.ScaleGizmo.GetSegmentDataByViewport(Viewport)`
+  (see its section above).
+- `PartTree.UpdateRenderData(...)`, `Part.Template.Id`, `Part.Connections` / `Connection.OtherPart` — all
+  still reached by other mods; catalogued in their own sections.
 
-### Game assets referenced
-None written. Editor scene loads gizmo meshes (`"Box"`/`"ArrowMesh"`) the same way as space-tape (table #13). All persistence is local TOML.
-
-### CONFIRMED BREAKS & fixes (4680→4750)
-**None — `flexo.lib` compiles clean against 4750.** All four Harmony/typed targets the patch param
-arrays and prefixes depend on are signature-identical in 4680 and 4750
-(`PartModelRenderer.UpdateRenderData(Viewport,int)`, `PartTree.UpdateRenderData(ref readonly double4x4,bool,Viewport,int)`,
-`Universe.ExecuteNextVehicleSolvers(double,SimStep)`, `Part.Asmb2ParentAsmb` settable property).
-
-### Other update-risk findings
-- **R-flexo-1 (med) — by-name solver patch:** table #2. `AccessTools.Method` by name + by-name prefix
-  param injection tolerate the extra `SimStep simStep` param today, but are fragile to any overload or
-  rename of `ExecuteNextVehicleSolvers`.
-- **R-flexo-2 (high, behavioral) — private cache-invalidation contract:** `HingeController.ApplyRotation`
-  depends on undocumented `Part` caching semantics — it re-assigns `PositionParentAsmb`/`Asmb2ParentAsmb`
-  to *touch* setters (`InvalidateSubPartCaches`, `HingeController.cs:166-175`) and manually recomputes
-  `BoundingBoxVehicleAsmb`. If the game changes how `_matrixAsmb`/`_asmb2VehicleAsmb`/bounds caches
-  invalidate (`KSA/Part.cs:463-497,693-728`), hinges will visibly desync render vs physics with **no
-  compile error**. Highest silent-breakage surface in flexo.
-- **R-flexo-3 (med) — private method name:** `"RecomputeStaticMass"` (table #4) via Traverse; rename →
-  runtime exception (caught/logged, mass just won't update).
-- **R-flexo-4 (low) — mutating part trees off the solver phase:** the design comment notes
-  `UpdateBeforeVehicleSolvers` is the only safe phase to mutate trees + call
-  `UpdateAfterPartTreeModification()`. If the solver scheduling around
-  `Universe.ExecuteNextVehicleSolvers` changes, timing-coherence assumptions could break.
+Kept here only so a future reader who finds flexo in git history knows why it is gone. Its full
+integration table, the 4680→4750 verification and the R-flexo-* findings live in git history and in
+earlier upgrade plans.
 
 ---
 
@@ -408,20 +385,24 @@ like every other game DLL reference in the repo.
 
 ## Quick re-verification checklist (run on each new game build)
 
-flexo:
+dont-stifle-me / shared part surface:
 
-1. `PartModelRenderer.UpdateRenderData(Viewport,int)` still **static** with that exact overload (keystone; the explicit `[Viewport,int]` array must keep resolving uniquely).
-2. `PartTree.UpdateRenderData(ref readonly double4x4,bool,Viewport,int)` unchanged (render prefix).
-3. `Universe.ExecuteNextVehicleSolvers` still single overload (flexo by-name patch).
-4. `PartTree.RecomputeStaticMass` still present and still **private** (flexo/kitchen-sink `Traverse` it). A public `PartTree.RefreshStaticMass()` wrapper exists as of 5348.
-5. `Part.Asmb2ParentAsmb`/`PositionParentAsmb`/`BoundingBoxVehicleAsmb`/`TreeChildren`/`SubParts` + `Vehicle.UpdateAfterPartTreeModification` (flexo runtime).
-6. `OrbitLinePass.AddLineVertex/AddLineEnd` + `GenericGizmo` ctor/`PerSegmentData`/`Static.GenericGizmoRenderData` (grids/gizmos).
-7. Editor scaling is **uniform and clamped 0.5×–2×** as of rev 5329 (was triaxial), and modules implement `IRescale.SetScale(in ScaleFactors)` — check flexo's `Part.Scale` writes are still accepted.
+1. `Universe.ExecuteNextVehicleSolvers` still a **single overload** — eternal-flame, kiwis-marbles, kitchen-sink and the unscience supermod all resolve it with `AccessTools.Method(typeof(Universe), nameof(…))` and **no param array**, so a second overload would make resolution ambiguous.
+2. `PartTree.RecomputeStaticMass` still present and still **private** — kitchen-sink `Traverse`s it by string. A public `PartTree.RefreshStaticMass()` wrapper exists as of 5348 (available simplification).
+3. `GenericGizmo` ctor / `PerSegmentData` / `Static.GenericGizmoRenderData`, and `VehicleEditor.ScaleGizmo.GetSegmentDataByViewport(Viewport)` (dont-stifle-me per-axis drag).
+4. Editor scaling is **uniform and clamped 0.5×–2×** as of rev 5329 (was triaxial), and modules implement `IRescale.SetScale(in ScaleFactors)` — dont-stifle-me exists to undo exactly this, so re-check `MINIMUM_SCALE`/`MAXIMUM_SCALE`/`ScaleBoundsFor`/`UpdateSelectedScale`/`QuantizeScale` on every build.
 
 > Items 3, 5, 6, 8b, 8c and 8d of the old list were **space-tape-only** and were retired when the mod
 > was removed at 5348 (`Viewport.MenuBarInUse`, the thumbnail-API pair, `DockingPortTemplate`,
 > `BatteryTemplate`/`Generator`/`PowerConsumer` reference types, `Part.ResetCachedPosMatrixValues`,
 > `Double3Ex`, `EVADoorTemplate.SeatId`).
+>
+> The old **flexo** block was retired with flexo at 5348. `PartModelRenderer.UpdateRenderData(Viewport,int)`
+> and `OrbitLinePass.AddLineVertex/AddLineEnd` are now **unowned** and need no re-verification;
+> `PartTree.UpdateRenderData(ref readonly double4x4,bool,Viewport,int)` is still live but is i-feel-seen's
+> (see [`vehicle-physics.md`](vehicle-physics.md) table row 8); the hinge rotation
+> surface (`Part.Asmb2ParentAsmb`, `PositionParentAsmb`, `BoundingBoxVehicleAsmb`, `TreeChildren`,
+> `SubParts`, `Vehicle.UpdateAfterPartTreeModification`) is gone from this repo.
 
 parts-now (all silent at runtime — see *Update-risk findings* above for the full reasoning):
 
@@ -451,18 +432,24 @@ parts-now (all silent at runtime — see *Update-risk findings* above for the fu
   (was `:985` at 5261) — still before the validation pass at `:1214`, and `[StarMapAllModsLoaded]`
   still fires before it. `MeshBudget.cs:23,177` cite the stale `:985`; comment-only.
 - ⚠️ **Editor scaling changed triaxial → uniform, clamped 0.5×–2×** (rev 5329), and many modules gained
-  the new `IRescale` interface (`SetScale(in ScaleFactors)`). flexo writes `Part.Scale` — worth a live
-  check that the editor still accepts its values.
-- ✅ **flexo's patch target unchanged.** `PartModelRenderer.UpdateRenderData(Viewport, int)` is still a
-  single `static void` on `PartModelRenderer`; flexo's explicit `[Viewport, int]` overload array still
-  resolves uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)` overload lives on other
-  types). `GenericGizmo` and `OrbitLinePass` are unchanged.
-- ✅ **`PartTree.RecomputeStaticMass` still present and still private**, so flexo's and kitchen-sink's
+  the new `IRescale` interface (`SetScale(in ScaleFactors)`). This is what dont-stifle-me undoes.
+- ❌ **flexo removed** (after this pass). It was **not** a compile break — `flexo.lib` built clean
+  against 5348 — but the robotics approach never worked in-game and will not be reattempted this way,
+  so the mod, its `.lib` and all of its wiring were deleted. See the stub section above. Its 5348
+  verification results are recorded in the two bullets below and need no re-checking, since nothing in
+  the repo depends on them any more.
+- ✅ *(now unowned)* `PartModelRenderer.UpdateRenderData(Viewport, int)` was still a single `static void`
+  on `PartModelRenderer` at 5348, and the explicit `[Viewport, int]` overload array still resolved
+  uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)` overload lives on other types).
+  `GenericGizmo` and `OrbitLinePass` were unchanged. flexo was the last consumer of the
+  `PartModelRenderer` hook and of `OrbitLinePass`; `GenericGizmo` lives on in dont-stifle-me.
+- ✅ **`PartTree.RecomputeStaticMass` still present and still private**, so kitchen-sink's
   `Traverse.Method("RecomputeStaticMass")` still works. `PartTree` **gained a public
   `RefreshStaticMass()`** wrapper — an available simplification, not a fix.
 - ✅ **`Part`'s API churned but missed both mods.** Rev 5329 removed `Part.Sequence`, `SetSequence(int)`,
-  `ActivateInStage`, `DeactivateInStage` and `ScaleTotal`; neither flexo nor parts-now referenced any of
-  them. `Part.Asmb2ParentAsmb`, `PositionParentAsmb` and `Scale` are unchanged.
+  `ActivateInStage`, `DeactivateInStage` and `ScaleTotal`; neither flexo (then still present) nor
+  parts-now referenced any of them. `Part.Asmb2ParentAsmb`, `PositionParentAsmb` and `Scale` are
+  unchanged.
 - ✅ **`ModuleBase.Parent` became a property** (rev 5329, `IPartParent` split out of `Module`). Neither
   mod reflects on it. parts-now's seven `ModLibrary.All*` lookups and
   `SerializedCollection<T>._collection` / `VehicleEditor._editorTagLookup` all still resolve.

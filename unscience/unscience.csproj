@@ -32,7 +32,6 @@
     <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
     <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
     <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
-    <ProjectReference Include="..\flexo.lib\flexo.lib.csproj" />
     <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
     <ProjectReference Include="..\red-alert.lib\red-alert.lib.csproj" />
     <ProjectReference Include="..\thug-life.lib\thug-life.lib.csproj" />

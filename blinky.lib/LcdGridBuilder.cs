@@ -118,15 +118,28 @@ public static class LcdGridBuilder
         if (fuelParts.Count > 0)
         {
             sw.Restart();
+            int fedParts = 0;
             for (int i = 0; i < createdParts.Count; i++)
             {
                 var fuelPart = fuelParts[i % fuelParts.Count];
                 createdParts[i].SetStage(fuelPart.Stage);
-                ConnectToFuel(createdParts[i], fuelPart);
+                if (ConnectToFuel(createdParts[i], fuelPart))
+                    fedParts++;
             }
             Console.WriteLine($"blinky: stage-aligned {createdParts.Count} pixel parts to stage {fuelParts[0].Stage} (fuel anchor: '{fuelParts[0].Id}')");
+            Console.WriteLine($"blinky: fuel-fed {fedParts}/{createdParts.Count} pixel parts via their declared feed connectors");
+            if (fedParts < createdParts.Count)
+                Console.WriteLine($"blinky: WARNING — {createdParts.Count - fedParts} pixel part(s) got no propellant feed and will never light");
             timings.Add(($"Fuel connections + stage align ({createdParts.Count} parts, {fuelParts.Count} anchors)", sw.ElapsedMilliseconds));
         }
+
+        // ── SetMinimumThrottle — iterate EngineControllers ──────────────────────
+        // Must run BEFORE the tree rebuild: PartTree.RecomputeRocketControls folds every
+        // EngineController.MinimumThrottle into PartTree.EngineThrottleMin during
+        // CreateFromNewPartTree, and that is what clamps the vehicle's manual throttle.
+        sw.Restart();
+        SetMinimumThrottle(createdParts, 0.0001f);
+        timings.Add(("SetMinimumThrottle", sw.ElapsedMilliseconds));
 
         // ── PartTree rebuild — CreateFromNewPartTree ─────────────────────────────
         // Walks full TreeChildren hierarchy from root, registers all modules/states,
@@ -149,10 +162,10 @@ public static class LcdGridBuilder
         vehicle.UpdateVehicleConfiguration();
         timings.Add(("UpdateVehicleConfiguration", sw.ElapsedMilliseconds));
 
-        // ── SetMinimumThrottle — iterate EngineControllers ──────────────────────
+        // ── Propellant-feed verification ─────────────────────────────────────────
         sw.Restart();
-        SetMinimumThrottle(createdParts, 0.0001f);
-        timings.Add(("SetMinimumThrottle", sw.ElapsedMilliseconds));
+        VerifyPropellantFeeds(createdParts);
+        timings.Add(("VerifyPropellantFeeds", sw.ElapsedMilliseconds));
 
         // ── PixelGrid.ScanFromVehicle ────────────────────────────────────────────
         sw.Restart();
@@ -185,21 +198,7 @@ public static class LcdGridBuilder
     {
         if (vehicle == null || grid == null) return;
 
-        // Collect parts to remove: owned parts if available, otherwise extract from PixelGrid
-        var partsToRemove = new List<Part>();
-        if (grid.IsOwned)
-        {
-            partsToRemove.AddRange(grid.OwnedParts);
-        }
-        else
-        {
-            foreach (var (a, b) in grid.Grid.Grid.Values)
-            {
-                partsToRemove.Add(a);
-                partsToRemove.Add(b);
-            }
-        }
-
+        var partsToRemove = CollectGridParts(grid);
         if (partsToRemove.Count == 0) return;
 
         int partCount = partsToRemove.Count;
@@ -253,7 +252,100 @@ public static class LcdGridBuilder
             Console.WriteLine($"blinky:   {label,-45} {ms,6}ms");
     }
 
+    /// <summary>
+    /// Re-wires an existing grid's pixel parts into the vehicle's propellant network and
+    /// forces the resource managers to be rebuilt.
+    ///
+    /// Grids that were discovered by scanning — after a save/load, or built by an older
+    /// blinky that used a bare part-to-part connection the game now rejects — have no
+    /// declared feed connection, so their engines can never reach propellant and stay dark
+    /// however often they are activated. This gives them the same wiring
+    /// <see cref="BuildGrid"/> produces, without rebuilding the part tree.
+    /// </summary>
+    /// <returns>The number of pixel parts that now hold a declared feed connection.</returns>
+    public static int RepairFuelFeeds(Vehicle vehicle, BlinkyPixelGrid grid)
+    {
+        if (vehicle == null || grid == null) return 0;
+
+        var parts = CollectGridParts(grid);
+        if (parts.Count == 0)
+        {
+            Console.WriteLine("blinky: repair — grid holds no pixel parts");
+            return 0;
+        }
+
+        var fuelParts = FindAllFuelParts(vehicle);
+        if (fuelParts.Count == 0)
+        {
+            Console.WriteLine("blinky: repair — vehicle has no fuel parts; the grid cannot be fed");
+            return 0;
+        }
+
+        var sw = Stopwatch.StartNew();
+        int fed = 0;
+        int rewired = 0;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            if (HasDeclaredFeedConnection(part))
+            {
+                fed++;
+                continue;
+            }
+
+            var fuelPart = fuelParts[i % fuelParts.Count];
+            part.SetStage(fuelPart.Stage);
+            if (ConnectToFuel(part, fuelPart))
+            {
+                fed++;
+                rewired++;
+            }
+        }
+
+        // PartTree.RecreateResourceManagers is internal to the game; CalculateStages is the
+        // public entry point that calls it, so the new connections are picked up.
+        vehicle.Parts.ResourceGroupList.CalculateStages();
+
+        Console.WriteLine($"blinky: repair — rewired {rewired} part(s), {fed}/{parts.Count} now hold a declared feed connection ({sw.ElapsedMilliseconds}ms)");
+        VerifyPropellantFeeds(parts);
+        return fed;
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns every Part making up a grid — the owned parts for a blinky-built grid,
+    /// or the scanned a/b pairs for a grid discovered on an existing vehicle.
+    /// </summary>
+    private static List<Part> CollectGridParts(BlinkyPixelGrid grid)
+    {
+        var parts = new List<Part>();
+        if (grid.IsOwned)
+        {
+            parts.AddRange(grid.OwnedParts);
+        }
+        else
+        {
+            foreach (var (a, b) in grid.Grid.Grid.Values)
+            {
+                parts.Add(a);
+                parts.Add(b);
+            }
+        }
+        return parts;
+    }
+
+    /// <summary>True when any declared propellant feed connector of the part is already connected.</summary>
+    private static bool HasDeclaredFeedConnection(Part part)
+    {
+        foreach (var connector in GetFeedConnectors(part))
+        {
+            if (connector.Connection != null)
+                return true;
+        }
+        return false;
+    }
+
 
     /// <summary>
     /// Creates and configures a single pixel engine part (position, rotation, scale).
@@ -342,21 +434,74 @@ public static class LcdGridBuilder
     }
 
     /// <summary>
-    /// Creates a Part.Connection between a pixel engine part and the fuel part.
-    /// This lets ResourceManager.PopulateGraph() discover the fuel tanks.
+    /// Wires a pixel engine part into the vehicle's propellant network so
+    /// <c>ResourceManager.PopulateGraph()</c> can reach the fuel tanks.
+    ///
+    /// The connection MUST sit on one of the engine's own <b>declared feed connectors</b>.
+    /// KSA's <c>ResourceManager.CanFlowAcross</c> rejects the first hop out of the consumer
+    /// part unless that connection is on a connector named by the part template's
+    /// <c>ConsumerFeedWiring</c>/<c>FeedsFrom</c> wiring (<c>IsDeclaredFeedConnection</c>),
+    /// and the base <c>CanFlowAcross</c> additionally requires the connection to carry the
+    /// combustor's plumbing capability (<c>BulkFluid</c> for these liquid engines).
+    ///
+    /// A bare part-to-part connection satisfies neither. <c>Part.EndpointCapabilities</c> is
+    /// null for anything that is not a fuel-port part, so such a connection resolves to
+    /// <c>Electricity | ServiceFluid</c> and is not a declared feed connection either — which
+    /// is why grids wired the old way added mass but never received propellant and so never lit.
+    ///
+    /// The fuel side stays a plain <c>Part</c> endpoint: <c>Part.CanConnect()</c> is always
+    /// true, so a single tank can anchor every pixel in the grid, and its null endpoint
+    /// capability intersects to the engine connector's own capabilities.
     /// </summary>
-    private static void ConnectToFuel(Part pixelPart, Part fuelPart)
+    /// <returns>True when at least one declared feed connector was connected.</returns>
+    private static bool ConnectToFuel(Part pixelPart, Part fuelPart)
     {
         try
         {
-            bool connected = Part.Connection.Connect(pixelPart, fuelPart);
+            bool connected = false;
+            foreach (var connector in GetFeedConnectors(pixelPart))
+            {
+                if (!connector.CanConnect()) continue;
+
+                if (Part.Connection.Connect(connector, fuelPart))
+                    connected = true;
+                else
+                    Console.WriteLine($"blinky: Connection.Connect returned false for '{pixelPart.Id}' connector '{connector.Id}'");
+            }
+
             if (!connected)
-                Console.WriteLine($"blinky: Connection.Connect returned false for '{pixelPart.Id}'");
+                Console.WriteLine($"blinky: '{pixelPart.Id}' has no free declared feed connector — it will reach no propellant");
+
+            return connected;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"blinky: error connecting '{pixelPart.Id}' to fuel: {ex.Message}");
+            return false;
         }
+    }
+
+    /// <summary>
+    /// Collects the distinct propellant feed connectors declared by every rocket core on the
+    /// part. <c>RocketCore.FeedConnectors</c> is bound during part construction from the
+    /// template's <c>FeedsFrom</c> wiring; cores on the same part commonly share one connector
+    /// (e.g. EngineA3's thrust chamber and gas generator both feed from <c>_connector3</c>),
+    /// so duplicates are filtered out.
+    /// </summary>
+    private static List<Part.Connector> GetFeedConnectors(Part part)
+    {
+        var result = new List<Part.Connector>();
+        var cores = part.SubtreeModules.Get<RocketCore>();
+        for (int i = 0; i < cores.Length; i++)
+        {
+            var feeds = cores[i].FeedConnectors;
+            for (int j = 0; j < feeds.Length; j++)
+            {
+                if (!result.Contains(feeds[j]))
+                    result.Add(feeds[j]);
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -458,6 +603,48 @@ public static class LcdGridBuilder
 
         var pixelGrid = PixelGrid.BuildFromPartGroups(gridDict);
         return new BlinkyPixelGrid(pixelGrid, new List<Part>());
+    }
+
+    /// <summary>
+    /// Post-rebuild sanity check. A pixel can only light if its combustor's
+    /// <c>ResourceManager</c> ended up with a non-empty <c>ConsumptionOrder</c> — otherwise
+    /// <c>Combustor.ComputePropellantAvailable</c> returns false forever and activating the
+    /// engine does nothing at all. Logging it here turns a silently dark grid into a
+    /// diagnosable console message.
+    /// </summary>
+    private static void VerifyPropellantFeeds(List<Part> parts)
+    {
+        int fedParts = 0;
+        var starvedCores = new Dictionary<string, int>();
+        string desiredMix = "?";
+
+        foreach (var part in parts)
+        {
+            bool anyFed = false;
+            var cores = part.SubtreeModules.Get<RocketCore>();
+            for (int i = 0; i < cores.Length; i++)
+            {
+                if (cores[i] is not Combustor combustor) continue;
+
+                if (desiredMix == "?") desiredMix = combustor.DesiredMix?.Name ?? "?";
+
+                var order = combustor.ResourceManager?.ConsumptionOrder;
+                if (order != null && order.Length > 0)
+                    anyFed = true;
+                else
+                    starvedCores[combustor.TemplateId] = starvedCores.GetValueOrDefault(combustor.TemplateId) + 1;
+            }
+            if (anyFed) fedParts++;
+        }
+
+        Console.WriteLine($"blinky: propellant feed check — {fedParts}/{parts.Count} pixel parts reached at least one tank");
+        if (fedParts == 0)
+            Console.WriteLine($"blinky: WARNING — no pixel can light. The engines burn '{desiredMix}'; the vehicle's tanks must carry it, and the pixel parts must share the tanks' stage.");
+        else if (fedParts < parts.Count)
+            Console.WriteLine("blinky: WARNING — starved pixel parts will never light; check stage alignment and tank contents");
+
+        foreach (var (coreId, count) in starvedCores)
+            Console.WriteLine($"blinky:   starved core '{coreId}' x{count} (expected for gas-generator cores burning a propellant the vehicle does not carry)");
     }
 
     /// <summary>Sets MinimumThrottle on all EngineControllers of the given parts.</summary>

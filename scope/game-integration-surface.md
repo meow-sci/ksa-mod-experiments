@@ -113,7 +113,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `GetPositionEgo(IPosition) : double3` | direct API | `KSA/Camera.cs:213` | i-feel-seen | `i-feel-seen.lib/IFeelSeenPatches.cs:57` | OK | |
 | `Following : IFollowable? { get; }` | direct API | `KSA/Camera.cs:140` | camera-controller-override | `…/Animation/AnimationHelpers.cs:33` | OK | |
 | `LookAtRotation(double3 fwdEcl, double3 upEcl) : doubleQuat` (static) | direct API | `KSA/Camera.cs:180` | camera-controller-override | `AnimationHelpers.cs:46`; `Animation/Animations/Spiral*Animation.cs` | OK | |
-| `MVP.viewProjection` | direct (render) | `KSA/Camera.cs` (used `Program.cs:2394`) | thug-life | `thug-life.lib/ThugLifeQuadRenderer.cs:238,263` | OK | per-frame quad MVP |
+| `MVP.viewProjection` | direct (render) | `KSA/Camera.cs` (used `Program.cs:2394`) | thug-life | `thug-life.lib/ThugLifeQuadRenderer.cs:256` | OK | per-frame quad MVP, from the **rendered** viewport's camera |
 | `Unfollow(bool changeControl = true)` | direct API | `KSA/Camera.cs:607` | parts-now | `parts-now.lib/Runtime/PartThumbnailGenerator.cs:188` | OK | ⚠ **must** be called as `changeControl: false` — the defaulted overload nulls `Program.ControlledVehicle` and would drop the player's vessel mid-flight |
 | `OnFrame(double dt)` · `LocalPosition`/`LocalRotation`/`LocalScale` (inherited `Transform3D`) | direct API (write) | `KSA/Camera.cs:482`; `KSA/Transform3D.cs:9,13,11` | parts-now | `PartThumbnailGenerator.cs:189-191` | OK | INVARIANT: the thumbnail camera is only ever **re-asserted** to origin/identity — the part is moved, never the camera (`ThumbnailCreator.MoveRootPart` assumes a camera parked at the origin) |
 | `GetFieldOfView() : float` (RADIANS) · `NearPlane : float => 0.1f` | direct API (indirect) | `KSA/Camera.cs:765,65` (the row above cites `:702` from the 4750 baseline; `GetFieldOfView` is at **:765** in 5018) | glass (direct), parts-now (via `ThumbnailCreator.MoveRootPart`) | `KSA.Rendering/ThumbnailCreator.cs:191` | OK | `MoveRootPart(root, thumb, Camera)` forwards to the `(double fov, double nearPlane)` overload (`:194`) |
@@ -192,7 +192,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `Connection.Connect(IConnector, IConnector)` | direct API | `KSA/Part.cs:285` | blinky, its-so-shiny | `blinky.lib/LcdGridBuilder.cs:352`; `its-so-shiny.lib/ShinyGridBuilder.cs:221` | OK | takes `IConnector` (Part implements), not `(Part,Part)` |
 | `Connection.Disconnect()` | direct API | `KSA/Part.cs:301` | blinky, its-so-shiny | `LcdGridBuilder.cs:216`; `ShinyGridBuilder.cs:131` | OK | |
-| `Connection.OtherPart(Part)` | direct API | `KSA/Part.cs:264` | blinky (debug), flexo | `BlinkySubmod.cs:645`; `flexo.lib/Runtime/FlexoRuntime.cs:114-117` | OK | |
+| `Connection.OtherPart(Part)` | direct API | `KSA/Part.cs:264` | blinky (debug) | `BlinkySubmod.cs:645` | OK | |
 
 ### KSA.Controller (+ OrbitController / FlyController)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -285,7 +285,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.GenericGizmo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `GenericGizmo(MeshReference, IGizmoRenderData, int)` ctor; `.GetSegmentDataByViewport(Viewport) : PerSegmentData[]`; `Static.GenericGizmoRenderData`; `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | render-pass | `KSA/GenericGizmo.cs:208,277,15,170` | flexo | `flexo.lib/Editor/FlexoEditorScene.cs` | OK | connector cubes/arrows + transform gizmos |
+| `GenericGizmo(MeshReference, IGizmoRenderData, int)` ctor; `.GetSegmentDataByViewport(Viewport) : PerSegmentData[]`; `Static.GenericGizmoRenderData`; `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | render-pass | `KSA/GenericGizmo.cs:208,277,15,170` | dont-stifle-me | `dont-stifle-me.lib/PerAxisScaleDrag.cs:43` | OK | per-axis scale-gizmo drag (reads `VehicleEditor.ScaleGizmo` segment data). Was flexo's editor gizmos until flexo was removed @5348 |
 
 ### KSA.GltfPbrSystem
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -368,7 +368,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.KittenEva
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `KittenEva` (type; `GetType().Name=="KittenEva"` / `is KittenEva`) | reflection-type (string, garrys) | `KSA/KittenEva.cs:13` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:161`; `KittenSpawner.cs`; `KittenAvatarAccessor.cs` | OK | garrys string-compares the type name (silent break if renamed) |
+| `KittenEva` (type; `GetType().Name=="KittenEva"` / `is KittenEva`) | reflection-type (string, garrys) | `KSA/KittenEva.cs:13` | garrys-torch, doh, kitten-animations, thug-life | `WeldEngine.cs:161`; `KittenSpawner.cs`; `KittenAvatarAccessor.cs`; `KittenGlassesPreset.cs:38` | OK | garrys string-compares the type name (silent break if renamed). thug-life uses a typed `is KittenEva` to gate its **animate thug** preset button — compile-checked, not string-matched |
 | `_renderable : private KittenRenderable` | reflection-field (string) | `KSA/KittenEva.cs:15` | garrys-torch, doh | `WeldEngine.cs:165`; `KittenSpawner.cs:506` | OK | avatar root chain. **kitten-animations no longer uses it** — it reads the public `Renderable` property |
 | `Renderable : KittenRenderable` (public property) | direct API | `KSA/KittenEva.cs:59` | kitten-animations | `KittenAvatarAccessor.cs` | OK | typed replacement for the `_renderable` reflection |
 | `LocomotionState : LocomotionState` (public property) | direct API | `KSA/KittenEva.cs:51` | kitten-animations | `Ui/PlaybackSection.cs`, `Ui/TuningSection.cs` | OK | mode / ground speed / gravity readout |
@@ -450,7 +450,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.ModLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
+| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114,115`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8` | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
 | `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, parts-now | `KittenSpawner.cs:322`; `parts-now.lib/Runtime/GameRegistry.cs:72` | OK | `.Find(KeyHash)` (doh, parts-now) / `.GetList` (parts-now) |
 | `AllCharacters : internal static SerializedCollection<CharacterReference>` | reflection-field (string) | `KSA/ModLibrary.cs:90` | doh | `KittenSpawner.cs:347,354,357` | OK | character enumeration |
 | `{AllMeshes, AllFiles, AllMaterials, AllPartGameDataReferences, AllEditorTagDefinitions}` : internal static `SerializedCollection<…>` | reflection-field (string ×5) | `KSA/ModLibrary.cs:80,68,70,78,134` | parts-now | `Runtime/GameRegistry.cs:73-77,292` | OK | the other five registries a runtime load writes into. All resolved once in `GameRegistry`'s static ctor; a miss is **fatal** (`IsHealthy=false` disables every Load button) |
@@ -504,39 +504,33 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `{Apoapsis, Periapsis, Eccentricity, Inclination, Period, SemiMajorAxis} : double` | direct API | `KSA/Orbit.cs` (exercised `IOrbiter.cs:97-106`) | steely-eyed | `VehicleTelemetry.cs:64-73` | OK | all `double.IsFinite`-guarded |
 | `StateVectors.{PositionCci, VelocityCci}` | direct API | `KSA/Orbit.cs` | doh | `KittenSpawner.cs:231,239-242` | OK | spawn positioning |
 
-### KSA.OrbitLinePass
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `AddLineVertex(Viewport, float3, byte4)` + `AddLineEnd(Viewport)` (static) | render-pass | `KSA/OrbitLinePass.cs:284,275` | flexo | `flexo.lib/Editor/FlexoCameraSnap.cs` | OK | editor grid via orbit-line renderer |
-
 ### KSA.Part (+ nested Connector)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Part` (type) | direct API | `KSA/Part.cs` | PartHelpers (→ many), unladen-swallow, blinky | `PartHelpers.cs:11`; `BlinkyGridScanEndpoint.cs:58` | OK | |
 | `new Part(string inName, PartTemplate, PartInstance?=null, Part?=null)` (ctor) | direct API | `KSA/Part.cs:765` | blinky, its-so-shiny, doh | `LcdGridBuilder.cs:268`; `ShinyGridBuilder.cs:157`; `KittenSpawner.cs:278` | OK | |
-| `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, mesh-deform | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:126`; `MeshDeformSubmod.cs:317-319` | OK | combo labels / pixel-id parsing |
+| `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, mesh-deform | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:128`; `MeshDeformSubmod.cs:317-319` | OK | combo labels / pixel-id parsing |
 | `DisplayName : string { get; init; }` | direct API | `KSA/Part.cs:413` | zippo, red-alert, mesh-deform | `ZippoSubmod.cs`; `ActionScanner.cs:27`; `MeshDeformSubmod.cs:282` | OK | |
-| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, flexo, kitchen-sink, doh, parts-now | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:120`; `FlexoRuntime.cs:47`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78,148` | OK | feeds reflection/labels; `Template.Id` (SerializedId). parts-now compares it against the record's part ids in the unload safety gate |
+| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, doh, parts-now | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:122`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78,148` | OK | feeds reflection/labels; `Template.Id` (SerializedId). parts-now compares it against the record's part ids in the unload safety gate |
 | `InstanceId : uint` | direct API | `KSA/Part.cs:321` | red-alert | `ActionScanner.cs:27,30` | OK | instance addressing |
-| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh, flexo), garrys-torch, thug-life, kitchen-sink, mesh-deform, parts-now | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:154` | OK | recursion key. parts-now recurses it (plus `PartTree.Parts`, `VehicleEditingSpace.AllParts`, `VehicleEditor.UnattachedPartTrees`) to prove nothing alive still uses a mod's parts before purging |
-| `SubParts` (settable touch for cache invalidation) | direct API | `KSA/Part.cs:655` | flexo | `HingeController.cs:168` | OK | re-assign to force cache invalidation (fragile, R-flexo-2) |
+| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh), garrys-torch, thug-life, kitchen-sink, mesh-deform, parts-now | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302`; `ThugLifeSubmod.cs:308`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:154` | OK | recursion key. parts-now recurses it (plus `PartTree.Parts`, `VehicleEditingSpace.AllParts`, `VehicleEditor.UnattachedPartTrees`) to prove nothing alive still uses a mod's parts before purging |
 | `FullPart : Part { get; }` | direct API | `KSA/Part.cs:659` | zippo, red-alert, blinky, its-so-shiny | `ZippoSubmod.cs:152`; `ActionExecutor.cs:80`; `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `=> PartParent ?? this` |
 | `IsSubPart : bool` | direct API | `KSA/Part.cs:657` | blinky | `LcdGridBuilder.cs:326` | OK | |
 | `Modules : ModuleList` (field) | direct API | `KSA/Part.cs:401` | red-alert, humble-arteest | `ActionScanner.cs:68`; `EngineEmissive.cs:123` | OK | `.Get<T>()` / `.Add(...)` |
 | `SubtreeModules : ModuleList` (field) | direct API | `KSA/Part.cs:409` | red-alert, blinky, doh | `ActionScanner.cs:50`; `LcdGridBuilder.cs:327`; `KittenSpawner.cs:278-289` | OK | anim/solar/tank discovery |
 | `LightSwitch : PowerConsumer?` (field) | direct API | `KSA/Part.cs:407` | zippo, red-alert, its-so-shiny | `ZippoSubmod.cs:152`; `LightActions.cs:41`; `ShinyPixelCell.cs:24` | OK | light on/off path |
-| `Connection : (nested type)` → see KSA.Connection | — | `KSA/Part.cs` | blinky, its-so-shiny, flexo | — | OK | (Connect/Disconnect/OtherPart rows under KSA.Connection) |
-| `Connections : List<Connection>` (field) | direct API | `KSA/Part.cs:391` | blinky, its-so-shiny, flexo | `LcdGridBuilder.cs:214`; `ShinyGridBuilder.cs:133`; `FlexoRuntime.cs:114-117` | OK | |
+| `Connection : (nested type)` → see KSA.Connection | — | `KSA/Part.cs` | blinky, its-so-shiny | — | OK | (Connect/Disconnect/OtherPart rows under KSA.Connection) |
+| `Connections : List<Connection>` (field) | direct API | `KSA/Part.cs:391` | blinky, its-so-shiny | `LcdGridBuilder.cs:214`; `ShinyGridBuilder.cs:133` | OK | |
 | `Scale : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:499` | garrys-torch, blinky, its-so-shiny | `WeldEngine.cs:200`; `LcdGridBuilder.cs:305`; `ShinyGridBuilder.cs:186` | OK | setter resets cached pos matrix |
-| `PositionParentAsmb : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:449` (kitchen-sink cites backing `:333`) | blinky, its-so-shiny, flexo, kitchen-sink | `LcdGridBuilder.cs:299`; `HingeController.cs:35`; `FlexoPartTest.cs:216` | OK | prefer `:449` (property); kitchen-sink/flexo touch backing field |
-| `Asmb2ParentAsmb : doubleQuat { get; set; }` | direct API (write) | `KSA/Part.cs:463` (kitchen-sink cites backing `:337`) | blinky, its-so-shiny, flexo, kitchen-sink | `LcdGridBuilder.cs:302`; `HingeController.cs:34`; `FlexoPartTest.cs:217` | OK | core hinge rotation write |
+| `PositionParentAsmb : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:449` (kitchen-sink cites backing `:333`) | blinky, its-so-shiny, kitchen-sink | `LcdGridBuilder.cs:299`; `FlexoPartTest.cs:216` | OK | prefer `:449` (property); kitchen-sink touches the backing field |
+| `Asmb2ParentAsmb : doubleQuat { get; set; }` | direct API (write) | `KSA/Part.cs:463` (kitchen-sink cites backing `:337`) | blinky, its-so-shiny, kitchen-sink | `LcdGridBuilder.cs:302`; `FlexoPartTest.cs:217` | OK | part rotation write (kitchen-sink's part-move experiment) |
 | `PositionVehicleAsmb : double3` (computed) | direct API | `KSA/Part.cs:415` | garrys-torch | `WeldEngine.cs:58` | OK | part-anchor position |
 | `Asmb2VehicleAsmb : doubleQuat` (computed) | direct API | `KSA/Part.cs:431` | garrys-torch | `WeldEngine.cs:61` | OK | part-anchor orientation |
-| `PositionEgo(ref readonly double4x4) : double3` | direct (render) | `KSA/Part.cs:677` | thug-life | `ThugLifeQuadRenderer.cs:267` | OK | per-frame model-ego |
-| `Asmb2Ego(doubleQuat) : doubleQuat` | direct (render) | `KSA/Part.cs:682` | thug-life | `ThugLifeQuadRenderer.cs:268` | OK | |
-| `BoundingBoxVehicleAsmb : (double3,double3) { get; set; }` + `ComputeBoundingBoxVehicleAsmb()` | direct API | `KSA/Part.cs:515,853` | flexo, kitchen-sink | `HingeController.cs:124`; `FlexoPartTest.cs:253` | OK | keep cached bounds coherent after move |
+| `PositionEgo(ref readonly double4x4) : double3` | direct (render) | `KSA/Part.cs:677` | thug-life | `ThugLifeQuadRenderer.cs:282` | OK | per-frame model-ego |
+| `Asmb2Ego(doubleQuat) : doubleQuat` | direct (render) | `KSA/Part.cs:682` | thug-life | `ThugLifeQuadRenderer.cs:283` | OK | |
+| `BoundingBoxVehicleAsmb : (double3,double3) { get; set; }` + `ComputeBoundingBoxVehicleAsmb()` | direct API | `KSA/Part.cs:515,853` | kitchen-sink | `FlexoPartTest.cs:253` | OK | keep cached bounds coherent after move |
 | `TreeParent : Part?` | direct API | `KSA/Part.cs:385` | blinky, its-so-shiny | `LcdGridBuilder.cs:103-104`; `ShinyGridBuilder.cs:76-77` | OK | manual tree wiring |
-| `TreeChildren : List<Part>` (field) | direct API | `KSA/Part.cs:387` | blinky, its-so-shiny, flexo, kitchen-sink | `LcdGridBuilder.cs:228-230`; `HingeController.cs:201`; `FlexoPartTest.cs:227` | OK | sub-tree collection |
+| `TreeChildren : List<Part>` (field) | direct API | `KSA/Part.cs:387` | blinky, its-so-shiny, kitchen-sink | `LcdGridBuilder.cs:228-230`; `FlexoPartTest.cs:227` | OK | sub-tree collection |
 | `SetStage(int)` / `Stage` (get) | direct API | `KSA/Part.cs:731,517` | blinky, its-so-shiny | `LcdGridBuilder.cs:124,127`; `ShinyGridBuilder.cs:87` | OK | |
 | ~~`_matrixAsmb` / `_matrixAsmb2Parent` : private double4x4~~ | reflection-field (string) | `KSA/Part.cs:536,552` | *(none)* | — | ⚠️ **sentinel changed @5117 (rev 5112)** | uncached sentinel went `double4x4.Identity` → all-NaN `UncachedMatrix` |
 | `Tree : PartTree` → `.ReinitializeDerivedValues/.RefillConsumables` | direct API | `KSA/Part.cs` | doh | `KittenSpawner.cs:278-289` | OK | backpack/propellant init |
@@ -587,7 +581,6 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.PartModelRenderer (+ nested ColorData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `UpdateRenderData(Viewport, int) : static void` | Harmony pre | `KSA/PartModelRenderer.cs:658` | flexo | `FlexoPatches.cs:9,13` | OK | **keystone render hook**; overload array `[Viewport,int]` must stay |
 | `ColorData.Rebuild() : static void` | direct API | `KSA/PartModelRenderer.cs:282` | mesh-deform | `MeshDeformShaders.cs:43,77` | OK | pipeline rebuild after shader swap. ⚠ destroys/recreates pipelines immediately — unsafe mid-frame. humble-arteest no longer calls it; it sets `Program.RendererRebuildNeeded` instead |
 | `ColorData.BuildPipelineModel` / `BuildPipelineDynamic` (→ `ShaderReference.CompileVariantWithCustomOptions`) | behavior dependency (no patch) | `KSA/PartModelRenderer.cs:104,193` | humble-arteest (VehiclePaint) | — | OK | Part color pipelines recompile MeshIndirect **from disk per `ENABLE_*` variant** and destroy the module right after, which is why swapping `ShaderReference.Shader` cannot work and interception happens at `ShaderModuleUtils.FromFile` |
 
@@ -608,10 +601,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Batteries : ModuleStateful<…>.StateList` (field) | direct API | `KSA/PartTree.cs:37` | eternal-flame | `EternalFlameLib.cs:128` | OK | battery state list |
 | `Modules.Get<Battery>()` (ModuleList) | direct API | `KSA/PartTree.cs` | its-so-shiny | `ShinyGridBuilder.cs:205` | OK | |
 | `CreateFromNewPartTree(Part rootPart)` | direct API | `KSA/PartTree.cs:117` | blinky, its-so-shiny | `LcdGridBuilder.cs:135`; `ShinyGridBuilder.cs:94` | OK | core build path |
-| `UpdateRenderData(ref readonly double4x4, bool isEditedVehicle, Viewport, int)` | direct API | `KSA/PartTree.cs:435` | i-feel-seen, flexo | `IFeelSeenPatches.cs:70`; `FlexoPatches.cs:23` | OK | mod passes `in` → `ref readonly` |
+| `UpdateRenderData(ref readonly double4x4, bool isEditedVehicle, Viewport, int)` | direct API | `KSA/PartTree.cs:435` | i-feel-seen | `IFeelSeenPatches.cs:70` | OK | mod passes `in` → `ref readonly` |
 | `States : ModuleStateList` (field) | direct API | `KSA/PartTree.cs:25` | kitchen-sink | `KitchenSinkLib.cs:59` | OK | passed as `oldStates` |
 | `ReinitializeDerivedValues(ModuleStateList oldStates) : void` | direct API | `KSA/PartTree.cs:189` | kitchen-sink, doh | `KitchenSinkLib.cs:60`; `KittenSpawner.cs:278-289` | OK | also a 0-arg overload |
-| `RecomputeStaticMass() : private void` | reflection-method (Traverse, string) | `KSA/PartTree.cs:306` | flexo, kitchen-sink | `HingeController.cs:186`; `FlexoPartTest.cs:319` | OK | string-named; caught/logged if renamed |
+| `RecomputeStaticMass() : private void` | reflection-method (Traverse, string) | `KSA/PartTree.cs:306` | kitchen-sink | `FlexoPartTest.cs:319` | OK | string-named; caught/logged if renamed |
 | `Controls : (control modules)` (rev 4699, backs `Vehicle.IsControllable`) | direct API | `KSA/PartTree.cs:49` | (informational) | — | ADDITIVE | new in 4750; not consumed |
 
 ### KSA.PbrMaterialReference
@@ -632,7 +625,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `OnDrawUiViewports(double)` | Harmony POSTFIX (StarMap `[StarMapAfterGui]`) | `KSA/Program.cs:2666` | shell + all submods | `unscience/Mod.cs:135` | OK | StarMap-owned string hook |
 | `OnFrame(double,double)` | Harmony POSTFIX (StarMap `[StarMapAfterOnFrame]`) | `KSA/Program.cs:1986` | (available; **not** used by supermod shell) | — | OK | StarMap dispatch only |
 | `DrawProgramMenusHook() : void` (empty modding hook) | Harmony post | `KSA/Program.cs:3736` (cited `:3391` earlier) | unscience (MenuBarPatch), dont-stifle-me standalone (MenuBarPatch) | `unscience/MenuBarPatch.cs:8`; `dont-stifle-me/MenuBarPatch.cs:15` | OK | game ships as deliberate no-op; dont-stifle-me draws a `BeginMenu("Don't Stifle Me")` here |
-| `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, flexo, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
+| `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
 | `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
 | `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint), parts-now | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:98`, `RuntimeModUnloader.cs:110` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets. parts-now uses it for the unload safety gate and to clear the hover preview before a purge. Disposed+nulled in `Program.PrepareFrame` |
 | `ThumbnailViewport : static Viewport` (viewport index 1; `IsOffscreen`/`ShouldRenderGizmos=false`) | direct (render) | `KSA/Program.cs:445,966-967` | parts-now | `Runtime/PartThumbnailGenerator.cs:141` | OK | dedicated offscreen thumbnail viewport — no camera save/restore, no resize, no `UpdateShaderData`. Shared with the part browser's hover preview (see `ThumbnailDynamic`) |
@@ -641,10 +634,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `RendererRebuildNeeded : static bool` (field) | direct API | `KSA/Program.cs:383` (consumed `PrepareFrame` :2080) | humble-arteest (VehiclePaint) | `VehiclePaintShaders.cs` (`RequestRendererRebuild`) | OK | game's **deferred** full-renderer rebuild flag — the safe way for a mod to force shader/pipeline recompilation (same path a graphics-setting change takes) |
 | `MainViewport : static Viewport { get; }` | direct API | `KSA/Program.cs:403` | IvaForceRender, kitchen-sink | `IvaForceRender.cs:102` | OK | `.Mode`, `.MapCamera`, `.BaseCamera` |
 | `GetCamera() : static Camera` | direct API | `KSA/Program.cs:504` | glass | `FovController.cs:42` | OK | |
-| `GetMainCamera() : Camera` | direct (render) | `KSA/Program.cs:489` | thug-life | `ThugLifeQuadRenderer.cs:238` | OK | |
-| `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, mesh-deform, parts-now | `ThugLifeRenderManager.cs:38`; `MeshDeformShaders.cs:39`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
-| `OffScreenPass : RenderPassState` (→ `.SampleCount`, `.Pass`) | direct (render-pass) | `KSA/Program.cs:375` | thug-life | `ThugLifeQuadRenderer.cs:127,133` | OK | offscreen MSAA; 4694 touched offscreen/thumbnail, members intact |
-| `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:248` | OK | |
+| `GetRenderCamera() : Camera` (= `RenderedViewport.GetCamera()`) | direct (render) | `KSA/Program.cs:594`, `RenderedViewport` `:472` | thug-life | `ThugLifeQuadRenderer.cs:252` | OK | **replaced `GetMainCamera()` (`:584`)** — `RenderMainPass` runs per visible viewport (main + both crew-portrait viewports), and ego space is camera-relative, so the main camera mis-transformed the portrait passes |
+| `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, mesh-deform, parts-now | `ThugLifeRenderManager.cs:81`; `MeshDeformShaders.cs:39`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
+| `OffscreenTarget : RenderTarget` (→ `.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`) | direct (render-pass) | `KSA/Program.cs:438` | thug-life | `ThugLifeQuadRenderer.cs:152` | OK | replaced `OffScreenPass`/`RenderPassState` @5261 (dynamic rendering). ⚠ **null until `BuildRenderTargets()` (`Program.cs:934`), which runs after `ModLibrary.LoadAll()` (`:897`) — i.e. after `[StarMapAllModsLoaded]`; the mod's pipeline build is lazy for exactly this reason** |
+| `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:264` | OK | sizes to `RenderedViewport` |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
 | `Instance : static (singleton)` | reflection (private) | `KSA/Program.cs:371` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:53,56`; `KittenColor.cs:55-73` | OK | render-systems root |
 | `MaterialSystem : GpuMaterialSystem` (field) | reflection-field | `KSA/Program.cs:94` | doh, humble-arteest | `MaterialSystemAccessor.cs:63`; `KittenColor.cs:55-73` | OK | |
@@ -677,7 +670,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Universe.GetJobSimStep(double) : SimStep` → `SimStep.NextTime : SimTime` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | tick-end time for new orbit state time |
-| `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1775` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | (solver prefixes) | OK | prefixes ignore it (parameterless / by-name `dtPlayer` only) |
+| `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1775` | eternal-flame, kitchen-sink, kiwis-marbles | (solver prefixes) | OK | prefixes ignore it (parameterless / by-name `dtPlayer` only) |
 
 ### KSA.SimTime
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -729,7 +722,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.Universe
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1775` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | `unscience/Patcher.cs` (`EternalFlamePatches`, `KiwisMarblesPatches`); `FlexoPatches.cs:76-81`; `kitchen-sink/Patcher.cs:56`; `kiwis-marbles.lib/KiwisMarblesPatches.cs` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe; kiwis-marbles depends on `PrepareFrame` ordering (Apply*Solvers before, ExecuteNextOrbitSolvers after) |
+| `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1775` | eternal-flame, kitchen-sink, kiwis-marbles | `unscience/Patcher.cs` (`EternalFlamePatches`, `KiwisMarblesPatches`); `kitchen-sink/Patcher.cs:56`; `kiwis-marbles.lib/KiwisMarblesPatches.cs` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe; kiwis-marbles depends on `PrepareFrame` ordering (Apply*Solvers before, ExecuteNextOrbitSolvers after) |
 | `CurrentSystem : static CelestialSystem? { get; private set; }` | direct API | `KSA/Universe.cs:92` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11` | OK | enumeration root |
 | `GetElapsedSimTime() : static SimTime` | direct API | `KSA/Universe.cs:1991` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, doh) | `SimTimeProvider.cs:9` | OK | |
 | `GetJobSimStep(double) : SimStep` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | (see KSA.SimStep) |
@@ -738,13 +731,13 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Vehicle` (type) | direct API | `KSA/Vehicle.cs:28` | VehicleProvider (→ ~all), unladen-swallow | `VehicleProvider.cs:11` | OK | `OfType<Vehicle>()` |
-| `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink, mesh-deform, flexo | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
+| `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink, mesh-deform | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
 | `Id` (inherited Astronomical.Id) | direct API | `KSA/Astronomical.cs:85` | (see KSA.Astronomical) | — | OK | |
 | `RefillConsumables() : void` | direct API | `KSA/Vehicle.cs:2300` | eternal-flame | `EternalFlameLib.cs:80` | OK | fuel/resource refill |
 | `Teleport(Orbit?, doubleQuat?, double3?) : void` | direct API | `KSA/Vehicle.cs:1594` | garrys-torch, doh (KittenEva) | `WeldEngine.cs:129`; `KittenSpawner.cs:171` | OK | core mutation; nullable params |
 | `UpdatePerFrameData() : override void` | direct API | `KSA/Vehicle.cs:1972` | garrys-torch, doh | `WeldEngine.cs:130`; `KittenSpawner.cs:175` | OK | refresh caches post-teleport |
 | `UpdateVehicleConfiguration() : void` | direct API | `KSA/Vehicle.cs:1263` | blinky, its-so-shiny | `LcdGridBuilder.cs:149`; `ShinyGridBuilder.cs:98` | OK | |
-| `UpdateAfterPartTreeModification() : void` | direct API | `KSA/Vehicle.cs:1277` | flexo, kitchen-sink | `HingeController.cs:186`; `FlexoPartTest.cs:320` | OK | recompute mass/aero/CoM |
+| `UpdateAfterPartTreeModification() : void` | direct API | `KSA/Vehicle.cs:1277` | kitchen-sink | `FlexoPartTest.cs:320` | OK | recompute mass/aero/CoM |
 | `Parent : IParentBody => Orbit.Parent` | direct API | `KSA/Vehicle.cs:332` | garrys-torch, average-twr (dead), steely-eyed, doh | `WeldEngine.cs:19`; `VehicleTelemetry.cs:44`; `KittenSpawner.cs:230` | OK | |
 | `Orbit : Orbit => Patch.Orbit` | direct API | `KSA/Vehicle.cs:330` | garrys-torch, steely-eyed | `WeldEngine.cs:126`; `VehicleTelemetry.cs:64` | OK | |
 | `GetPositionCci() : double3` | direct API | `KSA/Vehicle.cs:1949` | garrys-torch | `WeldEngine.cs:28` | OK | (concrete; cf. `IOrbiter.GetPositionCci`) |
@@ -754,8 +747,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `CenterOfMassAsmb : double3` (field) | direct API | `KSA/Vehicle.cs:510` | garrys-torch | `WeldEngine.cs:58` | OK | part-anchor offset base |
 | `BodyRates : double3` (field) | direct API | `KSA/Vehicle.cs:458` | garrys-torch, doh | `WeldEngine.cs:85`; `KittenSpawner.cs:239-242` | OK | NaN-guarded by mod |
 | `Body2Cce : doubleQuat` (field) | direct API | `KSA/Vehicle.cs:423` | i-feel-seen, doh | `IFeelSeenPatches.cs:59`; `KittenSpawner.cs:239-242` | OK | |
-| `Asmb2Ego : doubleQuat` | direct (render) | `KSA/Vehicle.cs` | thug-life | `ThugLifeQuadRenderer.cs:269` | OK | |
-| `GetMatrixAsmb2Ego(Camera) : double4x4` | direct API | `KSA/Vehicle.cs:833` | i-feel-seen, thug-life | `IFeelSeenPatches.cs:69`; `ThugLifeQuadRenderer.cs:267` | OK | |
+| `Asmb2Ego : doubleQuat` | direct (render) | `KSA/Vehicle.cs` | thug-life | `ThugLifeQuadRenderer.cs:283` | OK | |
+| `GetMatrixAsmb2Ego(Camera) : double4x4` | direct API | `KSA/Vehicle.cs:833` | i-feel-seen, thug-life | `IFeelSeenPatches.cs:69`; `ThugLifeQuadRenderer.cs:281` | OK | |
 | `GetWorldMatrix(Camera) : float4x4?` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2772` | i-feel-seen | `IFeelSeenPatches.cs:27,30` | OK | string-resolved; non-virtual |
 | `UpdateRenderData(Viewport, int) : virtual void` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2785` | i-feel-seen | `IFeelSeenPatches.cs:28,31` | OK | string-resolved; `KittenEva` overrides (`KittenEva.cs:62`) |
 | `IsEditedVehicle : bool` | direct API | `KSA/Vehicle.cs:356` | i-feel-seen | `IFeelSeenPatches.cs:70` | OK | |
@@ -780,7 +773,6 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.VehicleEditingSpace
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `VehicleEditingSpace(double3, doubleQuat, double, …)` ctor; `.GetMatrixAsmb2Ego(Camera)`; `.Asmb2Ecl` | direct API | `KSA/VehicleEditingSpace.cs` | flexo | `flexo.lib/Editor/FlexoEditorScene.cs` | OK | isolated editor space |
 | `Parts : PartTree?` (field) | direct API | `KSA/VehicleEditingSpace.cs:16` (cited `:14` at the 4750 baseline) | kitchen-sink | `KitchenSinkLib.cs:57,59` | OK | null-guarded |
 | `AllParts : ReadOnlySpan<Part> => Parts?.Parts ?? default` | direct API | `KSA/VehicleEditingSpace.cs:32` | parts-now | `Runtime/RuntimeModUnloadGate.cs:110` | OK | null-safe by construction — an empty editor yields an empty span, not an NRE |
 
@@ -811,7 +803,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Mode : CameraMode` (field) | direct API | `KSA/Viewport.cs:14` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:102` | OK | vs `CameraMode.IVA` |
 | `GetCamera() : Camera` | direct API | `KSA/Viewport.cs:366` | i-feel-seen, parts-now | `IFeelSeenPatches.cs:69`; `parts-now.lib/Runtime/PartThumbnailGenerator.cs:142` | OK | parts-now takes the **thumbnail** viewport's camera |
 | `Size : int2` (field) · `Index : int` (field) | direct API | `KSA/Viewport.cs:30,34` | parts-now | `PartThumbnailGenerator.cs:515`; `Index` consumed indirectly by `ThumbnailDynamic.UpdateGlobalCameraData`'s camera-UBO slice | OK | `Size` is compared against `ThumbnailRenderer.SIZE` only to warn when `PartThumbnailSize` drifted since boot (both square ⇒ framing unaffected) |
-| `Viewport` (param of `UpdateRenderData`/`AddInstance`/render prefixes) | Harmony arg type | `KSA/Viewport.cs` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender, flexo | (render prefixes) | OK | |
+| `Viewport` (param of `UpdateRenderData`/`AddInstance`/render prefixes) | Harmony arg type | `KSA/Viewport.cs` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender | (render prefixes) | OK | |
 
 ### KSA.VolumetricExhaustTemplate
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -902,10 +894,10 @@ on every game update FIRST.
 | `VehicleEditor._editorTagLookup` (private static `Dictionary<uint,string>`) | parts-now | `GetField("_editorTagLookup", Static\|NonPublic)` — `GameRegistry.cs:320`. **Degraded, not fatal**: V7 falls back to the six built-in tags + `AllEditorTagDefinitions` ids | OK |
 | `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `UpdateScaleGizmo` / `QuantizeScale` / `ForEachPartWithSymmetry` | dont-stifle-me | `AccessTools.Method(typeof(VehicleEditor), "…")` — `EditorScalePatches.cs:16-20,38-49`; the first three are Harmony targets, the last two become delegates. Any miss throws at `Apply()` (logged, mod shows a red notice; stock behavior remains). Four of the five **first appeared in 5348** | OK |
 | ~~`Part._matrixAsmb` / `Part._matrixAsmb2Parent`~~ |  | ~~private fields by name (cache safety)~~ | **RETIRED @5117** — replaced by the public `Part.ResetCachedPosMatrixValues()`. Rev 5112 changed the uncached sentinel from identity to NaN, which turned the old identity-write from a no-op into a transform-corrupting write. **Removing a watchlist entry is the best outcome available here** — this row can no longer break silently |
-| `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
+| `PartTree.RecomputeStaticMass` | kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
 | `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK (field names intact) — but the **owner moved**: `ResourceManager` is no longer on `RocketCore`, it is on the `Combustor` subclass (`SolidMotor` cores have none). Reached via a `core is Combustor` test since 5018 |
 | `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
-| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | `AccessTools.Method` by name (no param array) | OK (single overload) |
+| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, kitchen-sink, kiwis-marbles | `AccessTools.Method` by name (no param array) | OK (single overload) |
 | `Situation` enum names (`"Landed"/"Floating"/…`) via `.ToString()` | steely-eyed | enum-name string compare | OK |
 
 ---
@@ -920,9 +912,9 @@ on every game update FIRST.
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
 | `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`) | shader (read-only) | — (effect of GPU buffer write) | `Content/Core/Shaders/Mesh/ModelPbr.frag`; `Common/MaterialSet.glsl` | doh, humble-arteest (KittenColor) | OK (`MaterialSet.glsl` identical; `ModelPbr.frag` only SSAO reorder rev 4671) |
 | `DynamicMeshIndirect.vert/.frag`, `ModelEye.frag`, `ModelGlass.frag` | shader (removed) | (design assumption only) | — | humble-arteest (narrative), blinky/its-so-shiny GlassModule (C# only) | n/a (removed 4693/4745; `ModelTranslucent.frag` new 4747 — not referenced by id) |
-| Engine part templates `CorePropulsionA_Prefab_EngineA1..A6` | part template | `ModLibrary.Get<PartTemplate>(id)` (default A3) | `Core/CorePropulsionAAssets.xml:466`; `Core/CorePropulsionAGameData.xml` (A2–A6) | blinky | OK (A1 has `<Part>` but not in build catalog — identical both builds) |
+| Engine part templates `CorePropulsionA_Prefab_EngineA2..A6` | part template | `ModLibrary.Get<PartTemplate>(id)` (default A3 everywhere) | `Core/CorePropulsionAAssets.xml`; `Core/CorePropulsionAGameData.xml:118,182,246,291,373` | blinky | OK — **`EngineA1` is gone from Content entirely** and has been removed from blinky's presets and config default (2026-08-23) |
+| Engine feed connector `_connector3` (`<Capabilities>BulkFluid</Capabilities>`) + `<ConsumerFeedWiring>/<FeedsFrom>` on A2–A6 | part-template wiring | reached via `RocketCore.FeedConnectors`, not by id | `Core/CorePropulsionAGameData.xml:189-193` (A3; A2/A4/A5/A6 alike) | blinky | OK — **load-bearing**: the pixel engines only receive propellant because blinky connects *this* connector to a tank part. If the game drops `BulkFluid` or the `FeedsFrom` wiring, every grid goes dark again |
 | `LightPart` template (`<PowerConsumer LightSwitch="true">`) | part template | `ModLibrary.Get<PartTemplate>("LightPart")` | `Core/PartAssets.xml:19`; `Core/CoreElectricalAGameData.xml:221` | its-so-shiny | OK |
-| Gizmo meshes `"Box"`, `"ArrowMesh"` | mesh | `ModLibrary.Get<MeshReference>(id)` | `Core/*` | flexo | OK |
 | `"KittenBackPackPart"` | part template | `ModLibrary.AllParts.Find(KeyHash)` | `Core/*` | doh | OK |
 | Characters (e.g. `"Calico"`) | character | `ModLibrary.AllCharacters.GetList()` | `Core/*` | doh | OK (no hard-coded id) |
 | Reaction `"MMH_NTO"` (was combustion process `"MMH_NTO_1.6"`) | substance | `SubstanceLibrary.TryGetReaction(KeyHash)` → `MixtureReaction.AtMixtureRatio(DefaultMixtureRatio).ReactantMix` | `Core/Reactions.xml` (`<MixtureReaction Id="MMH_NTO">`, `DefaultMixtureRatio` 1.65) | doh | **CHANGED** (5018 — mixture ratio is no longer part of the id; old id resolves to nothing) |
@@ -963,6 +955,17 @@ sequencing refactor** (rev 5329). Full review:
   on-disk XML `<Decoupler ConnectorId=… Force=… />` is
   **unchanged** — only the typed reader broke. `scope/part-editor-and-robotics.md`
 
+**REMOVED (not a game break — mod deleted by choice, after this pass)**
+- ❌ **flexo (robotics) deleted.** `flexo.lib` compiled **clean** against 5348 and every one of its
+  patch targets verified OK below; it was removed because the hinge approach never worked in-game and
+  will not be reattempted this way. Mod + `.lib`, both solution entries, the `unscience.csproj`
+  `ProjectReference` and the supermod wiring in `unscience/Mod.cs` + `unscience/Patcher.cs` are all
+  unwired. Solution **55 projects**, supermod **22 submods**. Two game surfaces became **unowned** with
+  it — `PartModelRenderer.UpdateRenderData(Viewport, int)` (the keystone render hook, inherited from
+  space-tape) and `OrbitLinePass.AddLineVertex`/`AddLineEnd` — and their table rows are gone;
+  `GenericGizmo` survives under dont-stifle-me. `PartTree.RecomputeStaticMass` stays on the
+  string-reflection watchlist for kitchen-sink alone. `scope/part-editor-and-robotics.md`
+
 **BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
 - ⚠️ **con-man vs the new global Hud Scale** (rev 5293). `GaugeCanvas` now divides by
   `GameSettings.GetGaugeScale()` in `PixelsToUv` (`:536`), multiplies its size constraint by it
@@ -1000,7 +1003,7 @@ sequencing refactor** (rev 5329). Full review:
   at `:942`, before validation at `:1214` — so parts-now's generated parts **will** be instantiated and
   may surface new load-time warnings. `scope/part-editor-and-robotics.md`
 - Editor scaling changed **triaxial → uniform, clamped 0.5×–2×**, and modules gained `IRescale`
-  (rev 5329) — flexo, parts-now. Engine deactivate-mid-burn fixed (5333) and sequence-0 no longer
+  (rev 5329) — dont-stifle-me (which exists to undo it), parts-now. Engine deactivate-mid-burn fixed (5333) and sequence-0 no longer
   zeroes delta-v/TWR (5318) — blinky, average-twr. TVC gains retuned (5317) — average-twr, geeforce,
   steely-eyed. Lights now register for **all** viewports, not just `Program.MainViewport`
   (rev 5301, `LightModule.cs:125,141`) — zippo, red-alert, its-so-shiny.
@@ -1014,9 +1017,10 @@ sequencing refactor** (rev 5329). Full review:
 - **Every Harmony patch-target signature unchanged** (line shifts only), including
   `Universe.ExecuteNextVehicleSolvers(double, SimStep)` despite a substantially rewritten body
   (bubble ownership moved into `VehicleUpdateTask`, revs 5331/5339), and
-  `PartModelRenderer.UpdateRenderData(Viewport, int)` — flexo's explicit `[Viewport, int]` array still
-  resolves uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)` overload is on other
-  types). `JobSystems.VehicleSolver` (garrys-torch's drain) is intact.
+  `PartModelRenderer.UpdateRenderData(Viewport, int)` — at the time of this pass flexo's explicit
+  `[Viewport, int]` array still resolved uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)`
+  overload is on other types); that hook is now **unowned** after flexo's removal.
+  `JobSystems.VehicleSolver` (garrys-torch's drain) is intact.
 - **jplrepo's IL transpiler anchor holds.** Rev 5332 rewrote `Program.DrawMenuBar` (Save/Load hidden
   while the editor is open) but the version-string block is untouched: still exactly one
   `ImGui.SetCursorPosY`, at `Program.cs:509→512`, right after `DrawProgramMenusHook()`.
@@ -1043,7 +1047,8 @@ sequencing refactor** (rev 5329). Full review:
   `CountEnabledSubtreeSequencedModules`, `HasSubtreeSequencedModule`, `GetSubtreeSequencedModules`,
   `RefreshScale`, `RefreshScaleAndReposition`, `RefreshTankContents`, `FindSurfaceMountPointPartAsmb`.
   **No unscience mod referenced any removed member.** `PartTree` gained public `RefreshStaticMass()`;
-  flexo and kitchen-sink still `Traverse` the private `RecomputeStaticMass`, which remains.
+  kitchen-sink still `Traverse`s the private `RecomputeStaticMass`, which remains (flexo did too, until
+  it was removed).
 - **Assets** — every referenced id present and unchanged. `DefaultAssets.xml` removed the `LaunchPad`
   GltfFile (rev 5328) and added `StaticObject*`, seven `UiMask*` and `LightEvalStats`; none are
   referenced by unscience.
@@ -1058,10 +1063,16 @@ sequencing refactor** (rev 5329). Full review:
   its struct anchor (`"    uint EmissiveColor;"` immediately followed by `};`) still doesn't match —
   the file has `uint EmissiveColor;` then `#endif` (`:16-17`). Its world-position anchor (`:63`) does
   match.
-- **blinky default `EnginePartId`** — ❌ still open: `LcdGridConfig.cs:47` is still
-  `"CorePropulsionA_Prefab_EngineA1"`, absent from Content. (`BlinkySubmod.cs:35` was moved to `A3`.)
+- **blinky broken** — ✅ **closed 2026-08-23.** Two separate bugs: (a) `LcdGridConfig.EnginePartId`
+  defaulted to `"CorePropulsionA_Prefab_EngineA1"`, absent from Content — now `A3`, and `EngineA1` is
+  out of `BlinkySubmod.EnginePresets`; (b) the real one — the pixel engines could not reach propellant
+  because blinky connected `Part`↔`Part` instead of via the engine's **declared feed connector**,
+  which the 5018 feed rewrite made mandatory. See `scope/pixel-grids-and-render.md` → *Root cause of
+  "blinky broken"*.
 - **unscience never wires `IvaForceRender.Patch`** — ❌ still open.
 - **space-tape's API-drift cluster** — ✅ closed by removal.
+- **flexo's `R-flexo-1`…`R-flexo-4` risk cluster** (by-name solver patch, the private
+  cache-invalidation contract, `RecomputeStaticMass`, solver-phase tree mutation) — ✅ closed by removal.
 
 ---
 
@@ -1111,11 +1122,14 @@ Full review: [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md).
   `IVA`, `Thrusters`, `Atmosphere`) stays hidden unless every flag matches the controlled vehicle.
   `GameSettings.Current.GaugeContextOverrides` (persisted to `settings.toml`) is a second source of
   truth con-man does not know about. **Open — not fixed.** `scope/ui-customization.md`
-- ⚠️ **blinky's default engine part id does not exist** — `"CorePropulsionA_Prefab_EngineA1"`
-  (`blinky.lib/LcdGridConfig.cs:47`, `BlinkySubmod.cs:51`) was removed from Content **between 5018 and
-  5117**, so it is absent at 5117/5168/5261; only `EngineA2…A6` remain. `ModLibrary.Get` throws — a
-  concrete candidate explanation for the "blinky broken" entry in `ISSUES.md`, which the 5117 pass
-  missed by checking only patch targets. **Pre-existing, recommend defaulting to `EngineA2`.**
+- ✅ **blinky's dark grids — root-caused and fixed 2026-08-23.** The missing `EngineA1` part id was
+  real but secondary; the reason *every* grid stayed dark is that the **5018 fuel/resource rewrite made
+  a declared feed connector mandatory**. `ResourceManager.CanFlowAcross` refuses the first hop out of
+  a consumer part unless the connection sits on a connector named by the template's
+  `ConsumerFeedWiring`/`FeedsFrom`, and the base check additionally demands `BulkFluid`, which a bare
+  `Part`↔`Part` connection never carries (`Part.EndpointCapabilities` is `null`, and
+  `Intersect(null, null)` gives `Electricity | ServiceFluid`). blinky now connects
+  `RocketCore.FeedConnectors[i]` → fuel `Part`. Both defaults moved to `EngineA3`.
   `scope/pixel-grids-and-render.md`
 - Vehicle-control lockout tightened (revs 5252/5253: `ControlsLockout`, engine shutdown blocked without
   a control module) — unladen-swallow RPC, blinky, its-so-shiny, eternal-flame.
