@@ -3,7 +3,7 @@
 - flexo throws errors but works
 - garry's torch - works but throws errors
 - humble arteest vehicle paint broken
-- kitten animations don't properly play each one, always the same
+- kitten animations don't properly play each one, always the same — **root-caused and reworked 2026-08-23, needs a live pass** (see triage note below)
 - 
 
 - new zippo feature .. refill electricity
@@ -16,15 +16,34 @@ Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compi
 (space-tape, resolved by **removing the mod** — it was defunct); the build is green, 55/55 projects,
 0 warnings, 0 errors. Everything below still needs a live pass.
 
-- **kitten animations always the same expression** — 🔍 **FIRST CONCRETE MECHANISM FOUND.**
-  Rev 5278 (*"Fixed seated crew and EVA crew animation updating once per visible viewport instead of
-  once per frame"*) added `private ulong _lastPoseUpdateFrameNumber` to `KSA/AnimatedRenderable.cs` and
-  changed the pose gate from `if (!FreezeAnimation)` to
-  `if (Program.FrameNumber != _lastPoseUpdateFrameNumber)`. kitten-animations busts
-  `CatExpressionAnim._expressionPose` to force a re-pose — **a second pose evaluation in the same frame
-  is now silently dropped.** `CatExpressionAnim` is byte-identical and `_expressionPose` still resolves,
-  so the reflection is not the problem; the *timing* is. **Test this first.** If confirmed, the fix is
-  to trigger the expression change on a frame boundary rather than inline.
+- **kitten animations always the same expression** — ✅ **ROOT-CAUSED AND FIXED (2026-08-23). The
+  rev-5278 pose-guard theory below was wrong.** The rev-5278 guard is real
+  (`AnimatedRenderable._lastPoseUpdateFrameNumber` replacing `if (!FreezeAnimation)`) but benign: the
+  mod's `_expressionPose` cache-bust happens on trigger and the *next* frame re-samples normally.
+
+  The actual defect was the **processor the mod was writing to**.
+  `KittenRenderable` installs two `CatExpressionAnim` instances: `_catPersonalityExpressionAnim`
+  (a permanent mood face from `CharacterAvatar.Personality`, weight pinned at 1) and
+  `_catExpressionAnim` (a reactive scared face). The old `KittenAnimationController` located its
+  target with `AnimProcessors.OfType<CatExpressionAnim>().LastOrDefault()` — which resolves to the
+  **reactive** one, whose weight `KittenRenderable.UpdateRenderData` rewrites every frame:
+
+  ```csharp
+  _catExpressionAnim.ExpressionWeight =
+      AnimationUtils.DampingExact(_catExpressionAnim.ExpressionWeight, accelDerivedTarget, 0.2f, dt);
+  ```
+
+  That line runs immediately before `UpdateAnimation` samples the pose, so the mod's eased weight
+  never survived to render and the personality mood face was all that ever showed — *always the same
+  expression*, regardless of which button was pressed.
+
+  **Fix:** the mod now creates and appends **its own** `CatExpressionAnim` to
+  `AnimatedRenderable.AnimProcessors` (last in the list, so it mixes over everything, and nothing
+  else writes its weight). The game's reactive processor is now only *capped* via a UI slider, never
+  written. Same pass exposed the full ground locomotion set and added a Harmony prefix on
+  `AnimatedRenderable.UpdateAnimation` so a forced clip survives the game's per-frame clip selection.
+  See [`scope/character-and-materials.md`](scope/character-and-materials.md) → kitten-animations.
+  **Still needs a live in-game pass to confirm on screen.**
 - **con-man (new this pass)** — ⚠️ rev 5293 added a global **Hud Scale** applied *after* per-canvas
   scale. `GaugeCanvas` now divides by `GameSettings.GetGaugeScale()` and wraps draws in
   `ConsoleStyle.BeginGaugeHostScope`. con-man's saved `_windowPosition`/`_windowSize`/`_customScale` are

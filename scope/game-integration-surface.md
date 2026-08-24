@@ -58,8 +58,11 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.AnimatedRenderable
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `SetAnimation(IAnimation, float blend=0.2f)` | direct API | `KSA/AnimatedRenderable.cs:97` | kitten-animations | `kitten-animations.lib/KittenAnimationController.cs:79` | OK | body/MMU/walk playback |
-| `AnimProcessors : List<IAnimProcessor>` | direct API | `KSA/AnimatedRenderable.cs:41` | kitten-animations | `KittenAnimationController.cs:115` | OK | `.OfType<CatExpressionAnim>().LastOrDefault()` |
+| `SetAnimation(IAnimation, float blend=0.2f)` | direct API | `KSA/AnimatedRenderable.cs:113` | kitten-animations | `kitten-animations.lib/KittenAnimationDriver.cs` | OK | forced-clip playback; no-op when the clip is already current (`BoneAnimRuntime.SetAnimation:92`) so safe per frame |
+| `PlayAnimation(IAnimation, float blend=0.2f)` | direct API | `KSA/AnimatedRenderable.cs:118` | kitten-animations | `KittenAnimationDriver.cs` | OK | restart-from-frame-0 for the forced clip |
+| `UpdateAnimation(double dt)` | **Harmony prefix** `(AnimatedRenderable __instance, ref double dt)` | `KSA/AnimatedRenderable.cs:123` | kitten-animations | `KittenAnimationPatches.cs` | OK | ⚠️ hot path — the only point in the frame where an animation override survives `KittenRenderable.UpdateRenderData`. Also scales `dt` for the playback-rate control |
+| `FreezeAnimation : bool` | direct API | `KSA/AnimatedRenderable.cs:53` | kitten-animations | `KittenAnimationDriver.cs` | OK | freeze/pause the forced clip; released back to the game on override off |
+| `AnimProcessors : List<IAnimProcessor>` | direct API | `KSA/AnimatedRenderable.cs:47` | kitten-animations | `KittenExpressionController.cs` | OK | mod **appends** its own `CatExpressionAnim` here (and removes it on unbind) |
 | `MaterialIndices : protected int[]` | reflection-field | `KSA/AnimatedRenderable.cs:33` | doh | `doh.lib/Spawning/KittenSpawner.cs:388-408` | OK | in-place handle swap (CharacterModel) |
 
 ### KSA.AssetBundle
@@ -123,10 +126,11 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.CatExpressionAnim
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `CatExpressionAnim : CatPostAnim` (type) | direct API | `KSA/CatExpressionAnim.cs:8` | kitten-animations | `KittenAnimationController.cs:48,98,100` | OK | file byte-identical 4680↔4750 |
-| `ExpressionAnim : AnimationAssetRef?` | direct API | `KSA/CatExpressionAnim.cs:14` | kitten-animations | `KittenAnimationController.cs:98` | OK | |
-| `ExpressionWeight : float` | direct API | `KSA/CatExpressionAnim.cs:12` | kitten-animations | `KittenAnimationController.cs:100` | OK | eased per frame |
-| `_expressionPose : TransformTRS[]? (private)` | reflection-field (cached FieldInfo) | `KSA/CatExpressionAnim.cs:16` | kitten-animations | `KittenAnimationController.cs:14-16,120-128` | OK | set null to bust sampled-pose cache |
+| `CatExpressionAnim : CatPostAnim` (type) | direct API — **constructed by the mod** | `KSA/CatExpressionAnim.cs:8` | kitten-animations | `KittenExpressionController.cs` | OK | file byte-identical 4680↔5348. Mod builds its own instance and appends it to `AnimProcessors` |
+| `CatPostAnim.CharacterAvatar` (`required` field) / `Priority : float` | direct API | `KSA/CatPostAnim.cs:10,12` | kitten-animations | `KittenExpressionController.cs` | OK | `required` — must be set in the object initialiser or it is a compile break |
+| `ExpressionAnim : AnimationAssetRef?` | direct API | `KSA/CatExpressionAnim.cs:14` | kitten-animations | `KittenExpressionController.cs` | OK | |
+| `ExpressionWeight : float` | direct API | `KSA/CatExpressionAnim.cs:12` | kitten-animations | `KittenExpressionController.cs`; `KittenAnimationDriver.cs` | OK | mod's own processor: eased per frame. Game's **reactive** processor: only *capped* — `KittenRenderable.UpdateRenderData` damps it from acceleration every frame |
+| `_expressionPose : TransformTRS[]? (private)` | reflection-field (cached FieldInfo) | `KSA/CatExpressionAnim.cs:16` | kitten-animations | `KittenExpressionController.cs` | OK | set null to bust the sampled-pose cache when `ExpressionAnim` changes |
 
 ### KSA.CatFurRenderable
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -137,8 +141,10 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Celestial : Astronomical, IOrbiter,…` (type) | direct API | `KSA/Celestial.cs:19` | CelestialProvider (→ kiwis-marbles, marque) | `ksa-abstractions.lib/CelestialProvider.cs:12` | OK | `OfType<Celestial>()` |
-| `SetOrbit(Orbit newOrbit)` | direct API | `KSA/Celestial.cs:139` | kiwis-marbles | `kiwis-marbles…/CelestialWeldEngine.cs:39` | OK | core re-parent + reposition |
-| `UpdatePerFrameData() : void` (override) | direct API | `KSA/Celestial.cs:509` | kiwis-marbles | `CelestialWeldEngine.cs:40` | OK | refresh CCI/CCE after SetOrbit |
+| `SetOrbit(Orbit newOrbit)` | direct API | `KSA/Celestial.cs:153` | kiwis-marbles | `kiwis-marbles…/CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | bare `Orbit = newOrbit`; no `Children` re-parent (engine does it) |
+| `Parent : IParentBody` (`=> Orbit.Parent`) | direct API | `KSA/Celestial.cs:73` | kiwis-marbles | `CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | old-parent lookup before swap |
+| `IParentBody.UpdatePerFrameDataTree() : void` (default interface method) | direct API | `KSA/IParentBody.cs:110` | kiwis-marbles | `CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | subtree refresh after SetOrbit (replaced bare `UpdatePerFrameData()`) |
+| `IParentBody.Children : List<IOrbiter>` | direct API | `KSA/IParentBody.cs:27` | kiwis-marbles | `CelestialWeldEngine.cs` (`Reparent`) | OK | Remove/Add across parents on cross-parent weld |
 | `OrbitColor : byte4 { get; protected set; }` (via IOrbiter) | direct API | `KSA/Celestial.cs:63`; `KSA/IOrbiter.cs:24` | kiwis-marbles | `CelestialWeldEngine.cs:36` | OK | orbit line color |
 | `Orbit : Orbit { get; set; }` | direct API | `KSA/Celestial.cs:57` | kiwis-marbles | `KiwisMarblesSubmod.cs:422` | OK | saved for restore |
 | `MeanRadius : double` (override) | direct API | `KSA/Celestial.cs:77` | kiwis-marbles | `KiwisMarblesSubmod.cs:146,321,334` | OK | surface placement only |
@@ -154,13 +160,15 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.CharacterAvatar (+ nested CharacterCore)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Core : CharacterCore` (public **struct** field) | reflection-field | `KSA/CharacterAvatar.cs:204` | garrys-torch, doh, kitten-animations | `garrys-torch.lib/WeldEngine.cs:172-173,182`; `KittenSpawner.cs:388-408`; `KittenAnimationController.cs:79` | OK | garrys uses `GetField("Core")` + `SetValue` — correct only while `Core` is a value-type field |
+| `Core : CharacterCore` (public **struct** field) | reflection-field | `KSA/CharacterAvatar.cs:209` | garrys-torch, doh, kitten-animations | `garrys-torch.lib/WeldEngine.cs:172-173,182`; `KittenSpawner.cs:388-408`; `KittenAnimationsSubmod.cs` | OK | garrys uses `GetField("Core")` + `SetValue` — correct only while `Core` is a value-type field |
 | `CharacterCore.Scale : float = 0.01f` (field) | reflection-field | `KSA/CharacterAvatar.cs:33` | garrys-torch | `WeldEngine.cs:176-188` | OK | avatar uniform scale (`factor*0.01f`) |
-| `Core.CharacterModel : AnimatedRenderable` | direct API | `KSA/CharacterAvatar.cs:31` | doh, kitten-animations | `KittenSpawner.cs:388-408`; `KittenAnimationController.cs:79` | OK | `.MaterialIndices` (doh), `.SetAnimation` (kitten) |
+| `Core.CharacterModel : AnimatedRenderable` | direct API | `KSA/CharacterAvatar.cs:32` | doh, kitten-animations | `KittenSpawner.cs:388-408`; `KittenAnimationsSubmod.cs` | OK | `.MaterialIndices` (doh); kitten matches the prefix against this instance |
+| `Personality : CharacterPersonality` (field + enum) | direct API | `KSA/CharacterAvatar.cs:21-28,219` | kitten-animations | `Ui/PlaybackSection.cs`, `Ui/StrengthSection.cs` | OK | display only; decides whether a personality processor exists at all (Neutral = none) |
 | `Core.Fur.CatFurRenderable` / `Core.Attachments.{Helmet,Mmu}` (field path) | reflection-field path | `KSA/CharacterAvatar.cs` | doh | `KittenSpawner.cs:388-408,523-537` | OK | helmet/visor/mmu mesh `MaterialIndices` |
-| `Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | direct API | `KSA/CharacterAvatar.cs:187-195` | kitten-animations | `KittenAnimationsSubmod.cs:75-102` | OK | random pick per click |
-| `Animations.MmuAnimations.{MmuIdleDefault, MmuMove L/R/Fwd/Back/Up/Down LoopAnim} : AnimationAssetRef?` | direct API | `KSA/CharacterAvatar.cs:155-172` | kitten-animations | `KittenAnimationsSubmod.cs:127-149` | OK | |
-| `Animations.WalkingAnimations.{RunningAnim, WalkingAnim} : AnimationAssetRef?` | direct API | `KSA/CharacterAvatar.cs:174-179` | kitten-animations | `KittenAnimationsSubmod.cs:174,180` | OK | |
+| `Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | direct API | `KSA/CharacterAvatar.cs:192-200` | kitten-animations | `KittenExpressionController.cs` | OK | per-variant selection or random pick |
+| `Animations.MmuAnimations.{MmuIdleDefaultAnim, MmuIdleActionsAnim, MmuMove L/R/Fwd/Back/Up/Down LoopAnim, MmuArmRetractAnim}` | direct API | `KSA/CharacterAvatar.cs:158-177` | kitten-animations | `KittenAnimationCatalog.cs` | OK | idle-actions list + arm-retract added 5348 pass |
+| `Animations.{BlinkAnim, HelmetMaskAnim} : AnimationAssetRef?` | direct API | `KSA/CharacterAvatar.cs:149,151` | kitten-animations | `KittenAnimationCatalog.cs` | OK | overlay pose sources |
+| `Animations.WalkingAnimations.{RunningAnim, WalkingAnim}` | **superseded — no longer used** | `KSA/CharacterAvatar.cs:179-184` | — | — | n/a | ⚠️ `InitalizeFromCharacterRef` only assigns `WalkingAnim` and **never assigns `RunningAnim`**. Ground walk/run now come from `CharacterGroundAnimations` via `KittenRenderable` |
 
 ### KSA.CharacterReference / KSA.CharacterTexturesReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -360,8 +368,12 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.KittenEva
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `KittenEva` (type; `GetType().Name=="KittenEva"` / `is KittenEva`) | reflection-type (string, garrys) | `KSA/KittenEva.cs:7` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:161`; `KittenSpawner.cs`; `KittenAvatarAccessor.cs:11` | OK | garrys string-compares the type name (silent break if renamed) |
-| `_renderable : private KittenRenderable` | reflection-field (string) | `KSA/KittenEva.cs:9` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:165`; `KittenSpawner.cs:506`; `KittenAvatarAccessor.cs:24-25` | OK | avatar root chain |
+| `KittenEva` (type; `GetType().Name=="KittenEva"` / `is KittenEva`) | reflection-type (string, garrys) | `KSA/KittenEva.cs:13` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:161`; `KittenSpawner.cs`; `KittenAvatarAccessor.cs` | OK | garrys string-compares the type name (silent break if renamed) |
+| `_renderable : private KittenRenderable` | reflection-field (string) | `KSA/KittenEva.cs:15` | garrys-torch, doh | `WeldEngine.cs:165`; `KittenSpawner.cs:506` | OK | avatar root chain. **kitten-animations no longer uses it** — it reads the public `Renderable` property |
+| `Renderable : KittenRenderable` (public property) | direct API | `KSA/KittenEva.cs:59` | kitten-animations | `KittenAvatarAccessor.cs` | OK | typed replacement for the `_renderable` reflection |
+| `LocomotionState : LocomotionState` (public property) | direct API | `KSA/KittenEva.cs:51` | kitten-animations | `Ui/PlaybackSection.cs`, `Ui/TuningSection.cs` | OK | mode / ground speed / gravity readout |
+| `ControlMode : KittenControlMode` (public property) | direct API | `KSA/KittenEva.cs:67` | kitten-animations | `Ui/PlaybackSection.cs` | OK | View vs Direct |
+| `AnimPlaybackRate / AnimJumpChainStage / AnimJumpChainCountdown` (public properties) | direct API | `KSA/KittenEva.cs:53,55,57` | kitten-animations | `Ui/PlaybackSection.cs` | OK | forwarded from `KittenRenderable` |
 | `new KittenEva(CelestialSystem, string, doubleQuat, double3, IParentBody, string, Part, Orbit)` | direct API (ctor) | `KSA/KittenEva.cs:27` | doh | `KittenSpawner.cs:156` | OK | 8-arg ctor |
 | `Teleport(Orbit?, doubleQuat?, double3?)` (inherited Vehicle) | direct API | `KSA/Vehicle.cs:1594` | doh | `KittenSpawner.cs:171` | OK | (shared with `Vehicle.Teleport`) |
 | `IsControllable => true` (override) | enum/behavioral | `KSA/KittenEva.cs:15` | (informational) | — | ADDITIVE | new rev 4699; spawned/controlled kittens now controllable |
@@ -369,7 +381,30 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.KittenRenderable
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `_characterAvatar : private CharacterAvatar` | reflection-field (string) | `KSA/KittenRenderable.cs:10` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:168`; `KittenSpawner.cs:513`; `KittenAvatarAccessor.cs:24-25` | OK | second link in avatar chain |
+| `_characterAvatar : private CharacterAvatar` | reflection-field (string) | `KSA/KittenRenderable.cs:12` | garrys-torch, doh, kitten-animations | `WeldEngine.cs:168`; `KittenSpawner.cs:513`; `KittenAvatarAccessor.cs` | OK | second link in avatar chain |
+| `_groundIdleAnim, _groundWalkAnim, _groundRunAnim, _ladderAnim, _jumpIntroAnim, _flailAnim, _jumpLandAnim, _moonWalkAnim, _moonRunAnim, _swimAnim, _swimIdleAnim, _seatedIdleAnim : private AnimationAssetRef?` | reflection-field (string, cached FieldInfo) | `KSA/KittenRenderable.cs:42-66` | kitten-animations | `KittenAnimationCatalog.cs` | OK | ⚠️ **the only route to the ground locomotion set** — it is not exposed on `CharacterAvatar`. Misses are collected in `UnresolvedFields`, logged, and shown as a red UI warning |
+| `_seatedIdleActionAnims : private List<AnimationAssetRef>?` | reflection-field (string, cached FieldInfo) | `KSA/KittenRenderable.cs:58` | kitten-animations | `KittenAnimationCatalog.cs` | OK | seated idle action clips |
+| `_walkPairSampler, _runPairSampler, _swimPairSampler : private AnimationPairBlendSampler?` | reflection-field (string, cached FieldInfo) | `KSA/KittenRenderable.cs:68-72` | kitten-animations | `KittenAnimationCatalog.cs` | OK | playable + `.Weight` readout |
+| `_blendSampler : private AnimationDirectionalBlendSampler` | reflection-field (string, cached FieldInfo) | `KSA/KittenRenderable.cs:38` | kitten-animations | `KittenAnimationCatalog.cs` | OK | MMU directional blend |
+| `_catPersonalityExpressionAnim, _catExpressionAnim : private CatExpressionAnim` | reflection-field (string) | `KSA/KittenRenderable.cs:32,34` | kitten-animations | `KittenAnimProcessors.cs` | OK | resolved **by name** — `OfType<CatExpressionAnim>()` cannot tell the permanent mood face from the acceleration-reactive one |
+| `_catEyeAnim : private CatEyeAnim` / `_catEarAnim : private CatEarAnim` | reflection-field (string) | `KSA/KittenRenderable.cs:36,30` | kitten-animations | `KittenAnimProcessors.cs` | OK | eye look/blink + ear mask weight |
+| `UpdateRenderData(...)` per-frame `SetAnimation` + reactive-expression damping | behavioral | `KSA/KittenRenderable.cs:281-345,419-514` | kitten-animations | (motivates `KittenAnimationPatches`) | OK | ⚠️ **semantic dependency, invisible to the compiler**: the game re-picks the clip and rewrites the reactive expression weight every frame. If this stops happening the Harmony prefix becomes unnecessary but harmless; if it changes shape the override may need a different hook |
+
+### KSA.CatEarAnim / KSA.CatEyeAnim
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `CatEarAnim.ExpressionWeight : float` | direct API | `KSA/CatEarAnim.cs:13` | kitten-animations | `KittenAnimationDriver.cs` | OK | game writes it once at construction, so a mod value holds |
+| `CatEyeAnim.MaxLookAtAngle : float` | direct API | `KSA/CatEyeAnim.cs:22` | kitten-animations | `KittenAnimationDriver.cs` | OK | game default 30 deg |
+| `CatEyeAnim.LookPitchOffsetDeg : float` | direct API | `KSA/CatEyeAnim.cs:24` | kitten-animations | `KittenAnimationDriver.cs` | OK | ⚠️ game rewrites it every frame in `UpdateLocomotionAnimationState`, so it is re-applied from the pose prefix |
+
+### KSA.KittenLocomotionTuning / KSA.KittenLocomotion
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `KittenLocomotionTuning.Current : static KittenLocomotionTuning` (field) + `.Default` | direct API — **mutated** | `KSA/KittenLocomotionTuning.cs:147,149` | kitten-animations | `Ui/TuningSection.cs` | OK | ⚠️ **global**: edits affect every kitten. The game ships the full editor at menu bar -> Debug -> Kitten Tuning (`KSA/Program.cs:3589`) |
+| `AnimBlendTime, IdleSpeedThreshold, PlaybackRateMin/Max, Walk/Run/Ladder/TumbleClipNominalSpeed, Moonwalk{Walk,Run}NominalSpeed, Moonwalk{Start,Full}Gravity, MoonwalkPlaybackScale, NominalSwimAnimSpeed, SwimBlendFullSpeed, SwimBlendHalfLife, SwimEyePitchFactor, JumpLandDuration, JumpLandBounceIgnoreTime, LadderEyePitchDeg : float` | direct API (`ref` to static struct fields) | `KSA/KittenLocomotionTuning.cs:7-145` | kitten-animations | `Ui/TuningSection.cs` | OK | animation-facing subset only; the scoped reset restores just these |
+| `KittenLocomotion.ComputeMoonwalkWeight(float, in KittenLocomotionTuning)` | direct API | `KSA/KittenLocomotion.cs:24` | kitten-animations | `Ui/TuningSection.cs` | OK | derived readout |
+| `KittenLocomotion.ResolveSwimBlend(float, in KittenLocomotionTuning)` | direct API | `KSA/KittenLocomotion.cs:476` | kitten-animations | `Ui/TuningSection.cs` | OK | derived readout |
+| `LocomotionState.{Mode, GroundSpeed, GravityMagnitude}`; `LocomotionMode`, `JumpChainStage` (enums) | direct API | `KSA/LocomotionState.cs:7,13,35`; `LocomotionMode.cs`; `JumpChainStage.cs` | kitten-animations | `Ui/PlaybackSection.cs` | OK | status display |
 
 ### KSA.LightModule (+ nested TemplateData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -642,7 +677,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Universe.GetJobSimStep(double) : SimStep` → `SimStep.NextTime : SimTime` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | tick-end time for new orbit state time |
-| `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1660` | eternal-flame, flexo, kitchen-sink | (solver prefixes) | OK | prefixes ignore it (by-name `dtPlayer` only) |
+| `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1775` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | (solver prefixes) | OK | prefixes ignore it (parameterless / by-name `dtPlayer` only) |
 
 ### KSA.SimTime
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -694,7 +729,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.Universe
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1660` | eternal-flame, flexo, kitchen-sink | `unscience/Patcher.cs:96,104`; `FlexoPatches.cs:76-81`; `kitchen-sink/Patcher.cs:56` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe |
+| `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1775` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | `unscience/Patcher.cs` (`EternalFlamePatches`, `KiwisMarblesPatches`); `FlexoPatches.cs:76-81`; `kitchen-sink/Patcher.cs:56`; `kiwis-marbles.lib/KiwisMarblesPatches.cs` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe; kiwis-marbles depends on `PrepareFrame` ordering (Apply*Solvers before, ExecuteNextOrbitSolvers after) |
 | `CurrentSystem : static CelestialSystem? { get; private set; }` | direct API | `KSA/Universe.cs:92` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11` | OK | enumeration root |
 | `GetElapsedSimTime() : static SimTime` | direct API | `KSA/Universe.cs:1991` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, doh) | `SimTimeProvider.cs:9` | OK | |
 | `GetJobSimStep(double) : SimStep` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | (see KSA.SimStep) |
@@ -848,6 +883,9 @@ on every game update FIRST.
 | `KittenEva` (type name) / `KittenEva._renderable` → `KittenRenderable._characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` | garrys-torch, doh, kitten-animations | `GetType().Name` compare + private field chain | OK |
 | `CharacterAvatar.Core.{CharacterModel,Fur,Attachments}…MaterialIndices` (AnimatedRenderable/CatFurRenderable/StaticMeshRenderable) | doh | private field-path + `protected int[]` | OK |
 | `CatExpressionAnim._expressionPose` | kitten-animations | private field by name (cache bust) | OK |
+| `KittenRenderable._ground{Idle,Walk,Run}Anim`, `_ladderAnim`, `_jumpIntroAnim`, `_flailAnim`, `_jumpLandAnim`, `_moon{Walk,Run}Anim`, `_swimAnim`, `_swimIdleAnim`, `_seatedIdleAnim`, `_seatedIdleActionAnims`, `_walk/_run/_swimPairSampler`, `_blendSampler` | kitten-animations | 17 private fields by name — the only route to the ground animation set | OK — degrades per field into a UI warning, never a crash |
+| `KittenRenderable._catPersonalityExpressionAnim / _catExpressionAnim / _catEyeAnim / _catEarAnim` | kitten-animations | private fields by name; distinguishes the two same-typed expression processors | OK |
+| `AnimatedRenderable.UpdateAnimation` | kitten-animations | `AccessTools.Method` by name (Harmony prefix) | OK — loud `MissingMethodException` at `Apply` if renamed |
 | `LightModule.TemplateData` (`"KSA.LightModule+TemplateData"`) + `PartTemplate.Components` + `TemplateData.Intensity`/`FloatReference.Value` + `ColorRgbReference.{R,G,B,OnDataLoad}` | zippo, red-alert, its-so-shiny (via ZippoLib) | hard-coded type/field/method names | OK |
 | ~~`LightModule.TemplateData."Color"`~~ | ~~zippo~~ | ~~`GetField("Color")` — wrong name~~ | **RETIRED @5348** — the bug is gone: the code reads `"ColorRgb"` (`zippo.lib/LightController.cs:59,80`), which is the real field. Fixed by commit `07787ea`; earlier scope text calling this BROKEN was **stale**. There is no `GetField("Color")` anywhere in the repo. |
 | `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK — all 7 still declared **on `GaugeCanvas` itself** (not lifted to `GaugeBase`, which would break `GetField`). `_windowTitle` went `private`→`protected`; still `NonPublic\|Instance`, so it resolves. **Behavioral risk instead:** revs 4919/4940/4959/5003 rebuilt the gauge/HUD system around con-man, rev 5201 added context-visibility gating, and **rev 5293 added a global Hud Scale applied after `_customScale`** (see §6) |
@@ -867,7 +905,7 @@ on every game update FIRST.
 | `PartTree.RecomputeStaticMass` | flexo, kitchen-sink | HarmonyLib `Traverse.Method("RecomputeStaticMass")` | OK |
 | `ResourceManagerBase.NearestToFurtherestNode(SameStage)` | blinky (diagnose-only) | base-type private field by name | OK (field names intact) — but the **owner moved**: `ResourceManager` is no longer on `RocketCore`, it is on the `Combustor` subclass (`SolidMotor` cores have none). Reached via a `core is Combustor` test since 5018 |
 | `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
-| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink | `AccessTools.Method` by name (no param array) | OK (single overload) |
+| `Universe.ExecuteNextVehicleSolvers` | eternal-flame, flexo, kitchen-sink, kiwis-marbles | `AccessTools.Method` by name (no param array) | OK (single overload) |
 | `Situation` enum names (`"Landed"/"Floating"/…`) via `.ToString()` | steely-eyed | enum-name string compare | OK |
 
 ---

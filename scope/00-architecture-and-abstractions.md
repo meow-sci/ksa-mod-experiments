@@ -73,21 +73,25 @@ are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
 
 | Patch class | Owning project | Apply (Patcher.cs) | Remove (Patcher.cs) | Primary game target(s) | Kind | Risk note |
 |---|---|---|---|---|---|---|
-| `HotkeyGuard` | **ksa-abstractions.lib** | 32 | 66 | `GameSettings.OnKeyAll(GlfwKeyEvent)` | prefix | verified ↓ (no delta) |
-| `ThugLifeRenderPatches` | thug-life.lib | 35 | 77 | `SuperMeshRenderSystem.RenderMainPass` | postfix | render pass — see thug-life scope |
-| **`MenuBarPatch`** | **unscience/ (self)** | 37 | 67 | `Program.DrawProgramMenusHook()` | postfix | verified ↓ (no delta) |
-| `BlinkyPatches` | blinky.lib | 38 | 68 | `PartModelModule`/`PartModelDynamicModule`/`PartModelGlassModule`.`UpdateRenderData` | prefix ×3 | render — see blinky scope |
-| `ShinyPatches` | its-so-shiny.lib | 39 | 69 | same three `UpdateRenderData` | prefix ×3 | render — see its-so-shiny scope |
-| `CameraControllerOverridePatches` | camera-controller-override.lib | 41 | 70 | `OrbitController.OnFrame` / `FlyController.OnFrame` (**string** "OnFrame") | prefix | string-named — see camera scope |
-| **`EternalFlamePatches`** | **unscience/ (INLINE)** | 42 | 71 | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | verified ↓ (no delta) |
-| `GlassPatches` | glass.lib | 47 | 72 | `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` (**string**) + field `Camera._fovRadians` (**string**) | prefix | string-named — see glass scope |
-| `IFeelSeenPatches` | i-feel-seen.lib | 48 | 73 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` (**string**) | prefix | string-named — see i-feel-seen scope |
-| `VehiclePaintPatches` | humble-arteest.lib | 49 | 76 | `PartModel.AddInstance` | prefix | render — see humble-arteest scope |
-| `EngineEmissivePatches` | humble-arteest.lib | 50 | 74 | `PartModelDynamic.AddInstance` | prefix | render — see humble-arteest scope |
-| `FlexoPatches` | flexo.lib | 51 | 75 | `PartModelRenderer.UpdateRenderData(Viewport,int)` + (via `PatchAll`) `FlexoSolverPatch`→`Universe.ExecuteNextVehicleSolvers` | prefix | see flexo scope |
+| `HotkeyGuard` | **ksa-abstractions.lib** | 45 | 94 | `GameSettings.OnKeyAll(GlfwKeyEvent)` | prefix | verified ↓ (no delta) |
+| `ThugLifeRenderPatches` | thug-life.lib | 46 | 107 | `SuperMeshRenderSystem.RenderMainPass` | postfix | render pass — see thug-life scope |
+| **`MenuBarPatch`** | **unscience/ (self)** | 47 | 95 | `Program.DrawProgramMenusHook()` | postfix | verified ↓ (no delta) |
+| `BlinkyPatches` | blinky.lib | 52 | 96 | `PartModelModule`/`PartModelDynamicModule`/`PartModelGlassModule`.`UpdateRenderData` | prefix ×3 | render — see blinky scope |
+| `ShinyPatches` | its-so-shiny.lib | 53 | 97 | same three `UpdateRenderData` | prefix ×3 | render — see its-so-shiny scope |
+| `CameraControllerOverridePatches` | camera-controller-override.lib | 54 | 98 | `OrbitController.OnFrame` / `FlyController.OnFrame` (**string** "OnFrame") | prefix | string-named — see camera scope |
+| **`EternalFlamePatches`** | **unscience/ (INLINE)** | 59 | 99 | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | verified ↓ (no delta) |
+| `KiwisMarblesPatches` | kiwis-marbles.lib | 60 | 100 | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | sim-step timing — see celestial-and-lights scope |
+| `GlassPatches` | glass.lib | 65 | 101 | `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` (**string**) + field `Camera._fovRadians` (**string**) | prefix | string-named — see glass scope |
+| `IFeelSeenPatches` | i-feel-seen.lib | 66 | 102 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` (**string**) | prefix | string-named — see i-feel-seen scope |
+| `VehiclePaintPatches` | humble-arteest.lib | 67 | 106 | `PartModel.AddInstance` | prefix | render — see humble-arteest scope |
+| `EngineEmissivePatches` | humble-arteest.lib | 68 | 103 | `PartModelDynamic.AddInstance` | prefix | render — see humble-arteest scope |
+| `FlexoPatches` | flexo.lib | 69 | 104 | `PartModelRenderer.UpdateRenderData(Viewport,int)` + (via `PatchAll`) `FlexoSolverPatch`→`Universe.ExecuteNextVehicleSolvers` | prefix | see flexo scope |
+| `IvaForceRender` | **ksa-abstractions.lib** | 70 | 108 | IVA render gate (see ui-customization scope) | prefix | wired 2026-08-23 |
+| `EditorScalePatches` | dont-stifle-me.lib | 71 | 105 | `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` | postfix/prefix | see part-editor-and-robotics scope |
+| `KittenAnimationPatches` | kitten-animations.lib | 72 | 109 | `AnimatedRenderable.UpdateAnimation(double)` (**string** via `AccessTools.Method`) | prefix `(AnimatedRenderable __instance, ref double dt)` | ⚠️ **hot path** — runs for every animated renderable every frame; must stay a reference compare + early return. See character-and-materials scope |
 
-Non-Harmony cleanup also driven by `Patcher.Unload()`: `VehiclePaint.Cleanup()` (line 79) and
-`EngineEmissive.Cleanup()` (line 80), both humble-arteest.lib.
+Non-Harmony cleanup also driven by `Patcher.Unload()`: `VehiclePaint.Cleanup()` (line 111) and
+`EngineEmissive.Cleanup()` (line 112), both humble-arteest.lib.
 
 Notes:
 - **garrys-torch is intentionally NOT a Harmony patch.** Its weld physics runs from
@@ -95,7 +99,10 @@ Notes:
   `JobSystems.VehicleSolvers.Wait()` before touching vehicle state (avoids the worker-iteration race).
 - `IFeelSeenPatches.Apply` takes a second argument (`IFeelSeenTracker`, wired at `Mod.cs:106`).
 - `CameraControllerOverridePatches.SequencePlayer` and `MenuBarPatch.ToggleWindow` are wired before
-  Apply (Patcher.cs:36, 40).
+  Apply (Patcher.cs:49, 56).
+- `KittenAnimationPatches.Driver` is wired **after** Apply, from `KittenAnimationsSubmod.Initialize()`
+  (`Mod.cs` initialises submods after `Patcher.Patch()`). The prefix null-checks it, so the ordering
+  is safe; before the submod initialises the patch is simply inert.
 
 ### `MenuBarPatch` (unscience/MenuBarPatch.cs) — owned by this area
 

@@ -1,273 +1,174 @@
-# Kitten Animations - Avatar Animation Controller
+# Kitten Animations — Avatar Animation Controller
 
-Manages animation playback for the kitten avatar character, including body animations and facial expressions. Provides smooth expression transitions with easing-in and support for multiple expression types.
+Plays any animation the game has loaded for the controlled kitten, triggers facial expressions, and
+exposes the blend weights and locomotion tuning that decide how hard each animation lands.
 
 ## Overview
 
 Kitten Animations lets you:
-- **Play character animations** - MMU (body movement) animations
-- **Trigger expressions** - Angry, Awe, Happy, Sad, Scared
-- **Configure duration** - Expression playback length (1-5 seconds)
-- **Smooth transitions** - Automatic ease-in over 250ms
-- **Kitten avatar access** - Reflection-based avatar retrieval
-- **Real-time control** - Play expressions on demand
 
-## Features
+- **Play every loaded clip** — the full ground/EVA locomotion set (idle, walk, run, jump, jump land,
+  tumble, ladder, moon walk, moon run, swim, swim idle, seated idle + seated idle actions), the full
+  MMU set (idle default, idle actions, six directional loops, arm retract), the live blend samplers,
+  and the overlay poses (blink, ear/helmet mask)
+- **Hold a clip against the game** — the game re-picks the body clip every frame from the locomotion
+  state; a Harmony prefix lets the mod win
+- **Scrub playback** — blend time, playback-rate multiplier, freeze, restart
+- **Trigger expressions** — Angry / Awe / Happy / Sad / Scared, any authored variant or a random one,
+  with configurable strength, ease-in, hold and ease-out, or latched indefinitely
+- **Tune animation strength** — ear-motion weight, eye look angle, eye pitch offset, personality mood
+  face weight, and a cap on the game's acceleration-driven reactive face
+- **Tune locomotion animation** — the animation-facing slice of `KittenLocomotionTuning.Current`
+  (blend time, playback-rate clamps, nominal clip speeds, moonwalk/swim blend ramps, jump-land timing)
+- **Watch the live state** — locomotion mode, control mode, ground speed, gravity, jump-chain stage,
+  the game's own playback rate, and the live blend weights
 
-- **Expression system** - 5 different kitten face expressions
-- **Ease-in animation** - Smooth quadratic ramp-in over 250ms
-- **Expression duration** - Configurable per-expression length
-- **Animation weight blending** - Smooth blend of animations
-- **Weight-based fading** - Expressions fade naturally
-- **Avatar reflex access** - Safe reflection-based avatar retrieval
-- **Per-frame updates** - Expression state updated every frame
-- **KSA animation cache compatibility** - Clears KSA's cached expression pose when swapping expression assets so each expression button samples its own animation
+## Why a Harmony patch is required
+
+`KittenRenderable.UpdateRenderData` runs every frame and calls
+`AnimatedRenderable.SetAnimation(...)` unconditionally for almost every locomotion mode — grounded,
+airborne, tumbling, on a ladder, swimming — and drives the MMU directional blend sampler when
+jetpacking. A clip set from a StarMap callback is therefore overwritten before it is ever sampled.
+
+The mod prefixes `AnimatedRenderable.UpdateAnimation(double dt)`. That is the call the game makes
+immediately after it has finished choosing a clip and immediately before the pose is evaluated, so it
+is the last point in the frame where an override still lands. The prefix runs for every animated
+renderable in the scene and returns immediately unless the instance is the kitten's body model.
+
+The same hook re-applies the animation-processor knobs, because the game rewrites several of them per
+frame (`CatEyeAnim.LookPitchOffsetDeg` and the reactive `CatExpressionAnim.ExpressionWeight`).
 
 ## Architecture
 
-### Core Classes
+### Core classes (`kitten-animations.lib`)
 
-#### KittenAnimationController
-Central animation state and update manager.
+#### `KittenAvatarAccessor`
 
-**Key State**:
-```csharp
-public class KittenAnimationController
-{
-    public float ExpressionDuration { get; set; }  // 1.0 to 5.0 sec
-    public ExpressionType CurrentExpression { get; set; }
-    private double expressionTimer = 0.0;
-    private double easeInTimer = 0.0;
-    private const double EaseInDuration = 0.25;  // 250ms
-}
-```
+Resolves the controlled kitten and its avatar.
 
-**Key Methods**:
-- `Update(double deltaTime, CharacterAvatar avatar)` - Update animation state
-- `TriggerExpression(ExpressionType type, AnimationAssetRef asset, CharacterAvatar avatar)` - Play expression
-- `PlayAvatarAnimation(CharacterAvatar avatar, IAnimation animation)` - Set body/MMU animation
-- `SetExpressionAnimation(CharacterAvatar avatar, AnimationAssetRef asset)` - Apply expression
+- `GetKitten()` — controlled vehicle as `KittenEva`
+- `GetKittenRenderable()` — `KittenEva.Renderable` (public property; no reflection)
+- `GetAvatar(KittenRenderable)` / `GetKittenAvatar()` — `KittenRenderable._characterAvatar`
+  (private field, reflection)
 
-#### KittenAnimationsSubmod
-ISubmod implementation that owns the animation controller and all animation UI.
+#### `KittenAnimationCatalog`
 
-**Architecture**:
-- Implements `ISubmod` (from `ksa-abstractions.lib`): `Name="Kitten Animations"`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
-- Owns `KittenAnimationController` instance; calls `Update(dt, avatar)` in `Update()`
-- `RenderContent()` renders MMU Animations, Expressions, and Walking Animations collapsible headers — no window framing
-- Used standalone via `kitten-animations/Mod.cs` (which wraps in its own ImGui window) and embedded in unscience's collapsible header
+Discovers every animation loaded for the kitten and groups it for the UI.
 
-#### KittenAvatarAccessor
-Reflection-based access to KSA's kitten avatar system.
+The ground locomotion set is **not** reachable through `CharacterAvatar.Animations` —
+`KittenRenderable` loads it from `CharacterGroundAnimationsReference` into private fields
+(`_groundIdleAnim`, `_groundWalkAnim`, `_groundRunAnim`, `_ladderAnim`, `_jumpIntroAnim`,
+`_flailAnim`, `_jumpLandAnim`, `_moonWalkAnim`, `_moonRunAnim`, `_swimAnim`, `_swimIdleAnim`,
+`_seatedIdleAnim`, `_seatedIdleActionAnims`) and the blend samplers into `_walkPairSampler`,
+`_runPairSampler`, `_swimPairSampler`, `_blendSampler`. Those are read by reflection; anything that
+fails to resolve is collected in `UnresolvedFields` and surfaced in the UI as a game-update warning.
 
-**Key Methods**:
-- `GetKitten()` - Retrieve the KittenEva instance from game state
-- `GetKittenAvatar()` - Get CharacterAvatar from KittenEva
-- `GetAvatarAccessor(KittenEva kitten)` - Safe reflection access
+Clips with a zero loop period are filtered out — `BoneAnimRuntime.SampleCurrentAnimation` divides by
+it.
 
-**Implementation Detail**:
-```csharp
-// Access avatar via reflection
-private KittenEva kitten = GetKitten();
-private CharacterAvatar avatar = ReflectionHelpers.GetFieldValue<CharacterAvatar>(
-    kitten._renderable, 
-    "_characterAvatar"
-);
-```
+> `CharacterAvatar.Animations.WalkingAnimations` is superseded and deliberately not used. The current
+> game build only ever assigns `WalkingAnim` (a duplicate of the ground walk clip) and never assigns
+> `RunningAnim`, so the old "Running" button in this mod was a no-op. Run now comes from
+> `CharacterGroundAnimations.AnimRun` via `KittenRenderable._groundRunAnim`.
 
-### Expression System
+#### `KittenAnimProcessors`
 
-#### Supported Expressions
-| Expression | Type | Usage |
-|-----------|------|-------|
-| Angry | Negative | Alert, alarm |
-| Awe | Surprise | Discovery, wonder |
-| Happy | Positive | Success, joy |
-| Sad | Negative | Failure, disappointment |
-| Scared | Fear | Danger, uncertainty |
+Typed handles on the four `IAnimProcessor` instances `KittenRenderable` installs, read by name rather
+than by scanning `AnimProcessors` by type — two of them are the same `CatExpressionAnim` type with
+very different roles:
 
-#### Expression Animation Assets
-Expressions reference `AnimationAssetRef` objects:
-```csharp
-public AnimationAssetRef AngerAsset { get; set; }
-public AnimationAssetRef AweAsset { get; set; }
-public AnimationAssetRef HappyAsset { get; set; }
-// etc.
-```
+| Field | Type | Role |
+|---|---|---|
+| `_catPersonalityExpressionAnim` | `CatExpressionAnim` | permanent mood face from `CharacterAvatar.Personality`; absent for Neutral kittens |
+| `_catExpressionAnim` | `CatExpressionAnim` | reactive scared face; weight rewritten every frame from linear + angular acceleration |
+| `_catEyeAnim` | `CatEyeAnim` | blink, saccades, look-at |
+| `_catEarAnim` | `CatEarAnim` | ear/helmet mask pose |
 
-### Easing-In Mechanism
+#### `KittenExpressionController`
 
-#### Expression Ease-In Curve
-```
-ease_in(t) = t²  (quadratic, 0.0 to 1.0)
-```
+Owns a `CatExpressionAnim` the **mod** creates and appends to `AnimatedRenderable.AnimProcessors`.
 
-Over 250ms (0.25 seconds), expression weight rises smoothly:
+Writing to the game's own expression processor does not work: `KittenRenderable.UpdateRenderData`
+damps its `ExpressionWeight` toward an acceleration-derived target every frame, right before the pose
+is sampled, so a mod-set weight is gone by the time it would be rendered — leaving the permanent
+personality face on screen. That is the mechanism behind the long-standing *"kitten animations don't
+properly play each one, always the same"* report. Appending our own processor puts the mod last in
+the list, mixing over everything, with a weight nothing else touches.
 
-| Time (ms) | Progress | Ease-In Value | Blended Weight |
-|-----------|----------|---------------|----------------|
-| 0         | 0.00     | 0.00          | 0.00           |
-| 62.5      | 0.25     | 0.0625        | 0.0625         |
-| 125       | 0.50     | 0.25          | 0.25           |
-| 187.5     | 0.75     | 0.5625        | 0.5625         |
-| 250       | 1.00     | 1.00          | 1.00           |
+Envelope: quadratic ease-in → hold at `PeakWeight` → linear ease-out, or `Latch` to hold until
+cleared. `CatExpressionAnim` caches its sampled pose in the private `_expressionPose` field, so that
+cache is nulled whenever `ExpressionAnim` changes.
 
-**Implementation**:
-```csharp
-if (easeInTimer < EaseInDuration)
-{
-    easeInTimer += deltaTime;
-    float progress = (float)(easeInTimer / EaseInDuration);
-    expressionWeight = progress * progress;  // Quadratic ease-in
-}
-else
-{
-    expressionWeight = 1.0f;
-}
-```
+#### `KittenAnimationDriver`
 
-#### Expression Fade-Out
-After duration expires, weight gradually fades:
-```csharp
-if (expressionTimer > ExpressionDuration)
-{
-    // Fade out phase
-    float timeAfterComplete = expressionTimer - ExpressionDuration;
-    float fadeProgress = timeAfterComplete / FadeDuration;
-    expressionWeight = Mathf.Max(0.0f, 1.0f - fadeProgress);
-}
-```
+Holds the override state and stamps it onto the model from the Harmony prefix
+(`ApplyBeforePose(model, ref dt)`):
 
-## UI (Mod.cs)
+- forced clip via `SetAnimation` (idempotent) or `PlayAnimation` on restart
+- `FreezeAnimation` while paused
+- `dt *= PlaybackRateScale`, on top of the game's own `_groundAnimPlaybackRate`
+- processor knobs: ear weight, eye look angle, eye pitch, personality weight, reactive-face cap
 
-ImGui window with:
-- **Expression buttons** - Quick-trigger buttons: Angry, Awe, Happy, Sad, Scared
-- **Duration slider** - 1.0 to 5.0 seconds configurable
-- **Current expression display** - Shows active expression and remaining time
-- **Animation state indicator** - Ease-in, playing, or idle
-- **Random expression button** - Play random expression
-- **Stop button** - Cancel current expression
-- **Animation selector** - Choose MMU animation to play
+Never throws out of the prefix — any exception logs and resets the driver.
 
-## Implementation Details
+#### `KittenAnimationPatches`
 
-### Avatar Retrieval
+`Apply(Harmony)` / `Remove(Harmony)` around a prefix on
+`AnimatedRenderable.UpdateAnimation(double)`. Applied from `kitten-animations/Patcher.cs` when
+standalone and from `unscience/Patcher.cs` when embedded.
 
-```csharp
-// Get KittenEva instance from game singleton
-var kitten = KittenService.Instance.GetKitten();
+#### `KittenAnimationsSubmod`
 
-// Access CharacterAvatar via reflection
-var avatar = ReflectionHelpers.GetFieldValue<CharacterAvatar>(
-    component: kitten._renderable,
-    fieldName: "_characterAvatar"
-);
-```
+`ISubmod` implementation. `Update(dt)` re-resolves the kitten, rebinds when the avatar changes
+(rebuilding the catalog, re-reading the processors, re-attaching the expression processor), refreshes
+`KittenAnimationDriver.TargetModel`, and advances the expression envelope. `RenderContent()` renders
+the sections below without any window framing.
 
-### Expression Application
+### UI sections (`kitten-animations.lib/Ui`)
 
-```csharp
-public void TriggerExpression(ExpressionType type, AnimationAssetRef asset, CharacterAvatar avatar)
-{
-    CurrentExpression = type;
-    
-    // Apply animation asset
-    SetExpressionAnimation(avatar, asset);
-    
-    // Reset timers
-    expressionTimer = 0.0;
-    easeInTimer = 0.0;
-    
-    // Set target duration
-    ExpressionDuration = configuredDuration;
-}
-```
+| Section | Contents |
+|---|---|
+| `PlaybackSection` | live locomotion readout; override on/off, restart, freeze, clear; blend time and playback-rate multiplier |
+| `AnimationLibrarySection` | one collapsible group per catalog group, one button per clip, active clip highlighted, tooltip shows asset id + length |
+| `ExpressionSection` | variant selector, five triggers + clear, strength/ease-in/hold/ease-out sliders, latch, live status |
+| `StrengthSection` | per-processor override checkbox + slider, plus a live weight readout |
+| `TuningSection` | animation-facing `KittenLocomotionTuning.Current` fields, scoped reset, live and derived blend weights |
 
-Current KSA builds cache sampled expression poses inside `CatExpressionAnim`. When changing `ExpressionAnim`, the controller invalidates that private pose cache so Angry, Awe, Happy, Sad, and Scared can be triggered independently instead of reusing the first sampled pose.
+## UI (`Mod.cs`)
 
-### Per-Frame Update
-
-```csharp
-public void Update(double deltaTime, CharacterAvatar avatar)
-{
-    if (CurrentExpression == ExpressionType.None)
-        return;
-    
-    // Update ease-in timer
-    if (easeInTimer < EaseInDuration)
-    {
-        easeInTimer += deltaTime;
-    }
-    
-    // Update expression timer
-    expressionTimer += deltaTime;
-    
-    // Check if expression duration expired
-    if (expressionTimer >= ExpressionDuration + FadeDuration)
-    {
-        CurrentExpression = ExpressionType.None;
-        SetExpressionWeight(avatar, 0.0f);
-    }
-    
-    // Compute current weight and apply to avatar
-    float weight = ComputeExpressionWeight();
-    SetExpressionWeight(avatar, weight);
-}
-```
-
-## Usage Example
-
-```csharp
-// Get kitten avatar
-var kitten = KittenAvatarAccessor.GetKitten();
-var avatar = KittenAvatarAccessor.GetKittenAvatar();
-
-// Trigger happy animation
-var happyAsset = new AnimationAssetRef("HappyAnimation");
-controller.TriggerExpression(ExpressionType.Happy, happyAsset, avatar);
-controller.ExpressionDuration = 2.0f;  // 2 seconds
-
-// Update each frame
-controller.Update(deltaTime, avatar);
-```
+Standalone: **F11** toggles a `Kitten Animations` window that hosts the submod content. Embedded in
+unscience under its own collapsible header.
 
 ## Configuration
 
-Configurable via ImGui:
-
 | Setting | Range | Notes |
-|---------|-------|-------|
-| Expression Duration | 1.0 - 5.0 sec | How long expression plays |
-| Ease-In Duration | (hardcoded) | 250ms quadratic ease-in |
-| Random Expression Interval | 0 - infinity | Auto-trigger interval |
+|---|---|---|
+| Blend Time | 0 – 2 s | cross-fade into the forced clip |
+| Playback Rate | 0 – 5 x | multiplies animation delta time; 0 freezes |
+| Expression Strength | 0 – 1 | how strongly the expression pose is mixed |
+| Expression Ease In / Out | 0 – 3 s | ramp up / down |
+| Expression Hold | 0 – 30 s | time at full strength |
+| Ear Motion | 0 – 1 | `CatEarAnim.ExpressionWeight` |
+| Eye Look Angle | 0 – 90° | `CatEyeAnim.MaxLookAtAngle` (game default 30) |
+| Eye Pitch Offset | -90 – 90° | `CatEyeAnim.LookPitchOffsetDeg` |
+| Personality Face | 0 – 1 | weight of the permanent mood face |
+| Reactive Face Cap | 0 – 1 | upper bound on the acceleration-driven face |
 
-## Notes for Future Development
+Nothing is persisted; every setting resets on unload.
 
-- **Emotion system**: Extend to support emotional states (happy, sad) with automatic expression scheduling
-- **Expression sequencing**: Chain multiple expressions in sequence
-- **Animation blending**: Blend between different expression animations smoothly
-- **Facial gestures**: Additional gesture types beyond expressions
-- **Voice sync**: Play audio alongside expressions
-- **Performance**: Cache animation assets to reduce lookup overhead
-- **Randomization**: Vary timing slightly to make animations less mechanical
+## Notes
 
-## Technical Considerations
-
-### Reflection Dependency
-Avatar access uses reflection to reach internal fields:
-```
-KittenEva._renderable._characterAvatar
-```
-
-This pattern may change across KSA versions—update carefully.
-
-### Animation Asset References
-Expressions reference KSA's animation assets by ID. Asset IDs must match KSA's internal naming conventions.
-
-### Timing Precision
-Expression timing is based on deltaTime accumulation. Frame-rate dependent—high framerate users will see smoother ease-in than low framerate users.
+- The game ships its own full locomotion tuning window at **Debug → Kitten Tuning** in the menu bar.
+  This mod exposes only the animation-facing subset, and its reset restores just those fields.
+- `KittenLocomotionTuning.Current` is global, so tuning edits affect every kitten, not only the
+  controlled one.
+- If both this mod and unscience are installed, whichever initialises last owns the shared driver
+  reference in `KittenAnimationPatches`. Install one or the other.
 
 ## Dependencies
 
-- **MeowSci.KsaAbstractions**: For game state access
-- **KSA Game**: Avatar system, animation assets
+- **MeowSci.KsaAbstractions** — `VehicleProvider`, `ReflectionHelpers`, `ISubmod`, `SubmodUI`,
+  `HotkeyGuard`
+- **Lib.Harmony** — the `UpdateAnimation` prefix
+- **KSA game** — `KittenEva`, `KittenRenderable`, `CharacterAvatar`, `AnimatedRenderable`,
+  `CatExpressionAnim` / `CatEyeAnim` / `CatEarAnim`, `KittenLocomotionTuning`, `KittenLocomotion`

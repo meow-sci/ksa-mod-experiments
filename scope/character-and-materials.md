@@ -298,68 +298,100 @@ rebuild, which is what recompiles the part pipelines.
 
 ## kitten-animations
 
-**Purpose** — Drives the controlled kitten's `CharacterAvatar`: MMU body animations, walking/running,
-and five facial expressions (Angry/Awe/Happy/Sad/Scared) with a 250 ms quadratic ease-in.
+**Purpose** — Drives the controlled kitten's `CharacterAvatar`: plays every animation the game loaded
+for it (the full ground/EVA locomotion set, the MMU set, the live blend samplers, the overlay poses),
+triggers the five facial expressions, and exposes the animation-processor blend weights plus the
+animation-facing slice of `KittenLocomotionTuning.Current`.
 
 **Unscience integration** — `KittenAnimationsSubmod : ISubmod`
-(`kitten-animations.lib/KittenAnimationsSubmod.cs`) owns a `KittenAnimationController`;
-`Update(dt)` (from `[StarMapBeforeGui]`) eases expression weight each frame. Avatar reached via
-`KittenAvatarAccessor` (reflection). No Harmony patches of its own (only `PatchAll` no-op +
-`HotkeyGuard`).
+(`kitten-animations.lib/KittenAnimationsSubmod.cs`) binds the controlled `KittenEva` and owns a
+`KittenAnimationCatalog`, a `KittenAnimProcessors`, a `KittenExpressionController` and a
+`KittenAnimationDriver`. `Update(dt)` (from `[StarMapBeforeGui]`) rebinds on avatar change, refreshes
+`KittenAnimationDriver.TargetModel` and advances the expression envelope.
 
-**UI / hotkeys** — Standalone **F11** window (`kitten-animations/Mod.cs:51`); embedded in unscience.
-Expression buttons, MMU-animation grid, walking buttons, duration slider.
+**Harmony (new this pass)** — one prefix on `AnimatedRenderable.UpdateAnimation(double dt)`
+(`KittenAnimationPatches`). Applied from `kitten-animations/Patcher.cs` standalone and from
+`unscience/Patcher.cs` (`TryApply("kitten-animations", …)`) when embedded. Required because
+`KittenRenderable.UpdateRenderData` calls `SetAnimation` unconditionally for nearly every locomotion
+mode, so a clip set from a StarMap callback is discarded before it is sampled. The prefix runs for
+every `AnimatedRenderable` in the scene and returns immediately unless the instance is the kitten body
+model; it also re-applies processor knobs the game rewrites per frame and can scale `dt`.
+
+**UI / hotkeys** — Standalone **F11** window (`kitten-animations/Mod.cs`); embedded in unscience.
+Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim Tuning.
 
 **Persistence** — None.
 
 ### Integration points
 
-| # | Kind | Mod code (file:line) | Game target (Type.Member + sig) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
-|---|---|---|---|---|---|---|---|
-| 1 | Typed (via abstraction) | KittenAvatarAccessor.cs:11 | `VehicleProvider.GetControlledVehicle()` → `Program.ControlledVehicle : Vehicle?`; pattern-match `is KittenEva` | KSA/Program.cs:254 | ✅ | none | rev 4699 makes a controlled KittenEva more reachable (beneficial) |
-| 2 | Reflection (private) | KittenAvatarAccessor.cs:24-25 | `KittenEva._renderable : KittenRenderable` → `._characterAvatar : CharacterAvatar` | KSA/KittenRenderable.cs:10 | ✅ | none | same field path doh uses |
-| 3 | Typed | KittenAnimationController.cs:79; Submod:127-149 | `CharacterAvatar.Core.CharacterModel : AnimatedRenderable`; `.SetAnimation(IAnimation, blend=0.2f)` | KSA/CharacterAvatar.cs:204,31; AnimatedRenderable.cs:97 | ✅ | none (CharacterAvatar identical; AnimatedRenderable diff = 1 log line) | body/MMU/walk playback |
-| 4 | Typed | KittenAnimationController.cs:115 | `AnimatedRenderable.AnimProcessors : List<IAnimProcessor>`; `.OfType<CatExpressionAnim>().LastOrDefault()` | KSA/AnimatedRenderable.cs:41 | ✅ | none | locate expression processor |
-| 5 | Typed | KittenAnimationController.cs:48,98,100 | `CatExpressionAnim : CatPostAnim`; `.ExpressionAnim : AnimationAssetRef?`; `.ExpressionWeight : float` | KSA/CatExpressionAnim.cs:8,14,12 | ✅ | none (file identical) | apply + ease expression |
-| 6 | Reflection (private, cached `FieldInfo`) | KittenAnimationController.cs:14-16,120-128 | `CatExpressionAnim._expressionPose : TransformTRS[]?` (set null to bust the sampled-pose cache) | KSA/CatExpressionAnim.cs:16 | ✅ | none (file identical) | so each expression re-samples; cache logic at CatExpressionAnim.cs:42-47 |
-| 7 | Typed | Submod:75-102 | `CharacterAvatar.Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | KSA/CharacterAvatar.cs:187-195 | ✅ | none | random pick per click |
-| 8 | Typed | Submod:127-149 | `CharacterAvatar.Animations.MmuAnimations.{MmuIdleDefaultAnim, MmuMoveLeft/Right/Forward/Backward/Up/DownLoopAnim} : AnimationAssetRef?` | KSA/CharacterAvatar.cs:155-172 | ✅ | none | |
-| 9 | Typed | Submod:174,180 | `CharacterAvatar.Animations.WalkingAnimations.{RunningAnim, WalkingAnim} : AnimationAssetRef?` | KSA/CharacterAvatar.cs:174-179 | ✅ | none | |
+| # | Kind | Mod code (file) | Game target (Type.Member + sig) | Decomp path (NEW) | In NEW? | Risk/notes |
+|---|---|---|---|---|---|---|
+| 1 | Typed (via abstraction) | KittenAvatarAccessor.cs | `VehicleProvider.GetControlledVehicle()` → `Program.ControlledVehicle : Vehicle?`; pattern-match `is KittenEva` | KSA/Program.cs; KSA/KittenEva.cs:13 | ✅ | unchanged |
+| 2 | Typed | KittenAvatarAccessor.cs | `KittenEva.Renderable : KittenRenderable` (public property) | KSA/KittenEva.cs:59 | ✅ | **replaces the old `_renderable` reflection** — added rev ≤5348 |
+| 3 | Reflection (private) | KittenAvatarAccessor.cs | `KittenRenderable._characterAvatar : CharacterAvatar` | KSA/KittenRenderable.cs:12 | ✅ | same field doh/garrys use |
+| 4 | Typed | PlaybackSection.cs | `KittenEva.{LocomotionState, ControlMode, AnimPlaybackRate, AnimJumpChainStage, AnimJumpChainCountdown}` | KSA/KittenEva.cs:51,67,53,55,57 | ✅ | read-only status; all public |
+| 5 | Typed | PlaybackSection.cs, TuningSection.cs | `LocomotionState.{Mode, GroundSpeed, GravityMagnitude}`; `LocomotionMode`, `JumpChainStage` enums | KSA/LocomotionState.cs:7,13,35; LocomotionMode.cs; JumpChainStage.cs | ✅ | struct copy per frame |
+| 6 | Reflection (private, cached `FieldInfo`) | KittenAnimationCatalog.cs | `KittenRenderable.{_groundIdleAnim,_groundWalkAnim,_groundRunAnim,_ladderAnim,_jumpIntroAnim,_flailAnim,_jumpLandAnim,_moonWalkAnim,_moonRunAnim,_swimAnim,_swimIdleAnim,_seatedIdleAnim} : AnimationAssetRef?`, `_seatedIdleActionAnims : List<AnimationAssetRef>?` | KSA/KittenRenderable.cs:42-66 | ✅ | **the only route to the ground set** — it is not on `CharacterAvatar`. Unresolved names are collected and shown in the UI |
+| 7 | Reflection (private, cached `FieldInfo`) | KittenAnimationCatalog.cs | `KittenRenderable.{_walkPairSampler,_runPairSampler,_swimPairSampler} : AnimationPairBlendSampler?`, `_blendSampler : AnimationDirectionalBlendSampler` | KSA/KittenRenderable.cs:68-72,38 | ✅ | playable + `.Weight` readout |
+| 8 | Typed | KittenAnimationCatalog.cs | `AnimationPairBlendSampler.Weight : float`; `AnimationDirectionalBlendSampler` (type) | KSA.Rendering/AnimationPairBlendSampler.cs:15; AnimationDirectionalBlendSampler.cs | ✅ | read-only display |
+| 9 | Reflection (private) | KittenAnimProcessors.cs | `KittenRenderable.{_catPersonalityExpressionAnim,_catExpressionAnim} : CatExpressionAnim`, `_catEyeAnim : CatEyeAnim`, `_catEarAnim : CatEarAnim` | KSA/KittenRenderable.cs:30-36 | ✅ | resolved **by name**, not `OfType<>()` — two of the four are the same type with different roles |
+| 10 | Typed | KittenAnimationDriver.cs | `CatEarAnim.ExpressionWeight : float` | KSA/CatEarAnim.cs:13 | ✅ | game sets it once at construction; mod value holds |
+| 11 | Typed | KittenAnimationDriver.cs | `CatEyeAnim.{MaxLookAtAngle, LookPitchOffsetDeg} : float` | KSA/CatEyeAnim.cs:22,24 | ✅ | `LookPitchOffsetDeg` is rewritten every frame by `UpdateLocomotionAnimationState`, so it is re-applied from the pose prefix |
+| 12 | Typed | KittenAnimationDriver.cs | `CatExpressionAnim.ExpressionWeight : float` on the personality + reactive processors | KSA/CatExpressionAnim.cs:12 | ✅ | reactive weight is damped from acceleration every frame in `UpdateRenderData`, so it can only be **capped**, never held |
+| 13 | Typed | KittenExpressionController.cs | `new CatExpressionAnim { CharacterAvatar, ExpressionAnim, ExpressionWeight, Priority }` appended to `AnimatedRenderable.AnimProcessors : List<IAnimProcessor>` | KSA/CatExpressionAnim.cs:8; CatPostAnim.cs:10,12; AnimatedRenderable.cs:47 | ✅ | **mod-owned processor** — required because the game rewrites its own. `CharacterAvatar` is a `required` member on `CatPostAnim` |
+| 14 | Reflection (private, cached `FieldInfo`) | KittenExpressionController.cs | `CatExpressionAnim._expressionPose : TransformTRS[]?` (set null to bust the sampled-pose cache) | KSA/CatExpressionAnim.cs:16 | ✅ | now busted on the mod's **own** processor; cache logic at `UpdateLocalPose` |
+| 15 | Typed | KittenExpressionController.cs | `CharacterAvatar.Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | KSA/CharacterAvatar.cs:192-200 | ✅ | per-variant selection, not just a random pick |
+| 16 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.MmuAnimations.{MmuIdleDefaultAnim, MmuIdleActionsAnim, MmuMove{Left,Right,Forward,Backward,Up,Down}LoopAnim, MmuArmRetractAnim}` | KSA/CharacterAvatar.cs:158-177 | ✅ | `MmuIdleActionsAnim` list + `MmuArmRetractAnim` are new to the mod this pass |
+| 17 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.{BlinkAnim, HelmetMaskAnim} : AnimationAssetRef?` | KSA/CharacterAvatar.cs:149,151 | ✅ | overlay poses |
+| 18 | Typed | KittenAnimationCatalog.cs | `AnimationAssetRef.{Id, AnimLength, LoopPeriod}`; `IAnimation.{AnimLength, LoopPeriod}` | KSA/AnimationAssetRef.cs:8-16; IAnimation.cs:7 | ✅ | `Id` needs a `Planet.Core` assembly reference (`Core.AssetName`) |
+| 19 | Harmony prefix | KittenAnimationPatches.cs | `AnimatedRenderable.UpdateAnimation(double dt)` — `(AnimatedRenderable __instance, ref double dt)` | KSA/AnimatedRenderable.cs:123 | ✅ | **the whole override mechanism**; runs for every animated renderable in the scene |
+| 20 | Typed | KittenAnimationDriver.cs | `AnimatedRenderable.{SetAnimation(IAnimation, float), PlayAnimation(IAnimation, float), FreezeAnimation}` | KSA/AnimatedRenderable.cs:113,118,53 | ✅ | `SetAnimation` is a no-op when the clip is already current (`BoneAnimRuntime.SetAnimation:92`), so it is safe per frame |
+| 21 | Typed | KittenAnimationsSubmod.cs | `CharacterAvatar.Core.CharacterModel : AnimatedRenderable`; `CharacterAvatar.Personality` | KSA/CharacterAvatar.cs:209,32,219 | ✅ | model identity is what the prefix matches on |
+| 22 | Typed (mutating global) | TuningSection.cs | `KittenLocomotionTuning.Current` (public static field) + `Default`; fields `AnimBlendTime`, `IdleSpeedThreshold`, `PlaybackRateMin/Max`, `Walk/Run/Ladder/TumbleClipNominalSpeed`, `Moonwalk*`, `NominalSwimAnimSpeed`, `SwimBlendFullSpeed/HalfLife`, `SwimEyePitchFactor`, `JumpLandDuration`, `JumpLandBounceIgnoreTime`, `LadderEyePitchDeg` | KSA/KittenLocomotionTuning.cs:5-221 | ✅ | **global** — affects every kitten. The game ships the full editor at menu bar → Debug → Kitten Tuning (`Program.cs:3589`) |
+| 23 | Typed | TuningSection.cs | `KittenLocomotion.{ComputeMoonwalkWeight(float, in KittenLocomotionTuning), ResolveSwimBlend(float, in KittenLocomotionTuning)}` | KSA/KittenLocomotion.cs:24,476 | ✅ | derived-weight readout only |
 
 ### Game assets referenced
 
-- **None by string/path.** All animations are typed `AnimationAssetRef` fields on the live
-  `CharacterAvatar` (populated by the game per character); the mod selects from them, it does not
-  load assets by id. No shader, material, or character-id references.
+- **None by string/path.** Every animation is a typed `AnimationAssetRef` / `IAnimation` already
+  resolved by the game on the live `KittenRenderable` / `CharacterAvatar`; the mod selects from them
+  and never loads an asset by id. No shader, material, or character-id references.
 
-### Update-risk findings (4750 → 5018)
+### Update-risk findings (5348, rework pass)
 
-- ⚠ **The animation pipeline was reworked — no break, but investigate the standing bug here.**
-  `IAnimProcessor` gained `void UpdateLocalPose(float4x4, Skeleton, Span<TransformTRS>, float)`
-  alongside the existing `UpdateSkeleton`. `CatExpressionAnim.MixPose` was replaced by
-  `MixPoseLocal`, and the expression mix now runs from `UpdateLocalPose` against a caller-supplied
-  local-pose span. `AnimatedRenderable` now allocates a reusable `_processedPose` buffer, copies
-  `RuntimeAnim.Transforms` into it, lets each processor mutate the *local pose*, and only then calls
-  `Skeleton.UpdateLocalTransforms`/`UpdateWorldTransforms`.
-  - **kitten-animations does not implement `IAnimProcessor`**, so the added interface member is not a
-    compile break, and `avatar.Core.CharacterModel.SetAnimation` is unchanged.
-  - The reflected cache field `CatExpressionAnim._expressionPose` (`private TransformTRS[]?`) is
-    **still present and still the correct bust target** — `UpdateLocalPose` re-samples when it is
-    `null` or `!CanCacheAnimation`, exactly as before.
-  - 🔎 **This rework is the prime suspect for the `ISSUES.md` entry "kitten animations don't properly
-    play each one, always the same".** Needs a live in-game pass to confirm whether the cache-bust
-    still lands before `UpdateLocalPose` reads it.
-- `CharacterAvatar.cs` is **unchanged** 4750→5018; `CharacterCore` is still a struct with
-  `public float Scale`.
+- ✅ **Root cause found for the standing `ISSUES.md` entry** *"kitten animations don't properly play
+  each one, always the same"*. It was **not** the rev-5278 pose-frame gate. The old
+  `KittenAnimationController` located the expression processor with
+  `AnimProcessors.OfType<CatExpressionAnim>().LastOrDefault()`, which resolves to
+  `KittenRenderable._catExpressionAnim` — the **reactive** face, whose `ExpressionWeight` is
+  overwritten every frame by
+  `_catExpressionAnim.ExpressionWeight = AnimationUtils.DampingExact(…, accelDerivedTarget, 0.2f, dt)`
+  in `UpdateRenderData`, immediately before `UpdateAnimation` samples the pose. The mod's eased weight
+  never survived to render, leaving the permanent `_catPersonalityExpressionAnim` mood face on screen
+  — i.e. always the same expression. **Fixed** by giving the mod its own `CatExpressionAnim` appended
+  to `AnimProcessors`; the reactive processor is now only *capped*, never written.
+- ⚠️ **New Harmony surface in this area.** `AnimatedRenderable.UpdateAnimation` is now patched. It is
+  a hot path (called for every animated renderable per frame) — the prefix must stay a reference
+  compare plus an early return, and must never throw. Any future rename/resignature of
+  `UpdateAnimation` breaks the entire override feature (loud: `MissingMethodException` at `Apply`).
+- ⚠️ **The ground animation set is reflection-only.** Twelve `AnimationAssetRef` fields plus one list
+  and four samplers on `KittenRenderable` are read by name. A rename fails **silently per field** — the
+  catalog collects the misses in `UnresolvedFields`, logs them once on bind and shows a red warning in
+  the UI, so a game update degrades visibly instead of quietly dropping buttons.
+- ✅ **`CharacterAvatar.Animations.WalkingAnimations` is superseded — deliberately dropped.**
+  `InitalizeFromCharacterRef` (`CharacterAvatar.cs:403-406`) only ever assigns `WalkingAnim` (a
+  duplicate of the ground walk clip) and **never assigns `RunningAnim`**, so the mod's old "Running"
+  button was a permanent no-op. Run now comes from `CharacterGroundAnimations.AnimRun` via
+  `KittenRenderable._groundRunAnim`.
+- ⚠️ **`Planet.Core` is a new assembly reference** on `kitten-animations.lib.csproj`, needed for
+  `Core.AssetName` behind `AnimationAssetRef.Id`. Same `$(KSAFolder)` conditional pattern doh uses.
+- ✅ Rev-5278 per-frame pose gate (`_lastPoseUpdateFrameNumber`) is benign for the new design: the
+  cache bust happens on trigger and the next frame's `UpdateLocalPose` re-samples.
 
-#### Carried over from the 4680 → 4750 review
+#### Carried over from earlier passes
 
-- **No breaking deltas detected.** `CharacterAvatar.cs` and `CatExpressionAnim.cs` are
-  **byte-identical** OLD↔NEW, so every expression list, MMU/walking animation field, the
-  `ExpressionAnim`/`ExpressionWeight` members, and the private `_expressionPose` cache field used
-  for reflection are unchanged.
-- `AnimatedRenderable.cs` differs only by one trivial logging line (`GltfAssetRef.Id.ToString()`
-  vs `.ToString().AsSpan()`); `SetAnimation`, `AnimProcessors`, `MaterialIndices` are unaffected.
+- `CharacterAvatar.cs` and `CatExpressionAnim.cs` have been byte-identical across 4680 → 5348 for
+  every member the mod touches (expression lists, MMU animation fields, `ExpressionAnim` /
+  `ExpressionWeight`, the private `_expressionPose` cache).
 - rev 4699 (`KittenEva.IsControllable => true`) is additive and *helps* `GetControlledVehicle()`
   return a `KittenEva`; not a break.
 
@@ -367,15 +399,18 @@ Expression buttons, MMU-animation grid, walking buttons, duration slider.
 
 ## Area summary — Update-risk findings (5261 → 5348)
 
-- ⚠️ **kitten-animations vs the new per-frame pose guard (rev 5278) — the headline finding this span.**
-  `KSA/AnimatedRenderable.cs` gained `private ulong _lastPoseUpdateFrameNumber = ulong.MaxValue;` and the
-  pose path is now gated on `if (Program.FrameNumber != _lastPoseUpdateFrameNumber)` — previously
-  `if (!FreezeAnimation)`. The changelog entry: *"Fixed seated crew and EVA crew animation updating once
-  per visible viewport instead of once per frame. Base pose sampling and full skeleton propagation now
-  run once per frame."* `CatExpressionAnim` is **byte-identical** and `_expressionPose` still resolves,
-  but the mod's cache-bust forces a **second pose evaluation in the same frame, which is now dropped**.
-  This is the first concrete mechanism found for the standing *"kitten animations don't properly play
-  each one, always the same"* entry in [`../ISSUES.md`](../ISSUES.md). **Open — live pass required.**
+- ✅ **kitten-animations "always the same expression" — root-caused and reworked (superseding the
+  rev-5278 pose-guard theory).** The rev-5278 guard (`_lastPoseUpdateFrameNumber` replacing
+  `if (!FreezeAnimation)` in `KSA/AnimatedRenderable.cs`) is real but benign: the mod's
+  `_expressionPose` cache-bust happens on trigger and the *next* frame re-samples. The actual defect
+  was that the mod wrote `ExpressionWeight` to `KittenRenderable._catExpressionAnim` — the reactive
+  face, whose weight `UpdateRenderData` damps toward an acceleration-derived target every frame right
+  before the pose is sampled — so the permanent `_catPersonalityExpressionAnim` mood face was all that
+  ever showed. The mod now appends **its own** `CatExpressionAnim` and only *caps* the reactive one.
+  See the kitten-animations section above. **Live pass still wanted to confirm on screen.**
+- ⚠️ **kitten-animations now patches `AnimatedRenderable.UpdateAnimation(double)`** (prefix) so a forced
+  clip survives `KittenRenderable.UpdateRenderData`'s unconditional per-frame `SetAnimation`. New hot
+  path + new breakage surface in this area.
 - ✅ **doh's MMU attachment survives a retype.** Rev 5269 (MMU fold-away anim) changed
   `CharacterAvatar.Attachments.Mmu.MmuMesh` from `StaticMeshRenderable` to `AnimatedRenderable`, and
   `CharacterAvatar` now builds it with `MeshRendererSkinnedPbr` + an `AnimationScrubSampler ArmScrub`.

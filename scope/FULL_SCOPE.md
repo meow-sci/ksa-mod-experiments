@@ -99,11 +99,11 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`game-integration-surface.md`](game-integration-surface.md) | **Master cross-reference index** — every game type/member touched, merged across mods | Start here for "does the game still have X?"; includes the string-reflection watchlist + shader/asset table |
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
 | [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
-| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
+| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
 | [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; the `___Transform` injector bug is **fixed** (prefix now reads `__instance.Camera`) |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
-| [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
+| [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now, dont-stifle-me | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
@@ -141,10 +141,16 @@ watch items, one favourable regression.**
   `ConsoleStyle.BeginGaugeHostScope`). All seven reflected fields still resolve byte-identically, but
   **layouts saved at one Hud Scale will restore wrong at another.** Stacks on the still-**open**
   rev-5201 `IsContextVisible()` gate.
-- **kitten-animations** — rev 5278 added a per-frame pose guard
-  (`AnimatedRenderable._lastPoseUpdateFrameNumber`); a forced second pose evaluation in the same frame
-  is now dropped. First concrete mechanism found for the standing *"always the same expression"*
-  entry in [`../ISSUES.md`](../ISSUES.md).
+- **kitten-animations** — **reworked 2026-08-23; root cause found and fixed, live pass still wanted.**
+  The rev-5278 per-frame pose guard (`AnimatedRenderable._lastPoseUpdateFrameNumber`) turned out to be
+  benign. The real defect behind *"always the same expression"* was that the mod wrote
+  `ExpressionWeight` to `KittenRenderable._catExpressionAnim` — the reactive face, whose weight
+  `UpdateRenderData` damps from vehicle acceleration every frame right before the pose is sampled — so
+  only the permanent personality mood face ever showed. The mod now appends **its own**
+  `CatExpressionAnim` and merely *caps* the reactive one. Same pass: the full ground locomotion set
+  (walk/run/jump/land/tumble/ladder/moonwalk/swim/seated) is now exposed, held against the game by a
+  Harmony prefix on `AnimatedRenderable.UpdateAnimation`. See
+  [`character-and-materials.md`](character-and-materials.md) and [`../ISSUES.md`](../ISSUES.md).
 - **thug-life** — everything it binds to is intact, but rev 5315 moved the game to **Vulkan 1.4** and
   rev 5283 added **UI coverage culling**. Neither can be cleared from source.
 
@@ -191,7 +197,7 @@ watch items, one favourable regression.**
 - **unscience never wires `IvaForceRender.Patch`** — ❌ still open.
 
 **Not cleared statically — a live in-game pass is still required** for con-man's HUD scaling,
-kitten-animations' expressions, thug-life under Vulkan 1.4 + UI culling, blinky's grid timing and
+kitten-animations' reworked expressions and clip override, thug-life under Vulkan 1.4 + UI culling, blinky's grid timing and
 default part, parts-now against the new load-time part validation (rev 5340), doh's MMU attachment
 after its `AnimatedRenderable` retype, and the `ISSUES.md` error spam under the rewritten physics
 bubbles. A green `dotnet build` does not cover these, and there is no test suite in this repo.

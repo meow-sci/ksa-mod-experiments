@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
+using MeowSci.KittenAnimationsLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.KittenAnimations;
@@ -16,7 +17,11 @@ internal static class Patcher
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            if (_harmony != null)
+            {
+                HotkeyGuard.Patch(_harmony);
+                KittenAnimationPatches.Apply(_harmony);
+            }
         }
         catch (Exception ex)
         {
@@ -28,7 +33,11 @@ internal static class Patcher
     {
         try
         {
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            if (_harmony != null)
+            {
+                KittenAnimationPatches.Remove(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony?.UnpatchAll("kitten-animations");
             _harmony = null;
         }

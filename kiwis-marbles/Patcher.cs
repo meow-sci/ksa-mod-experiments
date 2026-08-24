@@ -3,6 +3,7 @@ using HarmonyLib;
 using Brutal.Numerics;
 using KSA;
 using MeowSci.KsaAbstractions;
+using MeowSci.KiwisMarblesLib;
 
 namespace MeowSci.KiwisMarbles;
 
@@ -16,7 +17,11 @@ internal static class Patcher
         try
         {
             _harmony?.PatchAll(typeof(Patcher).Assembly);
-            if (_harmony != null) HotkeyGuard.Patch(_harmony);
+            if (_harmony != null)
+            {
+                HotkeyGuard.Patch(_harmony);
+                KiwisMarblesPatches.Apply(_harmony);
+            }
         }
         catch (Exception ex)
         {
@@ -28,7 +33,11 @@ internal static class Patcher
     {
         try
         {
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            if (_harmony != null)
+            {
+                KiwisMarblesPatches.Remove(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony?.UnpatchAll("kiwis-marbles");
             _harmony = null;
         }

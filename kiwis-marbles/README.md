@@ -4,7 +4,7 @@ A KSA mod for repositioning celestial bodies (planets, moons) by "welding" them 
 
 ## Overview
 
-Kiwi's Marbles lets you attach a planet or moon to any orbiter (another celestial body or vehicle). Once welded, the source body is teleported on every game tick to maintain its position relative to the target — effectively overriding physics for that body. Multiple welds are supported and processed in dependency order via topological sort.
+Kiwi's Marbles lets you attach a planet or moon to any orbiter (another celestial body or vehicle). Once welded, the source body's orbit is rewritten on every sim step to maintain its position relative to the target — effectively overriding physics for that body. Multiple welds are supported and processed in dependency order via topological sort.
 
 Toggle the window with **F9**.
 
@@ -38,17 +38,38 @@ Toggle the window with **F9**.
 
 | Component | Purpose |
 |-----------|---------|
-| `kiwis-marbles/Mod.cs` | ImGui UI: create/manage welds, per-frame update loop |
-| `kiwis-marbles.lib/CelestialWeldEntry.cs` | Data class: Source (Celestial), Target (IOrbiter), Offset (double3) |
-| `kiwis-marbles.lib/CelestialWeldEngine.cs` | Per-frame repositioning via `SetOrbit` + `UpdatePerFrameData`; topological sort |
+| `kiwis-marbles/Mod.cs` | StarMap entry: window toggle (F9), ImGui host, applies `Patcher` |
+| `kiwis-marbles/Patcher.cs` | Harmony instance: `HotkeyGuard` + `KiwisMarblesPatches` |
+| `kiwis-marbles.lib/KiwisMarblesSubmod.cs` | `ISubmod` UI + weld list; `UpdateBeforeVehicleSolvers()` runs welds and deferred unweld restores |
+| `kiwis-marbles.lib/KiwisMarblesPatches.cs` | Harmony prefix on `Universe.ExecuteNextVehicleSolvers` → `KiwisMarblesSubmod.Instance.UpdateBeforeVehicleSolvers()` |
+| `kiwis-marbles.lib/CelestialWeldEntry.cs` | Data class: Source (Celestial), Target (IOrbiter), Offset (double3), OriginalOrbit |
+| `kiwis-marbles.lib/CelestialWeldEngine.cs` | Per-step repositioning via `SetOrbit` + explicit re-parenting + `UpdatePerFrameDataTree`; topological sort |
 | `ksa-abstractions.lib/CelestialProvider.cs` | `GetAllCelestials()` and `GetAllOrbiters()` from `Universe.CurrentSystem` |
+
+## Timing: why the weld runs from a solver prefix
+
+Since the 2026.8 builds KSA propagates every `Celestial` on worker threads: `Universe.ExecuteNextOrbitSolvers`
+queues a `CelestialUpdateTask` per body (it snapshots `Celestial.Orbit` and computes the state vectors at the
+next sim time), and the next frame's `Program.PrepareFrame` does `JobSystems.OrbitSolvers.Wait()` →
+`Universe.ApplyOrbitSolvers()` (`Orbit.UpdatePosition(newState)`) → `Universe.ApplyVehicleSolvers()` (which ends
+with `CelestialSystem.UpdatePerFrameData()`) → `ExecuteNextVehicleSolvers` → `ExecuteNextOrbitSolvers`.
+
+Mutating a celestial from the StarMap render hooks (`[StarMapBeforeGui]`, the old approach) therefore both
+races a worker that may be reading `Orbit` and gets its result overwritten by the staged propagation. The one
+safe main-thread window is between the Apply calls and the next Execute calls, which is exactly where a
+`Priority.First` prefix on `Universe.ExecuteNextVehicleSolvers` lands (the same hook eternal-flame, flexo and
+kitchen-sink use). In that window all target positions (celestial or vehicle) are current, no job is in flight,
+and the welded orbit is what the next `CelestialUpdateTask` propagates. `ISubmod.Update(dt)` is intentionally
+a no-op; unweld restores are queued and applied in the same window.
 
 ## Key Game APIs
 
-- `Celestial.SetOrbit(Orbit)` — replaces orbit and auto-re-parents via `SetParent()`
-- `Celestial.UpdatePerFrameData()` — refreshes cached CCI/CCE position and transform data
-- `Orbit.CreateFromStateCci(parent, time, posCci, velCci, color)` — creates new orbit from state vectors
-- `CelestialSystem.All.GetList()` — returns all `Astronomical` objects (filter with `OfType<Celestial>()`)
+- `Universe.ExecuteNextVehicleSolvers(double, SimStep)` — Harmony prefix target (per-sim-step, main thread)
+- `Celestial.SetOrbit(Orbit)` — bare `Orbit = newOrbit`; `Celestial.Parent` follows `Orbit.Parent`, but **nothing re-parents** `IParentBody.Children`, so the engine moves the body between the old/new parent's `Children` lists itself
+- `IParentBody.UpdatePerFrameDataTree()` — refreshes cached CCI/CCE/ECL data for the body and its whole subtree after the swap
+- `Orbit.CreateFromStateCci(parent, UniverseTime, posCci, velCci, color)` — creates new orbit from state vectors
+- `IOrbiter.GetPositionCci()` / `GetVelocityCci()` — target state read (fresh, since solver results were just applied)
+- `CelestialSystem.All` — all `Astronomical` objects (filter with `OfType<Celestial>()`)
 
 ## Notes
 

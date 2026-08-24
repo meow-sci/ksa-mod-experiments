@@ -26,9 +26,21 @@ user-set CCI offset relative to any `IOrbiter` (*target*; celestial or vehicle).
 `SetOrbit` when the target sits under a different parent. Multiple welds are processed in dependency order
 (Kahn topological sort) so weld chains (Moon→Earth→Mars) resolve correctly.
 
-**Unscience integration** — Standalone StarMap mod hosting `KiwisMarblesSubmod : ISubmod`. Per-frame
-`Update(dt)` (driven from `[StarMapBeforeGui]`) calls `CelestialWeldEngine.UpdateWeld` for each weld.
-Discovers bodies through `CelestialProvider` (abstractions). Stateless math in `CelestialWeldEngine`.
+**Unscience integration** — Standalone StarMap mod hosting `KiwisMarblesSubmod : ISubmod` (also bundled in
+the unscience toolbox). Weld application is driven by `KiwisMarblesPatches`, a `Priority.First` Harmony prefix
+on `Universe.ExecuteNextVehicleSolvers` → `KiwisMarblesSubmod.Instance.UpdateBeforeVehicleSolvers()`, which
+calls `CelestialWeldEngine.UpdateWeld` per weld and applies deferred unweld restores. `ISubmod.Update(dt)`
+(`[StarMapBeforeGui]`) is a deliberate no-op — see *Timing* below. Discovers bodies through
+`CelestialProvider` (abstractions). Stateless math in `CelestialWeldEngine`.
+
+**Timing (why the solver prefix)** — Since 2026.8.x `Celestial`s are propagated by `CelestialUpdateTask`
+jobs on `JobSystems.OrbitSolvers` worker threads: `Universe.ExecuteNextOrbitSolvers` queues one per body
+(snapshots `Celestial.Orbit`, computes `GetStateVectorsAt(simStep.NextTime)`); next frame
+`Program.PrepareFrame` does `OrbitSolvers.Wait()` → `Universe.ApplyOrbitSolvers()` (`Orbit.UpdatePosition`) →
+`Universe.ApplyVehicleSolvers()` (ends in `CelestialSystem.UpdatePerFrameData()`) → `ExecuteNextVehicleSolvers`
+→ `ExecuteNextOrbitSolvers`. Mutating `Orbit` from a render-loop hook races the worker and is overwritten by
+the staged result (the pre-fix symptom: welds had no visible effect). The prefix runs in the only safe window:
+main thread, solvers drained, results applied, next step not yet queued, all target positions current.
 
 **UI/hotkeys** — **F9** toggles the window (`Mod.cs:51`). ImGui (Brutal.ImGuiApi): filterable Source/Target
 combos, `DragFloat3` offset + unit combo (m/km/Mm/Gm), per-weld live offset editor with a surface/lat-lon mode,
@@ -39,8 +51,10 @@ body on unweld; welds are lost on reload (README §Notes).
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed | `CelestialWeldEngine.cs:39`, `KiwisMarblesSubmod.cs:437` | `Celestial.SetOrbit(Orbit newOrbit)` | `Celestial.cs:139` | Yes | Same (OLD `:132`) | Core re-parent + reposition. Auto-reparents internally. |
-| 2 | Direct typed | `CelestialWeldEngine.cs:40`, `KiwisMarblesSubmod.cs:438` | `Celestial.UpdatePerFrameData() : void` (override) | `Celestial.cs:509` | Yes | Same (OLD `:439`) | Refreshes cached CCI/CCE transforms after SetOrbit. |
+| 1 | Direct typed | `CelestialWeldEngine.ApplyOrbit` | `Celestial.SetOrbit(Orbit newOrbit)` | `Celestial.cs:153` | Yes | Same | Bare `Orbit = newOrbit`. Does **not** touch `Children` (never did — earlier "auto-reparents" note was wrong); engine re-parents explicitly (#2b). |
+| 2 | Direct typed | `CelestialWeldEngine.ApplyOrbit` | `IParentBody.UpdatePerFrameDataTree() : void` (default interface method) | `IParentBody.cs:110` | Yes | Same | Refreshes cached CCI/CCE/ECL data for the body + its subtree after the swap (replaces the old bare `UpdatePerFrameData()` call). |
+| 2b | Direct typed | `CelestialWeldEngine.Reparent` | `IParentBody.Children : List<IOrbiter>`; `Orbit.Parent : IParentBody`; `Celestial.Parent => Orbit.Parent` | `IParentBody.cs:27`; `Orbit.cs:1186`; `Celestial.cs:73` | Yes | Same | Cross-parent weld/restore moves the body between old/new parent lists (drives `UpdatePerFrameDataTree` order + orbit-tree UI). |
+| 2c | Harmony prefix (`Priority.First`) | `KiwisMarblesPatches.cs` (`AccessTools.Method` by name) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | `Universe.cs:1775` | Yes | Same | Sim-step driver for all weld work. Shared keystone with eternal-flame/flexo/kitchen-sink; single overload so by-name lookup is safe. Sequence dependency: must stay *after* `ApplyOrbitSolvers`/`ApplyVehicleSolvers` and *before* `ExecuteNextOrbitSolvers` in `Program.PrepareFrame` (`Program.cs:2011-2048`). |
 | 3 | Direct typed | `CelestialWeldEngine.cs:31` | `Orbit.CreateFromStateCci(IParentBody, SimTime, double3, double3, byte4) : Orbit` (static) | `Orbit.cs:1396` | Yes | **Identical sig** (OLD `:1379`) | 5-arg state-vector → orbit. Arg types must stay (IParentBody/SimTime/double3/double3/byte4). |
 | 4 | Direct typed | `CelestialWeldEngine.cs:36` | `Celestial.OrbitColor : byte4 { get; protected set; }` (via IOrbiter) | `Celestial.cs:63`; `IOrbiter.cs:24` | Yes | Same (OLD `:58`) | Passed as orbit line color to #3. |
 | 5 | Direct typed | `CelestialWeldEngine.cs:21,26` | `IOrbiter.Parent : IParentBody { get; }` (= `Orbit.Parent`) | `IOrbiter.cs:18` | Yes | Same | Null-checked before weld. |
@@ -222,7 +236,14 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
   (`Part.cs:678`), `PowerConsumerTemplate.LightSwitch`, `SolarPanel` and
   `KeyframeAnimationModule.TimeGoal` are all present; `SolarPanel.cs` and `KeyframeAnimationModule.cs`
   diff only by `Parent` → `base.Parent` cosmetics.
-- ✅ **kiwis-marbles clean.** `Celestial.SetOrbit(Orbit)` and `Celestial.UpdatePerFrameData` are unchanged,
+- ✅ **kiwis-marbles FIXED (2026-08-23) — was silently broken at runtime, not by a symbol change.** Every
+  typed member still compiled, but the mod applied welds from `[StarMapBeforeGui]`, which the 2026.8.x
+  job-based celestial propagation (`CelestialUpdateTask` on `JobSystems.OrbitSolvers`, applied by
+  `Universe.ApplyOrbitSolvers`) overwrites every frame. Weld work now runs from a `Priority.First` prefix on
+  `Universe.ExecuteNextVehicleSolvers` (rows #2c), the engine re-parents `Children` explicitly (#2b) and
+  refreshes via `UpdatePerFrameDataTree` (#2). Watchlist for future builds: the `PrepareFrame` ordering
+  (Wait → Apply → ExecuteNext) and `SetOrbit` remaining a bare setter.
+  `Celestial.SetOrbit(Orbit)` and `Celestial.UpdatePerFrameData` are unchanged,
   and the CCI reads are safe: rev 5280's `CelestialFrameMath` extraction preserved every
   `GetCcf2Cci`/`GetCci2Ccf`/`GetCci2Cce`/`GetCce2Cci` signature and its semantics.
   `Universe.CurrentSystem` → `CelestialSystem.All` → `LookupCollection<T>.UnsafeAsList()` is unchanged.

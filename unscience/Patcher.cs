@@ -10,7 +10,9 @@ using MeowSci.GarrysTorchLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.ItsSoShinyLib;
+using MeowSci.KittenAnimationsLib;
 using MeowSci.KsaAbstractions;
+using MeowSci.KiwisMarblesLib;
 using MeowSci.FlexoLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
@@ -55,6 +57,7 @@ internal static class Patcher
             CameraControllerOverridePatches.Apply(_harmony!);
         });
         TryApply("eternal-flame", () => EternalFlamePatches.Apply(_harmony!));
+        TryApply("kiwis-marbles", () => KiwisMarblesPatches.Apply(_harmony!));
         // garrys-torch no longer registers a Harmony patch — its weld physics
         // runs from unscience/Mod.cs OnAfterUi via GarrysTorchSubmod.UpdateWelds,
         // which internally calls JobSystems.VehicleSolvers.Wait() to avoid the
@@ -66,6 +69,7 @@ internal static class Patcher
         TryApply("flexo", () => FlexoPatches.Apply(_harmony!));
         TryApply("iva-force-render", () => IvaForceRender.Patch(_harmony!));
         TryApply("dont-stifle-me", () => EditorScalePatches.Apply(_harmony!));
+        TryApply("kitten-animations", () => KittenAnimationPatches.Apply(_harmony!));
         Console.WriteLine("unscience: Harmony patches applied");
     }
 
@@ -93,6 +97,7 @@ internal static class Patcher
                 TryRemove("its-so-shiny", () => ShinyPatches.Remove(_harmony!));
                 TryRemove("camera-controller-override", () => CameraControllerOverridePatches.Remove(_harmony!));
                 TryRemove("eternal-flame", () => EternalFlamePatches.Remove(_harmony!));
+                TryRemove("kiwis-marbles", () => KiwisMarblesPatches.Remove(_harmony!));
                 TryRemove("glass", () => GlassPatches.Remove(_harmony!));
                 TryRemove("i-feel-seen", () => IFeelSeenPatches.Remove(_harmony!));
                 TryRemove("engine-emissive", () => EngineEmissivePatches.Remove(_harmony!));
@@ -101,6 +106,7 @@ internal static class Patcher
                 TryRemove("vehicle-paint", () => VehiclePaintPatches.Remove(_harmony!));
                 TryRemove("thug-life", () => ThugLifeRenderPatches.Remove(_harmony!));
                 TryRemove("iva-force-render", () => IvaForceRender.Unpatch(_harmony!));
+                TryRemove("kitten-animations", () => KittenAnimationPatches.Remove(_harmony!));
             }
             VehiclePaint.Cleanup();
             EngineEmissive.Cleanup();

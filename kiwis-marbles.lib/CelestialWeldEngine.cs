@@ -6,7 +6,18 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.KiwisMarblesLib;
 
-/// <summary>Stateless engine for celestial body weld computation.</summary>
+/// <summary>
+/// Stateless engine for celestial body weld computation.
+/// </summary>
+/// <remarks>
+/// Timing contract (KSA 2026.8.x sim-step model): every method that mutates a celestial MUST run on the
+/// main thread inside the window opened by <c>Program.PrepareFrame</c> after
+/// <c>JobSystems.OrbitSolvers.Wait()</c> / <c>Universe.ApplyOrbitSolvers()</c> and before
+/// <c>Universe.ExecuteNextOrbitSolvers()</c> queues the next <c>CelestialUpdateTask</c>s. Outside that
+/// window a worker thread may be reading <c>Celestial.Orbit</c>, and the results it stages are written
+/// back over whatever orbit is current, undoing the weld. <see cref="KiwisMarblesPatches"/> supplies
+/// that window via a prefix on <c>Universe.ExecuteNextVehicleSolvers</c>.
+/// </remarks>
 public static class CelestialWeldEngine
 {
     /// <summary>
@@ -36,9 +47,51 @@ public static class CelestialWeldEngine
             entry.Source.OrbitColor
         );
 
-        entry.Source.SetOrbit(newOrbit);
-        entry.Source.UpdatePerFrameData();
+        ApplyOrbit(entry.Source, newOrbit);
         return true;
+    }
+
+    /// <summary>Puts the source back on the orbit captured at weld time (no-op if none was captured).</summary>
+    public static void RestoreOrbit(CelestialWeldEntry entry)
+    {
+        if (entry.Source == null || entry.OriginalOrbit == null)
+            return;
+
+        ApplyOrbit(entry.Source, entry.OriginalOrbit);
+    }
+
+    /// <summary>
+    /// Swaps a celestial onto <paramref name="newOrbit"/>, fixing up the parent/child tree and refreshing
+    /// the cached per-frame transforms of the body and everything orbiting it.
+    /// </summary>
+    /// <remarks>
+    /// <c>Celestial.SetOrbit</c> is a bare property assignment: <c>Celestial.Parent</c> follows
+    /// <c>Orbit.Parent</c> automatically, but the parents' <c>Children</c> lists (which drive
+    /// <c>IParentBody.UpdatePerFrameDataTree</c> ordering and the orbit-tree UI) are not touched, so a
+    /// cross-parent weld has to move the body between lists itself.
+    /// </remarks>
+    private static void ApplyOrbit(Celestial body, Orbit newOrbit)
+    {
+        IParentBody? oldParent = body.Parent;
+        IParentBody? newParent = newOrbit.Parent;
+
+        body.SetOrbit(newOrbit);
+
+        if (!ReferenceEquals(oldParent, newParent))
+            Reparent(body, oldParent, newParent);
+
+        // Refresh the body and its whole subtree (moons, vehicles) so anything sampling positions later
+        // this frame sees the welded state rather than the propagated one.
+        ((IParentBody)body).UpdatePerFrameDataTree();
+    }
+
+    private static void Reparent(Celestial body, IParentBody? oldParent, IParentBody? newParent)
+    {
+        oldParent?.Children.Remove(body);
+        if (newParent != null && !newParent.Children.Contains(body))
+            newParent.Children.Add(body);
+
+        Console.WriteLine($"kiwis-marbles: re-parented {body.Id}: {oldParent?.Id ?? "none"} -> {newParent?.Id ?? "none"}");
     }
 
     /// <summary>

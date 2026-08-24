@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +34,10 @@
     </Reference>
     <Reference Include="Brutal.Core.Strings" Condition="Exists('$(KSAFolder)Brutal.Core.Strings.dll')">
       <HintPath>$(KSAFolder)Brutal.Core.Strings.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Planet.Core" Condition="Exists('$(KSAFolder)Planet.Core.dll')">
+      <HintPath>$(KSAFolder)Planet.Core.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')">

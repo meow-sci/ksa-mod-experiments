@@ -50,14 +50,14 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - **Safe update API**: `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` performs animation and weld teleports; ordinary `ISubmod.Update(dt)` is intentionally non-mutating for weld physics
 
 ### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
-Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, updating it every game tick.
+Celestial body welding mod. Repositions planets and moons by welding them to follow other celestial bodies or vehicles at user-defined offsets. Bypasses physics for the source body, rewriting its orbit once per sim step from a Harmony prefix on `Universe.ExecuteNextVehicleSolvers` (after the orbit/vehicle solver results are applied, before the next step is queued).
 - Weld any planet or moon to any orbiter (celestial or vehicle)
 - CCI-frame offset input with unit scale selector (m / km / Mm / Gm)
 - Live offset editing per active weld
-- Cross-parent welding via `Celestial.SetOrbit()` auto-reparenting
+- Cross-parent welding: `Celestial.SetOrbit()` + explicit `IParentBody.Children` re-parenting
 - Multiple welds with topological sort for correct weld chain ordering
 - ImGui control panel (F9 toggle)
-- **kiwis-marbles.lib**: `CelestialWeldEntry` (Source/Target/Offset) and `CelestialWeldEngine` (per-frame repositioning + Kahn's topological sort)
+- **kiwis-marbles.lib**: `CelestialWeldEntry` (Source/Target/Offset/OriginalOrbit), `CelestialWeldEngine` (per-step repositioning, re-parenting, subtree refresh, Kahn's topological sort), `KiwisMarblesPatches` (solver-step Harmony hook shared by the standalone mod and unscience)
 
 ### [zippo](zippo) / [zippo.lib](zippo.lib)
 Light control and animation system. Selects vehicles and light parts, then controls their intensity and color using the full XKCD color palette. Supports queued single-step animations that interpolate both color and intensity with configurable easing.
@@ -183,13 +183,16 @@ Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-i
 - **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
-Kitten avatar animation controller. Manages MMU body animations, facial expressions, and walking animations for the kitten avatar character with smooth ease-in transitions.
-- 7 MMU body movement animations (idle, move in 6 directions)
-- 5 facial expressions (angry, awe, happy, sad, scared) with configurable duration (1–5s)
-- 2 walking animations (running, walking)
-- Smooth 250ms quadratic ease-in for expression weight blending
-- Clears KSA's cached `CatExpressionAnim` pose when switching expression assets so each expression triggers independently on current game builds
-- **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — owns KittenAnimationController and all animation UI in RenderContent), `KittenAnimationController` (expression state + timers + playback), `KittenAvatarAccessor` (reflection-based avatar access)
+Kitten avatar animation controller. Plays every animation the game has loaded for the controlled kitten, triggers facial expressions, and exposes the blend weights and locomotion tuning that decide how hard each animation lands.
+- Full ground/EVA locomotion set: idle, walk, run, jump, jump land, tumble/flail, ladder, moon walk, moon run, swim, swim idle, seated idle + seated idle actions
+- Full MMU set: idle default, idle actions, six directional loops, arm retract
+- Live blend samplers (walk/moonwalk, run/moonrun, swim pair, MMU directional) and overlay poses (blink, ear/helmet mask)
+- Harmony prefix on `AnimatedRenderable.UpdateAnimation` so a forced clip survives the game's per-frame clip selection; blend time, playback-rate multiplier, freeze and restart
+- 5 facial expressions (angry, awe, happy, sad, scared) with variant selection, strength, ease-in/hold/ease-out or latch — driven through a `CatExpressionAnim` the mod owns, because the game rewrites its own expression weight every frame from vehicle acceleration
+- Animation strength knobs: ear motion weight, eye look angle, eye pitch offset, personality mood-face weight, reactive-face cap
+- Animation-facing slice of `KittenLocomotionTuning.Current` (blend time, playback-rate clamps, nominal clip speeds, moonwalk/swim ramps, jump-land timing) with a scoped reset
+- Live readout: locomotion mode, control mode, ground speed, gravity, jump-chain stage, game playback rate, blend weights
+- **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — binds the kitten and renders all sections), `KittenAnimationCatalog` (discovers every loaded clip; ground set lives in private `KittenRenderable` fields), `KittenAnimProcessors` (typed handles on the game's four anim processors), `KittenExpressionController` (mod-owned `CatExpressionAnim` + envelope), `KittenAnimationDriver` (override state applied from the pose prefix), `KittenAnimationPatches` (Harmony), `KittenAvatarAccessor` (kitten/renderable/avatar access), `Ui/` (Playback, AnimationLibrary, Expression, Strength, Tuning sections)
 
 ### [byo-music](byo-music) / [byo-music.lib](byo-music.lib)
 Bring Your Own Music - Custom music player. Plays audio playlists from defined assets (e.g., SabotageMusic playlist).

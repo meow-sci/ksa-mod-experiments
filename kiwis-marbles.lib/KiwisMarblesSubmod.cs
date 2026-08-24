@@ -12,7 +12,13 @@ public sealed class KiwisMarblesSubmod : ISubmod
     public string Name => "Kiwi's Marbles - Destroyer of Worlds";
     public string Tooltip => "Weld celestials onto one another.  For science.";
 
+    /// <summary>Set by <see cref="Initialize"/>; read by <see cref="KiwisMarblesPatches"/>'s solver prefix.</summary>
+    public static KiwisMarblesSubmod? Instance { get; private set; }
+
     private readonly List<CelestialWeldEntry> _welds = new();
+
+    /// <summary>Welds removed from the UI whose orbit restore must wait for the next solver-safe window.</summary>
+    private readonly List<CelestialWeldEntry> _pendingRestores = new();
     private int _pendingSourceIndex;
     private int _pendingTargetIndex;
     private float3 _pendingOffset = new(0f, 0f, 0f);
@@ -26,15 +32,57 @@ public sealed class KiwisMarblesSubmod : ISubmod
     private static readonly string[] OffsetScaleLabels = { "m", "km", "Mm", "Gm" };
     private static readonly double[] OffsetScaleFactors = { 1.0, 1_000.0, 1_000_000.0, 1_000_000_000.0 };
 
-    public void Initialize() { }
-
-    public void Update(double dt)
+    public void Initialize()
     {
-        var toRemove = new List<CelestialWeldEntry>();
+        Instance = this;
+    }
+
+    /// <summary>
+    /// Render-loop tick. Intentionally empty: celestial mutation from here races the orbit-solver
+    /// workers and gets overwritten by their staged results. All weld work happens in
+    /// <see cref="UpdateBeforeVehicleSolvers"/>, driven by <see cref="KiwisMarblesPatches"/>.
+    /// </summary>
+    public void Update(double dt) { }
+
+    /// <summary>
+    /// Applies pending orbit restores and every active weld. Must be called from the
+    /// <c>Universe.ExecuteNextVehicleSolvers</c> prefix (main thread, solvers drained, results applied,
+    /// next sim step not yet queued) — see <see cref="CelestialWeldEngine"/> for the timing contract.
+    /// </summary>
+    public void UpdateBeforeVehicleSolvers()
+    {
+        if (_pendingRestores.Count > 0)
+        {
+            foreach (var entry in _pendingRestores)
+                TryRestoreOrbit(entry);
+            _pendingRestores.Clear();
+        }
+
+        if (_welds.Count == 0) return;
+
+        List<CelestialWeldEntry>? toRemove = null;
         foreach (var weld in _welds)
-            if (!CelestialWeldEngine.UpdateWeld(weld)) toRemove.Add(weld);
+        {
+            if (!CelestialWeldEngine.UpdateWeld(weld))
+                (toRemove ??= new List<CelestialWeldEntry>()).Add(weld);
+        }
+
+        if (toRemove == null) return;
         foreach (var weld in toRemove)
             RemoveWeld(weld);
+    }
+
+    private static void TryRestoreOrbit(CelestialWeldEntry entry)
+    {
+        try
+        {
+            CelestialWeldEngine.RestoreOrbit(entry);
+            Console.WriteLine($"unscience/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"unscience/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+        }
     }
 
     public void RenderContent()
@@ -405,7 +453,20 @@ public sealed class KiwisMarblesSubmod : ISubmod
         ImGui.PopID();
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        // Best-effort restore on unload: the solver prefix is being removed, so there is no later safe
+        // window. Hosts call this from [StarMapUnload] on the main thread.
+        foreach (var weld in _welds)
+            if (weld.OriginalOrbit != null) TryRestoreOrbit(weld);
+        foreach (var entry in _pendingRestores)
+            TryRestoreOrbit(entry);
+        _welds.Clear();
+        _pendingRestores.Clear();
+
+        if (ReferenceEquals(Instance, this))
+            Instance = null;
+    }
 
     private void InitiateWeld(Celestial source, IOrbiter target, double3 offset)
     {
@@ -430,19 +491,10 @@ public sealed class KiwisMarblesSubmod : ISubmod
         int idx = _welds.IndexOf(entry);
         _welds.Remove(entry);
 
+        // Restore is deferred to the solver-safe window (UpdateBeforeVehicleSolvers); doing it here
+        // (render loop) would race the in-flight CelestialUpdateTask for this body.
         if (entry.OriginalOrbit != null)
-        {
-            try
-            {
-                entry.Source.SetOrbit(entry.OriginalOrbit);
-                entry.Source.UpdatePerFrameData();
-                Console.WriteLine($"unscience/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"unscience/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
-            }
-        }
+            _pendingRestores.Add(entry);
 
         _weldEditState.Remove(idx);
         var shifted = new Dictionary<int, (float3, int)>();
