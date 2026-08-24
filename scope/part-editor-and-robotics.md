@@ -46,37 +46,44 @@ Two of its game touchpoints live on in other mods and remain catalogued below:
 ### Purpose
 Undoes two editor restrictions introduced in `2026.8.22.5348`: the **0.5x–2.0x** top-level part
 scale clamp (`VehicleEditor.MINIMUM_SCALE` / `MAXIMUM_SCALE`, surfaced through `ScaleBoundsFor`) and
-**uniform-only** scale-gizmo drags (`UpdateSelectedScale` writes `new double3(s, s, s)`). Runtime
-toggles in `EditorScaleSettings`; patches are installed once and gate themselves per call.
+**uniform-only** scale-gizmo drags (`UpdateSelectedScale` writes `new double3(s, s, s)`), and can
+bypass the 0.25 m diameter **snapping** (`QuantizeScale`). Runtime toggles in `EditorScaleSettings`
+(`Enabled`, `Snap`); patches are installed once and gate themselves per call.
 
 ### Unscience integration
 - `DontStifleMeSubmod : ISubmod` (`dont-stifle-me.lib/DontStifleMeSubmod.cs`).
-- `dont-stifle-me/Patcher.cs` applies `HotkeyGuard.Patch` then `EditorScalePatches.Apply(_harmony)`;
-  `unscience/Patcher.cs` does the same under `TryApply("dont-stifle-me", …)` / `TryRemove`.
+- `dont-stifle-me/Patcher.cs` applies `HotkeyGuard.Patch`, `EditorScalePatches.Apply(_harmony)` and
+  `MenuBarPatch.Apply(_harmony)`; `unscience/Patcher.cs` applies only `EditorScalePatches` under
+  `TryApply("dont-stifle-me", …)` / `TryRemove` (the supermod has its own menu entry).
 
 ### UI / hotkeys
-- F11 toggle (standalone). Three checkboxes: master, remove clamp, per-axis scaling.
+- Standalone: **"Don't Stifle Me"** top-level menu (`Enabled`, `Snap scaling` checkboxes) drawn
+  from a postfix on `Program.DrawProgramMenusHook` — the same hook unscience's `MenuBarPatch` uses.
+  No window, no hotkey.
 
 ### Persistence
 - None (in-memory toggles, all default on).
 
 ### Integration points
 
-All three patch targets and both helper delegates are resolved by **name string** via
+All four patch targets and both helper delegates are resolved by **name string** via
 `AccessTools.Method` (`EditorScalePatches.cs:16-20`), so a rename fails at `Apply()` (logged +
 red notice in the UI), not at compile time. Every one is also listed in
 [`game-integration-surface.md`](game-integration-surface.md) §4.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Harmony (postfix, by-name) | `EditorScalePatches.cs:53,82` | `VehicleEditor.ScaleBoundsFor(Part)` **private static `(double Min, double Max)`** | `KSA/VehicleEditor.cs:3877` | ✅ | **NEW @5348** (did not exist in 5261) | Postfix rewrites `__result` to `(1e-6, +inf)`. Return type is `ValueTuple<double,double>` — a change to a struct/record breaks the `ref __result` binding at patch time. Consumers: `UpdateSelectedScale:3863`, `QuantizeScale:3915`. |
-| 2 | Harmony (prefix, by-name) | `EditorScalePatches.cs:55,101` | `VehicleEditor.UpdateSelectedScale(ref readonly double4x4 matrixVehicleAsmb2Ego, Viewport inViewport)` **private void** | `KSA/VehicleEditor.cs:3841` | ✅ | **NEW @5348** (5261 did the drag inline in `UpdateGizmos`) | Prefix param `ref double4x4 matrixVehicleAsmb2Ego` binds to the `ref readonly` original **by name** — parameter rename = patch failure. Returns `false` to skip stock. |
-| 3 | Harmony (postfix, by-name) | `EditorScalePatches.cs:57,90` | `VehicleEditor.UpdateScaleGizmo(ref readonly double4x4, doubleQuat, Viewport, double)` **public void** | `KSA/VehicleEditor.cs:3614` | ✅ | none (OLD `:1061`) | Only `__instance` injected; reads `GizmoGrabbed` to end the per-axis drag session. Single overload assumed. |
-| 4 | Reflection (private static → delegate) | `EditorScalePatches.cs:46,50` | `VehicleEditor.QuantizeScale(Part, double) : double` | `KSA/VehicleEditor.cs:3907` | ✅ | **NEW @5348** | `AccessTools.MethodDelegate<Func<Part,double,double>>`. Keeps the 0.25 m diameter snap (`SCALE_DIAMETER_INCREMENT_M` / `PartTemplate.FindLargestDiameter`). |
-| 5 | Reflection (private static → delegate) | `EditorScalePatches.cs:48,51` | `VehicleEditor.ForEachPartWithSymmetry(Part, Action<Part>)` | `KSA/VehicleEditor.cs:3881` | ✅ | **NEW @5348** | `AccessTools.MethodDelegate<Action<Part,Action<Part>>>`; propagates the axis scale to symmetry siblings exactly like stock. |
+| 1 | Harmony (postfix, by-name) | `EditorScalePatches.cs:56,89` | `VehicleEditor.ScaleBoundsFor(Part)` **private static `(double Min, double Max)`** | `KSA/VehicleEditor.cs:3877` | ✅ | **NEW @5348** (did not exist in 5261) | Postfix rewrites `__result` to `(1e-6, +inf)`. Return type is `ValueTuple<double,double>` — a change to a struct/record breaks the `ref __result` binding at patch time. Consumers: `UpdateSelectedScale:3863`, `QuantizeScale:3915`. |
+| 2 | Harmony (prefix, by-name) | `EditorScalePatches.cs:58,124` | `VehicleEditor.UpdateSelectedScale(ref readonly double4x4 matrixVehicleAsmb2Ego, Viewport inViewport)` **private void** | `KSA/VehicleEditor.cs:3841` | ✅ | **NEW @5348** (5261 did the drag inline in `UpdateGizmos`) | Prefix param `ref double4x4 matrixVehicleAsmb2Ego` binds to the `ref readonly` original **by name** — parameter rename = patch failure. Returns `false` to skip stock. |
+| 3 | Harmony (postfix, by-name) | `EditorScalePatches.cs:60,113` | `VehicleEditor.UpdateScaleGizmo(ref readonly double4x4, doubleQuat, Viewport, double)` **public void** | `KSA/VehicleEditor.cs:3614` | ✅ | none (OLD `:1061`) | Only `__instance` injected; reads `GizmoGrabbed` to end the per-axis drag session. Single overload assumed. |
+| 4 | Harmony (prefix, by-name) **+** delegate | `EditorScalePatches.cs:48,52,62,103` | `VehicleEditor.QuantizeScale(Part, double rawScale) : private static double` | `KSA/VehicleEditor.cs:3907` | ✅ | **NEW @5348** | Prefix: when `Snap` is off, `__result = Clamp(rawScale, ScaleBoundsFor(part))`, return false — param `rawScale` bound **by name**. Delegate (`MethodDelegate<Func<Part,double,double>>`) is what the per-axis drag calls, so it sees the prefix too. Snap-on path keeps the 0.25 m step (`SCALE_DIAMETER_INCREMENT_M` / `PartTemplate.FindLargestDiameter`). |
+| 4b | Reflection (private static → delegate) | `EditorScalePatches.cs:53` | `VehicleEditor.ScaleBoundsFor(Part)` (same target as #1) | `KSA/VehicleEditor.cs:3877` | ✅ | **NEW @5348** | `MethodDelegate<Func<Part,(double,double)>>` used by the snap-off prefix to clamp; goes through the patched body, so it returns the widened bounds. |
+| 5 | Reflection (private static → delegate) | `EditorScalePatches.cs:50,54` | `VehicleEditor.ForEachPartWithSymmetry(Part, Action<Part>)` | `KSA/VehicleEditor.cs:3881` | ✅ | **NEW @5348** | `AccessTools.MethodDelegate<Action<Part,Action<Part>>>`; propagates the axis scale to symmetry siblings exactly like stock. |
 | 6 | Typed API (editor state) | `PerAxisScaleDrag.cs:32-43` | `VehicleEditor.{Selected, HighlightedGizmoSegmentIndex, ScaleGizmo, CursorPositionScreen, CursorPositionScreenLastFrame, GizmoGrabbed}` (public fields) | `KSA/VehicleEditor.cs:551,579,573,681,683,581` | ✅ | none | Segment index → axis `0=X,1=Y,2=Z` is an **invariant of `ScaleGizmo`'s 3-segment construction** (`:1179`), not checkable by grep. |
 | 7 | Typed API (math) | `PerAxisScaleDrag.cs:36-49` | `Viewport.GetCamera()`, `Camera.ScreenToEgoNearPlane(double2)`, `GenericGizmo.GetSegmentDataByViewport(Viewport)` / `PerSegmentData.Body2Cce`, `Part.PositionEgo(in double4x4)` | `KSA/Viewport.cs`, `KSA/Camera.cs`, `KSA/GenericGizmo.cs`, `KSA/Part.cs` | ✅ | none | Mirrors stock `UpdateSelectedScale` math line-for-line; **semantic drift** in the stock routine (e.g. a different depth heuristic) would leave per-axis drags feeling different from uniform ones without any symbol change. |
 | 8 | Typed API (apply) | `PerAxisScaleDrag.cs:69-74` | `Part.Scale { get; set; }` (`double3`), `Part.RefreshScaleAndReposition()`, `Part.Tree`, `PartTree.RefreshStaticMass()` | `KSA/Part.cs:807,1526,654`, `KSA/PartTree.cs:773` | ✅ | `RefreshScaleAndReposition` **NEW @5348** | 🔶 **Standing limitation:** `Part.RefreshScale` collapses `double3` to `new ScaleFactors(max axis)` for connectors, `IRescale` modules and mass. Non-uniform parts keep a non-uniform *mesh* but uniform connector offsets. If the game ever re-derives `Part.Scale` from `ScaleFactors` (uniformizes on load/refresh), per-axis scaling silently stops sticking. |
+
+| 9 | Harmony (postfix, `nameof`) — standalone only | `dont-stifle-me/MenuBarPatch.cs:15,20` | `Program.DrawProgramMenusHook() : public void` (empty hook called inside the main menu bar) | `KSA/Program.cs:3736` (call site `:3723`) | ✅ | none | Same target as unscience's `MenuBarPatch`; draws `ImGui.BeginMenu("Don't Stifle Me")`. |
 
 ### Watch items
 - `MINIMUM_SCALE`/`MAXIMUM_SCALE` are **consts inlined** into `ScaleBoundsFor`; if a later build

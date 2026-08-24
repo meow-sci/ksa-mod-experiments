@@ -16,6 +16,7 @@ internal static class Patcher
             _harmony = new Harmony("dont-stifle-me");
             HotkeyGuard.Patch(_harmony);
             EditorScalePatches.Apply(_harmony);
+            MenuBarPatch.Apply(_harmony);
         }
         catch (Exception ex)
         {
@@ -30,6 +31,7 @@ internal static class Patcher
             if (_harmony != null)
             {
                 HotkeyGuard.Unpatch(_harmony);
+                MenuBarPatch.Remove(_harmony);
                 EditorScalePatches.Remove(_harmony);
             }
             _harmony = null;

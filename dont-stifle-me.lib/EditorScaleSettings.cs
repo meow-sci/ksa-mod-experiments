@@ -6,15 +6,19 @@ namespace MeowSci.DontStifleMeLib;
 /// </summary>
 public static class EditorScaleSettings
 {
-    /// <summary>Master switch. When false every patch is a no-op and the stock editor behaves normally.</summary>
+    /// <summary>
+    /// Master switch. When true the 0.5x–2.0x top-level part scale clamp is lifted and scale-gizmo
+    /// drags act on the dragged axis only. When false every patch is a no-op (stock editor).
+    /// </summary>
     public static bool Enabled = true;
 
-    /// <summary>Replace the stock 0.5x–2.0x top-level part scale clamp with (1e-6, +inf).</summary>
-    public static bool RemoveClamp = true;
+    /// <summary>
+    /// Keep the game's scale snapping (0.25 m diameter increments). True is the stock behavior.
+    /// Only consulted while <see cref="Enabled"/> is true.
+    /// </summary>
+    public static bool Snap = true;
 
-    /// <summary>Scale gizmo drags affect only the dragged axis (X/Y/Z) instead of all three uniformly.</summary>
-    public static bool PerAxisScaling = true;
-
-    public static bool ClampRemovalActive => Enabled && RemoveClamp;
-    public static bool PerAxisScalingActive => Enabled && PerAxisScaling;
+    public static bool ClampRemovalActive => Enabled;
+    public static bool PerAxisScalingActive => Enabled;
+    public static bool SnapDisabledActive => Enabled && !Snap;
 }

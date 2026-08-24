@@ -7,27 +7,22 @@ Removes two restrictions the KSA vehicle editor added in build `2026.8.22.5348`:
    (non-uniform) scaling is gone.
 
 With this mod enabled, both go away: any positive scale is accepted and each gizmo arrow (X / Y / Z)
-scales only its own axis, like the pre-5348 editor.
-
-## Toggle window
-
-Press **F11** to open / close the standalone window. Inside the **unscience** supermod the same
-controls appear as the **"Don't Stifle Me - Editor Scale Limits"** section.
+scales only its own axis, like the pre-5348 editor. Scale **snapping** (0.25 m diameter increments)
+can also be switched off for free, continuous scaling.
 
 ## Controls
 
-| Control | Effect |
-|---|---|
-| **Don't stifle me** (master) | Off = stock editor behavior. Flip at any time; no restart needed. |
-| Remove 0.5x-2x scale clamp | Widens the editor's scale bounds to `(1e-6, +inf)` for top-level parts. |
-| Per-axis (non-uniform) scaling | Gizmo drags change only the dragged axis. |
+Standalone: a **"Don't Stifle Me"** top-level menu in the game's main menu bar. Inside the
+**unscience** supermod the same two toggles appear as the **"Don't Stifle Me - Editor Scale
+Limits"** section (no menu is added there).
 
-All three default to **on**.
+| Control | Default | Effect |
+|---|---|---|
+| **Enabled** | on | Lifts the 0.5x–2x clamp to `(1e-6, +inf)` and makes gizmo drags per-axis. Off = stock editor. Flip at any time; no restart needed. |
+| **Snap scaling** | on (game default) | Keep the game's 0.25 m diameter snapping. Off = raw continuous drag values. Only matters while Enabled. |
 
 ## Notes / limitations
 
-- The game's **0.25 m diameter snapping** still applies (it is what makes drags feel deliberate);
-  the mod only widens the bounds it snaps within.
 - Non-uniform scale is a *visual/mesh* scale. The game now derives connector positions, mass and
   inertia from a single `ScaleFactors` value = the **largest axis**, so connectors on a part stretched
   along one axis may not sit on the mesh surface. This is a game limitation, not something the mod
@@ -37,5 +32,6 @@ All three default to **on**.
 ## How it works
 
 Core logic lives in [`dont-stifle-me.lib`](../dont-stifle-me.lib/README.md). This project is the
-standalone StarMap entry: `Patcher.cs` applies `HotkeyGuard` + `EditorScalePatches`, `Mod.cs` hosts
-the `DontStifleMeSubmod` UI in an F11 window.
+standalone StarMap entry: `Patcher.cs` applies `HotkeyGuard`, `EditorScalePatches` and
+`MenuBarPatch` (a postfix on `Program.DrawProgramMenusHook` that draws `DontStifleMeMenu`). There is
+no floating window.

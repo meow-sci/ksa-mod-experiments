@@ -24,10 +24,12 @@ public static class EditorScalePatches
     private static MethodInfo? _scaleBoundsFor;
     private static MethodInfo? _updateSelectedScale;
     private static MethodInfo? _updateScaleGizmo;
+    private static MethodInfo? _quantizeScaleMethod;
 
     // Private static game helpers reused so per-axis drags keep the stock 0.25 m diameter snapping
     // and symmetry propagation.
     private static Func<Part, double, double>? _quantizeScale;
+    private static Func<Part, (double Min, double Max)>? _scaleBoundsForDelegate;
     private static Action<Part, Action<Part>>? _forEachPartWithSymmetry;
 
     public static bool IsApplied { get; private set; }
@@ -43,11 +45,12 @@ public static class EditorScalePatches
         _updateScaleGizmo = AccessTools.Method(typeof(VehicleEditor), UpdateScaleGizmoName)
             ?? throw new MissingMethodException(nameof(VehicleEditor), UpdateScaleGizmoName);
 
-        var quantize = AccessTools.Method(typeof(VehicleEditor), QuantizeScaleName)
+        _quantizeScaleMethod = AccessTools.Method(typeof(VehicleEditor), QuantizeScaleName)
             ?? throw new MissingMethodException(nameof(VehicleEditor), QuantizeScaleName);
         var forEach = AccessTools.Method(typeof(VehicleEditor), ForEachPartWithSymmetryName)
             ?? throw new MissingMethodException(nameof(VehicleEditor), ForEachPartWithSymmetryName);
-        _quantizeScale = AccessTools.MethodDelegate<Func<Part, double, double>>(quantize);
+        _quantizeScale = AccessTools.MethodDelegate<Func<Part, double, double>>(_quantizeScaleMethod);
+        _scaleBoundsForDelegate = AccessTools.MethodDelegate<Func<Part, (double Min, double Max)>>(_scaleBoundsFor);
         _forEachPartWithSymmetry = AccessTools.MethodDelegate<Action<Part, Action<Part>>>(forEach);
 
         harmony.Patch(_scaleBoundsFor,
@@ -56,6 +59,8 @@ public static class EditorScalePatches
             prefix: new HarmonyMethod(typeof(EditorScalePatches), nameof(UpdateSelectedScalePrefix)));
         harmony.Patch(_updateScaleGizmo,
             postfix: new HarmonyMethod(typeof(EditorScalePatches), nameof(UpdateScaleGizmoPostfix)));
+        harmony.Patch(_quantizeScaleMethod,
+            prefix: new HarmonyMethod(typeof(EditorScalePatches), nameof(QuantizeScalePrefix)));
 
         IsApplied = true;
         Console.WriteLine("dont-stifle-me: editor scale patches applied");
@@ -67,8 +72,10 @@ public static class EditorScalePatches
         if (_scaleBoundsFor != null) harmony.Unpatch(_scaleBoundsFor, HarmonyPatchType.Postfix, harmony.Id);
         if (_updateSelectedScale != null) harmony.Unpatch(_updateSelectedScale, HarmonyPatchType.Prefix, harmony.Id);
         if (_updateScaleGizmo != null) harmony.Unpatch(_updateScaleGizmo, HarmonyPatchType.Postfix, harmony.Id);
-        _scaleBoundsFor = _updateSelectedScale = _updateScaleGizmo = null;
+        if (_quantizeScaleMethod != null) harmony.Unpatch(_quantizeScaleMethod, HarmonyPatchType.Prefix, harmony.Id);
+        _scaleBoundsFor = _updateSelectedScale = _updateScaleGizmo = _quantizeScaleMethod = null;
         _quantizeScale = null;
+        _scaleBoundsForDelegate = null;
         _forEachPartWithSymmetry = null;
         IsApplied = false;
     }
@@ -83,6 +90,22 @@ public static class EditorScalePatches
     {
         if (!EditorScaleSettings.ClampRemovalActive) return;
         __result = (MinimumPositiveScale, double.PositiveInfinity);
+    }
+
+    // ---- snapping ----
+
+    /// <summary>
+    /// <c>VehicleEditor.QuantizeScale(Part, double)</c> snaps a raw drag value to 0.25 m diameter
+    /// increments. With snapping disabled, pass the raw value through (still clamped to the
+    /// current, possibly widened, bounds). Both the stock uniform drag and the per-axis drag route
+    /// through this method, so one prefix covers both.
+    /// </summary>
+    private static bool QuantizeScalePrefix(Part part, double rawScale, ref double __result)
+    {
+        if (!EditorScaleSettings.SnapDisabledActive || _scaleBoundsForDelegate == null) return true;
+        var (min, max) = _scaleBoundsForDelegate(part);
+        __result = Math.Clamp(rawScale, min, max);
+        return false;
     }
 
     // ---- per-axis scaling ----

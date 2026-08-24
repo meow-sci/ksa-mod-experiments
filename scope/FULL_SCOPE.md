@@ -104,7 +104,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch, `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now, dont-stifle-me | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` (both new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | flexo, parts-now, dont-stifle-me | `PartModelRenderer.UpdateRenderData`, `Part.Asmb2ParentAsmb`, `PartTree.RecomputeStaticMass`; parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
@@ -152,7 +152,8 @@ watch items, one favourable regression.**
 - **dont-stifle-me** (new 2026-08-23) — revs in this span clamped top-level part scale to **0.5x–2x**
   and made scale-gizmo drags **uniform** (`VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale`,
   both new methods). The mod patches exactly those two (+ a per-frame `UpdateScaleGizmo` postfix) to
-  restore the 5261 freedom behind a toggle. All five targets are by-name — see
+  restore the 5261 freedom behind a toggle, plus a `QuantizeScale` prefix that can turn off the new
+  0.25 m scale snapping. All five `VehicleEditor` targets are by-name — see
   [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → dont-stifle-me. Needs a live
   editor pass; not yet verified in-game.
 

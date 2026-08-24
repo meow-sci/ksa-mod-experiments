@@ -374,10 +374,10 @@ Runtime Part / SubPart loader. Paste Part XML into a brand new mod folder, or lo
 
 ### [dont-stifle-me](dont-stifle-me) / [dont-stifle-me.lib](dont-stifle-me.lib)
 Vehicle editor un-limiter. KSA build `2026.8.22.5348` clamped top-level part scaling to 0.5x–2x and made the scale gizmo uniform across all axes; this mod restores the old freedom behind a single toggle.
-- Master **Don't stifle me** checkbox plus two sub-options (remove clamp, per-axis scaling), all default on, flip live
-- Postfix on `VehicleEditor.ScaleBoundsFor` widens bounds to `(1e-6, +inf)`; prefix on `UpdateSelectedScale` applies the drag to the dragged axis only
-- Reuses the game's private `QuantizeScale` / `ForEachPartWithSymmetry` so 0.25 m diameter snapping and symmetry still work
-- F11 window toggle standalone; bundled in unscience as a submod
+- Two toggles: **Enabled** (clamp removal + per-axis scaling, default on) and **Snap scaling** (0.25 m diameter increments, default on = game behavior); flip live
+- Postfix on `VehicleEditor.ScaleBoundsFor` widens bounds to `(1e-6, +inf)`; prefix on `UpdateSelectedScale` applies the drag to the dragged axis only; prefix on `QuantizeScale` bypasses snapping when off
+- Reuses the game's private `QuantizeScale` / `ForEachPartWithSymmetry` delegates so snapping (when on) and symmetry match stock
+- Standalone: "Don't Stifle Me" top-level menu via `Program.DrawProgramMenusHook` postfix; bundled in unscience as a submod section
 - Known limit: connectors/mass follow the largest axis (game's `ScaleFactors`), so non-uniform parts may have off-surface connectors
 
 ## Orbit & Navigation Mods
