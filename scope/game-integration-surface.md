@@ -94,6 +94,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `PhysicalAtmosphereReference.Physical.Height : DistanceReference` | direct API | `KSA/PhysicalAtmosphereReference.cs:23` | steely-eyed | `VehicleTelemetry.cs:52` | OK | |
 | `GetAtmosphericPressureAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:80` | steely-eyed | `VehicleTelemetry.cs:101` | OK | in try/catch |
 | `GetAtmosphericDensityAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:85` | steely-eyed | `VehicleTelemetry.cs:102` | OK | |
+| `PhysicalAtmosphereReference.GetAtmosphericPressure(Camera) : static double` | direct API | `KSA/PhysicalAtmosphereReference.cs:50` | pyro | `pyro.lib/PlumePhysics.cs:113` | OK @5348 | returns **atm**; pyro converts to Pa for `PlumeData` |
 
 ### KSA.Battery
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -108,6 +109,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `_fovRadians : private float` | reflection-field (PRIVATE) | `KSA/Camera.cs:47` | glass | `glass.lib/GlassPatches.cs:20,62` | OK | **single highest-risk glass check — string private field; rename = silent FOV break.** PASSED 4750 |
 | `ChangeFieldOfView(float change) : void` | Harmony pre + reflection-method (string) | `KSA/Camera.cs:418` | glass | `GlassPatches.cs:25,28` | OK | prefix returns false (skip) when override active |
 | `UpdateProjection() : void` | Harmony pre + reflection-method (string) | `KSA/Camera.cs:434` | glass | `GlassPatches.cs:26,29` | OK | injects `_fovRadians`, then original rebuilds projection |
+| `GetPositionEgo(IPosition) : double3` | direct API | `KSA/Camera.cs:231` | pyro | `pyro.lib/PlumeEmitter.cs:72` | OK @5348 | emitter position is camera-ego, like the game's nozzles |
 | `GetFieldOfView() : float` (RADIANS) | direct API | `KSA/Camera.cs:702` | glass | `glass.lib/FovController.cs:42` | OK | getter returns radians; setter takes degrees (asymmetry) |
 | `SetFieldOfView(float fovDegrees) : void` | direct API | `KSA/Camera.cs:402` | glass | `FovController.cs:55` | OK | |
 | `GetPositionEgo(IPosition) : double3` | direct API | `KSA/Camera.cs:213` | i-feel-seen | `i-feel-seen.lib/IFeelSeenPatches.cs:57` | OK | |
@@ -734,6 +736,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink, mesh-deform | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
 | `Id` (inherited Astronomical.Id) | direct API | `KSA/Astronomical.cs:85` | (see KSA.Astronomical) | — | OK | |
 | `RefillConsumables() : void` | direct API | `KSA/Vehicle.cs:2300` | eternal-flame | `EternalFlameLib.cs:80` | OK | fuel/resource refill |
+| `AddVolumetricExhaustInstances(Camera, Viewport, VolumetricExhaustRenderer, double frameDeltaTime) : void` | **Harmony postfix** `(Vehicle __instance, Camera camera, VolumetricExhaustRenderer renderer, double frameDeltaTime)` | `KSA/Vehicle.cs:5303` | pyro | `pyro.lib/PyroPatches.cs:16,35` | OK @5348 | per-visible-vehicle exhaust submission (`Program.OnPreRender`); pyro adds its plumes to the same batch. Resolved via `nameof` (typed) |
+| `PosAsmbToBody(double3) : double3` · `Body2Cce : doubleQuat` | direct API | `KSA/Vehicle.cs:1218,374` | pyro | `pyro.lib/PlumeEmitter.cs:73-74` | OK @5348 | same chain as `RocketNozzleState.AddExhaustInstance` |
 | `Teleport(Orbit?, doubleQuat?, double3?) : void` | direct API | `KSA/Vehicle.cs:1594` | garrys-torch, doh (KittenEva) | `WeldEngine.cs:129`; `KittenSpawner.cs:171` | OK | core mutation; nullable params |
 | `UpdatePerFrameData() : override void` | direct API | `KSA/Vehicle.cs:1972` | garrys-torch, doh | `WeldEngine.cs:130`; `KittenSpawner.cs:175` | OK | refresh caches post-teleport |
 | `UpdateVehicleConfiguration() : void` | direct API | `KSA/Vehicle.cs:1263` | blinky, its-so-shiny | `LcdGridBuilder.cs:149`; `ShinyGridBuilder.cs:98` | OK | |
@@ -808,7 +812,37 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.VolumetricExhaustTemplate
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Get(string id) : static VolumetricExhaustTemplate?` | direct API (read-only) | `KSA/VolumetricExhaustTemplate.cs:49` | parts-now | `Runtime/BundleValidatorRulesReferences.cs:213` | OK | validation rule V10 — `<VolumetricExhaust Id>` must already resolve |
+| `Get(string id) : static VolumetricExhaustTemplate?` | direct API (read-only) | `KSA/VolumetricExhaustTemplate.cs:50` | parts-now, pyro | `Runtime/BundleValidatorRulesReferences.cs:213`; `pyro.lib/PlumeTemplates.cs:38,51` | OK | validation rule V10 — `<VolumetricExhaust Id>` must already resolve |
+| `References : internal static SerializedCollection<VolumetricExhaustTemplate>` → `.GetList()` | **reflection-field (INTERNAL, string)** | `KSA/VolumetricExhaustTemplate.cs:38` | pyro | `pyro.lib/PlumeTemplates.cs:46` | OK @5348 | lists template ids for the combos; **falls back to the 7 stock ids** if missing |
+| `Absorption` / `Emission` / `Noise` / `LengthWeights` / `Quality` (fields) + their `DoubleReference.Value`, `BoolReference.Value`, `ColorGradient.Color0..3 : ColorRgbReference`, `Flow.MachDiamonds.*`, `Quality.VolumetricVesselShadows` | direct API (read **and write**) | `KSA/VolumetricExhaustTemplate.cs:12-27`; `KSA/Absorption.cs`, `Emission.cs`, `Noise.cs`, `LengthWeights.cs`, `Quality.cs`, `MachDiamonds.cs`, `ColorGradient.cs` | pyro | `pyro.lib/PyroSubmod.TemplateUi.cs`; `PlumeEmitter.cs:85`; `PlumePhysics.cs:102-105` | OK @5348 | shared-template editor (same writes as the game's `VolumetricExhaustRenderer.OnDrawUi`); GPU `ExhaustTemplateData` buffer is rebuilt from these **every frame** in `Render()` (`VolumetricExhaustRenderer.cs:1236-1243`) |
+
+### KSA.VolumetricExhaustRenderer
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `VolumetricExhaustRenderer` (type; Harmony arg) | Harmony arg type | `KSA/VolumetricExhaustRenderer.cs:20` | pyro | `PyroPatches.cs:36` | OK @5348 | lib references `Brutal.Vulkan*` + `BepuUtilities` so the type resolves |
+| `AddInstance(float3 emitterPosition, float3 axis, VolumetricExhaustInstance, float throttle) : void` | direct API | `KSA/VolumetricExhaustRenderer.cs:860` | pyro | `pyro.lib/PlumeEmitter.cs:76` | OK @5348 | the game's own nozzle submission entry; reads `instance.ShaderData` + `LastPlumeData`, derives all plume geometry. **5348 delta already handled:** reads `PlumeData.ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity` |
+| `Disabled : bool` | direct API | `KSA/VolumetricExhaustRenderer.cs:312` | pyro | `pyro.lib/PyroSubmod.cs:72` | OK @5348 | `_maxInstanceCount == 0` (exhausts off in settings) |
+
+### KSA.VolumetricExhaustInstance / KSA.VolumetricExhaustReference / KSA.ExhaustInstance
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `VolumetricExhaustReference { Id }` + `Load() : void` + `Template` | direct API | `KSA/VolumetricExhaustReference.cs` | pyro | `pyro.lib/PlumeTemplates.cs:55-59` | OK @5348 | `Load()` resolves `_template` via `VolumetricExhaustTemplate.Get(Id)` — no reflection needed |
+| `new VolumetricExhaustInstance(VolumetricExhaustReference)` · `Template` · `LastPlumeData` (public field) | direct API | `KSA/VolumetricExhaustInstance.cs:75` | pyro | `PlumeTemplates.cs:59`; `PlumeEmitter.cs:43` | OK @5348 | one per plume — owns the 4-slot startup/shutdown pulse tracker |
+| `UpdateState(double simulationTime, bool isActive, double simulationDeltaTime, PlumeData) : bool` | direct API | `KSA/VolumetricExhaustInstance.cs:91` | pyro | `pyro.lib/PlumeEmitter.cs:56` | OK @5348 | false ⇒ fully shut down, skip submit. `isActive` = Enabled && Throttle>0 |
+| `OnSettingsChanged() : void` | direct API | `KSA/VolumetricExhaustInstance.cs` | pyro | `pyro.lib/TemplateRefresher.cs:20,42` | OK @5348 | re-reads template into `_shaderData` after a Template Editor edit |
+| `_shaderData : private ExhaustInstance` | **reflection-field (PRIVATE, string; `AccessTools.FieldRefAccess`)** | `KSA/VolumetricExhaustInstance.cs:48` | pyro | `pyro.lib/PlumeEmitter.cs:25,84-87` | OK @5348 | per-plume `absorptionDensity` / `refractionIntensity` overrides written before `AddInstance` copies the struct. **Gracefully disabled** (UI says so) if the field is gone |
+| `ExhaustInstance.absorptionDensity` / `.refractionIntensity` (fields) | direct API (struct layout) | `KSA/ExhaustInstance.cs` | pyro | `PlumeEmitter.cs:86-87` | OK @5348 | ⚠ **layout drift** @5348: colours/noise/brightness moved OUT of this struct into `ExhaustTemplateData` (per-template buffer indexed by `templateIndex`) — that is why per-plume colour is not offered |
+| `PlumeData` (struct, all `required` fields incl. **`ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity`, `InletTemperature` — new @5348**) | direct API (object initializer) | `KSA/PlumeData.cs` | pyro | `pyro.lib/PlumePhysics.cs:70-92` | OK @5348 | a renamed/added `required` member is a **compile** break here (good — loud) |
+
+### KSA.GasProperties / KSA.GasConditions / KSA.RocketDesign (plume maths)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+|---|---|---|---|---|---|---|
+| `GasProperties { Gamma, SpecificGasConstant }` · `ComputeSpeedOfSound(float)` · `ComputeSupersonicExpansionPressureAngle(float,float)` · `ComputeSupersonicExpansionPressureMach(float,float)` · `ComputePrandtlMeyer(float)` | direct API | `KSA/GasProperties.cs` | pyro | `pyro.lib/PlumePhysics.cs:30-83` | OK @5348 | mirrors `RocketNozzle.UpdatePlumeData` (`KSA/RocketNozzle.cs`) |
+| `GasConditions { Pressure, Temperature }` · `ComputeDensity(GasProperties)` | direct API | `KSA/GasConditions.cs` | pyro | `PlumePhysics.cs:37-42,89` | OK @5348 | pressures in **Pa** (game-internal unit) |
+| `RocketDesign.SolveMachNumberFromAreaRatio(GasProperties, double) : static float` · `ComputeAreaRatioFromMachNumber(double, double) : static double` | direct API | `KSA/RocketDesign.cs:168,187` | pyro | `PlumePhysics.cs:33,61` | OK @5348 | exit Mach from (exit/throat)² ; Mach-disk area ratio |
+| `Universe.GetElapsedSeconds()` · `Universe.GetSimulationSpeed()` | direct API | `KSA/Universe.cs:2054,1334` | pyro | `pyro.lib/PyroSubmod.cs:74-75` | OK @5348 | same time source as `RocketNozzleState.AddExhaustInstance` / `Vehicle.AddVolumetricExhaustInstances` |
+| `PartTree.RocketNozzles.ModulesAndAllStates` (enumerator: `.FxState.VolumetricExhaust`, `.Module.RecomputeGasVisibilityDensity(in …)`) | direct API | `KSA/Vehicle.cs:5310` (game's own use); `KSA/RocketNozzle.cs:182` | pyro | `pyro.lib/TemplateRefresher.cs:36-43` | OK @5348 | pushes Template Editor edits to real engine nozzles (mirrors the debug editor's `changed` path); wrapped in try/catch |
+| `ColorRgbReference(float3)` + `OnDataLoad(new Mod())` · `Value.AsFloat3` | direct API | `KSA/ColorRgbReference.cs:22,28,35` | pyro | `pyro.lib/PyroSubmod.TemplateUi.cs:123-127` | OK @5348 | identical to the game's editor colour write (`VolumetricExhaustRenderer.cs:2306-2311`) |
 
 ### KSA.XmlHelper
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -872,6 +906,8 @@ on every game update FIRST.
 | `Camera._fovRadians` | glass | `AccessTools.Field` private field by name | OK (single most-important glass check) |
 | `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` | glass | `AccessTools.Method` by name | OK |
 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` | i-feel-seen | `AccessTools.Method(typeof(Vehicle), "…")` | OK |
+| `VolumetricExhaustTemplate.References` (internal static field) | pyro | `AccessTools.Field(…, "References")` → `SerializedCollection<T>.GetList()` (`PlumeTemplates.cs:46`) | OK @5348 — soft: falls back to the stock 7 ids via public `Get(id)` |
+| `VolumetricExhaustInstance._shaderData` (private struct field) | pyro | `AccessTools.FieldRefAccess<…, ExhaustInstance>("_shaderData")` (`PlumeEmitter.cs:25`) | OK @5348 — soft: per-plume look overrides disable with a UI notice |
 | `KittenEva` (type name) / `KittenEva._renderable` → `KittenRenderable._characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` | garrys-torch, doh, kitten-animations | `GetType().Name` compare + private field chain | OK |
 | `CharacterAvatar.Core.{CharacterModel,Fur,Attachments}…MaterialIndices` (AnimatedRenderable/CatFurRenderable/StaticMeshRenderable) | doh | private field-path + `protected int[]` | OK |
 | `CatExpressionAnim._expressionPose` | kitten-animations | private field by name (cache bust) | OK |
@@ -912,6 +948,7 @@ on every game update FIRST.
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
 | `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`) | shader (read-only) | — (effect of GPU buffer write) | `Content/Core/Shaders/Mesh/ModelPbr.frag`; `Common/MaterialSet.glsl` | doh, humble-arteest (KittenColor) | OK (`MaterialSet.glsl` identical; `ModelPbr.frag` only SSAO reorder rev 4671) |
 | `DynamicMeshIndirect.vert/.frag`, `ModelEye.frag`, `ModelGlass.frag` | shader (removed) | (design assumption only) | — | humble-arteest (narrative), blinky/its-so-shiny GlassModule (C# only) | n/a (removed 4693/4745; `ModelTranslucent.frag` new 4747 — not referenced by id) |
+| Exhaust templates `EngineALarge`, `EngineAMed`, `EngineACompact`, `EngineAVernier`, `EngineATurbine`, `RCS`, `MmuRcsVac` | `VolumetricExhaustTemplate` ids | `VolumetricExhaustTemplate.Get(id)` — **fallback list only** (`PlumeTemplates.cs:13`); normally enumerated live from `References` | `Core/ExhaustAssets.xml:3,307,650,993,1331,1670,2009` | pyro | OK @5348 (`EngineALarge` is the create-form default) |
 | Engine part templates `CorePropulsionA_Prefab_EngineA2..A6` | part template | `ModLibrary.Get<PartTemplate>(id)` (default A3 everywhere) | `Core/CorePropulsionAAssets.xml`; `Core/CorePropulsionAGameData.xml:118,182,246,291,373` | blinky | OK — **`EngineA1` is gone from Content entirely** and has been removed from blinky's presets and config default (2026-08-23) |
 | Engine feed connector `_connector3` (`<Capabilities>BulkFluid</Capabilities>`) + `<ConsumerFeedWiring>/<FeedsFrom>` on A2–A6 | part-template wiring | reached via `RocketCore.FeedConnectors`, not by id | `Core/CorePropulsionAGameData.xml:189-193` (A3; A2/A4/A5/A6 alike) | blinky | OK — **load-bearing**: the pixel engines only receive propellant because blinky connects *this* connector to a tank part. If the game drops `BulkFluid` or the `FeedsFrom` wiring, every grid goes dark again |
 | `LightPart` template (`<PowerConsumer LightSwitch="true">`) | part template | `ModLibrary.Get<PartTemplate>("LightPart")` | `Core/PartAssets.xml:19`; `Core/CoreElectricalAGameData.xml:221` | its-so-shiny | OK |

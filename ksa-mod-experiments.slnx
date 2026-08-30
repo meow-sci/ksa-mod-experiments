@@ -18,6 +18,8 @@
     <Project Path="glass/glass.csproj" />
     <Project Path="glass.lib/glass.lib.csproj" />
     <Project Path="garrys-torch/garrys-torch.csproj" />
+    <Project Path="pyro/pyro.csproj" />
+    <Project Path="pyro.lib/pyro.lib.csproj" />
     <Project Path="garrys-torch.lib/garrys-torch.lib.csproj" />
     <Project Path="zippo/zippo.csproj" />
     <Project Path="zippo.lib/zippo.lib.csproj" />

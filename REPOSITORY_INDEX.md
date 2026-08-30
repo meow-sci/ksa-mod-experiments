@@ -220,6 +220,18 @@ Apply the "thug life" pixel-art sunglasses meme as a 2D textured quad anchored t
 
 ---
 
+### [pyro](pyro) / [pyro.lib](pyro.lib)
+Standalone volumetric engine plumes — the game's exhaust effect with no engine part. Each plume is welded to a vehicle → part → sub-part anchor with position/rotation offsets and rendered through KSA's own `VolumetricExhaustRenderer`.
+- Harmony **postfix** on `Vehicle.AddVolumetricExhaustInstances` submits pyro's plumes into the game's own per-frame exhaust batch (same camera, delta time, transient LUT)
+- Per-plume `VolumetricExhaustInstance` — real startup/shutdown transients; **Enabled** checkbox + On/Off button, All On/All Off
+- Per-plume template pick, throttle, position/rotation offsets (part-local; fires along the part's -X axis like stock nozzles)
+- Per-plume **nozzle physics** (exit/throat radius, chamber pressure & temperature, gamma, gas constant) → `PlumeData` via an isentropic nozzle model mirroring `RocketNozzle.UpdatePlumeData`, so plumes under/over-expand with altitude
+- Per-plume look overrides (absorption density ×, refraction) written into the private per-instance shader struct
+- **Template Editor**: the game's hidden exhaust debug editor controls (absorption, emission colours/brightness, Mach diamonds, noise, length weights, quality) for the shared templates — affects all users of the template
+- Auto-removes plumes whose vehicle or anchor part disappears
+- Reflection: `VolumetricExhaustTemplate.References` (template list; stock-id fallback) and `VolumetricExhaustInstance._shaderData`
+- **Public API**: `PyroSubmod.Instance`, `CreatePlume`, `SetTemplate`, `FindPlume`, `RemovePlume`, `SetAllEnabled`, `PlumeTemplates`, `PlumePhysics`
+
 ## UI & Customization Mods
 
 ### [skittles](skittles) / [skittles.lib](skittles.lib)
@@ -339,8 +351,8 @@ Unified supermod that consolidates 14 standalone mods into a single ImGui window
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
-- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

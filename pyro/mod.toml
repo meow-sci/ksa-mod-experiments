@@ -1,0 +1,7 @@
+name = "pyro"
+description = "Place standalone volumetric engine plumes welded to any vehicle part"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.Pyro"
