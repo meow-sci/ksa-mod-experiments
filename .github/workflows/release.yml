@@ -1,0 +1,169 @@
+name: Build mod dist
+
+# Builds the whole unscience solution (every submod + the unscience umbrella
+# mod) and publishes ONLY the unscience mod folder as a GitHub release:
+#
+#   push to main        → prerelease  "unscience tip <UTC timestamp>"  (tag tip-<stamp>)
+#   push to release/<v> → release     "unscience <v>"                  (tag v<v>)
+#   any other ref (feature/fix/chore branches, PRs into main)
+#                       → build only (no release, no version stamp)
+#
+# The KSA reference assemblies are licensed game files and live in the private
+# repo meow-sci/ksa-game-assemblies (DLLs — KSA.dll, Brutal.*.dll, Planet.*.dll
+# — under current/dll/ at the repo root). Access needs the
+# KSA_GAME_ASSEMBLIES_PAT repo secret: a fine-grained PAT with read-only
+# Contents access to that repo (same pattern as purrtty / flexo).
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'chore/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One in-flight build per ref; a newer push supersedes an older run — except on
+# release/* refs: cancelling a publish between `gh release delete` and
+# `gh release create` would leave the release missing until the next push.
+concurrency:
+  group: dist-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/heads/release/') }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Directory.Build.props resolves these before any per-OS defaults.
+      KSA_DLL_DIR: ${{ github.workspace }}/.tmp/ksa-game-assemblies/current/dll
+      UNSCIENCE_DIST_DIR: ${{ github.workspace }}/.tmp/dist
+    steps:
+      - name: Checkout unscience
+        uses: actions/checkout@v6
+
+      - name: Checkout private KSA assemblies
+        uses: actions/checkout@v6
+        with:
+          repository: meow-sci/ksa-game-assemblies
+          path: .tmp/ksa-game-assemblies
+          token: ${{ secrets.KSA_GAME_ASSEMBLIES_PAT }}
+          persist-credentials: false
+          ref: main
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Branch-derived values are validated here and consumed by later steps
+      # via env:, never interpolated raw into run scripts (a ref name can
+      # contain shell/sed metacharacters; this job has contents: write).
+      - name: Compute release metadata
+        id: meta
+        run: |
+          BASE="$(sed -nE 's/^version = "(.*)"/\1/p' unscience/mod.toml)"
+          if [[ ! "$BASE" =~ ^[0-9A-Za-z._-]+$ ]]; then
+            echo "::error::could not parse a usable base version from unscience/mod.toml (got: '$BASE')"
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_NAME" == release/* ]]; then
+            NAME="${GITHUB_REF_NAME#release/}"
+            if [[ ! "$NAME" =~ ^[0-9A-Za-z._-]+$ ]]; then
+              echo "::error::release branch suffix '$NAME' must match ^[0-9A-Za-z._-]+\$ (no slashes or shell metacharacters)"
+              exit 1
+            fi
+            echo "publish=true"             >> "$GITHUB_OUTPUT"
+            echo "version=$NAME"            >> "$GITHUB_OUTPUT"
+            echo "modversion=$NAME"         >> "$GITHUB_OUTPUT"
+            echo "tag=v$NAME"               >> "$GITHUB_OUTPUT"
+            echo "title=unscience $NAME"    >> "$GITHUB_OUTPUT"
+            echo "prerelease=false"         >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF_NAME" == main ]]; then
+            STAMP="$(date -u +%Y%m%d-%H%M%S)"
+            echo "publish=true"             >> "$GITHUB_OUTPUT"
+            echo "version=tip-$STAMP"       >> "$GITHUB_OUTPUT"
+            echo "modversion=$BASE-tip.$STAMP" >> "$GITHUB_OUTPUT"
+            echo "tag=tip-$STAMP"           >> "$GITHUB_OUTPUT"
+            echo "title=unscience tip $STAMP (UTC)" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true"          >> "$GITHUB_OUTPUT"
+          else
+            # feature/fix/chore branches, PRs, and any other ref: compile only.
+            echo "publish=false"            >> "$GITHUB_OUTPUT"
+          fi
+
+      # The version users see in-game / in mod.toml matches the release.
+      # MODVERSION is validated above to [0-9A-Za-z._-]+, so it cannot contain
+      # the sed delimiter or replacement metacharacters.
+      - name: Stamp mod version
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          MODVERSION: ${{ steps.meta.outputs.modversion }}
+        run: |
+          sed -i -E "s/^version = \".*\"/version = \"$MODVERSION\"/" unscience/mod.toml
+          grep '^version' unscience/mod.toml
+
+      # Builds every project in the solution (each mod's CopyCustomContent
+      # target deploys its folder under $UNSCIENCE_DIST_DIR); only the
+      # unscience umbrella folder is packaged below.
+      - name: Build solution
+        run: dotnet build ksa-mod-experiments.slnx -c Release --nologo -v quiet
+
+      - name: Package
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          cd "$UNSCIENCE_DIST_DIR"
+          test -f unscience/MeowSci.Unscience.dll
+          zip -r "unscience-$VERSION.zip" unscience
+          unzip -l "unscience-$VERSION.zip"
+
+      - name: Publish release
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          TITLE: ${{ steps.meta.outputs.title }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          ZIP="$UNSCIENCE_DIST_DIR/unscience-$VERSION.zip"
+          # Re-pushing a release/<v> branch rebuilds that release: drop the old
+          # release + tag so the tag moves to the new commit. (Tip tags are
+          # timestamped and never collide.)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          fi
+          EXTRA=()
+          [[ "$PRERELEASE" == "true" ]] && EXTRA+=(--prerelease --latest=false)
+          gh release create "$TAG" "$ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --notes "**Installing over an existing install:** delete the old \`unscience/\` folder from your mods directory before unzipping — files removed from the mod are not removed by unzipping over it." \
+            --generate-notes \
+            "${EXTRA[@]}"
+
+      # Keep the 5 newest tip prereleases; delete older ones (and their tags)
+      # so main doesn't accumulate releases forever. Named releases untouched.
+      - name: Prune old tip releases
+        if: steps.meta.outputs.prerelease == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 \
+            --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | startswith("tip-"))) | .tagName' \
+            | tail -n +6 \
+            | while read -r tag; do
+                echo "Pruning $tag"
+                gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+              done

@@ -14,4 +14,4 @@ imgui.ini
 .DS_Store
 .vs/
 tmpclaude*
-logs/
+logs/.tmp/

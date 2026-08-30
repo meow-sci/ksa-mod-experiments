@@ -36,17 +36,16 @@
           1. KSA_DLL_DIR env var (or -p:KSA_DLL_DIR=...). This is what CI uses.
           2. A `ksa-game-assemblies` checkout cloned NEXT TO this repo
              (DLLs in its current/dll/ folder) — clone-and-go, no config.
-             gatos sits next to purrtty, so the sibling tier resolves identically.
           3. Per-OS developer defaults (game install on Windows; the
              ksa-game-assemblies checkout on macOS/Linux).
 
-        Only gatOS.GameMod references these assemblies (§2.1 of OS_PLAN.md): the
-        references are condition-guarded, so every game-free project (and its tests)
-        builds even when the KSA DLLs are absent.
+        The KSA DLLs are proprietary and never committed here; every project in
+        this repo compiles against them via `$(KSAFolder)` HintPaths.
 
-        SelectedDistModDir — where the built mod folder is deployed by the
-        GameMod project (it appends gatOS/). Override with GATOS_DIST_DIR
-        (CI zips that folder); defaults to the per-OS KSA mods dir.
+        SelectedDistModDir — where each built mod folder is deployed (each mod
+        project appends its own folder, e.g. unscience/). Override with
+        UNSCIENCE_DIST_DIR (CI zips <that>/unscience); defaults to the per-OS
+        KSA mods dir.
     -->
     <PropertyGroup>
         <KSAFolder Condition="'$(KSAFolder)' == '' AND '$(KSA_DLL_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(KSA_DLL_DIR)'))</KSAFolder>
@@ -60,8 +59,20 @@
         <!-- mods -->
         <KSAUserModDir>$(KSAUserDir)mods\</KSAUserModDir>
         <KSAProgramFilesModDir>$(KSAFolder)Content\</KSAProgramFilesModDir>
-        <SelectedDistModDir Condition="'$(SelectedDistModDir)' == '' AND '$(GATOS_DIST_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(GATOS_DIST_DIR)'))</SelectedDistModDir>
+        <SelectedDistModDir Condition="'$(SelectedDistModDir)' == '' AND '$(UNSCIENCE_DIST_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(UNSCIENCE_DIST_DIR)'))</SelectedDistModDir>
         <!-- <SelectedDistModDir Condition="'$(SelectedDistModDir)' == ''">$(KSAProgramFilesModDir)</SelectedDistModDir> -->
         <SelectedDistModDir Condition="'$(SelectedDistModDir)' == ''">$(KSAUserModDir)</SelectedDistModDir>
     </PropertyGroup>
+
+    <!-- Every project here references the KSA assemblies through condition-guarded
+         HintPaths, so a missing/misresolved KSAFolder would otherwise surface as a
+         CS0246 avalanche. Fail early with one actionable error instead. A project
+         that genuinely doesn't need the game can set RequiresKSAAssemblies=false. -->
+    <PropertyGroup>
+        <RequiresKSAAssemblies Condition="'$(RequiresKSAAssemblies)' == ''">true</RequiresKSAAssemblies>
+    </PropertyGroup>
+    <Target Name="ValidateKSAAssemblies" BeforeTargets="ResolveAssemblyReferences"
+            Condition="'$(RequiresKSAAssemblies)' == 'true' AND !Exists('$(KSAFolder)KSA.dll')">
+        <Error Text="KSA reference assemblies not found: '$(KSAFolder)KSA.dll' does not exist. Set the KSA_DLL_DIR environment variable (or pass -p:KSA_DLL_DIR=...), or clone meow-sci/ksa-game-assemblies next to this repo (DLLs under current/dll/). Resolution order is documented in Directory.Build.props."/>
+    </Target>
 </Project>
