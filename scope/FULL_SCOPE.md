@@ -77,7 +77,11 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 - **StarMap is the loader seam, not the game.** `unscience/Mod.cs` is the single `[StarMapMod]` entry.
   StarMap.API Harmony-patches the game's render loop (`Program.OnDrawUiFrame` / `OnDrawUiViewports` /
   `OnFrame`) and dispatches to attributed methods (`[StarMapBeforeGui]`, `[StarMapAfterGui]`, …). The
-  suite rides those hooks rather than touching the frame loop itself.
+  suite rides those hooks rather than touching the frame loop itself. **One exception:** the two GUI
+  hooks' targets are skipped by the game while the HUD is hidden (F2 → `Program.DrawUI == false`), so
+  `ksa-abstractions.lib/HiddenUiFrameHook` prefixes the always-called `Program.OnDrawUiConsole` and
+  replays the shell's non-UI per-frame work only in that state (see
+  [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md)).
 - **One consolidated Harmony instance.** `unscience/Patcher.cs` owns a single
   `Harmony("MeowSci.Unscience")`; each feature lib exposes `Apply(Harmony)`/`Remove(Harmony)` and the
   supermod applies them all onto that instance. `HotkeyGuard` is applied first.

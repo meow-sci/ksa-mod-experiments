@@ -44,6 +44,36 @@ Wrapper around the KSA universe's simulation time.
 - `GetElapsedTime()` - Returns elapsed simulation time in seconds
 - `GetDeltaTime()` - Returns delta time since last frame
 
+### HotkeyGuard
+Mandatory Harmony prefix on `GameSettings.OnKeyAll` that swallows game hotkeys while any ImGui text input has focus (bypassed while the dev console is open). Every top-level mod applies it via `HotkeyGuard.Patch(harmony)` / `HotkeyGuard.Unpatch(harmony)`.
+
+### HiddenUiFrameHook
+Keeps per-frame mod work alive while the game HUD is hidden (**F2** / `InputAction.ToggleUi`).
+
+**Why it exists:** StarMap dispatches `[StarMapBeforeGui]` as a prefix of `Program.OnDrawUiFrame` and `[StarMapAfterGui]` as a postfix of `Program.OnDrawUiViewports`. Both sit inside `if (Program.DrawUI)` in `Program.OnFrame`, so while the HUD is hidden neither game method is called and neither StarMap hook fires — every `Update(dt)`-driven feature (weld physics, fuel refill, animations, RPC queue drain, …) silently freezes.
+
+**What it does:** Harmony-prefixes `Program.OnDrawUiConsole(double dt)`, which the game calls unconditionally in the same frame phase (after `PrepareFrame`, inside the ImGui `NewFrame`…`Render` window, before `OnPreRender`). The prefix is a no-op while `Program.DrawUI` is true; when it is false it invokes the registered `BeforeGui` then `AfterGui` callbacks. `DrawUI` only changes during input polling in `PrepareFrame`, so a frame never fires both StarMap's hooks and this fallback.
+
+- `HiddenUiFrameHook.BeforeGui` / `.AfterGui` (`Action<double>?`) — register the non-ImGui parts of your `[StarMapBeforeGui]` / `[StarMapAfterGui]` bodies **before** calling `Patch`
+- `HiddenUiFrameHook.Patch(harmony)` / `.Unpatch(harmony)` — apply/remove alongside `HotkeyGuard`; `Unpatch` clears the callbacks
+- `HiddenUiFrameHook.IsUiHidden` — `!Program.DrawUI`
+
+ImGui *is* valid inside the callbacks, but hosts should keep window rendering out of them so mod windows honour the hidden HUD.
+
+```csharp
+// Mod.cs
+[StarMapBeforeGui] public void OnBeforeUi(double dt) => UpdateSubmods(dt);
+[StarMapAfterGui]  public void OnAfterUi(double dt)  { RenderWindows(); UpdateWelds(dt); }
+
+// in [StarMapAllModsLoaded], before Patcher.Patch():
+HiddenUiFrameHook.BeforeGui = UpdateSubmods;
+HiddenUiFrameHook.AfterGui  = UpdateWelds;
+
+// Patcher.cs
+HiddenUiFrameHook.Patch(_harmony);    // in Patch(), next to HotkeyGuard.Patch
+HiddenUiFrameHook.Unpatch(_harmony);  // in Unload()
+```
+
 ## Architecture Notes
 
 - **Reflection-Based**: Relies on reflection rather than HarmonyLib patching, making it stateless and non-invasive

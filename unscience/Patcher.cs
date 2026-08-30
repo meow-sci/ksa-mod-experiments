@@ -43,6 +43,10 @@ internal static class Patcher
         // stale reflection/field target after a game update) logs and is skipped instead of
         // aborting every feature registered after it in the chain.
         TryApply("hotkey-guard", () => HotkeyGuard.Patch(_harmony!));
+        // Replays Mod.UpdateSubmods/UpdateWelds while the HUD is hidden (F2), since StarMap's
+        // BeforeGui/AfterGui targets are skipped by the game in that state. Callbacks are
+        // registered in Mod.OnFullyLoaded before Patch() runs.
+        TryApply("hidden-ui-frame-hook", () => HiddenUiFrameHook.Patch(_harmony!));
         TryApply("thug-life", () => ThugLifeRenderPatches.Apply(_harmony!));
         TryApply("menu-bar", () =>
         {
@@ -92,6 +96,7 @@ internal static class Patcher
             if (_harmony != null)
             {
                 TryRemove("hotkey-guard", () => HotkeyGuard.Unpatch(_harmony!));
+                TryRemove("hidden-ui-frame-hook", () => HiddenUiFrameHook.Unpatch(_harmony!));
                 TryRemove("menu-bar", () => MenuBarPatch.Remove(_harmony!));
                 TryRemove("blinky", () => BlinkyPatches.Remove(_harmony!));
                 TryRemove("its-so-shiny", () => ShinyPatches.Remove(_harmony!));

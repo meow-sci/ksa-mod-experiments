@@ -33,7 +33,7 @@ Verification baseline:
   first, exactly once.
 - **`ksa-abstractions.lib` is the game-facing seam.** All cross-cutting game access is funnelled
   through small static helpers here (`VehicleProvider`, `CelestialProvider`, `SimTimeProvider`,
-  `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `IvaForceRender`, `KsaPaths`) plus pure-C#
+  `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `HiddenUiFrameHook`, `IvaForceRender`, `KsaPaths`) plus pure-C#
   utilities (`ISubmod`, `EasingHelper`, `Directions`, `GameThread`/`GameStateQueue`/
   `IGameStateScheduler`, `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a
   game update's blast radius is mostly this one library.
@@ -50,9 +50,22 @@ Attributes come from `StarMap.API` (`StarMap.API/BaseAttributes.cs`, `OnGuiAttri
 | `ImmediateUnload` prop (36) | required bool property | StarMap reads it during unload | n/a | — |
 | `OnImmediateLoad` (51) | `[StarMapImmediateLoad]` | early load (renderer NOT live) | n/a | — |
 | `OnFullyLoaded` (54) | `[StarMapAllModsLoaded]` | after all mods loaded → build submods + `Patcher.Patch()` | n/a | — |
-| `OnBeforeUi(double dt)` (122) | `[StarMapBeforeGui]` | **PREFIX** of `Program.OnDrawUiFrame(double)` | `KSA/Program.cs:2639` / `:2582` | none (same sig) |
-| `OnAfterUi(double dt)` (135) | `[StarMapAfterGui]` | **POSTFIX** of `Program.OnDrawUiViewports(double)` | `KSA/Program.cs:2666` / `:2609` | none (same sig) |
-| `Unload` (182) | `[StarMapUnload]` | mod unload → `Patcher.Unload()` | n/a | — |
+| `OnBeforeUi(double dt)` (131) → `UpdateSubmods` (137) | `[StarMapBeforeGui]` | **PREFIX** of `Program.OnDrawUiFrame(double)` | `KSA/Program.cs:2892` @5348 (`:2639` / `:2582` earlier) | none (same sig) |
+| `OnAfterUi(double dt)` (165) → `UpdateWelds` (156) | `[StarMapAfterGui]` | **POSTFIX** of `Program.OnDrawUiViewports(double)` | `KSA/Program.cs:2921` @5348 (`:2666` / `:2609` earlier) | none (same sig) |
+| `UpdateSubmods` / `UpdateWelds` (registered at 116-117) | `HiddenUiFrameHook.BeforeGui` / `.AfterGui` (**not** StarMap) | **PREFIX** of `Program.OnDrawUiConsole(double)`, active only while `Program.DrawUI == false` | `KSA/Program.cs:2880` @5348 | new @5348 (hidden-HUD fallback, see below) |
+| `Unload` (206) | `[StarMapUnload]` | mod unload → `Patcher.Unload()` | n/a | — |
+
+**Hidden-HUD (F2) fallback.** `Program.OnFrame` (`KSA/Program.cs:2093-2103` @5348) calls `OnDrawUiFrame` /
+`OnDrawUiViewports` / `OnDrawUiThreadSafe` only inside `if (DrawUI)`, and F2 (`InputAction.ToggleUi`,
+`KSA/Input.cs:297`, handled `KSA/Program.cs:1694`) flips `Program.DrawUI` (`:504`). So while the HUD is
+hidden **neither StarMap GUI hook fires** and every `Update(dt)`-driven feature freezes (welds let go,
+refills stop, RPC queue never drains). `ksa-abstractions.lib/HiddenUiFrameHook.cs` prefixes
+`Program.OnDrawUiConsole(double)` — called unconditionally at `:2103`, in the same frame phase
+(after `PrepareFrame`, inside ImGui `NewFrame`…`Render`, before `OnPreRender`) — and replays the
+shell's registered `UpdateSubmods` then `UpdateWelds` only when `DrawUI` is false. ImGui rendering
+(`RenderWindow`, `RenderFloatingWindows`, F11) is intentionally **not** replayed so mod windows honour
+the hidden HUD. `DrawUI` only flips during `Glfw.PollEvents()` in `PrepareFrame` (or from the menu bar,
+drawn later), so a frame never runs both StarMap's hooks and the fallback.
 
 `[StarMapAfterOnFrame]` (POSTFIX of `Program.OnFrame(double,double)`, `KSA/Program.cs:1986` / OLD
 `:1955`) exists in StarMap but is **not** used by the supermod shell. The shell's F11 toggle uses
@@ -73,7 +86,8 @@ are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
 
 | Patch class | Owning project | Apply (Patcher.cs) | Remove (Patcher.cs) | Primary game target(s) | Kind | Risk note |
 |---|---|---|---|---|---|---|
-| `HotkeyGuard` | **ksa-abstractions.lib** | 45 | 94 | `GameSettings.OnKeyAll(GlfwKeyEvent)` | prefix | verified ↓ (no delta) |
+| `HotkeyGuard` | **ksa-abstractions.lib** | 45 | 98 | `GameSettings.OnKeyAll(GlfwKeyEvent)` | prefix | verified ↓ (no delta) |
+| `HiddenUiFrameHook` | **ksa-abstractions.lib** | 49 | 99 | `Program.OnDrawUiConsole(double)` (**string** "OnDrawUiConsole") | prefix (no-op while `Program.DrawUI`) | string-named — verified ↓ @5348 |
 | `ThugLifeRenderPatches` | thug-life.lib | 46 | 107 | `SuperMeshRenderSystem.RenderMainPass` | postfix | render pass — see thug-life scope |
 | **`MenuBarPatch`** | **unscience/ (self)** | 47 | 95 | `Program.DrawProgramMenusHook()` | postfix | verified ↓ (no delta) |
 | `BlinkyPatches` | blinky.lib | 52 | 96 | `PartModelModule`/`PartModelDynamicModule`/`PartModelGlassModule`.`UpdateRenderData` | prefix ×3 | render — see blinky scope |
@@ -271,6 +285,20 @@ Update-risk findings (4680→4750):
 Update-risk findings (4680→4750):
 - **No breaking deltas detected.** `GameSettings.OnKeyAll` and `Program.ConsoleWindow.IsOpen`
   unchanged. `ImGui.GetIO().WantTextInput` compiles against the 4750 Brutal packages.
+
+### HiddenUiFrameHook.cs
+
+Added @5348. Keeps the shell's per-frame non-UI work running while the game HUD is hidden (F2) — see
+the *Hidden-HUD fallback* note under the lifecycle table for the why.
+
+| # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (5348) | In 5348? | Risk/notes |
+|---|---|---|---|---|---|---|
+| 1 | Harmony prefix (**string-named**) | `HiddenUiFrameHook.cs:28` (name), `:44` (lookup), `:47` (patch), `:54` (unpatch) | `Program.OnDrawUiConsole(double dt)` — `private void`, instance | `KSA/Program.cs:2880`; called unconditionally from `OnFrame` at `:2103` | Yes | `AccessTools.Method` by string; a miss throws `MissingMethodException` at `Patch()` → logged and skipped by `Patcher.TryApply` (mods then freeze on F2 again, nothing else breaks). **Phase contract:** must stay a method the game calls every frame *after* the `if (DrawUI)` UI block and *before* `ImGui.Render()`/`OnPreRender` — `DrawFps()` (`:3008`, static, no `dt`) is the fallback anchor if `OnDrawUiConsole` moves. |
+| 2 | Direct API (static prop) | `:40`, `:64` | `Program.DrawUI` — `public static bool { get; set; }` | `KSA/Program.cs:504` | Yes | Gate. Toggled by `InputAction.ToggleUi` (`KSA/Input.cs:297` = F2, handled `Program.cs:1694`). If the game ever gates `OnDrawUiFrame` on something else, this prefix goes dead-silent (no crash). |
+
+Update-risk findings (5261→5348): n/a (new). Verified against 5348 by construction: `OnFrame`
+(`:2066`) → `if (DrawUI) { OnDrawUiFrame; OnDrawUiViewports }` (`:2093`) → `if (DrawUI) OnDrawUiThreadSafe`
+(`:2098`) → `DrawFps()` → `OnDrawUiConsole(dtPlayer)` (`:2103`) → `ImGui.Render()`.
 
 ### IvaForceRender.cs
 

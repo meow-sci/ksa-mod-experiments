@@ -109,6 +109,13 @@ public class Mod
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
             Patcher.MenuBarToggle = () => _windowVisible = !_windowVisible;
 
+            // While the game HUD is hidden (F2) StarMap's [StarMapBeforeGui]/[StarMapAfterGui]
+            // never fire (their game targets are skipped), so the non-UI per-frame work is
+            // replayed from HiddenUiFrameHook at the same frame phase. ImGui rendering is
+            // deliberately left out so mod windows honour the hidden HUD too.
+            HiddenUiFrameHook.BeforeGui = UpdateSubmods;
+            HiddenUiFrameHook.AfterGui = UpdateWelds;
+
             Patcher.Patch();
 
             _isInitialized = true;
@@ -121,7 +128,13 @@ public class Mod
     }
 
     [StarMapBeforeGui]
-    public void OnBeforeUi(double dt)
+    public void OnBeforeUi(double dt) => UpdateSubmods(dt);
+
+    /// <summary>
+    /// Per-frame pre-UI work. Called by <see cref="OnBeforeUi"/> when the HUD is visible and by
+    /// <see cref="HiddenUiFrameHook"/> when it is hidden — never both in the same frame.
+    /// </summary>
+    private void UpdateSubmods(double dt)
     {
         if (!_isInitialized || _isDisposed) return;
 
@@ -131,6 +144,21 @@ public class Mod
             try { submod.Update(dt); }
             catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: Update error: {ex.Message}"); }
         }
+    }
+
+    /// <summary>
+    /// Garrys-torch weld physics. Runs AFTER UI and AFTER the vehicle solver workers (queued at the
+    /// end of PrepareFrame, likely finished during render). UpdateWelds internally calls
+    /// JobSystems.VehicleSolver.Wait() before touching vehicle state to eliminate the
+    /// worker-iteration race that any other timing produces. Called by <see cref="OnAfterUi"/> when
+    /// the HUD is visible and by <see cref="HiddenUiFrameHook"/> when it is hidden.
+    /// </summary>
+    private void UpdateWelds(double dt)
+    {
+        if (!_isInitialized || _isDisposed) return;
+
+        try { MeowSci.GarrysTorchLib.GarrysTorchSubmod.Instance?.UpdateWelds(dt); }
+        catch (Exception ex) { Console.WriteLine($"unscience: garrys-torch weld update error: {ex.Message}"); }
     }
 
     [StarMapAfterGui]
@@ -166,13 +194,7 @@ public class Mod
                 catch (Exception ex) { Console.WriteLine($"unscience/{submod.Name}: RenderFloatingWindows error: {ex.Message}"); }
             }
 
-            // Run garrys-torch weld physics here, AFTER UI and AFTER the vehicle
-            // solver workers (queued at the end of PrepareFrame, likely finished
-            // during render). UpdateWelds internally calls
-            // JobSystems.VehicleSolvers.Wait() before touching vehicle state to
-            // eliminate the worker-iteration race that any other timing produces.
-            try { MeowSci.GarrysTorchLib.GarrysTorchSubmod.Instance?.UpdateWelds(dt); }
-            catch (Exception ex) { Console.WriteLine($"unscience: garrys-torch weld update error: {ex.Message}"); }
+            UpdateWelds(dt);
         }
         catch (Exception ex)
         {

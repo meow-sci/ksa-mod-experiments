@@ -16,6 +16,8 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `PartHelpers` — recursive part tree helpers
 - `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
 - `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
+- `HotkeyGuard` — mandatory Harmony prefix on `GameSettings.OnKeyAll` that swallows game hotkeys while an ImGui text input has focus
+- `HiddenUiFrameHook` — Harmony prefix on `Program.OnDrawUiConsole` that replays a host's registered `BeforeGui`/`AfterGui` per-frame work while the game HUD is hidden (F2), because StarMap's `[StarMapBeforeGui]`/`[StarMapAfterGui]` targets are skipped by the game in that state; used by unscience
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
 - `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. No current consumer (its only user, space-tape, was removed in `2026.8.22.5348`)
