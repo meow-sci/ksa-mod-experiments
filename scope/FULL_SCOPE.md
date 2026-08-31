@@ -111,14 +111,15 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
+| [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + `Cursor.InputRay` picking, CPU terrain march; **no string reflection** (new @5348) |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (23): average-twr, blinky, camera-controller-override, con-man,
-doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, humble-arteest, i-feel-seen,
-its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro, red-alert, skittles,
-thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
+Bundled in the unscience supermod (24): average-twr, blinky, camera-controller-override, con-man,
+doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, graffiti, humble-arteest,
+i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro,
+red-alert, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
 jplrepo live in the repo but are **not** loaded by the supermod.)
 
 ---
@@ -175,6 +176,10 @@ watch items, one favourable regression.**
   `InletTemperature`) and the split of colour/noise out of `ExhaustInstance` into the per-template
   `ExhaustTemplateData` buffer are both already accounted for. Needs a live pass. See
   [`exhaust-plumes.md`](exhaust-plumes.md).
+- **graffiti** (2026-08-30) — click-to-place projected PNG decals, a port of the gatOS sticker
+  system (independently verified against 5348) re-hosted as a submod with cursor-click placement.
+  All-public API surface (no string reflection); one Harmony postfix on
+  `RenderTarget.ResolveAttachments`. Needs a live pass. See [`decals.md`](decals.md).
 
 **Removed by choice (not a game break):**
 - **flexo** (robotics — articulated hinge/rotor Parts) — **deleted 2026-08-23.** `flexo.lib` compiled

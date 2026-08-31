@@ -342,6 +342,17 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 - Harmony patches: `VehiclePaintPatches` (5 seams — `ShaderModuleUtils.FromFile`, both `*Module.UpdateRenderData`, both `*.AddInstance`), `EngineEmissivePatches` (PartModelDynamic.AddInstance)
 - **humble-arteest.lib**: `VehiclePaint` (paint registry + bit encoding), `VehiclePaintShaders` (GLSL injection + install/rebuild), `VehiclePaintPatches`, `PaintTargets` (flight + editor part enumeration), `VehiclePaintSubmod` (+ `VehiclePaintSubmodTables`), `KittenColor` (GPU buffer writes), `KittenColorSubmod`, `EngineEmissive` (temperature state), `EngineEmissivePatches`, `EngineEmissiveSubmod`
 
+### [graffiti](graffiti) / [graffiti.lib](graffiti.lib)
+Click-to-place **projected PNG decals** on vehicle hulls and terrain. Pick a PNG from a decal library, press Place at Click..., click anywhere in the 3D world — the decal conforms to whatever surface is under the cursor and stays welded to it (part-local on vehicles, geodetic lat/lon on terrain). A port of the gatOS sticker system with a point-and-click UX.
+- **Decal library** at `My Games/Kitten Space Agency/.unscience/decals/`: built-in ImGui **file browser** (quick links, drives, filter) copies imports in (auto-uniquified); hand-dropped PNGs picked up by Rescan (which also hot-swaps changed files)
+- **One-shot click placement**: filterable decal dropdown → Place at Click... → cursor-following hint → click places via `Cursor.InputRay` raycast (mesh-precise `Part.RayCastEgo` on vehicles first, CPU terrain march + bisection behind); Esc cancels; a miss keeps placement armed
+- **Unlimited decals** with a multi-select listbox (Ctrl/Cmd toggles, Shift range-selects), Delete Selected + Clear All; dormant (despawned-anchor) decals shown, never pruned
+- Placement settings: width/height, roll, range, alpha, brightness, debug-checker toggle; depth automatic (0.3 m hull / 1 m terrain)
+- **Render**: Harmony postfix on `RenderTarget.ResolveAttachments` (the GridPass post-resolve window, main viewport only, flight scene only) draws a unit cube per decal; the fragment shader reconstructs scene position from reverse-Z depth and projects the PNG onto it — decals wrap hull curvature and tessellated terrain. Textures via KSA's bindless table (`SimpleVkTexture`, 2048 cap, deferred destroy)
+- **No string reflection** — all-public API surface; game updates break loudly at compile time
+- **Public API**: `GraffitiSubmod.Instance`, `PlaceAtCursor`, `Arm`/`Disarm`, `RemoveDecals`, `ClearDecals`, `RefreshLibrary`, `Decals`, `DecalLibrary`
+- **graffiti.lib**: `GraffitiSubmod` (+ `.Ui`, `.Placement` partials), `DecalEntry`, `DecalPicker` (cursor raycast), `DecalAnchors` (per-frame decal-space composition), `DecalRenderer` + `DecalShaders` (projected-decal pass), `DecalTextures` (PNG decode/upload/bindless slots + retire queue), `DecalLibrary`, `FileBrowser`, `GraffitiPatches`, `GraffitiUi`
+
 ---
 
 ## Unified Supermod
@@ -349,13 +360,13 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (22 total)
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (24 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
-- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, graffiti decal pass
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

@@ -15,6 +15,7 @@ using MeowSci.KsaAbstractions;
 using MeowSci.KiwisMarblesLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
+using MeowSci.GraffitiLib;
 using MeowSci.PyroLib;
 
 namespace MeowSci.Unscience;
@@ -74,6 +75,7 @@ internal static class Patcher
         TryApply("dont-stifle-me", () => EditorScalePatches.Apply(_harmony!));
         TryApply("kitten-animations", () => KittenAnimationPatches.Apply(_harmony!));
         TryApply("pyro", () => PyroPatches.Apply(_harmony!));
+        TryApply("graffiti", () => GraffitiPatches.Apply(_harmony!));
         Console.WriteLine("unscience: Harmony patches applied");
     }
 
@@ -112,6 +114,7 @@ internal static class Patcher
                 TryRemove("iva-force-render", () => IvaForceRender.Unpatch(_harmony!));
                 TryRemove("kitten-animations", () => KittenAnimationPatches.Remove(_harmony!));
                 TryRemove("pyro", () => PyroPatches.Remove(_harmony!));
+                TryRemove("graffiti", () => GraffitiPatches.Remove(_harmony!));
             }
             VehiclePaint.Cleanup();
             EngineEmissive.Cleanup();
