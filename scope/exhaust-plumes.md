@@ -40,13 +40,19 @@ both hosts identically.
    instance and `RecomputeGasVisibilityDensity` on every real nozzle — the debug editor's own `changed`
    path (`:2493-2515`) minus the transient-LUT rebake (pyro does not edit transients).
 
+**Persistence** — Named **presets** only (not active plumes). `PlumePresetManager`
+(`pyro.lib/PlumePresetManager.cs`) reads/writes TOML at
+`<MyDocuments>/My Games/Kitten Space Agency/.unscience/pyro-presets.toml`
+(dir from `ksa-abstractions.lib/KsaPaths.cs:9`). Mod-authored file, not a game asset —
+no game integration point beyond the `KsaPaths` directory convention.
+
 ## Touchpoints
 
 | # | Kind | Mod code | Game member | Decomp path (5348) | Status | Notes |
 |---|---|---|---|---|---|---|
 | 1 | Harmony postfix | `PyroPatches.cs:16,35` | `Vehicle.AddVolumetricExhaustInstances(Camera, Viewport, VolumetricExhaustRenderer, double)` | `KSA/Vehicle.cs:5303` | ✅ | resolved with `nameof` — a rename is a compile break. Param **names** (`camera`, `renderer`, `frameDeltaTime`) are bound by Harmony: a param rename silently unbinds → `Apply` throws → `TryApply` logs and skips pyro |
 | 2 | Direct API | `PlumeEmitter.cs:76` | `VolumetricExhaustRenderer.AddInstance(float3, float3, VolumetricExhaustInstance, float)` | `KSA/VolumetricExhaustRenderer.cs:860` | ✅ | reads `instance.ShaderData` (copy) + `LastPlumeData`; consumes `ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity` (all new @5348) |
-| 3 | Direct API | `PyroSubmod.cs:72` | `VolumetricExhaustRenderer.Disabled` | `:312` | ✅ | |
+| 3 | Direct API | `PyroSubmod.cs:75` | `VolumetricExhaustRenderer.Disabled` | `:312` | ✅ | |
 | 4 | Direct API | `PlumeTemplates.cs:55-59` | `VolumetricExhaustReference { Id }`, `.Load()`, `.Template`; `new VolumetricExhaustInstance(ref)` | `KSA/VolumetricExhaustReference.cs`; `KSA/VolumetricExhaustInstance.cs:75` | ✅ | |
 | 5 | Direct API | `PlumeEmitter.cs:56` | `VolumetricExhaustInstance.UpdateState(double, bool, double, PlumeData) : bool` | `KSA/VolumetricExhaustInstance.cs:91` | ✅ | 4-slot pulse tracker (was 2 pre-5348) |
 | 6 | Direct API | `TemplateRefresher.cs:20,42` | `VolumetricExhaustInstance.OnSettingsChanged()` | `KSA/VolumetricExhaustInstance.cs` | ✅ | |
@@ -58,8 +64,8 @@ both hosts identically.
 | 12 | Direct API | `PlumePhysics.cs:113` | `PhysicalAtmosphereReference.GetAtmosphericPressure(Camera) : double` (**atm**) | `KSA/PhysicalAtmosphereReference.cs:50` | ✅ | ×101325 → Pa |
 | 13 | Direct API | `PlumePhysics.cs:102-105` | `template.Emission.Brightness.Value`, `Absorption.ScatteringBrightness.Value`, `Absorption.Density.Value` | `KSA/Emission.cs`, `KSA/Absorption.cs` | ✅ | visibility threshold formula copied from `RocketNozzle.RecomputeGasVisibilityDensity` (`:190-194`) |
 | 14 | Direct API | `PlumeEmitter.cs:69-74` | `Part.MatrixAsmb2VehicleAsmb`, `Part.Asmb2VehicleAsmb`, `Vehicle.PosAsmbToBody(double3)`, `Vehicle.Body2Cce`, `Camera.GetPositionEgo(IPosition)`, `doubleQuat.NormalizedOrZero()` (ext, `KSA/QuaternionEx.cs:280`) | `KSA/Part.cs:728,712`; `KSA/Vehicle.cs:1218,374`; `KSA/Camera.cs:231` | ✅ | |
-| 15 | Direct API | `PyroSubmod.cs:74-75` | `Universe.GetElapsedSeconds()`, `Universe.GetSimulationSpeed()` | `KSA/Universe.cs:2054,1334` | ✅ | |
-| 16 | Direct API | `PyroSubmod.CreateUi.cs:129,142`; `PyroSubmod.cs:159-160`; `PyroUi.cs:12` | `Vehicle.Parts.Parts`, `Part.SubParts`, `Part.PartParent`, `Part.Template.Id`, `Part.Id` | `KSA/Part.cs:1052,1054` | ✅ | anchor pick + dead-anchor pruning |
+| 15 | Direct API | `PyroSubmod.cs:77-78` | `Universe.GetElapsedSeconds()`, `Universe.GetSimulationSpeed()` | `KSA/Universe.cs:2054,1334` | ✅ | |
+| 16 | Direct API | `PyroSubmod.CreateUi.cs:135,148`; `PyroSubmod.cs:189-190`; `PyroUi.cs:12` | `Vehicle.Parts.Parts`, `Part.SubParts`, `Part.PartParent`, `Part.Template.Id`, `Part.Id` | `KSA/Part.cs:1052,1054` | ✅ | anchor pick + dead-anchor pruning |
 | 17 | **Reflection (internal, string)** | `PlumeTemplates.cs:46` | `VolumetricExhaustTemplate.References : SerializedCollection<T>` → `GetList()` | `KSA/VolumetricExhaustTemplate.cs:38`; `KSA/SerializedCollection.cs:42` | ✅ | soft-fails to the 7 stock ids via public `Get(id)` (`:50`) |
 | 18 | Direct API (read+write) | `PyroSubmod.TemplateUi.cs` | `VolumetricExhaustTemplate.Absorption/Emission/Noise/LengthWeights/Quality` sub-objects; `DoubleReference.Value`, `BoolReference.Value`, `Quality.VolumetricVesselShadows`, `ColorGradient.Color0..3`, `Flow.MachDiamonds.{LeadIn,LeadOut,MiddleRadius}` | `KSA/VolumetricExhaustTemplate.cs:12-27` + sub-type files | ✅ | GPU `ExhaustTemplateData` rebuilt from these each `Render()` (`VolumetricExhaustRenderer.cs:1236-1243`) |
 | 19 | Direct API | `PyroSubmod.TemplateUi.cs:123-127` | `ColorRgbReference.Value.AsFloat3`, `new ColorRgbReference(float3)`, `.OnDataLoad(new Mod())` | `KSA/ColorRgbReference.cs:22,28,35`; `KSA/Mod.cs` | ✅ | identical to the game editor |

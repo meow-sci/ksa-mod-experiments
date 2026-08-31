@@ -70,6 +70,9 @@ public sealed partial class PyroSubmod
         }
 
         ImGui.Spacing();
+        if (ImGui.Button($" Save settings as preset... {id}_savepreset"))
+            OpenSavePresetModal(plume);
+        ImGui.SameLine(0, 8);
         PyroUi.DangerButtonBegin();
         if (ImGui.Button($" Remove {id}_remove"))
             toRemove = plume;

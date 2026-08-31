@@ -26,6 +26,7 @@ public sealed partial class PyroSubmod : ISubmod
     public void Initialize()
     {
         Instance = this;
+        _presetManager.Initialize();
     }
 
     public void Update(double dt)
@@ -54,6 +55,8 @@ public sealed partial class PyroSubmod : ISubmod
 
         ImGui.Spacing();
         RenderTemplateEditorSection();
+
+        RenderPresetModals();
 
         SubmodUI.EndContentArea();
     }
@@ -86,7 +89,8 @@ public sealed partial class PyroSubmod : ISubmod
 
     /// <summary>Creates a plume welded to <paramref name="part"/> on <paramref name="vehicle"/>.</summary>
     public (PlumeEntry? Plume, string? Error) CreatePlume(Vehicle vehicle, Part part, string templateId,
-        float3 position, float3 rotation, NozzleSettings? nozzle = null)
+        float3 position, float3 rotation, NozzleSettings? nozzle = null,
+        float throttle = 1f, float absorptionDensityScale = 1f, float refractionIntensity = 1f)
     {
         var instance = PlumeTemplates.CreateInstance(templateId);
         if (instance == null)
@@ -99,7 +103,10 @@ public sealed partial class PyroSubmod : ISubmod
             TemplateId = templateId,
             Position = position,
             Rotation = rotation,
+            Throttle = throttle,
             Nozzle = nozzle?.Clone() ?? new NozzleSettings(),
+            AbsorptionDensityScale = absorptionDensityScale,
+            RefractionIntensity = refractionIntensity,
             Instance = instance,
         };
         _plumes.Add(plume);
@@ -133,6 +140,29 @@ public sealed partial class PyroSubmod : ISubmod
     public void SetAllEnabled(bool enabled)
     {
         foreach (var p in _plumes) p.Enabled = enabled;
+    }
+
+    // ---- Preset API ----
+
+    public string[] GetPresetNames() => _presetManager.GetPresetNames();
+    public PlumePreset? GetPreset(string name) => _presetManager.GetPreset(name);
+    public bool PresetExists(string name) => _presetManager.PresetExists(name);
+    public bool SavePreset(string name, PlumePreset preset) => _presetManager.SavePreset(name, preset);
+    public bool DeletePreset(string name) => _presetManager.DeletePreset(name);
+
+    /// <summary>Applies every preset setting to an existing plume. Returns false if the preset's
+    /// template doesn't exist; a template change restarts the plume's startup transient.</summary>
+    public bool ApplyPreset(PlumeEntry plume, PlumePreset preset)
+    {
+        if (preset.TemplateId != plume.TemplateId && !SetTemplate(plume, preset.TemplateId))
+            return false;
+        plume.Position = preset.Position;
+        plume.Rotation = preset.Rotation;
+        plume.Throttle = preset.Throttle;
+        plume.Nozzle = preset.Nozzle.Clone();
+        plume.AbsorptionDensityScale = preset.AbsorptionDensityScale;
+        plume.RefractionIntensity = preset.RefractionIntensity;
+        return true;
     }
 
     // ---- Internal ----

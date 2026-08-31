@@ -823,7 +823,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `VolumetricExhaustRenderer` (type; Harmony arg) | Harmony arg type | `KSA/VolumetricExhaustRenderer.cs:20` | pyro | `PyroPatches.cs:36` | OK @5348 | lib references `Brutal.Vulkan*` + `BepuUtilities` so the type resolves |
 | `AddInstance(float3 emitterPosition, float3 axis, VolumetricExhaustInstance, float throttle) : void` | direct API | `KSA/VolumetricExhaustRenderer.cs:860` | pyro | `pyro.lib/PlumeEmitter.cs:76` | OK @5348 | the game's own nozzle submission entry; reads `instance.ShaderData` + `LastPlumeData`, derives all plume geometry. **5348 delta already handled:** reads `PlumeData.ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity` |
-| `Disabled : bool` | direct API | `KSA/VolumetricExhaustRenderer.cs:312` | pyro | `pyro.lib/PyroSubmod.cs:72` | OK @5348 | `_maxInstanceCount == 0` (exhausts off in settings) |
+| `Disabled : bool` | direct API | `KSA/VolumetricExhaustRenderer.cs:312` | pyro | `pyro.lib/PyroSubmod.cs:75` | OK @5348 | `_maxInstanceCount == 0` (exhausts off in settings) |
 
 ### KSA.VolumetricExhaustInstance / KSA.VolumetricExhaustReference / KSA.ExhaustInstance
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -842,7 +842,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `GasProperties { Gamma, SpecificGasConstant }` · `ComputeSpeedOfSound(float)` · `ComputeSupersonicExpansionPressureAngle(float,float)` · `ComputeSupersonicExpansionPressureMach(float,float)` · `ComputePrandtlMeyer(float)` | direct API | `KSA/GasProperties.cs` | pyro | `pyro.lib/PlumePhysics.cs:30-83` | OK @5348 | mirrors `RocketNozzle.UpdatePlumeData` (`KSA/RocketNozzle.cs`) |
 | `GasConditions { Pressure, Temperature }` · `ComputeDensity(GasProperties)` | direct API | `KSA/GasConditions.cs` | pyro | `PlumePhysics.cs:37-42,89` | OK @5348 | pressures in **Pa** (game-internal unit) |
 | `RocketDesign.SolveMachNumberFromAreaRatio(GasProperties, double) : static float` · `ComputeAreaRatioFromMachNumber(double, double) : static double` | direct API | `KSA/RocketDesign.cs:168,187` | pyro | `PlumePhysics.cs:33,61` | OK @5348 | exit Mach from (exit/throat)² ; Mach-disk area ratio |
-| `Universe.GetElapsedSeconds()` · `Universe.GetSimulationSpeed()` | direct API | `KSA/Universe.cs:2054,1334` | pyro | `pyro.lib/PyroSubmod.cs:74-75` | OK @5348 | same time source as `RocketNozzleState.AddExhaustInstance` / `Vehicle.AddVolumetricExhaustInstances` |
+| `Universe.GetElapsedSeconds()` · `Universe.GetSimulationSpeed()` | direct API | `KSA/Universe.cs:2054,1334` | pyro | `pyro.lib/PyroSubmod.cs:77-78` | OK @5348 | same time source as `RocketNozzleState.AddExhaustInstance` / `Vehicle.AddVolumetricExhaustInstances` |
 | `PartTree.RocketNozzles.ModulesAndAllStates` (enumerator: `.FxState.VolumetricExhaust`, `.Module.RecomputeGasVisibilityDensity(in …)`) | direct API | `KSA/Vehicle.cs:5310` (game's own use); `KSA/RocketNozzle.cs:182` | pyro | `pyro.lib/TemplateRefresher.cs:36-43` | OK @5348 | pushes Template Editor edits to real engine nozzles (mirrors the debug editor's `changed` path); wrapped in try/catch |
 | `ColorRgbReference(float3)` + `OnDataLoad(new Mod())` · `Value.AsFloat3` | direct API | `KSA/ColorRgbReference.cs:22,28,35` | pyro | `pyro.lib/PyroSubmod.TemplateUi.cs:123-127` | OK @5348 | identical to the game's editor colour write (`VolumetricExhaustRenderer.cs:2306-2311`) |
 

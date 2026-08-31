@@ -229,10 +229,11 @@ Standalone volumetric engine plumes — the game's exhaust effect with no engine
 - Per-plume template pick, throttle, position/rotation offsets (part-local; fires along the part's -X axis like stock nozzles)
 - Per-plume **nozzle physics** (exit/throat radius, chamber pressure & temperature, gamma, gas constant) → `PlumeData` via an isentropic nozzle model mirroring `RocketNozzle.UpdatePlumeData`, so plumes under/over-expand with altitude
 - Per-plume look overrides (absorption density ×, refraction) written into the private per-instance shader struct
+- **Preset system** (same pattern as garrys-torch): save any plume's full settings (template, offsets, throttle, nozzle physics, look) as a named preset via modal with duplicate-name validation; filterable preset combo + delete-with-confirmation in the create form; persisted as TOML at `My Games/Kitten Space Agency/.unscience/pyro-presets.toml`
 - **Template Editor**: the game's hidden exhaust debug editor controls (absorption, emission colours/brightness, Mach diamonds, noise, length weights, quality) for the shared templates — affects all users of the template
 - Auto-removes plumes whose vehicle or anchor part disappears
 - Reflection: `VolumetricExhaustTemplate.References` (template list; stock-id fallback) and `VolumetricExhaustInstance._shaderData`
-- **Public API**: `PyroSubmod.Instance`, `CreatePlume`, `SetTemplate`, `FindPlume`, `RemovePlume`, `SetAllEnabled`, `PlumeTemplates`, `PlumePhysics`
+- **Public API**: `PyroSubmod.Instance`, `CreatePlume`, `SetTemplate`, `FindPlume`, `RemovePlume`, `SetAllEnabled`, preset methods (`GetPresetNames`/`GetPreset`/`PresetExists`/`SavePreset`/`DeletePreset`/`ApplyPreset`, `PlumePreset`), `PlumeTemplates`, `PlumePhysics`
 
 ## UI & Customization Mods
 

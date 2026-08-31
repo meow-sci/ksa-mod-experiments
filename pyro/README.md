@@ -18,10 +18,13 @@ Two projects, following the repo's submod pattern:
 2. Pick an exhaust **Template** (the game's registered `VolumetricExhaustTemplate`s: `EngineALarge`,
    `EngineAMed`, `EngineACompact`, `EngineAVernier`, `EngineATurbine`, `RCS`, `MmuRcsVac`, plus any a
    content mod adds).
-3. Set the **position offset** (metres, in the anchor part's local frame) and **rotation offset**
+3. Optionally pick a **Preset** (filterable combo). Selecting one loads its template and offsets into
+   the form and carries its throttle, nozzle physics and look settings into the plume you're about to
+   create; the **del** button (with confirmation) deletes the selected preset.
+4. Set the **position offset** (metres, in the anchor part's local frame) and **rotation offset**
    (degrees about the part-local X/Y/Z axes). The plume fires along the part's **-X** axis by default —
    the same convention every stock engine nozzle uses — so rotate to aim it.
-4. **Create Plume**. The plume plays its startup transient immediately.
+5. **Create Plume**. The plume plays its startup transient immediately.
 
 **Active Plumes** — one bordered section per plume, each fully independent:
 - **Enabled** checkbox + **On / Off** button (quick toggle; Off plays the template's shutdown transient
@@ -36,7 +39,15 @@ Two projects, following the repo's submod pattern:
   Mach diamonds respond to altitude just like stock plumes.
 - **Look** — per-plume **absorption density ×** and **refraction** (heat haze). These are written into
   the plume's own per-instance shader struct, so they never touch the shared template.
-- **Remove**.
+- **Save settings as preset...** — modal popup that saves the plume's current settings (template,
+  offsets, throttle, nozzle physics, look) under a name, with required-name and duplicate-name
+  validation. **Remove** deletes the plume.
+
+**Presets** — the same pattern as garrys-torch's weld presets. A preset captures every per-plume
+setting *except* the vehicle/part anchor: template id, position/rotation offsets, throttle, all six
+nozzle-physics values and both look overrides. Presets persist across game sessions as TOML at
+`My Games/Kitten Space Agency/.unscience/pyro-presets.toml` (active plumes themselves are **not**
+persisted).
 
 **Template Editor** — the same controls as the game's hidden *View → Show Exhaust Debug* window
 (absorption, emission brightness + 4-colour gradient, Mach diamonds, density/shape/radial noise, core
@@ -72,8 +83,12 @@ automatically.
 ## Public API (`MeowSci.PyroLib`)
 
 - `PyroSubmod.Instance` — singleton; `Plumes` (read-only list of `PlumeEntry`)
-- `CreatePlume(vehicle, part, templateId, position, rotation, nozzle?)`, `SetTemplate(plume, id)`,
-  `FindPlume(id)`, `RemovePlume(plume)`, `SetAllEnabled(bool)`
+- `CreatePlume(vehicle, part, templateId, position, rotation, nozzle?, throttle?, absorptionDensityScale?,
+  refractionIntensity?)`, `SetTemplate(plume, id)`, `FindPlume(id)`, `RemovePlume(plume)`,
+  `SetAllEnabled(bool)`
+- Presets: `GetPresetNames()`, `GetPreset(name)`, `PresetExists(name)`, `SavePreset(name, preset)`,
+  `DeletePreset(name)`, `ApplyPreset(plume, preset)`; `PlumePreset.FromPlume(plume)` snapshots a live
+  plume, `PlumePreset.Clone()` deep-copies
 - `PlumeTemplates.GetTemplateIds()` / `CreateInstance(id)`; `PlumePhysics.TryCompute(...)`
 
 ## Game integration scope

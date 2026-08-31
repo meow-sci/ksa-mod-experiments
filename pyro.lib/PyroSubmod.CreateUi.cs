@@ -77,6 +77,8 @@ public sealed partial class PyroSubmod
             FormRow("Template");
             PyroUi.FilteredCombo("##pyro_template", templateIds, ref _pendingTemplateIndex, _templateFilter);
 
+            RenderPresetFormRow(templateIds);
+
             ImGui.EndTable();
         }
         ImGui.PopStyleVar();
@@ -93,7 +95,11 @@ public sealed partial class PyroSubmod
                 ? _subParts[_pendingSubPartIndex - 1]
                 : _topParts[_pendingPartIndex];
             var (_, error) = CreatePlume(vehicles[_pendingVehicleIndex], anchor, templateIds[_pendingTemplateIndex],
-                _pendingPosition, _pendingRotation);
+                _pendingPosition, _pendingRotation,
+                _pendingPreset?.Nozzle,
+                _pendingPreset?.Throttle ?? 1f,
+                _pendingPreset?.AbsorptionDensityScale ?? 1f,
+                _pendingPreset?.RefractionIntensity ?? 1f);
             _createError = error;
         }
         if (!canCreate) ImGui.EndDisabled();
