@@ -18,6 +18,7 @@ A unified supermod that consolidates 13 standalone KSA mods into a single ImGui 
 | Its So Shiny | Builds and controls Blinky-style pixel grids from built-in light parts |
 | Kitten Animations | Plays kitten avatar MMU animations, expressions, and walking animations |
 | Kiwi's Marbles | Welds celestial bodies to other orbiters with CCI offsets |
+| Rocky McRock Face | Swaps planetary ring meshes/textures (Saturn's rock field) with any built-in mesh |
 | Skittles — Theme Manager | Applies and saves ImGui themes with a built-in style editor |
 | Unladen Swallow | HTTP RPC server for remote game control |
 | Zippo — Light Control | Controls light part intensity and color on vehicles |

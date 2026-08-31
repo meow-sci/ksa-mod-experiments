@@ -29,6 +29,7 @@ using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
 using MeowSci.PyroLib;
+using MeowSci.RockyMcRockFaceLib;
 
 namespace MeowSci.Unscience;
 
@@ -83,6 +84,7 @@ public class Mod
             _submods.Add(new PartsNowSubmod());
             _submods.Add(new PyroSubmod());
             _submods.Add(new RedAlertSubmod());
+            _submods.Add(new RockyMcRockFaceSubmod());
             _submods.Add(skittles);
             _submods.Add(new ThugLifeSubmod());
             _submods.Add(new UnladenSwallowSubmod());

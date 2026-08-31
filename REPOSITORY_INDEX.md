@@ -353,6 +353,15 @@ Click-to-place **projected PNG decals** on vehicle hulls and terrain. Pick a PNG
 - **Public API**: `GraffitiSubmod.Instance`, `PlaceAtCursor`, `Arm`/`Disarm`, `RemoveDecals`, `ClearDecals`, `RefreshLibrary`, `Decals`, `DecalLibrary`
 - **graffiti.lib**: `GraffitiSubmod` (+ `.Ui`, `.Placement` partials), `DecalEntry`, `DecalPicker` (cursor raycast), `DecalAnchors` (per-frame decal-space composition), `DecalRenderer` + `DecalShaders` (projected-decal pass), `DecalTextures` (PNG decode/upload/bindless slots + retire queue), `DecalLibrary`, `FileBrowser`, `GraffitiPatches`, `GraffitiUi`
 
+### [rocky-mcrock-face](rocky-mcrock-face) / [rocky-mcrock-face.lib](rocky-mcrock-face.lib)
+Swap the **meshes and textures of KSA's planetary ring system** (Saturn's instanced rock field + 2D band) at runtime. Pick any built-in mesh — including every part/subpart mesh (~800 in a filterable dropdown) — per ring LOD, change the rock PBR material textures (diffuse/normal/AoRoughMetal), the ring band texture (which also drives the planet's ring shadow), and the rock field's size/density/draw-distance/thickness.
+- **Data-level swap, no Harmony patches**: mutates the public `PlanetaryRingsReference` XML-backed tree (`RingLodReference.MeshFileReference.Mesh`, material texture references), then forces the game's own `Program.RebuildRenderer()` settings path so `PlanetaryRingsRenderData` rebuilds from the mutated references with correct GPU sync
+- **Mesh conversion**: part/subpart meshes are atlas-interleaved (no `DeviceMesh`), so they are cloned into private `Simple` `MeshReference`s sharing the retained CPU-side `HostPrimitives` and uploaded as a per-attribute-stream `SimpleVkMesh` (the ring pipeline's format) on first use; clones cached for the mod's lifetime
+- **Asset catalog** via reflection over `ModLibrary.AllMeshes`/`AllFiles` (the parts-now `GameRegistry` pattern); textures filtered to bound bindless handles, normal maps to `TexturePowerReference`
+- Per-body overrides persist to `.unscience/rocky-mcrock-face.toml` (Tomlyn) and auto-re-apply on load; Restore Defaults puts the stock ring back
+- F11 window toggle (standalone mode); unscience supermod integration via `ISubmod`
+- **rocky-mcrock-face.lib**: `RockyMcRockFaceSubmod` (+ `.Ui` partial), `RingSwapController` (snapshot/apply/restore/rebuild), `RingAssetCatalog`, `RingMeshFactory` (interleaved→Simple clone cache), `RingSelection`, `RingConfigStore`, `RockyUi`
+
 ---
 
 ## Unified Supermod
@@ -360,13 +369,13 @@ Click-to-place **projected PNG decals** on vehicle hulls and terrain. Pick a PNG
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Skittles, Thug Life, Unladen Swallow, Zippo (24 total)
+- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (25 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, graffiti decal pass
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, rocky-mcrock-face.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

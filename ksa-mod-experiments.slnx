@@ -63,4 +63,6 @@
     <Project Path="parts-now.lib/parts-now.lib.csproj" />
     <Project Path="dont-stifle-me/dont-stifle-me.csproj" />
     <Project Path="dont-stifle-me.lib/dont-stifle-me.lib.csproj" />
+    <Project Path="rocky-mcrock-face/rocky-mcrock-face.csproj" />
+    <Project Path="rocky-mcrock-face.lib/rocky-mcrock-face.lib.csproj" />
 </Solution>
