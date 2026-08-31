@@ -49,8 +49,13 @@ internal sealed unsafe class DecalRenderer : IDisposable
     /// <summary>Indices in the unit cube (12 triangles).</summary>
     private const int CubeIndexCount = 36;
 
-    /// <summary>Beyond this camera distance a decal is not drawn at all.</summary>
-    internal const double MaxViewDistanceMetres = 50_000;
+    /// <summary>
+    /// Beyond this camera distance a decal is not drawn at all. Mutable — exposed in the panel's
+    /// placement settings ("Max draw dist"), because at planetary zoom the cull is what finally
+    /// removes a decal (terrain boxes already deepen with distance to survive LOD, see
+    /// <see cref="DecalAnchors"/>).
+    /// </summary>
+    internal static double MaxViewDistanceMetres = 50_000;
 
     /// <summary>
     /// The per-draw push block. KSA matrices are row-vector (<c>v * M</c>), so component i of a

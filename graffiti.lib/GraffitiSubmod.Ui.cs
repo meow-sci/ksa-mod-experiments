@@ -24,6 +24,8 @@ public sealed partial class GraffitiSubmod
     private float _range = 2000f;
     private float _alpha = 1f;
     private float _brightness = 1f;
+    // Global render setting mirrored into DecalRenderer.MaxViewDistanceMetres on change.
+    private float _maxDrawDistance = 50_000f;
 
     // Placed-list multi-select state.
     private readonly HashSet<int> _selectedIds = new();
@@ -104,10 +106,13 @@ public sealed partial class GraffitiSubmod
                 GraffitiUi.GridDrag("Brightness", "##graffiti_bright", ref _brightness, 0.01f, 0.01f, 8f, "%.2f");
                 ImGui.TableNextRow();
                 GraffitiUi.GridDrag("Range (m)", "##graffiti_range", ref _range, 10f, 10f, 100000f, "%.0f");
+                if (GraffitiUi.GridDrag("Max draw dist (m)", "##graffiti_maxdraw", ref _maxDrawDistance,
+                        500f, 1000f, 10_000_000f, "%.0f"))
+                    DecalRenderer.MaxViewDistanceMetres = _maxDrawDistance;
                 GraffitiUi.EndParamGrid();
             }
             ImGui.Checkbox("Debug box (magenta checker instead of the image)##graffiti_debug", ref DebugBox);
-            ImGui.TextDisabled("Depth is how far the image projects through the surface; 0 = auto (half the larger\nside). Raise it if a big decal on a curved hull looks cropped/zoomed; lower it if the\nimage bleeds through to the far side of thin parts.");
+            ImGui.TextDisabled("Depth is how far the image projects through the surface; 0 = auto (half the larger\nside). Raise it if a big decal on a curved hull looks cropped/zoomed; lower it if the\nimage bleeds through to the far side of thin parts. Max draw dist applies to ALL decals\n(default 50 km); terrain decals auto-deepen with camera distance to survive terrain LOD.");
             ImGui.TreePop();
         }
 

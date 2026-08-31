@@ -27,6 +27,16 @@ internal static class DecalAnchors
 {
     private const double Deg2Rad = Math.PI / 180.0;
 
+    /// <summary>
+    /// Extra projection-box depth per metre of camera distance, terrain anchors only. The
+    /// rendered terrain is a screen-space-error LOD mesh: the farther the camera, the coarser
+    /// the mesh and the farther its surface can sit from the true height at the anchor — a
+    /// fixed-depth box empties out and the decal vanishes long before the draw-distance cull.
+    /// 1% of distance (100 m of slab at 10 km) comfortably covers typical LOD error and is
+    /// visually free: on terrain the box depth only sets the slab thickness, never the image.
+    /// </summary>
+    private const double TerrainDepthPerMetre = 0.01;
+
     // Below this the "up" reference is parallel to the decal normal and its projection onto the
     // tangent plane is numerical noise, so the fallback reference is used instead.
     private const double DegenerateUp = 1e-9;
@@ -105,7 +115,10 @@ internal static class DecalAnchors
         var axisX = east * cos - north * sin;
 
         var positionEgo = camera.GetPositionEgo(body) + surfaceCce;
-        return Finish(entry, Basis(axisX, axisY, up), positionEgo, double4x4.Identity, useParent: false);
+        // Deepen the box with camera distance so the LOD-morphed rendered surface stays inside
+        // it at planetary zoom (see TerrainDepthPerMetre). Never below the user's chosen depth.
+        var depth = Math.Max(entry.Depth, positionEgo.Length() * TerrainDepthPerMetre);
+        return Finish(entry, Basis(axisX, axisY, up), positionEgo, double4x4.Identity, useParent: false, depth);
     }
 
     /// <summary>
@@ -141,14 +154,16 @@ internal static class DecalAnchors
 
         var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
         var partMatrix = part.MatrixAsmb2Ego(in vehicleMatrix);
-        return Finish(entry, Basis(rolledX, rolledY, axisZ), entry.Position, partMatrix, useParent: true);
+        return Finish(entry, Basis(rolledX, rolledY, axisZ), entry.Position, partMatrix, useParent: true,
+            entry.Depth);
     }
 
     /// <summary>Composes <c>S · R · T · parent</c>, inverts it in double, and packs both.</summary>
     private static bool Finish(
-        DecalEntry entry, double4x4 rotation, double3 translation, double4x4 parent, bool useParent)
+        DecalEntry entry, double4x4 rotation, double3 translation, double4x4 parent, bool useParent,
+        double depth)
     {
-        var scale = double4x4.CreateScale(entry.Width, entry.Height, entry.Depth);
+        var scale = double4x4.CreateScale(entry.Width, entry.Height, depth);
         var local = scale * rotation * double4x4.CreateTranslation(translation);
         var decalToEgo = useParent ? local * parent : local;
         if (!double.IsFinite(decalToEgo.W.X) || !double.IsFinite(decalToEgo.W.Y)

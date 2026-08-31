@@ -118,7 +118,13 @@ gatOS sticker system, whose anchors were independently verified against the same
   crops a wide decal to its central region — which looks like the image "zoomed in" (footprint
   grows, image edges vanish; the matrix path itself is exact — verified numerically). Default
   depth therefore scales with the decal (`GraffitiSubmod.AutoDepth`: half the larger side,
-  floored at 0.3 m hull / 1 m terrain), and Depth is a placement setting. Too much depth has the
+  floored at 0.3 m hull / 2 m terrain), and Depth is a placement setting. Terrain boxes
+  additionally deepen with camera distance at compose time (`DecalAnchors.TerrainDepthPerMetre`
+  = 1% of distance): the rendered terrain is a screen-space-error LOD mesh whose surface drifts
+  metres-to-tens-of-metres off the true height as the camera pulls back — without the distance
+  term, terrain decals vanish around thousands of metres out. The draw cull itself
+  (`DecalRenderer.MaxViewDistanceMetres`, default 50 km) is mutable and exposed in the panel
+  ("Max draw dist"). Too much depth has the
   opposite failure: the parallel projection punches through thin geometry and paints the far
   side (the normal-cutoff fade does not stop it, since the flipped normal can still face the
   decal axis).
