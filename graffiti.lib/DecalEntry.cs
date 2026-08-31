@@ -88,6 +88,13 @@ public sealed class DecalEntry
     /// <summary>The resolved anchor celestial, or null while the system does not contain it.</summary>
     public Celestial? Body;
 
+    /// <summary>
+    /// Cached terrain-surface radius (m from the body centre) at the anchor (lat, lon), sampled
+    /// once with the ACCURATE CPU chain — the only mode that runs the procedural terrain
+    /// modifiers the rendered surface includes. Terrain is static, so this never changes.
+    /// </summary>
+    public double? TerrainRadius;
+
     /// <summary>The bindless slot the image occupies, or -1 while it has none.</summary>
     public int TextureHandle = -1;
 

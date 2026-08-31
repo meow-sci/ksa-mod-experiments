@@ -171,7 +171,9 @@ public sealed partial class GraffitiSubmod : ISubmod
             RotationDeg = pick.RotationDeg + rollDeg,
             Width = width,
             Height = height,
-            Depth = depth ?? AutoDepth(pick.Kind, width, height),
+            // The pick can demand a deeper box than the size heuristic (a KittenEva anchor is a
+            // bounding-sphere point, not a mesh point — the box must reach the avatar inside).
+            Depth = depth ?? Math.Max(AutoDepth(pick.Kind, width, height), pick.SuggestedMinDepth),
             Alpha = Math.Clamp(alpha, 0.0, 1.0),
             Brightness = Math.Clamp(brightness, 0.01, 8.0),
             Vehicle = pick.Vehicle,
@@ -337,11 +339,11 @@ public sealed partial class GraffitiSubmod : ISubmod
     /// <summary>
     /// Default projection-box depth: half the decal's larger side, floored at 0.3 m on hulls
     /// (hull curvature falls away faster the wider the decal — a fixed shallow box crops a wide
-    /// decal to its centre) and at 1 m on terrain (tessellation displacement the CPU height
-    /// field never sees).
+    /// decal to its centre) and at 2 m on terrain (slack for GPU tessellation detail and any
+    /// residual CPU/GPU height divergence — on open ground extra depth is visually free).
     /// </summary>
     public static double AutoDepth(DecalAnchorKind kind, double width, double height)
-        => Math.Max(kind == DecalAnchorKind.Terrain ? 1.0 : 0.3, 0.5 * Math.Max(width, height));
+        => Math.Max(kind == DecalAnchorKind.Terrain ? 2.0 : 0.3, 0.5 * Math.Max(width, height));
 
     /// <summary>Human-readable anchor description for the list and status lines.</summary>
     internal static string DescribeTarget(DecalEntry entry)

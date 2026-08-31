@@ -29,6 +29,11 @@ internal static class DecalPicker
     private const int TerrainBisections = 24;
 
     /// <summary>What a successful pick resolved to, in the frame the anchor will be stored in.</summary>
+    /// <param name="SuggestedMinDepth">
+    /// A lower bound the placement should apply to the projection-box depth (0 = no opinion).
+    /// A KittenEva hit sets it to the pick sphere's diameter, because the anchor is a
+    /// bounding-sphere point rather than a mesh point and the box must reach the avatar inside.
+    /// </param>
     internal readonly record struct PickResult(
         DecalAnchorKind Kind,
         Vehicle? Vehicle,
@@ -37,7 +42,8 @@ internal static class DecalPicker
         double3 Position,
         double3 Normal,
         double Distance,
-        double RotationDeg);
+        double RotationDeg,
+        double SuggestedMinDepth = 0.0);
 
     /// <summary>Casts the cursor ray and returns the nearest anchor within <paramref name="range"/> metres.</summary>
     internal static bool TryPick(double range, out PickResult result)
@@ -77,6 +83,20 @@ internal static class DecalPicker
                 continue;
 
             var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
+
+            // A KittenEva has no raycastable part view mesh — the game's own hover pick
+            // (KittenEva.UpdateHighlight) tests its bounding sphere instead, and so do we.
+            if (vehicle is KittenEva)
+            {
+                if (TryPickKitten(vehicle, in vehicleMatrix, ray, best, out var kittenResult))
+                {
+                    best = kittenResult.Distance;
+                    found = true;
+                    result = kittenResult;
+                }
+                continue;
+            }
+
             foreach (var part in vehicle.Parts.Parts)
             {
                 if (!part.RayCastEgo(in vehicleMatrix, ray, out var distance, out _,
@@ -101,11 +121,57 @@ internal static class DecalPicker
     }
 
     /// <summary>
+    /// Sphere pick for a KittenEva, mirroring the game's own <c>KittenEva.UpdateHighlight</c>:
+    /// <c>Ray.Raycast</c> against a <c>BoundingSphere3D</c> at the root part's ego position,
+    /// radius scaled by the root's largest scale element. The anchor is the chord midpoint
+    /// (inside the avatar), its normal facing the clicker, both expressed in the root part's
+    /// local frame — the projected box then finds the rendered fur through the depth buffer.
+    /// </summary>
+    private static bool TryPickKitten(Vehicle kitten, ref readonly double4x4 vehicleMatrix, Ray ray,
+        double best, out PickResult result)
+    {
+        result = default;
+        var root = kitten.Parts.Root;
+        if (root == null)
+            return false;
+
+        var positionEgo = root.PositionEgo(in vehicleMatrix);
+        var radius = kitten.BoundingSphereRadiusBody * Double3Ex.GetAbsoluteLargestElement(root.ScaleTotal);
+        if (!double.IsFinite(radius) || radius <= 0)
+            return false;
+
+        var sphere = new BoundingSphere3D(positionEgo, radius);
+        if (!ray.Raycast(sphere, out var distance, out _) || !(distance >= 0) || !(distance < best))
+            return false;
+
+        // Chord midpoint: the closest ray point to the sphere centre — roughly the avatar's
+        // middle, so the depth box (>= sphere diameter, via SuggestedMinDepth) straddles it.
+        var tMid = double3.Dot(positionEgo - ray.Origin, ray.Direction);
+        var anchorEgo = ray.Origin + ray.Direction * Math.Max(tMid, 0.0);
+
+        if (!double4x4.Invert(root.MatrixAsmb2Ego(in vehicleMatrix), out var ego2Asmb))
+            return false;
+        var positionAsmb = double3.Transform(anchorEgo, ego2Asmb);
+        // Direction via two transformed points, so the part matrix's scale drops out on normalize.
+        var towardCamera = double3.Transform(anchorEgo - ray.Direction, ego2Asmb) - positionAsmb;
+        var normalLength = towardCamera.Length();
+        if (!double.IsFinite(normalLength) || normalLength <= 0)
+            return false;
+
+        result = new PickResult(DecalAnchorKind.Vehicle, kitten, root, null,
+            positionAsmb, towardCamera / normalLength, distance, 0.0,
+            SuggestedMinDepth: radius * 2.0);
+        return true;
+    }
+
+    /// <summary>
     /// Marches the ray against the CPU height field of the camera's nearby celestial and bisects
     /// the first crossing. KSA has no CPU ray-vs-terrain routine, so this is the shape of
     /// <c>TerrainImpactFinder.TryFind</c> — a coarse march plus bisections over
     /// <c>GetTerrainHeightFromDirCcf</c> — driven by a straight line instead of a trajectory,
     /// all in body-fixed (CCF) coordinates, the one frame the height field is defined in.
+    /// Every sample uses <c>accurate: true</c> — the only mode that runs the procedural terrain
+    /// modifiers the rendered surface includes — which a one-off click can easily afford.
     /// </summary>
     private static bool TryPickTerrain(Camera camera, Ray ray, double range, out PickResult result)
     {
@@ -123,7 +189,7 @@ internal static class DecalPicker
 
         // Starting underground means the camera is inside the terrain; marching would report the
         // far wall of the hole.
-        if (Depth(body, originCcf, accurate: false) <= 0)
+        if (Depth(body, originCcf) <= 0)
             return false;
 
         var above = 0.0;
@@ -131,7 +197,7 @@ internal static class DecalPicker
         for (var step = 1; step <= TerrainMarchSteps; step++)
         {
             var t = range * step / TerrainMarchSteps;
-            if (Depth(body, originCcf + directionCcf * t, accurate: false) <= 0)
+            if (Depth(body, originCcf + directionCcf * t) <= 0)
             {
                 below = t;
                 break;
@@ -146,8 +212,7 @@ internal static class DecalPicker
         for (var i = 0; i < TerrainBisections; i++)
         {
             var middle = 0.5 * (above + below);
-            var accurate = i == TerrainBisections - 1;
-            if (Depth(body, originCcf + directionCcf * middle, accurate) <= 0)
+            if (Depth(body, originCcf + directionCcf * middle) <= 0)
                 below = middle;
             else
                 above = middle;
@@ -165,13 +230,18 @@ internal static class DecalPicker
         return true;
     }
 
-    /// <summary>Signed metres of the point above the terrain surface (negative = underground).</summary>
-    private static double Depth(Celestial body, double3 pointCcf, bool accurate)
+    /// <summary>
+    /// Signed metres of the point above the terrain surface (negative = underground). Always
+    /// accurate: since the terrain precision rework (revs 5319–5325), only accurate mode
+    /// evaluates the procedural modifiers, and the decal must anchor to the surface the player
+    /// actually sees. ~90 full-chain samples per click is negligible.
+    /// </summary>
+    private static double Depth(Celestial body, double3 pointCcf)
     {
         var radius = pointCcf.Length();
         if (!double.IsFinite(radius) || radius <= 0)
             return double.NaN; // NaN <= 0 is false, so a degenerate sample never reports a hit
-        return radius - (body.MeanRadius + body.GetTerrainHeightFromDirCcf(pointCcf / radius, accurate));
+        return radius - (body.MeanRadius + body.GetTerrainHeightFromDirCcf(pointCcf / radius, accurate: true));
     }
 
     /// <summary>

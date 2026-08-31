@@ -38,8 +38,14 @@ gatOS sticker system, whose anchors were independently verified against the same
    `Part.RayCastEgo` (the identical sweep KSA's flight-mode hover picking runs: bounding-sphere
    broad phase, then `Ray.RaycastWatertight` over the view mesh), else a 64-step march + 24
    bisections over `Celestial.GetTerrainHeightFromDirCcf` in CCF (the shape of
-   `TerrainImpactFinder.TryFind`). A vehicle hit anchors to the hit **sub-part's** `InstanceId`
-   (RayCastEgo returns position/normal in `closestSubPart`'s local frame).
+   `TerrainImpactFinder.TryFind`), **every sample `accurate: true`** — see #10. A vehicle hit
+   anchors to the hit **sub-part's** `InstanceId` (RayCastEgo returns position/normal in
+   `closestSubPart`'s local frame). A **KittenEva** has no raycastable part view mesh, so it gets
+   the game's own `KittenEva.UpdateHighlight` treatment instead: `Ray.Raycast` against a
+   `BoundingSphere3D` at the root part's ego position (radius × the root's largest scale
+   element), anchoring to the root part at the chord midpoint with the normal facing the
+   clicker; the placement then floors the box depth at the sphere diameter
+   (`PickResult.SuggestedMinDepth`) so the projected box reaches the avatar inside.
 4. **Per-frame composition** (`DecalAnchors.cs`) — decal-space cube → ego as S·R·T·parent in
    double, inverted in double, packed to float push constants. Vehicle anchors:
    `Vehicle.GetMatrixAsmb2Ego(Camera)` + `Part.MatrixAsmb2Ego` (includes scale + sub-part
@@ -76,7 +82,8 @@ gatOS sticker system, whose anchors were independently verified against the same
 | 7 | Direct API (pipeline) | `DecalRenderer.cs` | `Presets.{InputAssembly.TriangleList, Rasterization.Fill.CullFront}`; `RenderingPresets.{ReverseZDepthStencil.NoDepthTest, BlendState.BlendColorAlphaOver}`; `Renderer.{Device, Allocator, Graphics, GraphicsAndCompute, MaxFramesInFlight, DynamicStateInfo, ViewportState}`; `VkUtils.StageAndUploadToBuffer` | `Brutal.VulkanApi.Abstractions/Presets.cs`; `KSA/RenderingPresets.cs`; `Core/Renderer.cs`; `RenderCore/VkUtils.cs` | ✅ | reverse-Z + CullFront semantics are load-bearing (see risk notes) |
 | 8 | Direct API (textures) | `DecalTextures.cs` | `TextureLoader.LoadFromMemory`; `TextureAsset(.LoadOptions)`; `new SimpleVkTexture(Allocator, StagingPool, TextureAsset, CreateOptions)`; `Stb/Ktx/GliTexture.Destroy()`; `CreateStagingPool` ext | `Brutal.TextureApi/TextureLoader.cs:130`; `RenderCore/TextureAsset.cs:35`; `RenderCore/SimpleVkTexture.cs:245`; `Brutal.VulkanApi.Abstractions/StagingPoolExtensions.cs` | ✅ | R8G8B8A8UNorm forces 4 channels; `ITexture` has no IDisposable — `Destroy()` must be called or the decode buffer leaks |
 | 9 | Direct API (pick) | `DecalPicker.cs` | `Cursor.InputRay`; `Part.RayCastEgo(ref readonly double4x4, Ray, out …×8, out Part?, out Part?)`; `Vehicle.{BoundingSphereRadiusBody, GetMatrixAsmb2Ego(Camera)}`; `Camera.{GetPositionEgo(IPosition), NearbyCelestial}` | `KSA/Cursor.cs:25`; `KSA/Part.cs:2306`; `KSA/Vehicle.cs`; `KSA/Camera.cs:231,71` | ✅ | InputRay is ego-space and one frame stale (what the player last saw). RayCastEgo only hits SUB-parts — a top-level part with no sub-parts returns false (the loop never runs); acceptable: stock parts all have sub-parts |
-| 10 | Direct API (terrain) | `DecalPicker.cs`; `DecalAnchors.cs` | `Celestial.{GetCce2Ccf, GetCcf2Cce, GetCci2Cce, MeanRadius, GetTerrainHeightFromDirCcf(dir,bool), GetDirCcfFromLatLon, GetLatitudeFromCcf, GetLongitudeFromCcf}`; `Vehicle.ComputeEnu2Cce(double3, doubleQuat)` | `KSA/Celestial.cs`; `KSA/Vehicle.cs:2997` | ✅ | lat/lon statics return DEGREES; height is metres above MeanRadius (0 for no heightmap); ComputeEnu2Cce returns null on the spin axis (pole fallback basis in `DecalAnchors`) |
+| 9b | Direct API (kitten pick) | `DecalPicker.cs` (`TryPickKitten`) | `KittenEva` (type, `is` check); `new BoundingSphere3D(double3, double)`; `Ray.Raycast(BoundingSphere3D, out double, out bool)`; `Double3Ex.GetAbsoluteLargestElement(double3)`; `Part.{PositionEgo(ref readonly double4x4), ScaleTotal, MatrixAsmb2Ego}`; `PartTree.Root` | `KSA/KittenEva.cs:13`; `KSA/BoundingSphere3D.cs`; `KSA/Ray.cs:38`; `KSA/Double3Ex.cs:165`; `KSA/Part.cs:264,794`; `KSA/PartTree.cs:97` | ✅ | mirrors the game's own `KittenEva.UpdateHighlight` sphere pick (`KittenEva.cs:1097-1124`) — kittens render through `CharacterAvatar`, not part view meshes, so `RayCastEgo` can never hit them |
+| 10 | Direct API (terrain) | `DecalPicker.cs`; `DecalAnchors.cs` | `Celestial.{GetCce2Ccf, GetCcf2Cce, GetCci2Cce, MeanRadius, GetTerrainHeightFromDirCcf(dir,bool), GetDirCcfFromLatLon, GetLatitudeFromCcf, GetLongitudeFromCcf}`; `Vehicle.ComputeEnu2Cce(double3, doubleQuat)` | `KSA/Celestial.cs`; `KSA/Vehicle.cs:2997` | ✅ | lat/lon statics return DEGREES; height is metres above MeanRadius (0 for no heightmap); ComputeEnu2Cce returns null on the spin axis (pole fallback basis in `DecalAnchors`). ⚠ **`accurate: true` is load-bearing** everywhere the surface radius matters: only accurate mode evaluates the procedural terrain modifiers (`Celestial.cs:877-880`, gated `if (accurate)` since the 5319–5325 terrain precision rework) — the metres-scale displacement the rendered surface includes. The composed radius is cached per entry (`DecalEntry.TerrainRadius`; terrain is static) |
 | 11 | Direct API (anchor re-resolve) | `GraffitiSubmod.cs` | `Universe.CurrentSystem.Get(string)`; `Vehicle.Parts.Parts`; `Part.{SubParts, InstanceId, MatrixAsmb2Ego(in double4x4), Id}` | `KSA/Universe.cs`; `KSA/Part.cs:1005` | ✅ | per-frame; a despawned anchor makes the decal dormant, never pruned |
 | 12 | Build refs | `graffiti.lib.csproj` | `Brutal.Vulkan(.Abstractions/.Vma)`, `Brutal.ShaderC`, `Brutal.Texture(.Abstractions)`, `Brutal.Ktx`, `Brutal.Core.Memory`, `Planet.Core`, `Planet.Render.Core` | — | ✅ | Planet.Render.Core carries `RenderCore`/`RenderCore.Systems`; Planet.Core carries `Core.Renderer` |
 
@@ -97,6 +104,11 @@ gatOS sticker system, whose anchors were independently verified against the same
     positions). The debug-box checkbox (magenta checker) is the built-in diagnostic.
   - `Cursor.InputRay` staleness/space, and `Part.RayCastEgo` frame conventions (position/normal
     are in the SUB-part's local frame — if that changes, placements land skewed).
+  - the `accurate` flag's meaning in `GetTerrainHeightFromDirCcf` (#10): if a future build starts
+    evaluating (or stops gating) the procedural modifiers differently, terrain decals silently
+    float above / sink below the rendered surface again — the exact 2026-08-30 bug. Symptom:
+    terrain placement reports success but nothing draws (the box misses the rendered surface);
+    the debug-box checker not appearing on flat ground is the tell.
   - bindless sampler slot 0 semantics (linear-clamped); a sampler-table reshuffle turns decals
     point-sampled or wrapped.
 - **Harmony param binding:** #1's `inCmdBuffer` param name — a rename throws at `Apply`
@@ -113,3 +125,6 @@ gatOS sticker system, whose anchors were independently verified against the same
 - **Not done / known limits:** flight scene only (editor excluded by design); main viewport only;
   placed decals are not persisted; a top-level part with zero sub-parts cannot be clicked (see
   #9); decals do not draw while `VolumetricExhaust`-style per-viewport secondary cameras render.
+  KittenEva decals anchor to the ROOT part's frame (the avatar's animation pose is not part of
+  the part matrix), so a decal sprayed on a kitten stays put in body space rather than following
+  a waving limb.

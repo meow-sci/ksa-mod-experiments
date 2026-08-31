@@ -33,7 +33,8 @@ Two projects, following the repo's submod pattern:
    cropped to their centre (which reads as "zoomed in"). Raise it manually for extreme curvature;
    lower it if the image bleeds through to the far side of thin parts.
 3. Press **Place at Click...** — the mod arms a one-shot placement mode with a hint following the
-   cursor. **Click** a vehicle or the ground to place; **Esc** (or the Cancel button) backs out.
+   cursor. **Click** a vehicle, a kitten, or the ground to place; **Esc** (or the Cancel button)
+   backs out.
    A miss ("nothing hit within range") keeps placement armed so a slightly-off click isn't a
    whole round trip; a successful placement returns to normal.
 4. Repeat for as many decals as you like — there is no limit.
@@ -57,10 +58,15 @@ RPC; graffiti raycasts through the clicked cursor position via `Cursor.InputRay`
 - **Pick** — `Cursor.InputRay` (the mouse cursor's ego-space picking ray) is swept against every
   vehicle with `Part.RayCastEgo` — KSA's own watertight triangle raycast over the *art* mesh, the
   same call flight-mode hover picking makes — and, failing that, marched + bisected against the
-  CPU terrain height field of `Camera.NearbyCelestial` (`GetTerrainHeightFromDirCcf`) in
-  body-fixed coordinates. Vehicle hits anchor to the hit **sub-part's** `InstanceId` with the
-  part-local position/normal; terrain hits anchor to geodetic lat/lon with a compass heading that
-  makes the PNG read upright from where the player is standing.
+  CPU terrain height field of `Camera.NearbyCelestial` (`GetTerrainHeightFromDirCcf`, always
+  `accurate: true` — the only mode that evaluates the procedural terrain modifiers the rendered
+  surface includes) in body-fixed coordinates. Vehicle hits anchor to the hit **sub-part's**
+  `InstanceId` with the part-local position/normal; terrain hits anchor to geodetic lat/lon with
+  a compass heading that makes the PNG read upright from where the player is standing.
+  **KittenEva** kittens have no raycastable part mesh (they render through `CharacterAvatar`), so
+  they get the game's own hover-pick treatment: a bounding-sphere raycast anchored to the root
+  part, with the box depth floored at the sphere diameter so the projected decal reaches the fur
+  inside. (Kitten decals ride the kitten's body frame, not its animated limbs.)
 - **Anchor → matrices** — every frame, each decal composes a `[-0.5,0.5]³` decal-space cube
   (S·R·T·parent, row-vector convention) into ego space in double precision:
   part anchors through `Part.MatrixAsmb2Ego` (includes part scale and the sub-part chain),

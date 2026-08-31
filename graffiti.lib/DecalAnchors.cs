@@ -49,19 +49,29 @@ internal static class DecalAnchors
     /// <summary>
     /// Geodetic anchor: the decal sits on the terrain at (lat, lon), its +z along the local
     /// radial and its +y rotated from north by the stored heading, so it rides the planet's spin
-    /// for free. The CPU terrain height (accurate: false — the physics hot path's four texel
-    /// taps) can be off by decimetres from the GPU-tessellated surface; the projection box's
-    /// depth absorbs that entirely, which is exactly why this is a projected decal.
+    /// for free.
     /// </summary>
+    /// <remarks>
+    /// The surface radius MUST be sampled with <c>accurate: true</c>: since KSA's terrain
+    /// precision rework (revs 5319–5325), <c>GetTerrainHeightFromDirCcf</c> only evaluates the
+    /// procedural terrain modifiers (mountains/erosion/noise displacement — metres, not
+    /// centimetres) in accurate mode, and the rendered surface includes them. An inaccurate
+    /// radius parks the projection box metres off the rendered terrain, outside its own depth —
+    /// the decal "places" but never draws a pixel. The accurate chain is pricier, so the radius
+    /// is computed once and cached on the entry (terrain is static). Residual GPU-only
+    /// tessellation detail is decimetres and is absorbed by the box depth.
+    /// </remarks>
     private static bool TryComposeTerrain(DecalEntry entry, Camera camera)
     {
         if (entry.Body is not { } body)
             return false;
 
         var dirCcf = body.GetDirCcfFromLatLon(entry.Position.X, entry.Position.Y);
-        var radius = body.MeanRadius + body.GetTerrainHeightFromDirCcf(dirCcf, accurate: false);
+        var radius = entry.TerrainRadius
+                     ?? body.MeanRadius + body.GetTerrainHeightFromDirCcf(dirCcf, accurate: true);
         if (!double.IsFinite(radius))
             return false;
+        entry.TerrainRadius = radius;
 
         var ccf2Cce = body.GetCcf2Cce();
         var surfaceCce = (dirCcf * radius).Transform(ccf2Cce);
