@@ -59,7 +59,8 @@ public sealed partial class GraffitiSubmod
         if (!ImGui.GetIO().WantCaptureMouse && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
         {
             var (decal, error) = PlaceAtCursor(_armedDecalName, _range,
-                _width, _height, _rollDeg, _alpha, _brightness);
+                _width, _height, _rollDeg, _alpha, _brightness,
+                _depth > 0f ? _depth : null);
             if (decal != null)
             {
                 // One-shot: back to normal after a successful placement.

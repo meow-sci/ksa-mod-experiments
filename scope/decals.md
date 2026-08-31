@@ -101,6 +101,15 @@ gatOS sticker system, whose anchors were independently verified against the same
     point-sampled or wrapped.
 - **Harmony param binding:** #1's `inCmdBuffer` param name — a rename throws at `Apply`
   (logged + skipped), same failure mode as pyro's postfix.
+- **Projection-depth geometry (not a game coupling, but the #1 user-visible surprise):** the
+  visible decal is the surface ∩ projection box. A box too shallow for the surface's curvature
+  crops a wide decal to its central region — which looks like the image "zoomed in" (footprint
+  grows, image edges vanish; the matrix path itself is exact — verified numerically). Default
+  depth therefore scales with the decal (`GraffitiSubmod.AutoDepth`: half the larger side,
+  floored at 0.3 m hull / 1 m terrain), and Depth is a placement setting. Too much depth has the
+  opposite failure: the parallel projection punches through thin geometry and paints the far
+  side (the normal-cutoff fade does not stop it, since the flipped normal can still face the
+  decal axis).
 - **Not done / known limits:** flight scene only (editor excluded by design); main viewport only;
   placed decals are not persisted; a top-level part with zero sub-parts cannot be clicked (see
   #9); decals do not draw while `VolumetricExhaust`-style per-viewport secondary cameras render.

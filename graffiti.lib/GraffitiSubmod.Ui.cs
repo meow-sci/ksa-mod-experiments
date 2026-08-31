@@ -19,6 +19,7 @@ public sealed partial class GraffitiSubmod
     // Placement settings applied to the next placed decal.
     private float _width = 1f;
     private float _height = 1f;
+    private float _depth; // 0 = auto (scales with the decal's larger side)
     private float _rollDeg;
     private float _range = 2000f;
     private float _alpha = 1f;
@@ -95,15 +96,18 @@ public sealed partial class GraffitiSubmod
                 GraffitiUi.GridDrag("Width (m)", "##graffiti_w", ref _width, 0.01f, 0.01f, 1000f, "%.2f");
                 GraffitiUi.GridDrag("Height (m)", "##graffiti_h", ref _height, 0.01f, 0.01f, 1000f, "%.2f");
                 ImGui.TableNextRow();
+                GraffitiUi.GridDrag("Depth (m)", "##graffiti_d", ref _depth, 0.01f, 0f, 100f,
+                    _depth > 0f ? "%.2f" : "auto");
                 GraffitiUi.GridDrag("Roll (deg)", "##graffiti_roll", ref _rollDeg, 0.25f, -180f, 180f, "%.1f");
-                GraffitiUi.GridDrag("Range (m)", "##graffiti_range", ref _range, 10f, 10f, 100000f, "%.0f");
                 ImGui.TableNextRow();
                 GraffitiUi.GridDrag("Alpha", "##graffiti_alpha", ref _alpha, 0.01f, 0f, 1f, "%.2f");
                 GraffitiUi.GridDrag("Brightness", "##graffiti_bright", ref _brightness, 0.01f, 0.01f, 8f, "%.2f");
+                ImGui.TableNextRow();
+                GraffitiUi.GridDrag("Range (m)", "##graffiti_range", ref _range, 10f, 10f, 100000f, "%.0f");
                 GraffitiUi.EndParamGrid();
             }
             ImGui.Checkbox("Debug box (magenta checker instead of the image)##graffiti_debug", ref DebugBox);
-            ImGui.TextDisabled("Projection depth is automatic: 0.3 m on hulls, 1 m on terrain.");
+            ImGui.TextDisabled("Depth is how far the image projects through the surface; 0 = auto (half the larger\nside). Raise it if a big decal on a curved hull looks cropped/zoomed; lower it if the\nimage bleeds through to the far side of thin parts.");
             ImGui.TreePop();
         }
 

@@ -136,7 +136,12 @@ public sealed partial class GraffitiSubmod : ISubmod
     /// <param name="rollDeg">Roll relative to the "reads upright from here" default, degrees.</param>
     /// <param name="alpha">Opacity in [0, 1].</param>
     /// <param name="brightness">Lighting gain in (0, 8].</param>
-    /// <param name="depth">Projection-box depth, metres; null picks 0.3 (vehicle) / 1.0 (terrain).</param>
+    /// <param name="depth">
+    /// Projection-box depth, metres; null scales with the decal (see <see cref="AutoDepth"/>).
+    /// The visible decal is the surface ∩ box, so too shallow a box crops a wide decal on a
+    /// curved hull to its central region (looks "zoomed in"); too deep a box projects through
+    /// thin geometry and paints the far side too.
+    /// </param>
     public (DecalEntry? Decal, string? Error) PlaceAtCursor(string imageName, double range,
         double width, double height, double rollDeg, double alpha, double brightness,
         double? depth = null)
@@ -166,7 +171,7 @@ public sealed partial class GraffitiSubmod : ISubmod
             RotationDeg = pick.RotationDeg + rollDeg,
             Width = width,
             Height = height,
-            Depth = depth ?? (pick.Kind == DecalAnchorKind.Terrain ? 1.0 : 0.3),
+            Depth = depth ?? AutoDepth(pick.Kind, width, height),
             Alpha = Math.Clamp(alpha, 0.0, 1.0),
             Brightness = Math.Clamp(brightness, 0.01, 8.0),
             Vehicle = pick.Vehicle,
@@ -328,6 +333,15 @@ public sealed partial class GraffitiSubmod : ISubmod
             return null;
         }
     }
+
+    /// <summary>
+    /// Default projection-box depth: half the decal's larger side, floored at 0.3 m on hulls
+    /// (hull curvature falls away faster the wider the decal — a fixed shallow box crops a wide
+    /// decal to its centre) and at 1 m on terrain (tessellation displacement the CPU height
+    /// field never sees).
+    /// </summary>
+    public static double AutoDepth(DecalAnchorKind kind, double width, double height)
+        => Math.Max(kind == DecalAnchorKind.Terrain ? 1.0 : 0.3, 0.5 * Math.Max(width, height));
 
     /// <summary>Human-readable anchor description for the list and status lines.</summary>
     internal static string DescribeTarget(DecalEntry entry)

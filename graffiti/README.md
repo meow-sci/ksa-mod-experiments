@@ -25,9 +25,13 @@ Two projects, following the repo's submod pattern:
 
 **Placing**
 1. Pick a **Decal** from the filterable dropdown.
-2. Optionally open **Placement settings**: width/height (m), roll (deg, relative to the
-   "reads upright from here" default), pick range (m), alpha, brightness, and a debug-checker
-   toggle. Projection depth is automatic (0.3 m on hulls, 1 m on terrain).
+2. Optionally open **Placement settings**: width/height (m), depth (m), roll (deg, relative to
+   the "reads upright from here" default), pick range (m), alpha, brightness, and a debug-checker
+   toggle. **Depth** is how far the image projects through the surface — the visible decal is the
+   surface ∩ projection box. At 0 it is automatic: half the decal's larger side, floored at
+   0.3 m on hulls / 1 m on terrain, so wide decals keep wrapping curved hulls instead of getting
+   cropped to their centre (which reads as "zoomed in"). Raise it manually for extreme curvature;
+   lower it if the image bleeds through to the far side of thin parts.
 3. Press **Place at Click...** — the mod arms a one-shot placement mode with a hint following the
    cursor. **Click** a vehicle or the ground to place; **Esc** (or the Cancel button) backs out.
    A miss ("nothing hit within range") keeps placement armed so a slightly-off click isn't a
