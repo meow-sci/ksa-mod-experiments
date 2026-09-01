@@ -89,8 +89,24 @@ public sealed partial class RockyMcRockFaceSubmod : ISubmod
             }
         }
         // If the game already built ring render data from the defaults, rebuild to pick ours up.
-        if (anyApplied && _controller.IsRingsRendererCreated())
-            _controller.RebuildRenderer(out _);
+        if (anyApplied && _controller.IsRingsRendererCreated() && _controller.RebuildRenderer(out _))
+            PruneUnusedMeshClones();
+    }
+
+    /// <summary>
+    /// Frees GPU buffers of converted meshes no longer selected anywhere. Safe only right
+    /// after a successful rebuild: the fresh ring data references exactly the clones that
+    /// were resolved for it, so everything outside the current selections is unreferenced.
+    /// </summary>
+    private void PruneUnusedMeshClones()
+    {
+        var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var selection in _selections.Values)
+        {
+            foreach (var id in selection.LodMeshIds)
+                if (id.Length > 0) keep.Add(id);
+        }
+        _controller.MeshFactory.PruneExcept(keep);
     }
 
     private RingSelection GetOrCreateSelection(string bodyId)

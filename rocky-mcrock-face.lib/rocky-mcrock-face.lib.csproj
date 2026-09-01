@@ -68,6 +68,10 @@
       <HintPath>$(KSAFolder)Brutal.Texture.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Brutal.Gltf" Condition="Exists('$(KSAFolder)Brutal.Gltf.dll')">
+      <HintPath>$(KSAFolder)Brutal.Gltf.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Brutal.Render.Common" Condition="Exists('$(KSAFolder)Brutal.Render.Common.dll')">
       <HintPath>$(KSAFolder)Brutal.Render.Common.dll</HintPath>
       <Private>false</Private>

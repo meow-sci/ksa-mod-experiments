@@ -95,12 +95,16 @@ public sealed class RingSwapController : IDisposable
                 meshes[i] = defaults.LodMeshes[i];
                 continue;
             }
-            if (!Catalog.TryGetMesh(id, out var source))
+            string? error;
+            if (Catalog.TryGetMesh(id, out var source))
+                meshes[i] = MeshFactory.GetRingUsable(source, out error);
+            else if (Catalog.TryGetGltfMesh(id, out var gltfEntry))
+                meshes[i] = MeshFactory.GetRingUsableFromGltf(gltfEntry, out error);
+            else
             {
                 message = $"unknown mesh '{id}'";
                 return false;
             }
-            meshes[i] = MeshFactory.GetRingUsable(source, out var error);
             if (meshes[i] == null)
             {
                 message = error ?? $"mesh '{id}' is not usable";

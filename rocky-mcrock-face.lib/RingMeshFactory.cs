@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Brutal.GltfApi;
 using Brutal.VulkanApi.Abstractions;
 using KSA;
 
@@ -96,6 +97,91 @@ public sealed class RingMeshFactory : IDisposable
                           $"({clone.DeviceMesh.IndexCount} indices, radius {clone.BoundingSphereRadius:F2} m)");
         _clones[source.Id] = clone;
         return clone;
+    }
+
+    /// <summary>
+    /// Loads a mesh out of a glTF-file asset (kitten, helmet, MMU...) into a private
+    /// ring-usable MeshReference — the same import the game runs for the stock ring
+    /// rocks (MeshReference.Load: Position/Normal/Uv0, missing attributes defaulted;
+    /// skinned meshes come out in bind pose). Cached under the entry id.
+    /// </summary>
+    public MeshReference? GetRingUsableFromGltf(GltfMeshEntry entry, out string? error)
+    {
+        error = null;
+        if (_clones.TryGetValue(entry.Id, out var cached))
+            return cached;
+
+        try
+        {
+            using var gltfLoader = new GltfLoader(entry.FilePath);
+            var clone = new MeshReference
+            {
+                Id = $"rocky_mcrock_face/{entry.Id}",
+                Simple = true,
+                Interleaved = false,
+            };
+            clone.Load(gltfLoader, entry.MeshIndex, createDeviceMesh: false);
+            if (clone.HostPrimitives is not { Length: > 0 } || clone.HostPrimitives[0] == null)
+            {
+                error = $"glTF mesh '{entry.Id}' loaded no geometry";
+                return null;
+            }
+            if (clone.BoundingSphereRadius <= 0.0)
+            {
+                error = $"glTF mesh '{entry.Id}' has a zero bounding radius";
+                return null;
+            }
+
+            var renderer = Program.GetRenderer();
+            using var stagingPool = renderer.Allocator.CreateStagingPool(renderer.GraphicsAndCompute, 1);
+            clone.Bind(renderer, stagingPool);
+            if (clone.DevicePrimitives is not { Length: > 0 } || clone.DevicePrimitives[0] == null)
+            {
+                error = $"glTF mesh '{entry.Id}' produced no device mesh";
+                return null;
+            }
+
+            Console.WriteLine($"rocky-mcrock-face: converted glTF mesh '{entry.Id}' for ring use " +
+                              $"({clone.DeviceMesh.IndexCount} indices, radius {clone.BoundingSphereRadius:F2})");
+            _clones[entry.Id] = clone;
+            return clone;
+        }
+        catch (Exception ex)
+        {
+            error = $"glTF load failed for '{entry.Id}': {ex.Message}";
+            return null;
+        }
+    }
+
+    /// <summary>Index count of an already-converted mesh's first primitive (0 if not converted).</summary>
+    public int GetConvertedIndexCount(string cacheId)
+    {
+        return _clones.TryGetValue(cacheId, out var clone)
+               && clone.DevicePrimitives is { Length: > 0 } && clone.DevicePrimitives[0] != null
+            ? clone.DevicePrimitives[0].IndexCount
+            : 0;
+    }
+
+    /// <summary>
+    /// Destroys cached clones whose source mesh id is not in <paramref name="keepSourceIds"/>.
+    /// Only call right after a renderer rebuild — the freshly built ring data references
+    /// exactly the clones that were resolved for it, so anything outside the keep set is
+    /// unreferenced and its GPU buffers can be freed. Returns the number pruned.
+    /// </summary>
+    public int PruneExcept(IReadOnlySet<string> keepSourceIds)
+    {
+        var pruned = 0;
+        foreach (var sourceId in new List<string>(_clones.Keys))
+        {
+            if (keepSourceIds.Contains(sourceId)) continue;
+            try { _clones[sourceId].Dispose(); }
+            catch (Exception ex) { Console.WriteLine($"rocky-mcrock-face: clone dispose failed: {ex.Message}"); }
+            _clones.Remove(sourceId);
+            pruned++;
+        }
+        if (pruned > 0)
+            Console.WriteLine($"rocky-mcrock-face: freed {pruned} unused converted mesh(es)");
+        return pruned;
     }
 
     /// <summary>

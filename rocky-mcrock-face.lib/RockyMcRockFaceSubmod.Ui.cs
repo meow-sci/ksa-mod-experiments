@@ -105,6 +105,37 @@ public sealed partial class RockyMcRockFaceSubmod
             RockyUi.IdCombo($"##rockymcrockface_lod{i}", _controller.Catalog.MeshIds, ref selection.LodMeshIds[i], _assetFilter);
         }
         RockyUi.EndFormTable();
+        RenderMeshCostSummary(body, selection);
+    }
+
+    private void RenderMeshCostSummary(RingedBody body, RingSelection selection)
+    {
+        bool anyShown = false;
+        for (int i = 0; i < body.LodCount; i++)
+        {
+            string id = selection.LodMeshIds[i];
+            if (id.Length == 0) continue;
+            anyShown = true;
+            int indexCount = _controller.Catalog.GetMeshIndexCount(id);
+            if (indexCount == 0) indexCount = _controller.MeshFactory.GetConvertedIndexCount(id);
+            if (indexCount == 0)
+            {
+                ImGui.TextDisabled($"LOD {i}: size unknown until first Apply");
+                continue;
+            }
+            int triangles = indexCount / 3;
+            if (triangles > 10000)
+                ImGui.TextColored(ErrorColor, $"LOD {i}: {triangles:N0} tris - very heavy");
+            else if (triangles > 3000)
+                ImGui.TextColored(WarningColor, $"LOD {i}: {triangles:N0} tris - heavy");
+            else
+                ImGui.TextDisabled($"LOD {i}: {triangles:N0} tris");
+        }
+        if (anyShown)
+        {
+            ImGui.TextDisabled("Thousands of instances draw at once and the higher LOD slots carry most of them -");
+            ImGui.TextDisabled("keep LOD 2+ light (stock rocks are a few hundred tris) or frame rate will suffer.");
+        }
     }
 
     private void RenderTextureSection(RingSelection selection)
@@ -186,6 +217,7 @@ public sealed partial class RockyMcRockFaceSubmod
         }
         SaveSelections();
         bool rebuilt = _controller.RebuildRenderer(out var rebuildMessage);
+        if (rebuilt) PruneUnusedMeshClones();
         SetStatus($"{message}; {rebuildMessage}", !rebuilt);
     }
 
@@ -195,6 +227,7 @@ public sealed partial class RockyMcRockFaceSubmod
         _controller.Restore(body);
         SaveSelections();
         bool rebuilt = _controller.RebuildRenderer(out var rebuildMessage);
+        if (rebuilt) PruneUnusedMeshClones();
         SetStatus(rebuilt ? $"restored game defaults for {body.Id}" : rebuildMessage, !rebuilt);
     }
 

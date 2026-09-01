@@ -8,7 +8,8 @@ grid and orbit-scrolls in the shaders to fake billions of particles in ≤6 indi
 Rocky McRock Face lets you swap what that system draws, at runtime, from an ImGui panel:
 
 - **Per-LOD rock mesh** — pick *any* mesh loaded into the game, including every part/subpart mesh
-  (fuel tanks, engines, kittens' chairs...). ~800 built-in meshes are offered in a filterable dropdown.
+  (fuel tanks, engines, kittens' chairs...) plus the meshes inside glTF-file assets — the kitten
+  itself (`KittenGlb:*`), helmet, visor, and MMU. ~800 entries in a filterable dropdown.
 - **Rock material textures** — diffuse, normal, and AoRoughMetal maps, from every bound game texture.
 - **Ring band texture** — the 2D ring color/alpha strip (also drives the ring shadow on the planet).
 - **Rock field settings** — rock size, density (objects/km³), draw distance, and field thickness.
@@ -35,6 +36,12 @@ Notes:
   meshes render with the single rock material you chose.
 - Very high density × draw distance costs VRAM and GPU time (the instance buffers are sized from
   those values at rebuild).
+- **Watch the triangle counts** the panel shows under the LOD rows. The stock rocks have a 5-tier
+  decimation chain because thousands of instances draw at once; a full-poly part or kitten mesh on
+  every LOD slot multiplies into tens of millions of triangles and tanks the frame rate. Put heavy
+  meshes on LOD 0/1 only and keep LOD 2+ light (or game default). Converted meshes no longer
+  selected anywhere are freed automatically after each Apply/Restore.
+- Character meshes are skinned; they import in bind pose (a T-pose kitten statue).
 
 ## How it works
 
