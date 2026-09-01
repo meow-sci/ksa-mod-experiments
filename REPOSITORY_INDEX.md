@@ -358,9 +358,9 @@ Swap the **meshes and textures of KSA's planetary ring system** (Saturn's instan
 - **Data-level swap, no Harmony patches**: mutates the public `PlanetaryRingsReference` XML-backed tree (`RingLodReference.MeshFileReference.Mesh`, material texture references), then forces the game's own `Program.RebuildRenderer()` settings path so `PlanetaryRingsRenderData` rebuilds from the mutated references with correct GPU sync
 - **Mesh conversion**: part/subpart meshes are atlas-interleaved (no `DeviceMesh`), so they are cloned into private `Simple` `MeshReference`s sharing the retained CPU-side `HostPrimitives` and uploaded as a per-attribute-stream `SimpleVkMesh` (the ring pipeline's format) on first use; clones cached for the mod's lifetime
 - **Asset catalog** via reflection over `ModLibrary.AllMeshes`/`AllFiles` (the parts-now `GameRegistry` pattern); textures filtered to bound bindless handles, normal maps to `TexturePowerReference`
-- Per-body overrides persist to `.unscience/rocky-mcrock-face.toml` (Tomlyn) and auto-re-apply on load; Restore Defaults puts the stock ring back
+- Overrides are session-only (deliberately not persisted — a game restart is back to the stock ring); Restore Defaults reverts within a session
 - F11 window toggle (standalone mode); unscience supermod integration via `ISubmod`
-- **rocky-mcrock-face.lib**: `RockyMcRockFaceSubmod` (+ `.Ui` partial), `RingSwapController` (snapshot/apply/restore/rebuild), `RingAssetCatalog`, `RingMeshFactory` (interleaved→Simple clone cache), `RingSelection`, `RingConfigStore`, `RockyUi`
+- **rocky-mcrock-face.lib**: `RockyMcRockFaceSubmod` (+ `.Ui` partial), `RingSwapController` (snapshot/apply/restore/rebuild), `RingAssetCatalog`, `RingMeshFactory` (interleaved→Simple clone cache), `RingSelection`, `RockyUi`
 
 ---
 

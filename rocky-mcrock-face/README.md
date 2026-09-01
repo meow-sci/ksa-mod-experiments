@@ -14,8 +14,8 @@ Rocky McRock Face lets you swap what that system draws, at runtime, from an ImGu
 - **Ring band texture** — the 2D ring color/alpha strip (also drives the ring shadow on the planet).
 - **Rock field settings** — rock size, density (objects/km³), draw distance, and field thickness.
 
-Overrides persist to `My Games/Kitten Space Agency/.unscience/rocky-mcrock-face.toml` and re-apply
-automatically on the next launch.
+Overrides are **session-only** by design: restarting the game brings the stock ring back, and
+Restore Defaults reverts within a session.
 
 ## Using it
 
@@ -82,7 +82,7 @@ normal maps to `TexturePowerReference` entries; `*_VM` pick-mesh hulls are hidde
   `RebuildRenderer(out message)`, `IsRingsRendererCreated()`, `Bodies`, `Catalog`, `MeshFactory`
 - `RingAssetCatalog` — `Refresh()`, `MeshIds`, `TextureIds`, `NormalTextureIds`, `TryGet*`
 - `RingMeshFactory` — `GetRingUsable(MeshReference, out error)` (clone/convert cache)
-- `RingSelection` — the per-body override model; `RingConfigStore` — TOML persistence
+- `RingSelection` — the per-body override model (session-only; nothing is persisted)
 
 ## Game integration scope
 

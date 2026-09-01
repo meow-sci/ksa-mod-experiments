@@ -94,5 +94,5 @@ Decomp paths relative to `~/repos/meow-sci/ksa-game-assemblies/current/decomp`.
 | 16 | `Universe.CurrentSystem.All.OfType<Celestial>()` | direct API | `KSA/Universe.cs:94`; `KSA/CelestialSystem.cs` | `RingSwapController.RefreshBodies` | OK |
 | 17 | Consumer contract (not called, relied upon): `PlanetaryRingsRenderData` ctor bakes `LodProperties[i].Y = MeshLods[i].DeviceMesh.IndexCount`, `MeshCullingRadius = max BoundingSphereRadius`, `MeshDiffuseId/NormalId/PbrId = …BindlessHandle`; `PlanetaryRingsRenderer.{PopulatePlanets, RenderMeshes}` | behavioral invariant | `KSA.Rendering.Rings.Rendering/PlanetaryRingsRenderData.cs:180-326`; `PlanetaryRingsRenderer.cs:324,571-603` | design keystone — see narrative #1-#3 | OK |
 
-Related but **not** integration points: `RingSelection`/`RingConfigStore` (mod-local state, TOML at
-`.unscience/rocky-mcrock-face.toml`).
+Related but **not** integration points: `RingSelection` (mod-local, session-only state — overrides
+are deliberately not persisted; a game restart is back to stock).

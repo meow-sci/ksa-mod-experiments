@@ -73,7 +73,6 @@
     <Copy SourceFiles="@(MeowSciAssemblies)"
           DestinationFolder="$(DistDir)"
           Condition="'@(MeowSciAssemblies)' != ''" />
-    <Copy SourceFiles="$(TargetDir)Tomlyn.dll" DestinationFolder="$(DistDir)" Condition="Exists('$(TargetDir)Tomlyn.dll')" />
     
     <!-- Copy third-party licenses -->
     <MakeDir Directories="$(DistDir)third-party-licenses" />
