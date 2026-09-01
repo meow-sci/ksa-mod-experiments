@@ -87,6 +87,8 @@ public sealed partial class RockyMcRockFaceSubmod
                              "on first use. Off-center meshes will orbit around their own origin.");
         if (!open) return;
 
+        ImGui.TextDisabled("Individual objects only render as real meshes within the field's draw distance");
+        ImGui.TextDisabled("(default 20 km of the ring plane) - from farther away you see the flat band.");
         if (!RockyUi.BeginFormTable("##rockymcrockface_meshes")) return;
 
         RockyUi.FormLabel("All LODs");
@@ -112,6 +114,9 @@ public sealed partial class RockyMcRockFaceSubmod
                              "plus the 2D band texture (also drives the ring's shadow on the planet).");
         if (!open) return;
 
+        ImGui.TextDisabled("The first three skin every rock instance: diffuse = base color, normal = surface");
+        ImGui.TextDisabled("bumps, AoRoughMetal = shading response. Ring band = the flat color/alpha strip");
+        ImGui.TextDisabled("seen from afar (it also tints the ring's shadow on the planet).");
         if (!RockyUi.BeginFormTable("##rockymcrockface_textures")) return;
         RockyUi.FormLabel("Rock diffuse");
         RockyUi.IdCombo("##rockymcrockface_diffuse", _controller.Catalog.TextureIds, ref selection.DiffuseId, _assetFilter);

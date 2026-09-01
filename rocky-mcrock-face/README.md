@@ -46,9 +46,13 @@ bindless texture handles into a UBO. So the mod:
 
 1. **Mutates the reference tree** (all public fields — no reflection for the swap itself), keeping a
    snapshot of the original values per rings-reference for restore.
-2. **Rebuilds the renderer** via `Program.Instance.RebuildRenderer()` — the exact path the game's
-   graphics settings use — which disposes and reconstructs the rings renderer from the mutated data
-   with correct GPU synchronization.
+2. **Disposes the rings renderer, then rebuilds.** `Program.RebuildRenderer()` alone is not enough:
+   when the rings renderer already exists, the game only rebuilds its frame resources
+   (pipelines/images) — `PopulatePlanets`, the only place ring data is re-read from the reference
+   tree, runs solely in the renderer's constructor. So the mod waits for the device, disposes the
+   existing `PlanetaryRingsRenderer` (clearing the `_ringRendererCreated` flag), and then calls
+   `Program.Instance.RebuildRenderer()` so the game's own `CreateRingsRenderer` branch reconstructs
+   everything — including instance buffers resized for density/draw-distance changes.
 
 **Mesh conversion:** the ring pipeline draws `MeshReference.DeviceMesh` — a per-attribute-stream
 `SimpleVkMesh` the game only builds for meshes loaded `Simple` (the stock ring rocks). Part/subpart
@@ -77,6 +81,7 @@ normal maps to `TexturePowerReference` entries; `*_VM` pick-mesh hulls are hidde
 
 See [`../scope/rings.md`](../scope/rings.md) for the full touchpoint map (what breaks on a game
 update). Highlights: no Harmony patches at all; two reflected ModLibrary registry fields, one
-reflected auto-property backing field (`MeshReference.<HostPrimitives>k__BackingField`), and a
-two-hop private-field probe (`Program._planetTransparenciesRenderer` → `_ringsRenderer`) used only
-for a status check. Everything else is typed public API.
+reflected auto-property backing field (`MeshReference.<HostPrimitives>k__BackingField`), and the
+private fields `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer,
+_ringRendererCreated}` used to dispose the rings renderer so the rebuild re-reads ring data.
+Everything else is typed public API.

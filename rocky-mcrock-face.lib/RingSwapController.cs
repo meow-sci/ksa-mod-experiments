@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Brutal.VulkanApi;
 using KSA;
+using KSA.Rendering.Rings.Rendering;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.RockyMcRockFaceLib;
@@ -169,10 +171,16 @@ public sealed class RingSwapController : IDisposable
     }
 
     /// <summary>
-    /// Forces the game's full renderer rebuild (Program.RebuildRenderer) so the ring
-    /// render data — meshes, index counts, descriptor sets, instance buffers — is
-    /// reconstructed from the current reference state. Same path the game's own
-    /// graphics settings use; it waits for the device, so it is safe but causes a hitch.
+    /// Forces the ring render data — meshes, index counts, descriptor sets, instance
+    /// buffers — to be reconstructed from the current reference state.
+    ///
+    /// Program.RebuildRenderer alone is NOT enough: when the rings renderer already
+    /// exists, PlanetTransparenciesRenderer.RebuildFrameResources only rebuilds its
+    /// frame resources (pipelines/images), and PopulatePlanets — the only place
+    /// PlanetaryRingsRenderData re-reads the ring reference tree — runs solely in the
+    /// rings renderer's constructor. So the existing rings renderer is disposed first
+    /// (after a device wait), which makes the game's rebuild take its own
+    /// CreateRingsRenderer branch and rebuild everything from the mutated references.
     /// </summary>
     public bool RebuildRenderer(out string message)
     {
@@ -184,6 +192,7 @@ public sealed class RingSwapController : IDisposable
                 message = "game renderer not ready";
                 return false;
             }
+            DisposeRingsRendererForRecreation();
             program.RebuildRenderer();
             message = "renderer rebuilt";
             return true;
@@ -196,11 +205,24 @@ public sealed class RingSwapController : IDisposable
         }
     }
 
-    /// <summary>True once the game has constructed its planetary rings renderer.</summary>
+    /// <summary>True while the game's planetary rings renderer exists.</summary>
     public bool IsRingsRendererCreated()
     {
         var transparencies = ReflectionHelpers.GetFieldValue(Program.Instance, "_planetTransparenciesRenderer");
-        return ReflectionHelpers.GetFieldValue(transparencies, "_ringsRenderer") != null;
+        return ReflectionHelpers.GetFieldValue(transparencies, "_ringRendererCreated") is true;
+    }
+
+    private static void DisposeRingsRendererForRecreation()
+    {
+        var transparencies = ReflectionHelpers.GetFieldValue(Program.Instance, "_planetTransparenciesRenderer");
+        if (transparencies == null) return;
+        if (ReflectionHelpers.GetFieldValue(transparencies, "_ringRendererCreated") is not true) return;
+        if (ReflectionHelpers.GetFieldValue(transparencies, "_ringsRenderer") is not PlanetaryRingsRenderer ringsRenderer)
+            return;
+        // In-flight frames may still reference ring pipelines/buffers.
+        Program.GetRenderer().Device.WaitIdle();
+        ringsRenderer.Dispose();
+        ReflectionHelpers.SetFieldValue(transparencies, "_ringRendererCreated", false);
     }
 
     public void Dispose()

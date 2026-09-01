@@ -43,11 +43,22 @@ primitive 0.
    `Normals | UVs` with missing attributes default-filled (`MeshReference.cs:76-115`;
    `RenderCore.Gltf/GltfUtils.cs` fills absent streams). Any game change to either side breaks
    converted meshes with garbage rendering, not a compile error.
-4. **RebuildRenderer is heavyweight but safe.** `Program.RebuildRenderer(bool skipSwapchain = false)`
-   (`KSA/Program.cs:4742`) waits for the device and reconstructs `PlanetTransparenciesRenderer`
-   frame resources (`:4763`), which disposes/recreates `PlanetaryRingsRenderer` (and thus all
-   `PlanetaryRingsRenderData`) when rings are enabled. The mod calls it from the ImGui phase — the
-   same phase the game's settings Apply button uses.
+4. **RebuildRenderer alone does NOT rebuild ring data — the rings renderer must be disposed
+   first.** `PlanetTransparenciesRenderer.RebuildFrameResources` (`:325-343`) only calls
+   `_ringsRenderer.RebuildFrameResources(...)` when `_ringRendererCreated` is true — that
+   destroys/rebuilds pipelines and frame images but never re-runs `PopulatePlanets` (ctor-only,
+   `PlanetaryRingsRenderer.cs:170`), so `PlanetaryRingsRenderData` (meshes, UBO, instances)
+   survives untouched. Only the `else if (_anyRings) CreateRingsRenderer(...)` branch (`:334-337`)
+   constructs a fresh renderer and re-reads the reference tree. The mod therefore: waits for the
+   device (`Renderer.Device.WaitIdle()` — in-flight frames may reference ring GPU resources),
+   calls the public `PlanetaryRingsRenderer.Dispose()` on the reflected instance, clears the
+   private `_ringRendererCreated` flag, THEN calls `Program.RebuildRenderer(bool = false)`
+   (`KSA/Program.cs:4742`, which also WaitIdles at `:4749`) so the game's own create branch
+   rebuilds everything — including instance buffers resized for density/render-distance changes
+   (`PopulatePlanets` runs before `CreateMeshRenderingResources` in the ctor). Called from the
+   ImGui phase — the same phase the game's settings Apply uses. If this branching ever changes
+   (e.g. `RebuildFrameResources` starts re-populating data itself), the dispose becomes redundant
+   but harmless.
 5. **The ControlTexture is deliberately NOT swappable.** `PlanetaryRingsRenderData.UpdateData`
    CPU-samples it every frame assuming ≥4 bytes/texel uncompressed RGBA
    (`SampleRingTexture`, `PlanetaryRingsRenderData.cs:100-118`); a compressed ktx2 there means
@@ -75,7 +86,7 @@ Decomp paths relative to `~/repos/meow-sci/ksa-game-assemblies/current/decomp`.
 | 10 | `SerializedCollection<T>.GetList() : List<T>` (live list — copied before iteration) | direct API | `KSA/SerializedCollection.cs:41` | `RingAssetCatalog.Refresh` | OK |
 | 11 | `TextureReference.{Id, BindlessHandle : int}` + `TexturePowerReference : TextureReference` | direct API | `KSA/TextureReference.cs:70`; `KSA/TexturePowerReference.cs` | `RingAssetCatalog` (handle==0 ⇒ excluded), `RingSwapController` | OK |
 | 12 | `Program.{Instance : static Program, GetRenderer() : static Renderer, RebuildRenderer(bool = false)}` | direct API | `KSA/Program.cs:434,535,4742` | `RingSwapController.RebuildRenderer`, `RingMeshFactory` | OK |
-| 13 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer._ringsRenderer` (private fields) | **reflection (string)** | `KSA/Program.cs:157`; `KSA/PlanetTransparenciesRenderer.cs:40` | `RingSwapController.IsRingsRendererCreated` — **status probe only**; a rename degrades to "renderer not created" (skipped rebuild on auto-apply / dispose), core swap unaffected | OK |
+| 13 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer, _ringRendererCreated}` (private fields) + public `PlanetaryRingsRenderer.Dispose()` (typed) + `Renderer.Device.WaitIdle()` | **reflection (string)** + direct API | `KSA/Program.cs:157`; `KSA/PlanetTransparenciesRenderer.cs:40,46,354-361`; `PlanetaryRingsRenderer.cs:473`; `Brutal.VulkanApi.Abstractions/DeviceExtensions.cs` | `RingSwapController.{IsRingsRendererCreated, DisposeRingsRendererForRecreation}` — the dispose-for-recreation step that makes the rebuild actually re-read ring data (narrative #4). A field rename degrades to a frame-resources-only rebuild: Apply hitches but changes nothing — **the original symptom**, so a silent break here is user-visible immediately | OK |
 | 14 | `Renderer.Allocator.CreateStagingPool(renderer.GraphicsAndCompute, 1)` + `StagingPool` dispose = submit+wait; `SimpleVkMesh` built by `MeshReference.Bind` | direct API (render) | `Brutal.VulkanApi.Abstractions/StagingPoolExtensions.cs:5`, `StagingPool.cs:167`; `RenderCore.Mesh/SimpleVkMesh.cs:69` | `RingMeshFactory.GetRingUsable` | OK |
 | 15 | `GameSettings.{ShowRings(), ShowRingMeshes()} : static bool` | direct API | `KSA/GameSettings.cs:3122,3133` | submod UI status hints | OK |
 | 16 | `Universe.CurrentSystem.All.OfType<Celestial>()` | direct API | `KSA/Universe.cs:94`; `KSA/CelestialSystem.cs` | `RingSwapController.RefreshBodies` | OK |
