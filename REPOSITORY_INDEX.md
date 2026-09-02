@@ -360,7 +360,18 @@ Swap the **meshes and textures of KSA's planetary ring system** (Saturn's instan
 - **Asset catalog** via reflection over `ModLibrary.AllMeshes`/`AllFiles` (the parts-now `GameRegistry` pattern); textures filtered to bound bindless handles, normal maps to `TexturePowerReference`
 - Overrides are session-only (deliberately not persisted — a game restart is back to the stock ring); Restore Defaults reverts within a session
 - F11 window toggle (standalone mode); unscience supermod integration via `ISubmod`
-- **rocky-mcrock-face.lib**: `RockyMcRockFaceSubmod` (+ `.Ui` partial), `RingSwapController` (snapshot/apply/restore/rebuild), `RingAssetCatalog`, `RingMeshFactory` (interleaved→Simple clone cache), `RingSelection`, `RockyUi`
+- **rocky-mcrock-face.lib**: `RockyMcRockFaceSubmod` (+ `.Ui` partial), `RingSwapController` (snapshot/apply/restore/rebuild), `RingAssetCatalog`, `RingMeshFactory` (interleaved→Simple clone cache), `RingSelection`, `RockyUi` (public form/grid/combo helpers, reused by bloomin-onion)
+
+### [bloomin-onion](bloomin-onion) / [bloomin-onion.lib](bloomin-onion.lib)
+Define **brand-new planetary rings at runtime** and apply them to **any celestial body** (a moon, Earth, a ringless gas giant). Every parameter KSA's ring XML exposes is editable in an ImGui panel: geometry (frame, inclination, ascending node, inner/outer radius with a *Fit to Body* helper, detail scale), the 2D ring band — either **painted** (base color + colored stripes/gaps with softness, ringlet noise, live preview strip) or any game texture plus a control strip — volumetric dust (thickness/render-distance/raymarch step ranges, fade-to-meshes), and the instanced rock field (size, thickness, draw distance, density with a per-chunk instance estimate, 1–5 LODs with per-LOD mesh from the whole game mesh catalog, PBR material).
+- **Data-level, no Harmony patches**: builds a complete `PlanetaryRingsReference` tree (volume, step, ring objects, LODs, material, value wrappers with the game's angle normalization), assigns it to `Celestial.BodyTemplate.RingsReference` (original snapshotted for Remove), refreshes the transparencies renderer's body list (public `PopulatePlanets()` + private `_anyRings`), disposes the rings renderer and runs the game's own `Program.RebuildRenderer()`
+- **Painted textures at runtime**: `RingBandPainter` rasterizes stripes/noise into a 2048×1 RGBA8 band + control strip (R = rocks allowed, G = dust thickness); `PaintedTextureReference` is a `TextureReference` subclass fed from a `GenericTexture` → `TextureAsset` and bound through the game's own `Bind` (bindless handle, CPU copy retained for the per-frame control-strip sampling); cached by content hash, freed once unreferenced after a rebuild
+- Reuses rocky-mcrock-face's `RingAssetCatalog` / `RingMeshFactory` for meshes and textures; stock Saturn assets fill any empty slot (resolved from the system's existing ring, else by id)
+- **Presets** persist to `.unscience/bloomin-onion-rings.toml` (Tomlyn); *Copy <body>'s Ring* imports an existing definition (e.g. Saturn's) as a starting point; body assignments are session-only by design
+- Ring shadow on the planet follows automatically (per-frame read); the far-away distant-sphere shadow is synced best-effort by reflection
+- Vessels/kittens are **not** supported directly (the ring renderer is Celestial-bound at every level); weld a small ringed moon to a vessel with kiwis-marbles instead
+- F11 window toggle (standalone mode); unscience supermod integration via `ISubmod`
+- **bloomin-onion.lib**: `BloominOnionSubmod` (+ `.Ui`, `.UiSections` partials), `RingDefinition` (+ `RingStripe`, `RingLodDefinition`), `RingDefinitionController` (apply/remove/snapshots/prune), `RingReferenceBuilder` (definition → game tree, validation), `RingRendererRebuilder` (rebuild + distant-sphere sync), `RingBandPainter`, `PaintedTextureReference`, `RingTextureFactory`, `StockRingAssets`, `RingPresetStore`, `RingDefinitionSerializer`
 
 ---
 
@@ -369,13 +380,13 @@ Swap the **meshes and textures of KSA's planetary ring system** (Saturn's instan
 ### [unscience](unscience)
 Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (25 total)
+- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (26 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, graffiti decal pass
-- References all `.lib` projects: average-twr.lib, blinky.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, rocky-mcrock-face.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- References all `.lib` projects: average-twr.lib, blinky.lib, bloomin-onion.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, rocky-mcrock-face.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
 
 ---
 

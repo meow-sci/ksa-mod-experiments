@@ -30,6 +30,7 @@ using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
 using MeowSci.PyroLib;
 using MeowSci.RockyMcRockFaceLib;
+using MeowSci.BloominOnionLib;
 
 namespace MeowSci.Unscience;
 
@@ -66,6 +67,7 @@ public class Mod
 
             _submods.Add(new AverageTwrSubmod());
             _submods.Add(new BlinkySubmod());
+            _submods.Add(new BloominOnionSubmod());
             _submods.Add(cameraOverride);
             _submods.Add(new ConManSubmod());
             _submods.Add(new DohSubmod());

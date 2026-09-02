@@ -112,12 +112,12 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + `Cursor.InputRay` picking, CPU terrain march; **no string reflection** (new @5348) |
-| [`rings.md`](rings.md) | rocky-mcrock-face | planetary-ring mesh/texture swap via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData` (new @5348) |
+| [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (25): average-twr, blinky, camera-controller-override, con-man,
+Bundled in the unscience supermod (26): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
 doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, graffiti, humble-arteest,
 i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro,
 red-alert, rocky-mcrock-face, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
@@ -186,6 +186,14 @@ watch items, one favourable regression.**
   tree and forcing the game's own `Program.RebuildRenderer()` path. Written against the **current**
   5348 decomp (the multi-primitive `MeshReference` shape included). **No Harmony patches**; three
   reflection touchpoints, all soft-failing. Needs a live pass. See [`rings.md`](rings.md).
+- **bloomin-onion** (2026-09-01) — defines brand-new planetary rings at runtime (painted or
+  textured band, volumetric dust, rock field, full geometry) and applies them to any celestial by
+  constructing a `PlanetaryRingsReference` tree, assigning it to the body template, refreshing the
+  transparencies renderer's body list (public `PopulatePlanets()` + private `_anyRings`) and running
+  `Program.RebuildRenderer()`. Painted bands are in-memory `TextureReference` subclasses bound via
+  the game's own `Bind`. **No Harmony patches**; three reflection touchpoints (`_anyRings` is the
+  only load-bearing one — a rename means no rings in ringless systems, never a crash). Needs a
+  live pass. See [`rings.md`](rings.md) (bloomin-onion section).
 
 **Removed by choice (not a game break):**
 - **flexo** (robotics — articulated hinge/rotor Parts) — **deleted 2026-08-23.** `flexo.lib` compiled

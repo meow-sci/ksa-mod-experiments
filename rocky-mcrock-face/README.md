@@ -83,6 +83,7 @@ normal maps to `TexturePowerReference` entries; `*_VM` pick-mesh hulls are hidde
 - `RingAssetCatalog` — `Refresh()`, `MeshIds`, `TextureIds`, `NormalTextureIds`, `TryGet*`
 - `RingMeshFactory` — `GetRingUsable(MeshReference, out error)` (clone/convert cache)
 - `RingSelection` — the per-body override model (session-only; nothing is persisted)
+- `RockyUi` — public form-table / param-grid / filtered-id-combo helpers (also used by bloomin-onion)
 
 ## Game integration scope
 

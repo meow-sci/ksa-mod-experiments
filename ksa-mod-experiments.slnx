@@ -65,4 +65,6 @@
     <Project Path="dont-stifle-me.lib/dont-stifle-me.lib.csproj" />
     <Project Path="rocky-mcrock-face/rocky-mcrock-face.csproj" />
     <Project Path="rocky-mcrock-face.lib/rocky-mcrock-face.lib.csproj" />
+    <Project Path="bloomin-onion/bloomin-onion.csproj" />
+    <Project Path="bloomin-onion.lib/bloomin-onion.lib.csproj" />
 </Solution>

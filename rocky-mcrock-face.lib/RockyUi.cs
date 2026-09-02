@@ -6,16 +6,17 @@ using KSA;
 namespace MeowSci.RockyMcRockFaceLib;
 
 /// <summary>Small shared ImGui widgets for the rocky-mcrock-face panels (the repo's standard shapes).</summary>
-internal static class RockyUi
+public static class RockyUi
 {
     /// <summary>
-    /// Filtered combo bound to an asset id string. An empty id means "(game default)",
-    /// which is always the first entry. Returns true when the selection changed.
+    /// Filtered combo bound to an asset id string. An empty id means the default entry
+    /// (labelled <paramref name="defaultLabel"/>), which is always first. Returns true when the selection changed.
     /// </summary>
-    public static bool IdCombo(string id, string[] ids, ref string selectedId, ImInputString filter)
+    public static bool IdCombo(string id, string[] ids, ref string selectedId, ImInputString filter,
+        string defaultLabel = "(game default)")
     {
         bool changed = false;
-        string preview = selectedId.Length > 0 ? selectedId : "(game default)";
+        string preview = selectedId.Length > 0 ? selectedId : defaultLabel;
         if (!ImGui.BeginCombo(id, preview)) return false;
 
         if (ImGui.IsWindowAppearing())
@@ -28,7 +29,7 @@ internal static class RockyUi
         string filterText = filter.ToString().Trim();
 
         bool isDefault = selectedId.Length == 0;
-        if (ImGui.Selectable("(game default)", isDefault))
+        if (ImGui.Selectable(defaultLabel, isDefault))
         {
             selectedId = "";
             changed = true;
