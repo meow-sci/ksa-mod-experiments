@@ -105,11 +105,9 @@ public sealed class RingReferenceBuilder
             },
         };
 
-        if (!rings.IsValid())
-        {
-            error = "the game rejected the ring definition (IsValid false)";
-            return null;
-        }
+        // Deliberately NOT gated on rings.IsValid(): DistanceReference.IsValid() demands > 100 km,
+        // which the stock 10 m rocks / 1 km thickness / 20 km draw distance fail too — the game
+        // never enforces it. Validate() above is the real check.
         return rings;
     }
 
