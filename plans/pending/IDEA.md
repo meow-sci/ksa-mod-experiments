@@ -53,6 +53,8 @@ TBD: DONT USE THIS YET
 
 - requires an ImGui button in the mod window to trigger
 - create a custom Controller class which will implement 
-- use Harmony to runtime patch the current `Viewport` 
-    - statically accessible at `KSA.Program.Viewports[KSA.Program._onFrameViewportIndex]`
+- use Harmony to runtime patch the current viewport
+    - ⛔ **stale since KSA `2026.9.7.5402`:** `KSA.Program.Viewports` is gone and `KSA.Viewport` is no
+      longer a class. Use `KSA.Program.RenderedViewport` / `FrameViewport` / `MainViewport`
+      (`IViewport` / `IGameViewport`), or `ViewportRegistry.Views`, and patch `GameViewport`
     - patch the `Viewport.GetActiveController` instance method 

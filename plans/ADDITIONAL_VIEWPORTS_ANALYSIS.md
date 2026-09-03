@@ -14,6 +14,24 @@ Do a deep dive analysis of the codebase to see how this may be possible and docu
 
 # analysis
 
+> ⛔ **Superseded by KSA `2026.9.7.5402` — do not build against this analysis as written.**
+> Everything below was researched against the pre-5402 viewport API, which the game has since
+> replaced wholesale: the `KSA.Viewport` **class is gone** (now `IViewport` / `IGameViewport` /
+> `ViewportBase` / `GameViewport` / `PartThumbnailViewport`), `Program.Viewports` and
+> `Program.ViewportCount` no longer exist (viewports live in `ViewportRegistry`, `Views` /
+> `GameViews`, capped at `MAX_VIEWPORTS = 8` with shader slots handed out by a pool),
+> `Viewport.Index` is now `IViewport.ShaderSlot`, and `EViewportLightMode` is now
+> `ViewportLightMode`. The **mechanism this document wanted now exists first-class**:
+> `ViewportRegistry.TryOpenSecondaryViewport` / `TryClaimSecondaryViewport(IViewportOwner, …)` /
+> `ReleaseSecondaryViewport`, with per-viewport behaviour selected by `ViewportOptionFlags`
+> (`HasUi`/`HasInput`/`RenderGizmos`/`RenderPartModels`/…) and `ViewportType`
+> (`Main`/`Secondary`/`PartThumbnail`/`CharacterPortrait`) — and the game already ships
+> crew-portrait viewports (`Program.CrewPortraitViewports`), which is close to the feature this
+> document set out to build. **Re-do the analysis against `ViewportRegistry.cs` before writing any
+> code.** The problem statement and the general shape of the findings are still useful history.
+> See [`KSA_5402_UPGRADE.md`](KSA_5402_UPGRADE.md) §2.1.
+
+
 > All file:line references are into `decomp/ksa/` and reflect the decompiled sources, which **may lag the running binary**. Anything marked **VERIFY** must be confirmed at runtime with a reflection/Dbg probe before relying on it.
 
 ## 1. Verdict / feasibility

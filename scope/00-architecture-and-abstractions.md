@@ -348,8 +348,8 @@ Update-risk findings (4680→4750): **No breaking deltas detected.**
 
 ### SubmodUI.cs
 
-| # | Kind | Mod code | Game target | In NEW? | Δ vs OLD | Risk/notes |
-|---|---|---|---|---|---|---|
+| # | Kind | Mod code | Game target | Decomp path | In NEW? | Δ vs OLD | Risk/notes |
+|---|---|---|---|---|---|---|---|
 | 1 | ImGui API | `SubmodUI.cs:28-31,40-41` | Brutal.ImGuiApi only — `PushStyleVar(WindowPadding)`, `BeginChild(AutoResizeY\|AlwaysUseWindowPadding, NoScrollbar)`, `PopStyleVar`, `Dummy`, `EndChild` | `Brutal.ImGuiApi/*` | Yes | None observed | No KSA game internals. See Brutal-package note. |
 
 Update-risk findings (4680→4750): **No breaking deltas detected** (compiles against 4750 Brutal).
