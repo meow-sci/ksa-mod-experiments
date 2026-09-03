@@ -146,7 +146,8 @@ Decomp paths relative to NEW decomp root. All confirmed present in NEW; OLD line
 | 2 | Direct API (prop) | `:15` | `Universe.CurrentSystem` — `public static CelestialSystem? CurrentSystem { get; private set; }` | `KSA/Universe.cs:94` | Yes | None (OLD `:94`) | Null-safe (`?.`). |
 | 3 | Direct API (prop) | `:15` | `CelestialSystem.All` — `public LookupCollection<Astronomical> All => _all;` | `KSA/CelestialSystem.cs:64` | Yes | None (OLD `:57`) | |
 | 4 | Direct API (method) | `:15` | `LookupCollection<Astronomical>.UnsafeAsList()` — `public List<T> UnsafeAsList()` | `KSA/LookupCollection.cs:210` | Yes | None (file byte-identical) | Then LINQ `OfType<Vehicle>()`. |
-| 5 | Direct API (type) | `:11,14,18` | `Vehicle` — `public class Vehicle : Astronomical, …, IObjectId, …` | `KSA/Vehicle.cs:28` | Yes | None | |
+| 5 | Direct API (type) | `:11,21,29` | `Vehicle` — `public class Vehicle : Astronomical, …, IObjectId, …` | `KSA/Vehicle.cs:28` | Yes | None | |
+| 5b | Direct API (prop) | `:24` | `Vehicle.IsDebris` — `public bool IsDebris { get; private set; }` | `KSA/Vehicle.cs:392` | Yes | **NEW @5402** (absent in OLD) | Set by `Vehicle.MarkAsDebris()` from `PartFailure` (`KSA/PartFailure.cs:246`). `GetAllVehicles(bool includeDebris = false)` filters on it so shed fragments stay out of every mod's picker; `FindVehicle` and the two callers that must see everything pass `true`. |
 | 6 | Direct API (prop) | `:22` | `Vehicle.Id` (inherited `Astronomical.Id` via `IObjectId`) — `public virtual string Id { get; protected set; }` | `KSA/Astronomical.cs:104` | Yes | None (OLD `:104`) | `Id` is not declared on `Vehicle`; resolved through base `Astronomical`/`IObjectId`. |
 
 Update-risk findings (4680→4750):
@@ -156,7 +157,8 @@ Update-risk findings (4680→4750):
   — **absent in OLD** (0 occurrences in `Vehicle.cs`), backed by new `PartTree.Controls`
   (`KSA/PartTree.cs:49`, also absent in OLD). `VehicleProvider` does **not** consume it:
   `GetControlledVehicle()` still mirrors `Program.ControlledVehicle`, and `GetAllVehicles()` returns
-  **all** `Vehicle`s regardless of controllability. Watch only if a consumer starts assuming a
+  every `Vehicle` regardless of controllability (it filters only debris, since 5402 — see the
+  5348→5402 summary). Watch only if a consumer starts assuming a
   vehicle is controllable — control is now gated on a Control Module (capsule+kittens have one).
 
 ### CelestialProvider.cs
@@ -311,7 +313,7 @@ Re-verified @5402 with the same shape: `OnFrame` (`:2164`) → `if (DrawUI) {…
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
 | 1 | Harmony postfix (ctor) | `IvaForceRender.cs:42` (lookup), `:44` (patch) | `PartModel..ctor(PartModelModule.Template)` — `protected PartModel(PartModelModule.Template template)` | `KSA/PartModel.cs:384` | Yes | None (OLD `:383`; body identical, still the only ctor) | `AccessTools.Constructor` finds the **protected** ctor; explicit param-type array. |
-| 2 | Harmony postfix (method) | `:46` (lookup), `:48` (patch), `:98` (postfix sig) | `PartModel.AddInstance(PerInstanceData, IViewport, int)` — `public void` | `KSA/PartModel.cs:408` | Yes | **RETYPED @5402** — param 2 `Viewport`→`IViewport` (OLD `:407`); postfix param `__1` updated to `IViewport` (compile break otherwise). **NEW GATE @5402** `:410-413`: `if (!viewport.HasAny(ViewportOptionFlags.RenderPartModels)) return;` before any work; IVA/raytracing gate `:415` now per-viewport (`viewport.HasAll(UseRaytracing) && viewport.Mode == IVA`) instead of `viewport == Program.MainViewport && MainViewport.Mode == IVA` | Postfix captures `__instance`, `__0`(PerInstanceData), `__1`(IViewport); ignores the `int frameIndex`. ⚠ A postfix still runs after the original's early `return`, so the mod does **not** mirror the new gate — see 5348→5402 summary. |
+| 2 | Harmony postfix (method) | `:46` (lookup), `:48` (patch), `:98` (postfix sig) | `PartModel.AddInstance(PerInstanceData, IViewport, int)` — `public void` | `KSA/PartModel.cs:408` | Yes | **RETYPED @5402** — param 2 `Viewport`→`IViewport` (OLD `:407`); postfix param `__1` updated to `IViewport` (compile break otherwise). **NEW GATE @5402** `:410-413`: `if (!viewport.HasAny(ViewportOptionFlags.RenderPartModels)) return;` before any work; IVA/raytracing gate `:415` now per-viewport (`viewport.HasAll(UseRaytracing) && viewport.Mode == IVA`) instead of `viewport == Program.MainViewport && MainViewport.Mode == IVA` | Postfix captures `__instance`, `__0`(PerInstanceData), `__1`(IViewport); ignores the `int frameIndex`. ✅ The postfix mirrors both gates as of this pass (`IvaForceRender.cs:107-108`) — see 5348→5402 summary. |
 | 3 | Direct API (nested struct) | `:98` | `PartModel.PerInstanceData` — `public struct PerInstanceData` | `KSA/PartModel.cs:332` | Yes | None (OLD `:331`) | postfix param type. |
 | 4 | Direct API (field) | `:87,89,101,113,116,125` | `PartModelModule.Template.Internal` — `public bool Internal = false;` | `KSA/PartModelModule.cs:40` | Yes | None (OLD `:40`) | mutated to force interior render. |
 | 5 | Direct API (field) | `:103` | `PartModelModule.Template.RayTracing` — `public RaytracingMode RayTracing` | `KSA/PartModelModule.cs:32` | Yes | None (OLD `:32`) | |
@@ -507,18 +509,17 @@ logged in `version.json`; revisions **5349–5400 are unlogged**, so the source 
   the old `Viewport` symbol no longer exists (CS0246). `Program.MainViewport` is now `IGameViewport`
   (`KSA/Program.cs:485`) and `.Mode` is an interface property (`KSA/IViewport.cs:29`) rather than a
   field; both are compile-bound reads, so no further change. Solution builds clean against 5402.
-- ⚠️ **Open recommendation — mirror the new `RenderPartModels` gate in `AddInstancePostfix`.**
-  `PartModel.AddInstance` now early-returns when
-  `!viewport.HasAny(ViewportOptionFlags.RenderPartModels)` (`KSA/PartModel.cs:410-413`). A Harmony
-  postfix still runs after that `return`, so in the editor the mod would push an internal instance into
-  a `ViewportData.InstanceList` the game never drains for such a viewport. Today this is dead: every
-  viewport the game creates carries the flag (`KSA/Program.cs:948,949,952,956`;
-  `KSA/ViewportPresets.cs:5-11`). Suggested hardening, not yet applied:
-  `if (!__1.HasAny(ViewportOptionFlags.RenderPartModels)) return;` and read `__1.Mode` instead of
-  `Program.MainViewport.Mode` to track the game's now per-viewport IVA check (`:415`,
-  `viewport.HasAll(UseRaytracing) && viewport.Mode == CameraMode.IVA`). **Needs a live look** in the
-  editor with Force IVA on (the stock `(!Template.Internal || viewport.Mode == IVA)` gate at `:424` is
-  unchanged, so the feature should still work as before).
+- ✅ **Applied — `AddInstancePostfix` now mirrors both of the original's viewport gates**
+  (`ksa-abstractions.lib/IvaForceRender.cs:107-108`). `PartModel.AddInstance` early-returns when
+  `!viewport.HasAny(ViewportOptionFlags.RenderPartModels)` (`KSA/PartModel.cs:410-413`), and a Harmony
+  postfix still runs after that `return`, so the mod would have pushed an internal instance into a
+  `ViewportData.InstanceList` the game never drains for such a viewport; the postfix now returns on the
+  same condition. The IVA test also moved from `Program.MainViewport.Mode` to `__1.Mode`, matching the
+  original's now per-viewport check (`:415`, `viewport.HasAll(UseRaytracing) && viewport.Mode == IVA`;
+  trailing gate `:424`) — reading the main viewport would double-add for a secondary viewport that is
+  itself in IVA. Both are behaviour-preserving today: every viewport the game builds carries
+  `RenderPartModels` (`KSA/Program.cs:948,949,952,956`; `KSA/ViewportPresets.cs:5-11`) and the editor
+  drives the main viewport. **Still wants a live look** in the editor with Force IVA on.
 - ✅ **`HotkeyGuard` clean — and the `OnKey` restructure does not weaken it.** `KSA/GameSettings.cs` is
   byte-identical (`OnKeyAll` `:3301`). `Program.OnKey` (`:1718`) split its guard chain: the first `if`
   (`:1723`) still starts `!IsLoaded || GameSettings.OnKeyAll(e) || …` and returns; camera-mode /

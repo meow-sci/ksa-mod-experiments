@@ -141,11 +141,13 @@ items, one game-side regression.**
 **Behavioral — compile-clean, needs a live pass before any code change:**
 - **pyro (and the game) — refraction is dead in 5402.** Nothing sets `_hasRefractionInstances` any
   more, so pyro's Refraction slider is inert. Game-side; confirm on a stock engine.
-- **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed;
-  `WeldEngine.UpdateWeld` has no disposed guard. Recommended hardening is recorded, not applied.
+- **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed.
+  `WeldEngine.UpdateWeld` gained a disposed guard so the aftermath unwelds cleanly instead of throwing,
+  but nothing stops the game destroying a welded craft — that still needs eyes on it.
 - **graffiti terrain decals** — the accurate terrain-height path now derives from `MeanRadius`.
 - **IvaForceRender** — `PartModel.AddInstance` now early-returns for viewports without
-  `RenderPartModels`; the postfix still runs. Dormant (every viewport has the flag); mirror recommended.
+  `RenderPartModels`; a postfix still runs after that, so the postfix now mirrors the gate (and reads
+  IVA mode off its own viewport). Dormant either way; wants a look in the editor with Force IVA on.
 - **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
   a live pass on any build since 5261.
 

@@ -77,7 +77,9 @@ internal static class DecalPicker
         var found = false;
         var best = range;
 
-        foreach (var vehicle in VehicleProvider.GetAllVehicles())
+        // Debris included: the pick should hit whatever the player can actually see under the
+        // cursor, and KSA 5402 sheds failed parts as ordinary (if unlabelled) vehicles.
+        foreach (var vehicle in VehicleProvider.GetAllVehicles(includeDebris: true))
         {
             var centre = camera.GetPositionEgo(vehicle);
             if (centre.Length() - vehicle.BoundingSphereRadiusBody > range)

@@ -424,14 +424,22 @@ the decomp diff. Solution builds clean against 5402.
   `GameSettings.cs` is byte-identical and no global off-switch symbol exists. garrys-torch teleports a
   source vehicle into contact range of its target every frame; contacts that were previously harmless can
   now destroy parts. `Vehicle.Teleport` itself gained **no** gating.
-  **Open recommendations (not applied):** (1) live-test a two-capsule weld and watch for
-  *"exceeded its crash tolerance"* log lines / debris; (2) add an `IsDisposed` guard for `Source`/`Target`
-  at the top of `WeldEngine.UpdateWeld` (`WeldEngine.cs:19` dereferences `entry.Source.Parent`
-  unguarded) so a game-side destroy of either end unwelds cleanly instead of throwing into `OnAfterUi`.
-- ℹ️ **Debris vehicles appear in every vehicle list.** `Vehicle.IsDebris` (`Vehicle.cs:392`) and
-  `Class => IsDebris ? "Debris" : "Vehicle"` (`:423`) are new; `VehicleProvider.GetAllVehicles()` uses
-  `OfType<Vehicle>()`, so eternal-flame / garrys-torch / i-feel-seen combos will list shed fragments.
-  No mod filters on `Astronomical.Class`. Cosmetic; an `IsDebris` filter in `VehicleProvider` is optional.
+  ✅ **Guard applied** (`garrys-torch.lib/WeldEngine.cs:19-28`): `UpdateWeld` now returns `false`
+  — unwelding cleanly — when either `entry.Source.IsDisposed` or `entry.Target.IsDisposed`
+  (`KSA/Vehicle.cs:617`, set by `Dispose` at `:3741`), before the `entry.Source.Parent` dereference that
+  would otherwise throw into `OnAfterUi`. The caller already treats `false` as "remove this weld"
+  (`GarrysTorchSubmod.cs:107`). ⚠ **Still open:** live-test a two-capsule weld and watch for
+  *"exceeded its crash tolerance"* log lines / debris — the guard makes the aftermath survivable but
+  does not stop the game from destroying a welded craft.
+- ✅ **Debris no longer fills every vehicle list.** `Vehicle.IsDebris` (`Vehicle.cs:392`) and
+  `Class => IsDebris ? "Debris" : "Vehicle"` (`:423`) are new, and every vehicle picker in the suite
+  enumerates through `VehicleProvider.GetAllVehicles()`, so shed fragments would have appeared in all of
+  them. `GetAllVehicles` now takes `bool includeDebris = false` and filters on `IsDebris` by default
+  (`ksa-abstractions.lib/VehicleProvider.cs:14-24`); `FindVehicle` passes `true` so an id held from
+  before a part failure still resolves. Two callers opt back in deliberately:
+  `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78` (a fail-closed gate — a debris fragment still
+  holding a runtime part template must keep the mod pinned) and `graffiti.lib/DecalPicker.cs:82`
+  (the pick should hit whatever is visible under the cursor).
 - ℹ️ `Universe.DestroyVehicle` gained an optional `CrewDisposition` parameter and now hands cameras off
   (`HandOffCameras`, `Universe.cs:1778`); `Vehicle.Split` gained a `(Connection, IConnector, …)` overload;
   `Part.Connection.IConnector` gained `Asmb2VehicleAsmb`. None are called by these mods.

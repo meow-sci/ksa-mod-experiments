@@ -1066,11 +1066,13 @@ consolidation** (`Part.IsLightSwitchedOff()`). Full review:
   `Vehicle.Teleport` byte-identical. Recommended: guard + live weld test. `scope/vehicle-physics.md`
 - ⚠️ **graffiti terrain decals.** `Celestial.GetTerrainHeightFromDirCcf` accurate path now uses
   `MeanRadius` (`Celestial.cs:825-857`). Live placement check. `scope/decals.md`
-- ⚠️ **IvaForceRender vs the `RenderPartModels` gate** (dormant today; mirror recommended).
-  `scope/00-architecture-and-abstractions.md`
+- ✅ **IvaForceRender vs the `RenderPartModels` gate** — the postfix now mirrors both of the
+  original's viewport gates (`ksa-abstractions.lib/IvaForceRender.cs:107-108`); it was dormant either
+  way. `scope/00-architecture-and-abstractions.md`
 - ⚠️ **thug-life** — `RenderMainPass` (`:347`) now also runs per secondary viewport; still unverified live.
-- Debris fragments (`Vehicle.IsDebris`) now appear in every mod's vehicle combo via `VehicleProvider`
-  (cosmetic; optional filter). `kiwis-marbles`: cloth solvers snapshot before the weld prefix (one-frame
+- Debris fragments (`Vehicle.IsDebris`) are now filtered out of `VehicleProvider.GetAllVehicles()`
+  by default (`bool includeDebris = false`); `FindVehicle`, parts-now's fail-closed unload gate and
+  graffiti's decal pick opt back in. `kiwis-marbles`: cloth solvers snapshot before the weld prefix (one-frame
   lag for a chute near a welded body). `glass`: `UpdateProjection` prefix now also hits thumbnail cameras.
   `zippo`/`red-alert`/`its-so-shiny`: light state now resolved via `Part.IsLightSwitchedOff()`, which
   still reads `LightIsActive` first — no change. `Part.DisplayName` now prefers the template name (labels).

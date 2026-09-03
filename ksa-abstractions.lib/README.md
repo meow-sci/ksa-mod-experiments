@@ -33,7 +33,12 @@ Static helper methods for accessing private/internal KSA fields via reflection.
 Static helpers for querying vehicle state from the game.
 
 - `GetControlledVehicle()` - Returns the currently player-controlled vehicle (or null if none)
-- `GetAllVehicles()` - Returns all vehicles in the current solar system
+- `GetAllVehicles(bool includeDebris = false)` - Returns the vehicles in the current solar system.
+  KSA `2026.9.7.5402` added structural part failure, which sheds fragments as real `Vehicle` objects
+  flagged `IsDebris` in the same system collection as crewed craft; they are filtered out by default
+  so they don't fill every mod's vehicle picker. Pass `includeDebris: true` when debris is a
+  legitimate target — a safety gate that must see everything, or a click/raycast that should hit
+  whatever is visible.
 - `GetVehicleByName(string name)` - Looks up a vehicle by its display name
 
 **Key Pattern**: Provides safe wrappers around KSA's game state queries.

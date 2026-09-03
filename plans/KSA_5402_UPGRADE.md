@@ -36,9 +36,9 @@ deformation, and the viewport registry.
 | 2 | graffiti | **removed member** `Cursor.InputRay` → `Cursor.GetEgoRay(IViewport)` | ✅ yes (unlogged) | **fixed** |
 | 3 | pyro | **re-signatured** `VolumetricExhaustRenderer.AddInstance(…, float throttle)` → `(…, float throttle, float3 airVelocity, float airDensity) : float` | ✅ yes (unlogged) | **fixed** — mirrors `Vehicle.AddVolumetricExhaustInstances` |
 | 4 | pyro (and the game itself) | **game-side regression** — the exhaust refraction pass can never enable in 5402 | ✅ yes (unlogged) | needs live confirmation; no mod change |
-| 5 | garrys-torch | new-gating — **part structural failure / debris** can now fire on welded (overlapping) vehicles | ✅ yes (unlogged) | needs live re-verification; hardening recommended |
+| 5 | garrys-torch | new-gating — **part structural failure / debris** can now fire on welded (overlapping) vehicles | ✅ yes (unlogged) | **guard applied**; still needs live re-verification |
 | 6 | graffiti | semantic drift — `Celestial.GetTerrainHeightFromDirCcf(accurate:true)` now derives from `MeanRadius`, not `RenderData.SurfaceRadius` | ✅ yes (unlogged) | needs live terrain-decal check |
-| 7 | IvaForceRender (ksa-abstractions) | new-gating — `PartModel.AddInstance` early-returns for viewports without `RenderPartModels`; the postfix still runs | ✅ yes (unlogged) | dead today (every viewport has the flag); defensive mirror recommended |
+| 7 | IvaForceRender (ksa-abstractions) | new-gating — `PartModel.AddInstance` early-returns for viewports without `RenderPartModels`; the postfix still runs | ✅ yes (unlogged) | **mirror applied**; was dormant either way |
 | 8 | thug-life | render env — `RenderMainPass` now runs per secondary viewport with owned targets; two-sided skinned draws added | ✅ yes | still needs the live pass it has needed since 5261 |
 
 ---
@@ -177,7 +177,7 @@ the refraction/blur/screen-copy passes can never run. Verified independently in 
 - **Verdict:** needs live confirmation (look for heat-haze on a stock engine). Not a pyro bug; keep
   the write. If confirmed, annotate the slider as inactive on this build (not done — approach to confirm).
 
-### 4.2 garrys-torch — part failure can now fire on welded vehicles ⚠️
+### 4.2 garrys-torch — part failure can now fire on welded vehicles ⚠️ (guard applied)
 
 `PartFailure.Detect` (`KSA/PartFailure.cs:47`) runs from `PhysicsBubble.cs:1459` for every vehicle
 that is not on rails / a kitten / already failing, and compares accumulated contact pressure against
@@ -188,9 +188,18 @@ or destroy the vehicle. `Vehicle.Teleport` itself is byte-identical.
 - `WeldEngine.UpdateWeld:19` dereferences `entry.Source.Parent` before any disposed check — a
   part-failure destroy of either end surfaces as an exception in `OnAfterUi` (caught by the host).
 - **Verdict:** live test welding two capsule-class vehicles and watch for *"exceeded its crash
-  tolerance"* log lines. Recommended hardening (not applied): an `IsDisposed`/null guard at the top of
-  `UpdateWeld`, and optionally filtering `Vehicle.IsDebris` out of `VehicleProvider.GetAllVehicles()`
-  so debris fragments stop appearing in every mod's vehicle combo.
+  tolerance"* log lines — **still open**, the game can destroy a welded craft and no setting stops it.
+- ✅ **Hardening applied (2026-09-02, approved after the review).** `WeldEngine.UpdateWeld`
+  (`garrys-torch.lib/WeldEngine.cs:19-28`) now returns `false` — unwelding cleanly, which the caller
+  already handles at `GarrysTorchSubmod.cs:107` — when either end reports `Vehicle.IsDisposed`
+  (`KSA/Vehicle.cs:617`), before the `entry.Source.Parent` dereference that would otherwise throw
+  into `OnAfterUi`. Separately, `VehicleProvider.GetAllVehicles` gained
+  `bool includeDebris = false` and filters `Vehicle.IsDebris` by default
+  (`ksa-abstractions.lib/VehicleProvider.cs:14-24`), so shed fragments no longer fill the ~45 vehicle
+  pickers in the suite; `FindVehicle` passes `true` so an id held from before a failure still
+  resolves, as do `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78` (fail-closed gate — a fragment
+  holding a runtime part template must keep the mod pinned) and `graffiti.lib/DecalPicker.cs:82`
+  (the pick should hit whatever is visible).
 
 ### 4.3 graffiti — terrain-decal placement input changed ⚠️
 
@@ -202,7 +211,7 @@ surface; if not it floats or sinks. Signature unchanged.
 
 - **Verdict:** live check — place a terrain decal on flat and hilly ground, confirm with the debug box.
 
-### 4.4 IvaForceRender — `PartModel.AddInstance` early-returns before the postfix's work ⚠️ (dormant)
+### 4.4 IvaForceRender — `PartModel.AddInstance` early-returns before the postfix's work ✅ (was dormant)
 
 NEW `PartModel.cs:410-413` inserts `if (!viewport.HasAny(ViewportOptionFlags.RenderPartModels)) return;`
 before `ViewportData.Get`. A Harmony postfix still runs after that return, so for a viewport lacking
@@ -210,8 +219,11 @@ the flag the mod would push into an `InstanceList` the game never consumes. Toda
 game creates carries `RenderPartModels` (`ViewportPresets.cs:5-11`, `Program.cs:948-956`), so the
 branch is dead.
 
-- **Recommended (not applied):** mirror the gate — `if (!__1.HasAny(ViewportOptionFlags.RenderPartModels)) return;`
-  — and use `__1.Mode` instead of `Program.MainViewport.Mode` to track the game's per-viewport IVA check.
+- ✅ **Applied (2026-09-02, approved after the review)** at `ksa-abstractions.lib/IvaForceRender.cs:107-108`:
+  the postfix returns on `!__1.HasAny(ViewportOptionFlags.RenderPartModels)`, and the IVA test now reads
+  `__1.Mode` rather than `Program.MainViewport.Mode`, matching the original's per-viewport check —
+  reading the main viewport would double-add for a secondary viewport that is itself in IVA. Both are
+  behaviour-preserving on this build; still wants a live look in the editor with Force IVA on.
 
 ### 4.5 thug-life — render environment moved again (unchanged verdict)
 
@@ -321,6 +333,13 @@ There is no test suite; `dotnet build` plus a live session is the whole verifica
 ---
 
 ## 8. Documentation touched this pass
+
+**Code changed after the review** (three hardening items, approved 2026-09-02 — §4.2, §4.4):
+`ksa-abstractions.lib/IvaForceRender.cs` (mirror both viewport gates),
+`ksa-abstractions.lib/VehicleProvider.cs` (`GetAllVehicles(bool includeDebris = false)`),
+`garrys-torch.lib/WeldEngine.cs` (disposed guard), plus the two deliberate opt-ins at
+`parts-now.lib/Runtime/RuntimeModUnloadGate.cs` and `graffiti.lib/DecalPicker.cs`, and
+`ksa-abstractions.lib/README.md`.
 
 `scope/FULL_SCOPE.md` (baseline + status), `scope/game-integration-surface.md` (header, `KSA.Viewport`
 → `KSA.IViewport`, `KSA.Cursor`, `KSA.Program`, `KSA.GenericGizmo`, `KSA.VolumetricExhaustRenderer`,

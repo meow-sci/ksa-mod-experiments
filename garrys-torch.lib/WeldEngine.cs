@@ -16,6 +16,17 @@ public static class WeldEngine
     /// </summary>
     public static bool UpdateWeld(WeldEntry entry)
     {
+        // KSA 2026.9.7.5402 added structural part failure (KSA/PartFailure.cs), which can destroy a
+        // vehicle mid-flight with no setting to turn it off — and welded craft are held overlapping
+        // the target every frame, which is exactly the contact case that trips it. A destroyed
+        // vehicle is disposed but our WeldEntry still references it, so read the flag before
+        // touching anything on it and drop the weld instead of throwing out of OnAfterUi.
+        if (entry.Source.IsDisposed || entry.Target.IsDisposed)
+        {
+            Console.WriteLine("garrys-torch: welded vehicle no longer exists (destroyed or recovered), unwelding");
+            return false;
+        }
+
         if (entry.Source.Parent != entry.Target.Parent)
         {
             Console.WriteLine("garrys-torch: Parent body mismatch, unwelding");

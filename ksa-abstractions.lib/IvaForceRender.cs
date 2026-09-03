@@ -92,14 +92,28 @@ public static class IvaForceRender
 
     /// <summary>
     /// Postfix for PartModel.AddInstance — keeps internal meshes visible in the vehicle editor.
-    /// KSA's stock gate hides Internal meshes unless the main viewport is in IVA mode,
+    /// KSA's stock gate hides Internal meshes unless the viewport is in IVA mode,
     /// but editor previews are never rendered through an IVA camera.
     /// </summary>
+    /// <remarks>
+    /// Both viewport gates below mirror the original's own gates, which matters because a Harmony
+    /// postfix still runs after the original takes an early return:
+    /// <list type="bullet">
+    /// <item><c>RenderPartModels</c> — KSA 5402 made <c>PartModel.AddInstance</c> return immediately
+    /// for a viewport without this flag (<c>KSA/PartModel.cs:410</c>). Every viewport the game
+    /// currently builds carries it, so this is dormant; without it a future flagless viewport would
+    /// have us pushing into an <c>InstanceList</c> nothing ever consumes.</item>
+    /// <item>IVA mode is read off <b>this</b> viewport, not the main one (the original compares
+    /// <c>viewport.Mode</c>, <c>KSA/PartModel.cs:415,424</c>). Reading the main viewport would
+    /// double-add the instance for a secondary viewport that is itself in IVA.</item>
+    /// </list>
+    /// </remarks>
     private static void AddInstancePostfix(PartModel __instance, PartModel.PerInstanceData __0, IViewport __1)
     {
         if (Program.Editor == null) return;
+        if (!__1.HasAny(ViewportOptionFlags.RenderPartModels)) return;
         if (!__instance.Template.Internal) return;
-        if (Program.MainViewport.Mode == CameraMode.IVA) return;
+        if (__1.Mode == CameraMode.IVA) return;
         if (__instance.Template.RayTracing == PartModelModule.RaytracingMode.ShadowProxy) return;
 
         PartModel.ViewportData.Get(__instance, __1).InstanceList.Add(__0);

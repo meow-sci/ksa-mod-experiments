@@ -71,7 +71,10 @@ internal static class RuntimeModUnloadGate
     {
         // VehicleProvider resolves Universe.CurrentSystem and returns an empty list when there is no
         // system loaded; PartHelpers walks vehicle.Parts.Parts and recurses Part.SubParts.
-        foreach (Vehicle vehicle in VehicleProvider.GetAllVehicles())
+        // Debris counts: a fragment shed by KSA 5402's part failure is a live vehicle holding real
+        // parts, so a runtime template it still references must keep the mod pinned. This gate fails
+        // closed, and a list that hides debris could wrongly conclude "safe".
+        foreach (Vehicle vehicle in VehicleProvider.GetAllVehicles(includeDebris: true))
         {
             foreach (Part part in PartHelpers.GetAllParts(vehicle))
             {
