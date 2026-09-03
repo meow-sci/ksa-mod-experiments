@@ -57,9 +57,9 @@ Decals render in the flight scene only (not in the VAB/editor).
 
 A near-verbatim port of the projected-decal system from the sibling gatOS repo's sticker feature,
 re-hosted as an unscience submod with a point-and-click UX (gatOS aims from the camera centre via
-RPC; graffiti raycasts through the clicked cursor position via `Cursor.InputRay`).
+RPC; graffiti raycasts through the clicked cursor position via `Cursor.GetEgoRay`).
 
-- **Pick** — `Cursor.InputRay` (the mouse cursor's ego-space picking ray) is swept against every
+- **Pick** — `Cursor.GetEgoRay` (the mouse cursor's ego-space picking ray) is swept against every
   vehicle with `Part.RayCastEgo` — KSA's own watertight triangle raycast over the *art* mesh, the
   same call flight-mode hover picking makes — and, failing that, marched + bisected against the
   CPU terrain height field of `Camera.NearbyCelestial` (`GetTerrainHeightFromDirCcf`, always

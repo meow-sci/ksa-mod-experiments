@@ -13,36 +13,31 @@ decompiled-source path for each so the dependency can be re-checked against any 
 
 ## Version baseline
 
-- **Cataloged against:** KSA build **`2026.8.22.5348`** (2026-08-23) — decomp at
+- **Cataloged against:** KSA build **`2026.9.7.5402`** (2026-09-02) — decomp at
   `…/ksa-game-assemblies/current/decomp`, assets at `…/ksa-game-assemblies/current/Content`.
   On macOS `Directory.Build.props` tier 2 resolves `KSAFolder` to
   `../ksa-game-assemblies/current/dll/`, so **`dotnet build` compiled against exactly this build** —
   there is no separate install to reconcile and no `KSAFolder` trap.
-- **Diffed from:** KSA build **`2026.8.19.5261`** — the previously verified baseline, and also what is
-  on disk as `ksa-game-assemblies_prev`. **Baseline == OLD**, so this is a clean single hop of
-  **87 revisions (5262–5348)**, unlike the 5117→5261 pass.
-- ✅ **The changelog is complete for this span.** `5261` == NEW's `fromRevision`, so NEW's
-  `version.json` alone (175 changelog lines) covers every revision from the baseline. Nothing went
-  unreviewed.
-- **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx` against the `5348`
-  reference DLLs for *typed* breaks — **55/55 projects, 0 warnings, 0 errors** at the time of the pass
-  (the suite went to 57 with dont-stifle-me and back to **55** when flexo was removed; still 0/0); (2) re-grep of the
-  **entire** string-reflection watchlist plus a signature diff of **every** Harmony patch target
-  across both trees, for the silent breaks the compiler can't see — including a **field-vs-property
-  audit** prompted by rev 5329 moving `Module.Parent` to a property; (3) byte-layout diff of
-  `PerInstanceData`/`MaterialData`, a full `diff -rq` of `Content/Core/Shaders`, and an id check of
-  every referenced asset, including humble-arteest's and mesh-deform's anchor strings; (4) the
-  `version.json` changelog for behavioral changes that move no symbol.
-- ⚠ **A green build is a small fraction of the risk here.** The render and behavioral findings below
-  **cannot be cleared statically** — see *Current status* for what still needs a live in-game pass.
+- **Diffed from:** KSA build **`2026.8.22.5348`** — the previously verified baseline, and also what is
+  on disk as `ksa-game-assemblies_prev`. **Baseline == OLD**, a single hop.
+- ⚠ **The changelog is NOT complete for this span.** NEW's `version.json` covers only `5400 → 5402`
+  (one commit, rev 5401 — the thumbnail "data stride" fix). **Revisions 5349–5400 are in no
+  `version.json` on disk**, so this pass was driven by the source diff (197 `KSA/*.cs` changed, 66
+  added, 2 removed; 20 Content files) rather than a changelog.
+- **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx --no-incremental`
+  against the `5402` reference DLLs — **63/63 projects, 0 warnings, 0 errors** after three compile
+  breaks were fixed (`KSA.Viewport` → `IViewport`, `Cursor.InputRay` → `GetEgoRay`,
+  `VolumetricExhaustRenderer.AddInstance` air-state args); (2) re-grep of the **entire**
+  string-reflection watchlist plus a signature + body diff of **every** Harmony patch target across
+  both trees, with a field-vs-property check on each reflected member; (3) byte-layout diff of
+  `PerInstanceData`/`MaterialData`/`ExhaustInstance`, `diff -rq` + `cmp` of `Content/Core/Shaders`,
+  and an id check of every referenced asset; (4) a read of every changed game file the area tables
+  cite, for gating/semantic drift — the substitute for the missing changelog.
+- ⚠ **A green build is a small fraction of the risk here.** The behavioral findings below **cannot be
+  cleared statically** — see *Current status* for what still needs a live in-game pass.
 - The repo's own `decomp/ksa` copy is **older still** (June 12) and is not authoritative — always diff
   against the `ksa-game-assemblies` git tags.
-- **Follow-up 2026-08-22 — the build is now cross-platform.** `dotnet build` with no environment
-  overrides was failing off-Windows (41 × CS0246 from an unresolvable `KSAFolder`, then 3 more from a
-  `CommunityToolkit.HighPerformance` reference the `ksa-game-assemblies` DLL copy set omits). Both are
-  build config, not game drift; fixed, and the suite now builds **57/57 projects, 0 warnings,
-  0 errors** on macOS against `5261`. Detail in
-  [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) §7.
+- Build is cross-platform since 2026-08-22 (see [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) §7).
 
 When a new game version arrives, bump this baseline and re-run the workflow below.
 
@@ -125,138 +120,49 @@ jplrepo live in the repo but are **not** loaded by the supermod.)
 
 ---
 
-## Current status against `5348` (summary)
+## Current status against `5402` (summary)
 
 Full detail lives in [`game-integration-surface.md`](game-integration-surface.md) §6; the remediation
-record is in [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md). The 5261→5348 span is
-87 revisions dominated by **ground clutter** (collisions, exclusion masks, destruction), a **terrain
-precision rework**, a **clustered-lighting rewrite** (rev 5301), a **static-object pipeline**
-(launchpads, decals), a **physics-bubble merge/split rewrite** (revs 5331/5339), a **vehicle-power
-rework onto electrical circuits** (rev 5326), and — the one that reached us — a **part/module
-sequencing refactor** (rev 5329). Blast radius on unscience: **one compile break, three behavioral
-watch items, one favourable regression.**
+record is in [`../plans/KSA_5402_UPGRADE.md`](../plans/KSA_5402_UPGRADE.md). The 5348→5402 span
+(54 revisions, one logged) is dominated by a **viewport registry rework** (`Viewport` class → the
+`IViewport`/`IGameViewport` interfaces, `Index` → `ShaderSlot`), **parachutes** with a cloth solver,
+**part structural failure / debris**, an **exhaust plume deformation** rework, and a **light-switch
+consolidation**. Blast radius on unscience: **three compile breaks (fixed), four behavioral watch
+items, one game-side regression.**
 
-**Build-blocking — resolved by removing the mod:**
-- **space-tape** — rev 5329 moved decouplers from `PartTemplate.Decoupler` (a `DecouplerTemplate`
-  field, now deleted) into `PartTemplate.Components` as `Decoupler.TemplateData`. Three × CS1061 in
-  `space-tape.lib/PartImporter.cs`. **space-tape is defunct; the mod and its `.lib` were deleted**
-  and unwired from the solution and the supermod.
-  The on-disk XML shape `<Decoupler ConnectorId=… Force=… />` is unchanged — only the typed reader broke.
+**Build-blocking — fixed this pass:**
+- **`KSA.Viewport` removed** → six one-line `IViewport` retypes in ksa-abstractions (`IvaForceRender`),
+  dont-stifle-me, i-feel-seen, parts-now and graffiti (`Index` → `ShaderSlot`).
+- **`Cursor.InputRay` removed** → graffiti uses `Cursor.GetEgoRay(Program.MainViewport)`; the ray is
+  now same-frame rather than one frame stale.
+- **`VolumetricExhaustRenderer.AddInstance` gained `airVelocity`/`airDensity`** → pyro computes them
+  the way `Vehicle.AddVolumetricExhaustInstances` does.
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
-- **con-man** — rev 5293 added a global **Hud Scale** applied *after* per-canvas scale
-  (`GaugeCanvas` now divides by `GameSettings.GetGaugeScale()` and wraps draws in
-  `ConsoleStyle.BeginGaugeHostScope`). All seven reflected fields still resolve byte-identically, but
-  **layouts saved at one Hud Scale will restore wrong at another.** Stacks on the still-**open**
-  rev-5201 `IsContextVisible()` gate.
-- **kitten-animations** — **reworked 2026-08-23; root cause found and fixed, live pass still wanted.**
-  The rev-5278 per-frame pose guard (`AnimatedRenderable._lastPoseUpdateFrameNumber`) turned out to be
-  benign. The real defect behind *"always the same expression"* was that the mod wrote
-  `ExpressionWeight` to `KittenRenderable._catExpressionAnim` — the reactive face, whose weight
-  `UpdateRenderData` damps from vehicle acceleration every frame right before the pose is sampled — so
-  only the permanent personality mood face ever showed. The mod now appends **its own**
-  `CatExpressionAnim` and merely *caps* the reactive one. Same pass: the full ground locomotion set
-  (walk/run/jump/land/tumble/ladder/moonwalk/swim/seated) is now exposed, held against the game by a
-  Harmony prefix on `AnimatedRenderable.UpdateAnimation`. See
-  [`character-and-materials.md`](character-and-materials.md) and [`../ISSUES.md`](../ISSUES.md).
-- **thug-life** — everything it binds to is intact, but rev 5315 moved the game to **Vulkan 1.4** and
-  rev 5283 added **UI coverage culling**. Neither can be cleared from source.
-  **FIXED 2026-08-23 (load-order, not a 5348 break):** the submod reported *"init failed: Object
-  reference not set to an instance of an object"* because it built its Vulkan pipeline in
-  `Initialize()`, i.e. from `[StarMapAllModsLoaded]` — which StarMap fires from a postfix on
-  `ModLibrary.LoadAll()` (`KSA/Program.cs:897`), **before** the game creates
-  `Program.OffscreenTarget` in `BuildRenderTargets()` (`:934`). GPU init is now lazy, on the first
-  anchored entry. The same pass moved the per-frame MVP off `Program.GetMainCamera()` onto
-  `Program.GetRenderCamera()`, since `RenderMainPass` runs once per visible viewport (the two
-  crew-portrait viewports included). See [`pixel-grids-and-render.md`](pixel-grids-and-render.md)
-  → thug-life.
+- **pyro (and the game) — refraction is dead in 5402.** Nothing sets `_hasRefractionInstances` any
+  more, so pyro's Refraction slider is inert. Game-side; confirm on a stock engine.
+- **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed;
+  `WeldEngine.UpdateWeld` has no disposed guard. Recommended hardening is recorded, not applied.
+- **graffiti terrain decals** — the accurate terrain-height path now derives from `MeanRadius`.
+- **IvaForceRender** — `PartModel.AddInstance` now early-returns for viewports without
+  `RenderPartModels`; the postfix still runs. Dormant (every viewport has the flag); mirror recommended.
+- **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
+  a live pass on any build since 5261.
 
-**Added after the 5348 pass (written against 5348 directly):**
-- **pyro** (2026-08-29) — standalone volumetric plumes. Built against the **current** decomp, not the
-  stale in-repo copy: 5348's `PlumeData` (`ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity`,
-  `InletTemperature`) and the split of colour/noise out of `ExhaustInstance` into the per-template
-  `ExhaustTemplateData` buffer are both already accounted for. Needs a live pass. See
-  [`exhaust-plumes.md`](exhaust-plumes.md).
-- **graffiti** (2026-08-30) — click-to-place projected PNG decals, a port of the gatOS sticker
-  system (independently verified against 5348) re-hosted as a submod with cursor-click placement.
-  All-public API surface (no string reflection); one Harmony postfix on
-  `RenderTarget.ResolveAttachments`. Needs a live pass. See [`decals.md`](decals.md).
-- **rocky-mcrock-face** (2026-08-31) — swaps the meshes/textures of the planetary ring system
-  (Saturn's instanced rock field + 2D band) by mutating the public `PlanetaryRingsReference` data
-  tree and forcing the game's own `Program.RebuildRenderer()` path. Written against the **current**
-  5348 decomp (the multi-primitive `MeshReference` shape included). **No Harmony patches**; three
-  reflection touchpoints, all soft-failing. Needs a live pass. See [`rings.md`](rings.md).
-- **bloomin-onion** (2026-09-01) — defines brand-new planetary rings at runtime (painted or
-  textured band, volumetric dust, rock field, full geometry) and applies them to any celestial by
-  constructing a `PlanetaryRingsReference` tree, assigning it to the body template, refreshing the
-  transparencies renderer's body list (public `PopulatePlanets()` + private `_anyRings`) and running
-  `Program.RebuildRenderer()`. Painted bands are in-memory `TextureReference` subclasses bound via
-  the game's own `Bind`. **No Harmony patches**; three reflection touchpoints (`_anyRings` is the
-  only load-bearing one — a rename means no rings in ringless systems, never a crash). Needs a
-  live pass. See [`rings.md`](rings.md) (bloomin-onion section).
+**Verified clean against 5402:** the **entire string-reflection watchlist** (same kind and type;
+con-man's seven fields byte-identical at the same lines), **every Harmony target signature** apart
+from the `IViewport` retype (all single overloads; `GameSettings.cs` byte-identical;
+`ExecuteNextVehicleSolvers` body identical), **`PerInstanceData`/`MaterialData` byte-identical**,
+`MeshIndirect.*`/`UnlitMesh.*` byte-identical, frames and telemetry types unchanged, no `Brutal*` drift.
 
-**Removed by choice (not a game break):**
-- **flexo** (robotics — articulated hinge/rotor Parts) — **deleted 2026-08-23.** `flexo.lib` compiled
-  clean against 5348 and every patch target it depended on verified OK, but the approach never worked
-  in-game (it leaned on undocumented `Part` transform/bounds cache-invalidation semantics) and will not
-  be reattempted this way. Mod + `.lib`, both solution entries, the `unscience.csproj`
-  `ProjectReference` and the supermod wiring are all removed. Two game surfaces went **unowned** with
-  it: `PartModelRenderer.UpdateRenderData(Viewport, int)` (the keystone render hook flexo inherited
-  from space-tape) and `OrbitLinePass.AddLineVertex`/`AddLineEnd` — neither needs re-verification on
-  future builds. `GenericGizmo` survives under dont-stifle-me, and `PartTree.RecomputeStaticMass` stays
-  on the string-reflection watchlist for kitchen-sink. kitchen-sink's *Flexo Part/Subpart Test* panels
-  are named after it but are independent and were kept. See
-  [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → flexo.
+**Carried forward (unchanged by this build):** con-man vs global Hud Scale (5348); kitten-animations
+rework and parts-now load-time validation still want a live pass; humble-arteest Vehicle Paint and
+mesh-deform remain dead by design (4693). `___Transform`, zippo `"Color"`, and the "supermod never
+wires `IvaForceRender`" notes were stale and are closed. pyro, graffiti, rocky-mcrock-face,
+bloomin-onion and dont-stifle-me have still never been exercised in-game.
 
-**Added against 5348 (not a break — a response to one):**
-- **dont-stifle-me** (new 2026-08-23) — revs in this span clamped top-level part scale to **0.5x–2x**
-  and made scale-gizmo drags **uniform** (`VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale`,
-  both new methods). The mod patches exactly those two (+ a per-frame `UpdateScaleGizmo` postfix) to
-  restore the 5261 freedom behind a toggle, plus a `QuantizeScale` prefix that can turn off the new
-  0.25 m scale snapping. All five `VehicleEditor` targets are by-name — see
-  [`part-editor-and-robotics.md`](part-editor-and-robotics.md) → dont-stifle-me. Needs a live
-  editor pass; not yet verified in-game.
-
-**Favourable — no change needed:**
-- **blinky / its-so-shiny** — rev 5326 moved `PowerManager.PopulateGraph` out of the constructor and
-  behind the part window's "Draw Graph" toggle; power runs off the new `PartTree.ElectricalCircuits`.
-  The O(N³) DFS both grid builders are architected around no longer runs during normal play. Their
-  splitting optimisations are now dead weight (a separate cleanup, not a fix).
-
-**Verified clean against 5348:**
-- **The entire string-reflection watchlist resolves**, plus a **field-vs-property audit**: rev 5329
-  turned `Module.Parent` into a property, which would silently break `GetField("Parent")` — no mod
-  reflects on it, and `CharacterAvatar.Core` / `CharacterCore.Scale` are still fields.
-- **Every Harmony patch-target signature unchanged** (line shifts only), including
-  `Universe.ExecuteNextVehicleSolvers(double, SimStep)` despite its body being rewritten, and
-  jplrepo's IL transpiler anchor (the sole `ImGui.SetCursorPosY` in `Program.DrawMenuBar`).
-- **GPU byte layouts identical** — `PerInstanceData` and `MaterialData`.
-- **Shaders** — `UnlitMesh.*` and `MeshIndirect.vert` byte-identical; `MeshIndirect.frag` changed by
-  one line (portrait-light rename), leaving humble-arteest's `sampledColor` anchor and the
-  `ENABLE_TEMPERATURE` LUT intact.
-- **Coordinate frames unchanged** — rev 5280's `CelestialFrameMath` is a pure extraction.
-  `Camera.cs` and `KinematicMeasurements.cs` are byte-identical (glass, geeforce clean).
-- **`Part` removed `Sequence`/`SetSequence`/`ActivateInStage`/`DeactivateInStage`/`ScaleTotal`** —
-  no unscience mod referenced any of them.
-
-**Known-broken reconciliation:**
-- **zippo `GetField("Color")`** — ✅ **now closed; the earlier scope text was stale.** The code reads
-  `"ColorRgb"`, which is correct. Fixed by commit `07787ea`.
-- **camera-controller-override `___Transform`** — ✅ closed at 5261, still closed.
-- **humble-arteest Vehicle Paint / mesh-deform** — ❌ still dead by design since rev 4693; both
-  self-disable. mesh-deform's `MeshIndirect.vert` struct anchor still does not match (the file is
-  byte-identical to 5261, so this is unchanged, not a new regression).
-- **blinky broken** — ✅ **closed 2026-08-23.** Root cause was the **propellant feed**, not just the
-  part id: the 5018 fuel rewrite made a *declared feed connector* mandatory for the first hop out of a
-  consumer part, so blinky's `Part`↔`Part` connection fed nothing and no pixel could ever light.
-  blinky now connects `RocketCore.FeedConnectors` → fuel part, and both `EnginePartId` defaults moved
-  from the removed `EngineA1` to `EngineA3`. See
-  [`pixel-grids-and-render.md`](pixel-grids-and-render.md) → *Root cause of "blinky broken"*.
-- **unscience never wires `IvaForceRender.Patch`** — ❌ still open.
-
-**Not cleared statically — a live in-game pass is still required** for con-man's HUD scaling,
-kitten-animations' reworked expressions and clip override, thug-life under Vulkan 1.4 + UI culling (its
-init-order NRE is fixed, but the quad itself still needs eyes on it), blinky's grid timing and
-repaired propellant feed, parts-now against the new load-time part validation (rev 5340), doh's MMU attachment
-after its `AnimatedRenderable` retype, and the `ISSUES.md` error spam under the rewritten physics
-bubbles. A green `dotnet build` does not cover these, and there is no test suite in this repo.
+**What still needs a live pass:** F11 smoke; pyro plume bend in atmosphere + heat-haze check;
+garrys-torch weld with crash-tolerance log watch; graffiti vehicle + terrain decal placement;
+parts-now runtime part thumbnail (rev 5401); dont-stifle-me scale-then-attach; kiwis-marbles weld near
+a deployed chute; glass with thumbnails open; the standing thug-life / humble-arteest / blinky /
+its-so-shiny render checks. A green `dotnet build` does not cover these, and there is no test suite.

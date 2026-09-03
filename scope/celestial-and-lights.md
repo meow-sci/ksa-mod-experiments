@@ -4,13 +4,15 @@ Permanent reference cataloging how three unscience mods integrate with the KSA g
 for detecting when a game update breaks them.
 
 **Versions compared**
-- NEW = `2026.6.9.4750` — decomp root `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD = `2026.6.8.4680` — decomp root `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
-- Decomp paths below are relative to `<root>\KSA\` unless noted. Verified by Grep/Read of both trees.
+- NEW = `2026.9.7.5402` — decomp root `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD = `2026.8.22.5348` — decomp root `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
+- Decomp paths below are relative to `<root>/KSA/` unless noted. Line numbers are NEW (5402); "OLD" = 5348.
+  Verified by grep/diff of both trees.
 
 **Shared integration (all three mods)** — each mod's `Patcher.cs` calls
 `HotkeyGuard.Patch/Unpatch` (`ksa-abstractions.lib/HotkeyGuard.cs`). HotkeyGuard Harmony-patches
-`GameSettings.OnKeyAll(GlfwKeyEvent) : bool` (NEW `GameSettings.cs:2379`, prefix with `ref bool __result`).
+`GameSettings.OnKeyAll(GlfwKeyEvent) : bool` (NEW `GameSettings.cs:3301`, prefix with `ref bool __result`;
+`GameSettings.cs` is byte-identical 5348↔5402).
 All three call `_harmony.PatchAll(...)` but define **no** `[HarmonyPatch]` methods of their own, so PatchAll
 is a no-op aside from HotkeyGuard. Lifecycle is StarMap attributes (`[StarMapMod]`,
 `[StarMapImmediateLoad]`, `[StarMapAllModsLoaded]`, `[StarMapBeforeGui]`, `[StarMapAfterGui]`,
@@ -54,18 +56,18 @@ body on unweld; welds are lost on reload (README §Notes).
 | 1 | Direct typed | `CelestialWeldEngine.ApplyOrbit` | `Celestial.SetOrbit(Orbit newOrbit)` | `Celestial.cs:153` | Yes | Same | Bare `Orbit = newOrbit`. Does **not** touch `Children` (never did — earlier "auto-reparents" note was wrong); engine re-parents explicitly (#2b). |
 | 2 | Direct typed | `CelestialWeldEngine.ApplyOrbit` | `IParentBody.UpdatePerFrameDataTree() : void` (default interface method) | `IParentBody.cs:110` | Yes | Same | Refreshes cached CCI/CCE/ECL data for the body + its subtree after the swap (replaces the old bare `UpdatePerFrameData()` call). |
 | 2b | Direct typed | `CelestialWeldEngine.Reparent` | `IParentBody.Children : List<IOrbiter>`; `Orbit.Parent : IParentBody`; `Celestial.Parent => Orbit.Parent` | `IParentBody.cs:27`; `Orbit.cs:1186`; `Celestial.cs:73` | Yes | Same | Cross-parent weld/restore moves the body between old/new parent lists (drives `UpdatePerFrameDataTree` order + orbit-tree UI). |
-| 2c | Harmony prefix (`Priority.First`) | `KiwisMarblesPatches.cs` (`AccessTools.Method` by name) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | `Universe.cs:1775` | Yes | Same | Sim-step driver for all weld work. Shared keystone with eternal-flame/kitchen-sink; single overload so by-name lookup is safe. Sequence dependency: must stay *after* `ApplyOrbitSolvers`/`ApplyVehicleSolvers` and *before* `ExecuteNextOrbitSolvers` in `Program.PrepareFrame` (`Program.cs:2011-2048`). |
-| 3 | Direct typed | `CelestialWeldEngine.cs:31` | `Orbit.CreateFromStateCci(IParentBody, SimTime, double3, double3, byte4) : Orbit` (static) | `Orbit.cs:1396` | Yes | **Identical sig** (OLD `:1379`) | 5-arg state-vector → orbit. Arg types must stay (IParentBody/SimTime/double3/double3/byte4). |
-| 4 | Direct typed | `CelestialWeldEngine.cs:36` | `Celestial.OrbitColor : byte4 { get; protected set; }` (via IOrbiter) | `Celestial.cs:63`; `IOrbiter.cs:24` | Yes | Same (OLD `:58`) | Passed as orbit line color to #3. |
-| 5 | Direct typed | `CelestialWeldEngine.cs:21,26` | `IOrbiter.Parent : IParentBody { get; }` (= `Orbit.Parent`) | `IOrbiter.cs:18` | Yes | Same | Null-checked before weld. |
-| 6 | Direct typed | `CelestialWeldEngine.cs:21`; `KiwisMarblesSubmod.cs:422` | `IOrbiter.Orbit : Orbit { get; }` / `Celestial.Orbit { get; set; }` | `IOrbiter.cs:16`; `Celestial.cs:57` | Yes | Same (OLD `:52`) | Source `.Orbit` saved for restore. |
-| 7 | Direct typed | `CelestialWeldEngine.cs:24` | `IOrbiter.GetPositionCci() : double3` | `IOrbiter.cs:52` | Yes | Same | Target CCI position each frame. |
-| 8 | Direct typed | `CelestialWeldEngine.cs:25` | `IOrbiter.GetVelocityCci() : double3` | `IOrbiter.cs:66` | Yes | Same | Target CCI velocity each frame. |
-| 9 | Direct typed | `KiwisMarblesSubmod.cs:146,321,334` | `Celestial.MeanRadius : double` (override) | `Celestial.cs:77` | Yes | Same (OLD `:72`) | Surface-placement helper only. |
-| 10 | Direct typed | `KiwisMarblesSubmod.cs:66,67` (via `CelestialProvider`) | `Universe.CurrentSystem : CelestialSystem? { get; }` → `.All : LookupCollection<Astronomical>` → `.UnsafeAsList()` | `Universe.cs:92`; `CelestialSystem.cs:57`; `LookupCollection.cs:210` | Yes | Same | Source list `OfType<Celestial>()`, target list `OfType<IOrbiter>()`. |
-| 11 | Direct typed | `CelestialWeldEngine.cs:34` (via `SimTimeProvider`) | `Universe.GetElapsedSimTime() : SimTime` (static) | `Universe.cs` (used `:1790`) | Yes | Same (OLD used `:1239`) | State time for #3. |
-| 12 | Cast/type | `CelestialWeldEngine.cs:66`; `KiwisMarblesSubmod.cs:146,209` | `(IOrbiter)Celestial` cast; `IParentBody` as parent type | `IOrbiter.cs`, `IParentBody.cs` | Yes | Same | Celestial implements IOrbiter (topo-sort edge test). |
-| 13 | Lifecycle/Harmony | `Patcher.cs:19,31` | `HotkeyGuard` → `GameSettings.OnKeyAll(GlfwKeyEvent) : bool` | `GameSettings.cs:2379` | Yes | Same | Shared guard; PatchAll defines no own patches. |
+| 2c | Harmony prefix (`Priority.First`) | `KiwisMarblesPatches.cs:24-32` (`AccessTools.Method` by name) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | `Universe.cs:1834` | Yes | Body identical (OLD `:1767`) | Sim-step driver for all weld work. Shared keystone with eternal-flame/kitchen-sink; single overload so by-name lookup is safe. Sequence dependency: must stay *after* `ApplyOrbitSolvers`/`ApplyVehicleSolvers` and *before* `ExecuteNextOrbitSolvers` in `Program.PrepareFrame` (`Program.cs:2103-2146`). 5402 inserted the parachute cloth solvers into the same sequence (`ClothSolvers.Wait()`/`ApplyClothSolvers()` before, `ExecuteNextClothSolvers` immediately before this call at `:2144`) — the weld window is unchanged. |
+| 3 | Direct typed | `CelestialWeldEngine.cs:42-48` | `Orbit.CreateFromStateCci(IParentBody, UniverseTime, double3, double3, byte4) : Orbit` (static) | `Orbit.cs:1563` | Yes | **Identical sig** (OLD `:1563`) | 5-arg state-vector → orbit. Arg types must stay (IParentBody/UniverseTime/double3/double3/byte4). `UniverseTime` replaced `SimTime` at rev 5211. |
+| 4 | Direct typed | `CelestialWeldEngine.cs:47` | `Celestial.OrbitColor : byte4 { get; protected set; }` (via IOrbiter) | `Celestial.cs:77`; `IOrbiter.cs:24` | Yes | Same (OLD `:77`) | Passed as orbit line color to #3. |
+| 5 | Direct typed | `CelestialWeldEngine.cs:32,37` | `IOrbiter.Parent : IParentBody { get; }` (= `Orbit.Parent`) | `IOrbiter.cs:18` | Yes | Same | Null-checked before weld. |
+| 6 | Direct typed | `CelestialWeldEngine.cs:32`; `KiwisMarblesSubmod.cs:483` | `IOrbiter.Orbit : Orbit { get; }` / `Celestial.Orbit { get; set; }` | `IOrbiter.cs:16`; `Celestial.cs:71` | Yes | Same (OLD `:71`) | Source `.Orbit` saved for restore. |
+| 7 | Direct typed | `CelestialWeldEngine.cs:35` | `IOrbiter.GetPositionCci() : double3` | `IOrbiter.cs:48` | Yes | Same | Target CCI position each frame. |
+| 8 | Direct typed | `CelestialWeldEngine.cs:36` | `IOrbiter.GetVelocityCci() : double3` | `IOrbiter.cs:62` | Yes | Same | Target CCI velocity each frame. |
+| 9 | Direct typed | `KiwisMarblesSubmod.cs:196-197,369,382` | `Celestial.MeanRadius : double` (override) | `Celestial.cs:91` | Yes | Same (OLD `:91`) | Surface-placement helper only. |
+| 10 | Direct typed | `KiwisMarblesSubmod.cs:113,114` (via `CelestialProvider`) | `Universe.CurrentSystem : CelestialSystem? { get; }` → `.All : LookupCollection<Astronomical>` → `.UnsafeAsList()` | `Universe.cs:94`; `CelestialSystem.cs:64`; `LookupCollection.cs:210` | Yes | Same (`All` OLD `:57`) | Source list `OfType<Celestial>()`, target list `OfType<IOrbiter>()`. |
+| 11 | Direct typed | `CelestialWeldEngine.cs:44` (via `SimTimeProvider`) | `Universe.GetElapsedTime() : UniverseTime` (static) | `Universe.cs:2114` | Yes | Same (OLD `:2060`) | State time for #3. (Was `GetElapsedSimTime() : SimTime` before rev 5211.) |
+| 12 | Cast/type | `CelestialWeldEngine.cs:119`; `KiwisMarblesSubmod.cs:194,257` | `(IOrbiter)Celestial` cast; `IParentBody` as parent type | `IOrbiter.cs`, `IParentBody.cs` | Yes | Same | Celestial implements IOrbiter (topo-sort edge test). |
+| 13 | Lifecycle/Harmony | `Patcher.cs:22,39` | `HotkeyGuard` → `GameSettings.OnKeyAll(GlfwKeyEvent) : bool` | `GameSettings.cs:3301` | Yes | Same | Shared guard; PatchAll defines no own patches. |
 
 **Game assets referenced** — None. Bodies are discovered live from `Universe.CurrentSystem`; no model/texture/path lookups.
 
@@ -96,20 +98,20 @@ combos + intensity/duration/easing/power) with a progress bar, and a Debug "Dump
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
 | 1 | **Reflection (string type)** | `LightController.cs:39` | type name `"KSA.LightModule+TemplateData"` (nested) | `LightModule.cs:12` (`[XmlType("Light")] class TemplateData`) | Yes | Same | **High runtime risk**: hard-coded full name. Rename/move of nested type silently yields zero light parts. |
-| 2 | **Reflection (string field)** | `LightController.cs:33` | `PartTemplate.Components : List<ModuleBase.TemplateDataBase>` (field) | `PartTemplate.cs:91` | Yes | Same | Field name `"Components"` must persist. |
+| 2 | **Reflection (string field)** | `LightController.cs:33` | `PartTemplate.Components : List<ModuleBase.TemplateDataBase>` (field) | `PartTemplate.cs:113` | Yes | Same (OLD `:107`; shifted by new `CrashTolerance`/`SubPartGroups` fields) | Field name `"Components"` must persist. |
 | 3 | **Reflection (string field)** | `LightController.cs:50,71` | `LightModule.TemplateData.Intensity : FloatReference` (field) → `FloatReference.Value : float` | `LightModule.cs:30`; `FloatReference.cs:9` | Yes | Same | Intensity read/write **works**. Field names `"Intensity"`/`"Value"` must persist. |
 | 4 | Reflection (string field) — **FIXED (Phase 4)** | `LightController.cs:59,80` | reads/writes field `"ColorRgb"` on `TemplateData` | `LightModule.cs:33` (`ColorRgbReference ColorRgb`) | Yes | Same | Was `"Color"` (the `[XmlElement("Color")]` XML name, not the C# field) ⇒ `GetField`→null ⇒ color was a silent no-op in both 4680 and 4750. Now `"ColorRgb"`; the C# field name must persist. |
 | 5 | Reflection (string field/method) + **typed enum** | `LightController.cs:61-63,82-89` | `ColorRgbReference.R/G/B : float` + `OnDataLoad(Mod) : void`; write side clears `IndexedColor` to `KSA.IndexedColor.Invalid` | `ColorRgbReference.cs:10,13,16,19,35` | Yes | Same | Now reachable (post-#4). `OnDataLoad` re-derives R/G/B from `IndexedColor` unless it is `Invalid`, so `WriteColor` sets `IndexedColor = KSA.IndexedColor.Invalid` (typed — **compile-checked**, breaks loudly) before `OnDataLoad(null)`. |
-| 6 | Direct typed | `ZippoSubmod.cs:152,441,465` | `Part.LightSwitch : PowerConsumer?` (field) | `Part.cs:407` | Yes | Same (OLD `:406`) | On/off path. |
-| 7 | Direct typed | `ZippoSubmod.cs:152,441,465,567` | `Part.FullPart : Part { get; }` | `Part.cs:659` | Yes | Same (OLD `:658`) | `.FullPart.LightSwitch` fallback. |
-| 8 | Direct typed | `ZippoSubmod.cs:161,442,467,568` | `PowerConsumer.LightIsActive : bool` (field) | `PowerConsumer.cs:28` | Yes | Same | On/off toggle. Electrical refactor (4681) didn't touch this field. |
-| 9 | Direct typed | `LightController.cs:92,95,99` | `Part.Template : PartTemplate` (field) | `Part.cs:323` | Yes | Same (OLD `:322`) | Feeds reflection in #1–#5. |
-| 10 | Direct typed | `ZippoSubmod.cs:406,558`; `LightController.cs:98` (via `PartHelpers`) | `Vehicle.Parts : PartTree` → `PartTree.Parts : ReadOnlySpan<Part>` | `Vehicle.cs:264`; `PartTree.cs:67` | Yes | Same | Part enumeration root. |
-| 11 | Direct typed | `LightController.cs:130-131` (recursion); `PartHelpers.cs` | `Part.SubParts : ReadOnlySpan<Part>` | `Part.cs:655` | Yes | Same | Recursive light search. |
-| 12 | Direct typed | `ZippoSubmod.cs` (combo labels) | `Part.Id : string { get; init; }`, `Part.DisplayName : string { get; init; }` | `Part.cs:411,413` | Yes | Same (OLD `:410,412`) | Display/keys. |
+| 6 | Direct typed | `ZippoSubmod.cs:152,441,465` | `Part.LightSwitch : PowerConsumer?` (field) | `Part.cs:686` | Yes | Same (OLD `:678`) | On/off path. Consumer side changed in 5402: `LightModule.IsActive`/`PartModelModule.UpdateRenderData` now read the new `Part.IsLightSwitchedOff()` (`Part.cs:1357-1369` = `!LightIsActive \|\| !IsSwitchedOn()`, plus a `lightSwitch.Parent.Tree != Tree ⇒ not off` precondition). `LightIsActive` is still the first term, so the write still works. |
+| 7 | Direct typed | `ZippoSubmod.cs:152,441,465` | `Part.FullPart : Part { get; }` | `Part.cs:1123` | Yes | Same (OLD `:1056`) | `.FullPart.LightSwitch` fallback. |
+| 8 | Direct typed | `ZippoSubmod.cs:161,442,467` | `PowerConsumer.LightIsActive : bool` (field) | `PowerConsumer.cs:30` | Yes | Same | On/off toggle. Electrical refactor (4681) didn't touch this field; 5402 added `PowerConsumer.IsSwitchedOn()` (`:50-54`, bounds-checked `StatesIdx`) next to it. |
+| 9 | Direct typed | `LightController.cs:95,98,102,106` | `Part.Template : PartTemplate` (field) | `Part.cs:576` | Yes | Same (OLD `:568`) | Feeds reflection in #1–#5. |
+| 10 | Direct typed | `ZippoSubmod.cs:405`; `LightController.cs:102` (via `PartHelpers`) | `Vehicle.Parts : PartTree` → `PartTree.Parts : ReadOnlySpan<Part>` | `Vehicle.cs:604`; `PartTree.cs:95` | Yes | Same (OLD `:598`; `:95`) | Part enumeration root. |
+| 11 | Direct typed | `LightController.cs:133-134` (recursion); `PartHelpers.cs` | `Part.SubParts : ReadOnlySpan<Part>` | `Part.cs:1079` | Yes | Same (OLD `:1052`) | Recursive light search. |
+| 12 | Direct typed | `ZippoSubmod.cs:444-445` (combo labels) | `Part.Id : string { get; init; }`, `Part.DisplayName : string { get; init; }` | `Part.cs:698,700` | Yes | Same (OLD `:690,692`) | Display/keys. 5402 initialises `DisplayName` from `Template.DisplayName` when it differs from `Template.Id` (`Part.cs:1391`; was `= Id`) — labels may change, keys (`Id`) don't. |
 | 13 | Reflection (palette) | `ZippoSubmod.cs:253,284` (via `XkcdColorHelper.GetAll`) | `KSAColor.Xkcd` static props → `Color.Preset` | `KSAColor.cs:23` | Yes | Same | Reflects all `Xkcd` static color props; cast `(Color.Preset)`. Rename of `Xkcd`/prop-type change would empty the combo. |
 | 14 | Direct typed | `LightController.cs:20-27` | hard-coded preset float3 (Marine/HotPink/RadioactiveGreen/BabyPurple) | n/a (constants from `KSAColor.cs`) | n/a | n/a | Hard-coded RGB; cosmetic only, no runtime dependency. |
-| 15 | Lifecycle/Harmony | `Patcher.cs:19,31` | `HotkeyGuard` → `GameSettings.OnKeyAll` | `GameSettings.cs:2379` | Yes | Same | Shared. |
+| 15 | Lifecycle/Harmony | `Patcher.cs:19,31` | `HotkeyGuard` → `GameSettings.OnKeyAll` | `GameSettings.cs:3301` | Yes | Same | Shared. |
 
 **Game assets referenced** — None.
 
@@ -150,25 +152,25 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed | `ActionScanner.cs:17`; `ActionExecutor.cs:73` | `Vehicle.Parts : PartTree` → `PartTree.Parts : ReadOnlySpan<Part>` | `Vehicle.cs:264`; `PartTree.cs:67` | Yes | Same | Top-level part scan + resolve. |
-| 2 | Direct typed | `ActionScanner.cs:68` | `Part.Modules : ModuleList` → `ModuleList.Get<LightModule>() : Span<LightModule>` | `Part.cs:401`; `ModuleList.cs:112` | Yes | Same (OLD `:400`) | Light detection. `LightModule : Module<LightModule>, IDisposable` satisfies `Get<T>` constraint. |
-| 3 | Direct typed | `ActionScanner.cs:50`; `ActionExecutor.cs:82` | `Part.SubtreeModules : ModuleList` → `.Get<KeyframeAnimationModule>() : Span<...>` | `Part.cs:409`; `ModuleList.cs:112` | Yes | Same (OLD `:408`) | Anim detection + actuation handle. |
-| 4 | Direct typed | `ActionScanner.cs:51` | `Part.SubtreeModules.Get<SolarPanel>() : Span<SolarPanel>` | `SolarPanel.cs:8`; `ModuleList.cs:112` | Yes | Same | Solar detection (presence only). |
-| 5 | Direct typed | `ActionScanner.cs:51` | `KeyframeAnimationModule.ShowDeployRetract : bool` (field) | `KeyframeAnimationModule.cs:82` | Yes | Same | Splits deploy/retract vs continuous actuate. |
-| 6 | Direct typed | `ActionExecutor.cs:92,101` | `KeyframeAnimationModule.TimeGoal : float` (field) | `KeyframeAnimationModule.cs:76` | Yes | Same (OLD `:76`) | Solar/light actuation driver (set `t*Duration`). |
-| 7 | Direct typed | `ActionExecutor.cs:92,101` | `KeyframeAnimationModule.Shared : KeyframeAnimationData` (field) → `.Duration` | `KeyframeAnimationModule.cs:74` | Yes | Same | `Duration` confirmed via game use (`KeyframeAnimationModule.cs:241,256`). |
-| 8 | Direct typed | `ActionScanner.cs:45`; `LightActions.cs:41,45` | `Part.LightSwitch : PowerConsumer?` (field) | `Part.cs:407` | Yes | Same (OLD `:406`) | On/off capability + execution. |
-| 9 | Direct typed | `LightActions.cs:42,45` | `PowerConsumer.LightIsActive : bool` (field) | `PowerConsumer.cs:28` | Yes | Same | Light on/off/toggle. |
-| 10 | Direct typed | `LightActions.cs:51` | `Part.Modules.Get<LightModule>()` (per-light color walk) | `Part.cs:401`; `ModuleList.cs:112` | Yes | Same | Color write target enumeration. |
-| 11 | Direct typed (settable field) | `LightActions.cs:64,72,73` | `LightModule.Template : TemplateData` (public field, **assigned**) | `LightModule.cs:59` | Yes | Same | Per-instance unshare swaps in a cloned TemplateData. Must stay a writable field. |
-| 12 | Direct typed | `LightActions.cs:58,71` | `LightModule.TemplateData.ColorRgb : ColorRgbReference` (field) | `LightModule.cs:33` | Yes | Same | **Correct** field (contrast zippo #4). |
+| 1 | Direct typed | `ActionScanner.cs:17`; `ActionExecutor.cs:73` | `Vehicle.Parts : PartTree` → `PartTree.Parts : ReadOnlySpan<Part>` | `Vehicle.cs:604`; `PartTree.cs:95` | Yes | Same (OLD `:598`; `:95`) | Top-level part scan + resolve. |
+| 2 | Direct typed | `ActionScanner.cs:68` | `Part.Modules : ModuleList` → `ModuleList.Get<LightModule>() : Span<LightModule>` | `Part.cs:680`; `ModuleList.cs:178` | Yes | Same (OLD `:672`; `:177`) | Light detection. `LightModule : Module<LightModule>, IDisposable` satisfies `Get<T>` constraint. |
+| 3 | Direct typed | `ActionScanner.cs:48`; `ActionExecutor.cs:82` | `Part.SubtreeModules : ModuleList` → `.Get<KeyframeAnimationModule>() : Span<...>` | `Part.cs:688`; `ModuleList.cs:178` | Yes | Same (OLD `:680`) | Anim detection + actuation handle. |
+| 4 | Direct typed | `ActionScanner.cs:51` | `Part.SubtreeModules.Get<SolarPanel>() : Span<SolarPanel>` | `SolarPanel.cs:9`; `ModuleList.cs:178` | Yes | Same | Solar detection (presence only). `SolarPanel.cs` diff in 5402 = `OnDrawUi(IViewport …)` retype only. |
+| 5 | Direct typed | `ActionScanner.cs:50` | `KeyframeAnimationModule.ShowDeployRetract : bool` (field) | `KeyframeAnimationModule.cs:82` | Yes | Same (file byte-identical) | Splits deploy/retract vs continuous actuate. |
+| 6 | Direct typed | `ActionExecutor.cs:92,100-101` | `KeyframeAnimationModule.TimeGoal : float` (field) | `KeyframeAnimationModule.cs:76` | Yes | Same (OLD `:76`) | Solar/light actuation driver (set `t*Duration`). |
+| 7 | Direct typed | `ActionExecutor.cs:92,100-101` | `KeyframeAnimationModule.Shared : KeyframeAnimationData` (`required` field) → `.Duration` | `KeyframeAnimationModule.cs:74` | Yes | Same | `Duration` confirmed via game use (`KeyframeAnimationModule.cs:241,256`). |
+| 8 | Direct typed | `ActionScanner.cs:45`; `LightActions.cs:41,45` | `Part.LightSwitch : PowerConsumer?` (field) | `Part.cs:686` | Yes | Same (OLD `:678`) | On/off capability + execution. See zippo #6 for the 5402 `Part.IsLightSwitchedOff()` consumer refactor. |
+| 9 | Direct typed | `LightActions.cs:42,45` | `PowerConsumer.LightIsActive : bool` (field) | `PowerConsumer.cs:30` | Yes | Same | Light on/off/toggle. |
+| 10 | Direct typed | `LightActions.cs:51` | `Part.Modules.Get<LightModule>()` (per-light color walk) | `Part.cs:680`; `ModuleList.cs:178` | Yes | Same | Color write target enumeration. |
+| 11 | Direct typed (settable field) | `LightActions.cs:66,73` | `LightModule.Template : TemplateData` (public field, **assigned**) | `LightModule.cs:62` | Yes | Same | Per-instance unshare swaps in a cloned TemplateData. Must stay a writable field. |
+| 12 | Direct typed | `LightActions.cs:56,70-71` | `LightModule.TemplateData.ColorRgb : ColorRgbReference` (field) | `LightModule.cs:33` | Yes | Same | Same field zippo now reflects by name (#4). |
 | 13 | **Reflection (string field/method)** | `LightActions.cs:83-86` | `ColorRgbReference.R/G/B : float` + `OnDataLoad(Mod) : void` | `ColorRgbReference.cs:10,13,16,35` | Yes | Same | Color RGB write + recompute `Value`. `OnDataLoad` 1-arg (`new object?[]{null}` ✓). Medium risk (string names). |
 | 14 | Reflection (clone) | `LightActions.cs:92-104` | `RuntimeHelpers.GetUninitializedObject` + copy all instance fields of `TemplateData`/`ColorRgbReference` | `LightModule.cs:12`; `ColorRgbReference.cs` | Yes | Same | Generic field-copy clone; resilient to field set changes (copies whatever exists). |
-| 15 | Direct typed | `ActionScanner.cs:27,30`; `ActionExecutor.cs:74` | `Part.InstanceId : uint`, `Part.Id`, `Part.DisplayName`, `Part.Template.Id` | `Part.cs:321,411,413`; `PartTemplate.cs` (Id) | Yes | Same | Instance addressing + labels. |
-| 16 | Direct typed | `ActionExecutor.cs:80,82` | `Part.FullPart : Part { get; }` | `Part.cs:659` | Yes | Same | Anim-module owner resolution. |
+| 15 | Direct typed | `ActionScanner.cs:25-28`; `ActionExecutor.cs:74` | `Part.InstanceId : uint`, `Part.Id`, `Part.DisplayName`, `Part.Template.Id` | `Part.cs:574,698,700`; `PartTemplate.cs` (Id) | Yes | Same (OLD `:566,690,692`) | Instance addressing + labels (see zippo #12 for the 5402 `DisplayName` initialisation change). |
+| 16 | Direct typed | `ActionExecutor.cs:81-82` | `Part.FullPart : Part { get; }` | `Part.cs:1123` | Yes | Same (OLD `:1056`) | Anim-module owner resolution. |
 | 17 | Direct typed | `RedAlertSubmod.cs:128,129` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey : Color.Preset` | `KSAColor.cs:1561,837` | Yes | Same | Engage-button styling. |
-| 18 | Direct typed | `ActionScanner.cs:14`, `ActionExecutor.cs:70` (via `VehicleProvider`) | `Universe.CurrentSystem.All.UnsafeAsList().OfType<Vehicle>()` | `Universe.cs:92`; `CelestialSystem.cs:57`; `LookupCollection.cs:210` | Yes | Same | Vehicle enumeration. |
-| 19 | Lifecycle/Harmony | `Patcher.cs` | `HotkeyGuard` → `GameSettings.OnKeyAll` | `GameSettings.cs:2379` | Yes | Same | Shared. |
+| 18 | Direct typed | `ActionScanner.cs:14`, `ActionExecutor.cs:70` (via `VehicleProvider`) | `Universe.CurrentSystem.All.UnsafeAsList().OfType<Vehicle>()` | `Universe.cs:94`; `CelestialSystem.cs:64`; `LookupCollection.cs:210` | Yes | Same | Vehicle enumeration. |
+| 19 | Lifecycle/Harmony | `Patcher.cs:19,31` | `HotkeyGuard` → `GameSettings.OnKeyAll` | `GameSettings.cs:3301` | Yes | Same | Shared. |
 
 **Game assets referenced** — None.
 
@@ -182,8 +184,9 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
 - ✅ `LightModule` (`Template`/`TemplateData`/`ColorRgb`/`Intensity`), `ColorRgbReference`,
   `PowerConsumer.LightIsActive` and `SolarPanel` are otherwise unchanged; `Celestial.SetOrbit(Orbit)`
   and `CelestialSystem.All` are signature-identical (kiwis-marbles unaffected).
-- 🔴 **zippo's `GetField("Color")` is still wrong** — re-confirmed against 5018: the field is
-  `ColorRgb`. Pre-existing silent no-op, **not** a 5018 regression.
+- ~~🔴 zippo's `GetField("Color")` is still wrong~~ — **CLOSED**: this was true at 5018, but
+  `zippo.lib/LightController.cs:59,80` now reads `"ColorRgb"` (fixed by commit `07787ea`; see the
+  5261→5348 area summary). Kept for history only.
 
 #### Carried over from the 4680→4750 review
 - No breaking deltas detected. `KeyframeAnimationModule` (`TimeGoal`/`Shared`/`ShowDeployRetract`),
@@ -249,3 +252,59 @@ filtered to what the part supports), per-action `ColorEdit4`/actuate `DragFloat`
   `Universe.CurrentSystem` → `CelestialSystem.All` → `LookupCollection<T>.UnsafeAsList()` is unchanged.
 - ℹ️ `IOrbiter.ShowOrbit` (marque's write target) is unchanged; the only diff in `IOrbiter.cs` is the
   game switching its own overlay draws to `ImGuiHelper.GetOverlayDrawList(inViewport)` (rev 5265).
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Revisions 5349–5400 are **unlogged** (the only changelog entry in this span is rev 5401, "Fixed crash
+for incorrect data stride for thumbnail rendering"), so the decomp diff is the only evidence. The
+solution compiles clean against 5402. None of the three mods references the retired `Viewport` type
+(`rg '\bViewport\b'` over their sources: zero hits), so the `Viewport` → `IViewport`/`IGameViewport`
+replacement is not a compile break here.
+
+- ✅ **No code change required for kiwis-marbles, zippo or red-alert.** Every typed member and every
+  string-reflection target resolves to the same kind and type; `IParentBody.cs`, `GameSettings.cs`,
+  `KeyframeAnimationModule.cs`, `ColorRgbReference.cs`, `FloatReference.cs`, `KSAColor.cs`,
+  `LookupCollection.cs` and `Situation.cs` are byte-identical 5348↔5402.
+- ⚠️ **Light on/off consumer path refactored — `Part.IsLightSwitchedOff()` (new).** `LightModule.IsActive`
+  (`LightModule.cs:72`) and `PartModelModule.UpdateRenderData` (`PartModelModule.cs:106`) replaced their
+  inlined `LightSwitch.LightIsActive` + `PowerConsumers.GetAllStatesByIdx(...).State.Active` checks with
+  `FullPart.IsLightSwitchedOff()` (`Part.cs:1357-1369`), which returns
+  `!LightIsActive || !IsSwitchedOn()` and adds a new precondition: a switch whose
+  `PowerConsumer.Parent.Tree != part.Tree` is treated as **on** regardless of `LightIsActive`.
+  `PowerConsumer.IsSwitchedOn()` (`PowerConsumer.cs:50-54`) bounds-checks `StatesIdx` where the old
+  path indexed unconditionally. zippo (`ZippoSubmod.cs:161,467`) and red-alert (`LightActions.cs:42`)
+  still write `PowerConsumer.LightIsActive`, which remains the first term — behaviour on a normal
+  vehicle is unchanged. **Optional live check**: toggle a light with zippo and confirm the mesh
+  emissive (`0x40` bit) and the point/spot light both follow.
+- ℹ️ `LightModule.UpdateRenderData` now takes `IViewport` and gates its raytrace-light registration on
+  `viewport.HasAll(ViewportOptionFlags.UseRaytracing)` instead of `viewport == Program.MainViewport`
+  (`LightModule.cs:101,113,129`). Only the main viewport carries that flag (`Program.cs:948`), so this
+  is a renaming of the same condition. Neither mod calls it.
+- ℹ️ **kiwis-marbles frame ordering still holds.** `Program.PrepareFrame` (`Program.cs:2103-2146`) gained
+  the parachute cloth solvers: `ClothSolvers.Wait()` → `ApplyOrbitSolvers` → `ApplyVehicleSolvers` →
+  `ApplyClothSolvers` … `ExecuteNextClothSolvers` → **`ExecuteNextVehicleSolvers`** (our prefix, `:2145`)
+  → `ExecuteNextOrbitSolvers`. `Universe.ExecuteNextVehicleSolvers` (`:1834`) is byte-identical to 5348
+  and the weld window (after the Apply* calls, before `ExecuteNextOrbitSolvers`) is intact.
+  `ExecuteNextClothSolvers` (`Universe.cs:1822`, `ChuteClothSystem.SnapshotAndKick`) runs just before
+  the prefix, so a deployed parachute's cloth sees the *pre-weld* body state for that frame. Only
+  relevant to a chute flying near a welded body — **live check only if that scenario matters**.
+  `Celestial.SetOrbit` (`:153`) is still a bare `Orbit = newOrbit;`; `Orbit.CreateFromStateCci`
+  (`Orbit.cs:1563`, `UniverseTime`) and `Universe.GetElapsedTime()` (`:2114`) are unchanged.
+- ℹ️ **`Part.DisplayName` initialisation changed (cosmetic).** `Part.cs:1391` now sets
+  `DisplayName = Template.DisplayName != Template.Id ? Template.DisplayName : Id` (was `= Id`). zippo's
+  and red-alert's combo labels use `DisplayName ?? Id`, so some entries may read differently; all keys
+  still use `Id`/`InstanceId`. No code change.
+- ℹ️ `PartTemplate` gained `CrashTolerance` (`:17-18`) and `SubPartGroups` (`:107-108`), shifting the
+  reflected `Components` field to `:113`; still a public `List<ModuleBase.TemplateDataBase>` field.
+- ℹ️ Content/asset diffs (`RayIntersections.glsl`, `ModelPbr.frag`, `ModelNormal.frag`, new
+  `StaticObjectNormalIndirect.frag`, `ParachuteAssets.xml`, `DefaultAssets.xml`) touch nothing these
+  mods reference (they reference no assets).
+- 🔁 **Carried forward, pre-existing:** red-alert's `KeyframeAnimationModule.TimeGoal` mirrored-part
+  fan-out (5018) still **needs a live pass**; the file is byte-identical this span. zippo's colour bug
+  remains **closed** (`LightController.cs:59,80` → `"ColorRgb"`).
+- **Verified clean this span** (NEW line numbers refreshed in the tables above): kiwis-marbles rows
+  1–13; zippo rows 1–15; red-alert rows 1–19.
+- **Needs a live pass**: the `IsLightSwitchedOff()` light toggle (optional), red-alert `TimeGoal` mirror
+  fan-out (carried), kiwis-marbles weld near a deployed parachute (only if relevant).

@@ -121,7 +121,7 @@ public static class EditorScalePatches
     /// Replaces <c>VehicleEditor.UpdateSelectedScale</c> when per-axis scaling is active. Mirrors the
     /// stock cursor-delta → scale-delta math but applies it to the dragged axis only.
     /// </summary>
-    private static bool UpdateSelectedScalePrefix(VehicleEditor __instance, ref double4x4 matrixVehicleAsmb2Ego, Viewport inViewport)
+    private static bool UpdateSelectedScalePrefix(VehicleEditor __instance, ref double4x4 matrixVehicleAsmb2Ego, IViewport inViewport)
     {
         if (!EditorScaleSettings.PerAxisScalingActive) return true;
         if (_quantizeScale == null || _forEachPartWithSymmetry == null) return true;

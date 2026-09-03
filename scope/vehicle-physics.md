@@ -6,12 +6,12 @@ these mods touch is enumerated and verified against decompiled sources.
 
 **Verified game versions**
 
-- NEW decomp `2026.6.9.4750` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD decomp `2026.6.8.4680` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
+- NEW decomp `2026.9.7.5402` root: `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD decomp `2026.8.22.5348` root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
 
 Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root
 (namespace-foldered, e.g. `KSA/Vehicle.cs`). **Mod code** paths are relative to the repo
-root `C:\Users\Alex\repos\meow-sci\unscience`.
+root `~/repos/meow-sci/unscience`.
 
 **How these mods are hosted (all three)**
 
@@ -59,8 +59,8 @@ simulation step; fuel refills run on the normal UI update tick.
 (batteries). Standalone host `eternal-flame/Mod.cs:27` (`new EternalFlameSubmod()`), with the
 solver prefix wired in `eternal-flame/Patcher.cs:43-69` (`EternalFlameSolverPatch`). Embedded
 host: `unscience/Mod.cs:69` (`new EternalFlameSubmod()`); the supermod re-declares the
-identical solver prefix as `EternalFlamePatches` in `unscience/Patcher.cs:92-126`
-(applied at `unscience/Patcher.cs:42`). `EternalFlameSubmod.Instance` (static) is the bridge
+identical solver prefix as `EternalFlamePatches` in `unscience/Patcher.cs:144-178`
+(applied at `unscience/Patcher.cs:64`). `EternalFlameSubmod.Instance` (static) is the bridge
 the prefix calls into.
 
 **UI/hotkeys** — Standalone window "Eternal Flame - Infinite Fuel", 500x450, toggled by
@@ -76,19 +76,19 @@ All ImGui via `Brutal.ImGuiApi`.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Harmony (prefix) | `eternal-flame/Patcher.cs:47,55` (standalone) and `unscience/Patcher.cs:96,104` (supermod) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` — `public static void`; resolved `AccessTools.Method(typeof(Universe), nameof(...))` (no param array), prefix is param-less `void` (priority First) | `KSA/Universe.cs:1660` | Yes | Same (OLD `Universe.cs:1109`) | Single overload, so no-arg resolution is unambiguous. Prefix returns void -> original always runs. Highest-value chokepoint for this mod. |
-| 2 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:80` | `Vehicle.RefillConsumables()` — `public void` | `KSA/Vehicle.cs:2300` | Yes | Same (OLD `Vehicle.cs:2210`) | Internally calls `Parts.RefillConsumables()` + `RecomputeMassProperties` + `FlightComputer.ReadUpdatedVehicleConfiguration` (all internal; not touched directly). |
-| 3 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:128` | `Vehicle.Parts` — `public PartTree Parts` (field) | `KSA/Vehicle.cs:264` | Yes | Same (OLD `Vehicle.cs:233`) | Entry to battery state list. |
-| 4 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:128` | `PartTree.Batteries` — `public ModuleStateful<Battery,BatteryState,EmptyStruct,EmptyStruct>.StateList Batteries` (field) | `KSA/PartTree.cs:37` | Yes | Same (OLD `PartTree.cs:37`) | Generic `StateList`. |
-| 5 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:129` | `StateList.NumModules` — `public int NumModules` | `KSA/ModuleStateful.cs:251` | Yes | Same (OLD `ModuleStateful.cs:250`) | Early-out when 0. |
-| 6 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:132` | `StateList.Modules` — `public Span<TModule> Modules` | `KSA/ModuleStateful.cs:243` | Yes | Same (OLD `ModuleStateful.cs:242`) | Iterates `Battery[]`. |
-| 7 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:136` | `StateList.GetModuleAndAllMutableStatesForInitialization(TModule)` — returns `ModuleAndAllMutableStatesRef` | `KSA/ModuleStateful.cs:508` | Yes | Same (OLD `ModuleStateful.cs:493`) | Returns ref struct with `.Module` + `.State`. |
-| 8 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:137` | `ModuleAndAllMutableStatesRef.Module` / `.State` (Battery / BatteryState) | `KSA/ModuleStateful.cs:516-` | Yes | Same | Game uses the same `.Module.Refill(ref ...State)` shape at `KSA/ResourceManager.cs:423`. |
-| 9 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:137` | `Battery.Refill(ref BatteryState state)` — `public void` (sets `state.Charge = MaximumCapacity`) | `KSA/Battery.cs:59` | Yes | Same (OLD `Battery.cs:59`) | **Insulates the mod from rev 4681.** Body unchanged OLD->NEW. |
-| 10 | Direct typed API (indirect) | via #9 | `Battery.MaximumCapacity` — `public required Joules MaximumCapacity` | `KSA/Battery.cs:21` | Yes | Same (OLD `Battery.cs:21`) | Read only inside `Refill`; mod never names `Joules`. |
-| 11 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:74,111` (lookup) | `Vehicle.Id` — `public virtual string Id` (inherited `Astronomical.Id`) | `KSA/Astronomical.cs:85` | Yes | Same (OLD `Astronomical.cs:85`) | Monitored-vehicle key matching. |
-| 12 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `EternalFlameLib.cs:65,102`; `EternalFlameSubmod.cs:54,109`) | `Universe.CurrentSystem` (`KSA/Universe.cs:92`) -> `CelestialSystem.All` (`KSA/CelestialSystem.cs:57`) -> `LookupCollection<Astronomical>.UnsafeAsList()` (`KSA/LookupCollection.cs:210`) | `KSA/Universe.cs:92` | Yes | Same | Shared enumerator; a break here cascades to all three mods' UI. |
-| 13 | Harmony + Reflection | `eternal-flame/Patcher.cs:20` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`; `nameof`-resolved, prefix `ref bool __result` | `KSA/GameSettings.cs:2379` | Yes | Same | Shared guard (full row in `scope/telemetry.md`). |
+| 1 | Harmony (prefix) | `eternal-flame/Patcher.cs:47,55` (standalone) and `unscience/Patcher.cs:148,156` (supermod) | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)` — `public static void`; resolved `AccessTools.Method(typeof(Universe), nameof(...))` (no param array), prefix is param-less `void` (priority First) | `KSA/Universe.cs:1834` | Yes | Same (OLD `Universe.cs:1767`); 5402 body diff = removal of a clutter debug-draw block only | Single overload, so no-arg resolution is unambiguous. Prefix returns void -> original always runs. Highest-value chokepoint for this mod. Since 5402 `Universe.ExecuteNextClothSolvers` is kicked **before** this method (`KSA/Program.cs:2144-2145`); irrelevant to battery refill. |
+| 2 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:80` | `Vehicle.RefillConsumables()` — `public void` | `KSA/Vehicle.cs:3169` | Yes | Same (OLD `Vehicle.cs:3008`; body identical) | Internally calls `Parts.RefillConsumables()` + `RecomputeMassProperties` + `FlightComputer.ReadUpdatedVehicleConfiguration` (all internal; not touched directly). |
+| 3 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:128` | `Vehicle.Parts` — `public PartTree Parts` (field) | `KSA/Vehicle.cs:604` | Yes | Same (OLD `Vehicle.cs:598`) | Entry to battery state list. |
+| 4 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:128` | `PartTree.Batteries` — `public ModuleStateful<Battery,BatteryState,EmptyStruct,EmptyStruct>.StateList Batteries` (field) | `KSA/PartTree.cs:53` | Yes | Same (OLD `PartTree.cs:53`) | Generic `StateList`. |
+| 5 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:129` | `StateList.NumModules` — `public int NumModules` | `KSA/ModuleStateful.cs:274` | Yes | Same (file byte-identical) | Early-out when 0. |
+| 6 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:132` | `StateList.Modules` — `public Span<TModule> Modules` | `KSA/ModuleStateful.cs:266` | Yes | Same (file byte-identical) | Iterates `Battery[]`. |
+| 7 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:136` | `StateList.GetModuleAndAllMutableStatesForInitialization(TModule)` — returns `ModuleAndAllMutableStatesRef` | `KSA/ModuleStateful.cs:479` | Yes | Same (file byte-identical) | Returns ref struct with `.Module` + `.State`. |
+| 8 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:137` | `ModuleAndAllMutableStatesRef.Module` / `.State` (Battery / BatteryState) | `KSA/ModuleStateful.cs` (nested ref struct) | Yes | Same | Game uses the same `.Module.Refill(ref ...State)` shape in `KSA/ResourceManager.cs`. |
+| 9 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:137` | `Battery.Refill(ref BatteryState state)` — `public void` (sets `state.Charge = MaximumCapacity`) | `KSA/Battery.cs:63` | Yes | Same (file byte-identical 5348→5402) | **Insulates the mod from rev 4681.** Body unchanged OLD->NEW. |
+| 10 | Direct typed API (indirect) | via #9 | `Battery.MaximumCapacity` — `public required Joules MaximumCapacity` | `KSA/Battery.cs:23` | Yes | Same (file byte-identical) | Read only inside `Refill`; mod never names `Joules`. |
+| 11 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:74,111` (lookup) | `Vehicle.Id` — `public virtual string Id` (inherited `Astronomical.Id`) | `KSA/Astronomical.cs:104` | Yes | Same (OLD `Astronomical.cs:104`) | Monitored-vehicle key matching. |
+| 12 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `EternalFlameLib.cs:65,102`; `EternalFlameSubmod.cs:54,109`) | `Universe.CurrentSystem` (`KSA/Universe.cs:94`) -> `CelestialSystem.All` (`KSA/CelestialSystem.cs:64`) -> `LookupCollection<Astronomical>.UnsafeAsList()` (`KSA/LookupCollection.cs:210`) | `KSA/Universe.cs:94` | Yes | Same (`CelestialSystem.All` OLD `:57`) | Shared enumerator; a break here cascades to all three mods' UI. Since 5402 the list also contains debris fragments (`Vehicle.IsDebris`, `KSA/Vehicle.cs:392`). |
+| 13 | Harmony + Reflection | `eternal-flame/Patcher.cs:20` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`; `nameof`-resolved, prefix `ref bool __result` | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard (full row in `scope/telemetry.md`). |
 | 14 | Lifecycle | `eternal-flame/Mod.cs:19-87` | StarMap attrs: `StarMapMod`, `StarMapImmediateLoad`, `StarMapAllModsLoaded`, `StarMapBeforeGui`, `StarMapAfterGui`, `StarMapUnload` (StarMap.API) | (StarMap.API package) | Yes | Same | Fuel in `OnBeforeUi`; battery via the solver prefix. |
 
 **Game assets referenced** — None.
@@ -122,7 +122,7 @@ optional rotation lock. Also supports eased animation of weld params.
 (`garrys-torch.lib/WeldEngine.cs:11`); per-weld state `WeldEntry`
 (`garrys-torch.lib/WeldEntry.cs:7`). Weld physics runs from **`OnAfterUi`** (not a Harmony
 patch): `GarrysTorchSubmod.UpdateWelds(dt)` (`GarrysTorchSubmod.cs:85`) first calls
-`KSA.JobSystems.VehicleSolvers.Wait()` to drain in-flight vehicle workers, then
+`KSA.JobSystems.VehicleSolver.Wait()` (`:103`) to drain in-flight vehicle workers, then
 `WeldEngine.UpdateWeld` per weld. Standalone host `garrys-torch/Mod.cs:27,59`; embedded host
 `unscience/Mod.cs:71` (submod) + `unscience/Mod.cs:173` (`GarrysTorchSubmod.Instance?.UpdateWelds(dt)`).
 `garrys-torch/Patcher.cs` applies **only** `HotkeyGuard` — no game-targeting Harmony patch
@@ -147,34 +147,34 @@ reload. TOML via `Tomlyn`.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed API | `garrys-torch.lib/GarrysTorchSubmod.cs:93` | `KSA.JobSystems.VehicleSolvers` (`public static JobScheduler VehicleSolvers`) -> `JobScheduler.Wait()` | `KSA/JobSystems.cs:11` | Yes | Same (OLD `JobSystems.cs:11`) | Game itself calls `JobSystems.VehicleSolvers.Wait()` (`KSA/Program.cs:1942`, `Universe.cs:2030`). Core race-avoidance for the whole mod. |
-| 2 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:19,75` | `Vehicle.Parent` — `public IParentBody Parent => Orbit.Parent` | `KSA/Vehicle.cs:332` | Yes | Same (OLD `Vehicle.cs:299`) | Reference-compared for parent-body match; `.GetCci2Cce()` called on it (#10). |
-| 3 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:28` | `Vehicle.GetPositionCci()` — `public double3` | `KSA/Vehicle.cs:1949` | Yes | Same (OLD `Vehicle.cs:1859`) | Target world position. |
-| 4 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:29` | `Vehicle.GetVelocityCci()` — `public double3` | `KSA/Vehicle.cs:1897` | Yes | Same (OLD `Vehicle.cs:1807`) | Source velocity = target velocity. |
-| 5 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:30,90` | `Vehicle.GetBody2Cci()` — `public doubleQuat` | `KSA/Vehicle.cs:2242` | Yes | Same (OLD `Vehicle.cs:2152`) | Orientation transforms. |
-| 6 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:58` | `Vehicle.CenterOfMassAsmb` — `public double3 CenterOfMassAsmb` | `KSA/Vehicle.cs:510` | Yes | Same (OLD `Vehicle.cs:477`) | Part-anchor offset base. |
-| 7 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:85,92` | `Vehicle.BodyRates` — `public double3 BodyRates` | `KSA/Vehicle.cs:458` | Yes | Same (OLD `Vehicle.cs:425`) | Passed to `Teleport`; NaN-guarded by mod. |
-| 8 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:126` | `Vehicle.Orbit` — `public Orbit Orbit => Patch.Orbit` (reads `.OrbitLineColor`) | `KSA/Vehicle.cs:330` | Yes | Same (OLD `Vehicle.cs:297`) | Source orbit's line color reused for new orbit. |
-| 9 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:129` | `Vehicle.Teleport(Orbit? orbit, doubleQuat? body2Cce, double3? bodyRates)` — `public void` | `KSA/Vehicle.cs:1594` | Yes | Same (OLD `Vehicle.cs:1558`) | The core mutation. Nullable params; mod passes non-null. rev 4708 (orbit-time printout) was an internal fix; **signature unchanged**. |
-| 10 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:130` | `Vehicle.UpdatePerFrameData()` — `public override void` | `KSA/Vehicle.cs:1972` | Yes | Same (OLD `Vehicle.cs:1882`) | Refresh caches post-teleport. |
-| 11 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:75` | `IParentBody.GetCci2Cce()` — `doubleQuat` (interface) | `KSA/IParentBody.cs:47` | Yes | Same (OLD `IParentBody.cs:47`) | Called on `Vehicle.Parent`. |
-| 12 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:58` | `Part.PositionVehicleAsmb` — `public double3` (computed property) | `KSA/Part.cs:415` | Yes | Same (OLD `Part.cs:414`) | Part-anchor position. |
-| 13 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:61` | `Part.Asmb2VehicleAsmb` — `public doubleQuat` (computed property) | `KSA/Part.cs:431` | Yes | Same (OLD `Part.cs:430`) | Part-anchor orientation. |
-| 14 | Direct typed API (write) | `garrys-torch.lib/WeldEngine.cs:200` | `Part.Scale` — `public double3 Scale { get; set; }` (setter calls `ResetCachedPosMatrixValues`) | `KSA/Part.cs:499` | Yes | Same (OLD `Part.cs:498`) | Recursive uniform scale write. |
-| 15 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:157,201` | `Part.SubParts` — `public ReadOnlySpan<Part> SubParts`; `PartTree.Parts` — `public ReadOnlySpan<Part> Parts` | `KSA/Part.cs:655`; `KSA/PartTree.cs:67` | Yes | Same (OLD `Part.cs:654`; `PartTree.cs:65`) | Part-tree walk for scaling + target-part list. |
-| 16 | Direct typed API | `garrys-torch.lib/GarrysTorchSubmod.cs:188` | `Part.Template` (`public PartTemplate Template`) -> `PartTemplate.Id` (`public string Id`, inherited `SerializedId.Id`); `Part.Id` (`public string Id { get; init; }`) | `KSA/Part.cs:323`,`411`; `KSA/SerializedId.cs:13` | Yes | Same (OLD `Part.cs:322`,`410`) | Target-part combo labels. |
-| 17 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Universe.GetJobSimStep(double dtPlayer)` -> `SimStep.NextTime` (`SimTime`) | `KSA/Universe.cs:2188` | Yes | Same (OLD `Universe.cs:1637`) | Tick-end time for the new orbit's state time (avoids SnapToLeader mismatch). |
-| 18 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Program.GetPlayerDeltaTime()` — `public static double` | `KSA/Program.cs:4467` | Yes | Same (OLD `Program.cs:4407`) | Fed into `GetJobSimStep`. |
-| 19 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:121` | `Orbit.CreateFromStateCci(IParentBody parent, SimTime stateTime, double3 positionCci, double3 velocityCci, byte4 orbitLineColor)` — `public static Orbit` | `KSA/Orbit.cs:1396` | Yes | Same (OLD `Orbit.cs:1379`) | 5-arg factory; arg order/types unchanged. |
-| 20 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:126` | `Orbit.OrbitLineColor` — `public byte4 OrbitLineColor` (field) | `KSA/Orbit.cs:1062` | Yes | Same (OLD `Orbit.cs:1045`) | — |
-| 21 | Reflection (type-name) | `garrys-torch.lib/WeldEngine.cs:161` | `vehicle.GetType().Name == "KittenEva"` — `public class KittenEva : Vehicle` | `KSA/KittenEva.cs:7` | Yes | Same (OLD `KittenEva.cs:7`) | String type-name compare; breaks silently if the class is renamed. |
-| 22 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:165` (via `ReflectionHelpers.GetFieldValue`) | `KittenEva._renderable` — `private KittenRenderable _renderable` | `KSA/KittenEva.cs:9` | Yes | Same (OLD `KittenEva.cs:9`) | **String field name, not compile-checked.** |
-| 23 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:168` | `KittenRenderable._characterAvatar` — `private CharacterAvatar _characterAvatar` | `KSA/KittenRenderable.cs:10` | Yes | Same (OLD `KittenRenderable.cs:10`) | **String field name.** |
-| 24 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:172-173,182` | `CharacterAvatar.Core` — `public CharacterCore Core` (**struct** field) | `KSA/CharacterAvatar.cs:204` | Yes | Same (OLD `CharacterAvatar.cs:204`) | Mod uses `GetField("Core")` only (no property fallback) and writes the struct back via `SetValue` — correct **only while `Core` is a field of a value type**. If it becomes a property/ref type, scaling silently no-ops. |
-| 25 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:176-188` | `CharacterCore.Scale` — `public float Scale = 0.01f` (field) | `KSA/CharacterAvatar.cs:33` | Yes | Same (OLD `CharacterAvatar.cs:33`) | Mod sets `factor * 0.01f`; field + property paths both handled. |
-| 26 | Direct typed API (UI color) | `garrys-torch.lib/GarrysTorchSubmod.cs:333-334` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey` — `static Color.Preset` | `KSA/KSAColor.cs:1561`,`837` | Yes | Same (cosmetic; no changelog color changes) | Unweld-button styling only; failure is visual, not functional. |
-| 27 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `GarrysTorchSubmod.cs:158,527`) | `Universe.CurrentSystem` / `CelestialSystem.All` / `LookupCollection.UnsafeAsList` / `Vehicle.Id` | `KSA/Universe.cs:92` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
-| 28 | Harmony + Reflection | `garrys-torch/Patcher.cs:16` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:2379` | Yes | Same | Shared guard. The **only** Harmony patch this mod registers. |
+| 1 | Direct typed API | `garrys-torch.lib/GarrysTorchSubmod.cs:103` | `KSA.JobSystems.VehicleSolver` (`public static JobScheduler VehicleSolver`, single-runner orchestrator; renamed from `VehicleSolvers` @5261) -> `JobScheduler.Wait()` | `KSA/JobSystems.cs:16` | Yes | Same (OLD `JobSystems.cs:16`). 5402 added a sibling `ClothSolvers` scheduler (`:18`) — see 5348→5402 summary | Game itself calls `JobSystems.VehicleSolver.Wait()` (`KSA/Program.cs:2104`, `Universe.cs:2153`). Core race-avoidance for the whole mod. |
+| 2 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:19,75` | `Vehicle.Parent` — `public IParentBody Parent => Orbit.Parent` | `KSA/Vehicle.cs:372` | Yes | Same (OLD `Vehicle.cs:370`) | Reference-compared for parent-body match; `.GetCci2Cce()` called on it (#10). |
+| 3 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:28` | `Vehicle.GetPositionCci()` — `public double3` | `KSA/Vehicle.cs:2590` | Yes | Same (OLD `Vehicle.cs:2433`) | Target world position. |
+| 4 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:29` | `Vehicle.GetVelocityCci()` — `public double3` | `KSA/Vehicle.cs:2538` | Yes | Same (OLD `Vehicle.cs:2381`) | Source velocity = target velocity. |
+| 5 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:30,90` | `Vehicle.GetBody2Cci()` — `public doubleQuat` | `KSA/Vehicle.cs:3095` | Yes | Same (OLD `Vehicle.cs:2934`) | Orientation transforms. |
+| 6 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:58` | `Vehicle.CenterOfMassAsmb` — `public double3 CenterOfMassAsmb` | `KSA/Vehicle.cs:564` | Yes | Same (OLD `Vehicle.cs:558`) | Part-anchor offset base. |
+| 7 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:85,92` | `Vehicle.BodyRates` — `public double3 BodyRates` | `KSA/Vehicle.cs:510` | Yes | Same (OLD `Vehicle.cs:504`) | Passed to `Teleport`; NaN-guarded by mod. |
+| 8 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:126` | `Vehicle.Orbit` — `public Orbit Orbit => Patch.Orbit` (reads `.OrbitLineColor`) | `KSA/Vehicle.cs:370` | Yes | Same (OLD `Vehicle.cs:368`) | Source orbit's line color reused for new orbit. |
+| 9 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:129` | `Vehicle.Teleport(Orbit? orbit, doubleQuat? body2Cce, double3? bodyRates)` — `public void` | `KSA/Vehicle.cs:2209` | Yes | Same (OLD `Vehicle.cs:2053`; body identical bar a log line-number constant) | The core mutation. Nullable params; mod passes non-null. No new gating in 5402 — but the vehicle it moves is now subject to the new `PartFailure` contact-pressure system (see 5348→5402 summary). |
+| 10 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:130` | `Vehicle.UpdatePerFrameData()` — `public override void` | `KSA/Vehicle.cs:2613` | Yes | Same (OLD `Vehicle.cs:2456`; body identical) | Refresh caches post-teleport. |
+| 11 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:75` | `IParentBody.GetCci2Cce()` — `doubleQuat` (interface) | `KSA/IParentBody.cs:51` | Yes | Same (file byte-identical) | Called on `Vehicle.Parent`. |
+| 12 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:58` | `Part.PositionVehicleAsmb` — `public double3` (computed property) | `KSA/Part.cs:704` | Yes | Same (OLD `Part.cs:696`) | Part-anchor position. |
+| 13 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:61` | `Part.Asmb2VehicleAsmb` — `public doubleQuat` (computed property) | `KSA/Part.cs:720` | Yes | Same (OLD `Part.cs:712`) | Part-anchor orientation. (5402 also added `Asmb2VehicleAsmb` to the nested `Part.Connection.IConnector` interface, `Part.cs:483` — unrelated to this binding.) |
+| 14 | Direct typed API (write) | `garrys-torch.lib/WeldEngine.cs:200` | `Part.Scale` — `public double3 Scale { get; set; }` (setter calls `ResetCachedPosMatrixValues`) | `KSA/Part.cs:815` | Yes | Same (OLD `Part.cs:807`) | Recursive uniform scale write. |
+| 15 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:157,201` | `Part.SubParts` — `public ReadOnlySpan<Part> SubParts`; `PartTree.Parts` — `public ReadOnlySpan<Part> Parts` | `KSA/Part.cs:1079`; `KSA/PartTree.cs:95` | Yes | Same (OLD `Part.cs:1052`; `PartTree.cs:95`) | Part-tree walk for scaling + target-part list. |
+| 16 | Direct typed API | `garrys-torch.lib/GarrysTorchSubmod.cs:190,198` | `Part.Template` (`public PartTemplate Template`) -> `PartTemplate.Id` (`public string Id`, inherited `SerializedId.Id`); `Part.Id` (`public string Id { get; init; }`) | `KSA/Part.cs:576`,`698`; `KSA/SerializedId.cs:13` | Yes | Same (OLD `Part.cs:568`,`690`) | Target-part combo labels. |
+| 17 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Universe.GetJobSimStep(double dtPlayer)` -> `SimStep.NextTime` (`UniverseTime`, renamed from `SimTime` @5261) | `KSA/Universe.cs:2322`; `KSA/SimStep.cs:7` | Yes | Same (OLD `Universe.cs:2264`) | Tick-end time for the new orbit's state time (avoids SnapToLeader mismatch). |
+| 18 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Program.GetPlayerDeltaTime()` — `public static double` | `KSA/Program.cs:5077` | Yes | Same (OLD `Program.cs:4899`) | Fed into `GetJobSimStep`. |
+| 19 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:121` | `Orbit.CreateFromStateCci(IParentBody parent, UniverseTime stateTime, double3 positionCci, double3 velocityCci, byte4 orbitLineColor)` — `public static Orbit` | `KSA/Orbit.cs:1563` | Yes | Same (OLD `Orbit.cs:1563`) | 5-arg factory; arg order/types unchanged since the 5261 `SimTime`→`UniverseTime` rename. |
+| 20 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:126` | `Orbit.OrbitLineColor` — `public byte4 OrbitLineColor` (field) | `KSA/Orbit.cs:1138` | Yes | Same (OLD `Orbit.cs:1138`) | — |
+| 21 | Reflection (type-name) | `garrys-torch.lib/WeldEngine.cs:161` | `vehicle.GetType().Name == "KittenEva"` — `public class KittenEva : Vehicle` | `KSA/KittenEva.cs:13` | Yes | Same (OLD `KittenEva.cs:13`) | String type-name compare; breaks silently if the class is renamed. |
+| 22 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:165` (via `ReflectionHelpers.GetFieldValue`) | `KittenEva._renderable` — `private KittenRenderable _renderable` | `KSA/KittenEva.cs:15` | Yes | Same (OLD `KittenEva.cs:15`) | **String field name, not compile-checked.** |
+| 23 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:168` | `KittenRenderable._characterAvatar` — `private CharacterAvatar _characterAvatar` | `KSA/KittenRenderable.cs:12` | Yes | Same (OLD `KittenRenderable.cs:12`) | **String field name.** |
+| 24 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:172-173,182` | `CharacterAvatar.Core` — `public CharacterCore Core` (**struct** field) | `KSA/CharacterAvatar.cs:211` | Yes | Same (OLD `CharacterAvatar.cs:209`; shifted by the new `CharacterCore.HeadMeshIndices` list) | Mod uses `GetField("Core")` only (no property fallback) and writes the struct back via `SetValue` — correct **only while `Core` is a field of a value type**. If it becomes a property/ref type, scaling silently no-ops. |
+| 25 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:176-188` | `CharacterCore.Scale` — `public float Scale = 0.01f` (field) | `KSA/CharacterAvatar.cs:34` | Yes | Same (OLD `CharacterAvatar.cs:34`) | Mod sets `factor * 0.01f`; field + property paths both handled. |
+| 26 | Direct typed API (UI color) | `garrys-torch.lib/GarrysTorchSubmod.cs:343-344` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey` — `static Color.Preset` | `KSA/KSAColor.cs:1561`,`837` | Yes | Same (file byte-identical) | Unweld-button styling only; failure is visual, not functional. |
+| 27 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `GarrysTorchSubmod.cs:168,537`) | `Universe.CurrentSystem` / `CelestialSystem.All` / `LookupCollection.UnsafeAsList` / `Vehicle.Id` | `KSA/Universe.cs:94` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
+| 28 | Harmony + Reflection | `garrys-torch/Patcher.cs:16` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard. The **only** Harmony patch this mod registers. |
 | 29 | Lifecycle | `garrys-torch/Mod.cs:19-80` | StarMap attrs (full set); weld physics in `OnAfterUi` after `JobSystems.VehicleSolver.Wait()` | (StarMap.API package) | Yes | **Renamed @5261** (was `VehicleSolvers`) | See *Update-risk findings (5117 → 5261)* |
 
 **Game assets referenced** — None (TOML preset file is mod-authored under `.unscience/`, not a game asset).
@@ -220,7 +220,7 @@ reload. TOML via `Tomlyn`.
 **Update-risk findings (4680 -> 4750)**
 
 - **CONFIRMED COMPILE BREAK (rev 4729, Brutal package nullability):**
-  `garrys-torch.lib/GarrysTorchSubmod.cs:457` — `ImGui.Text($"Are you sure you want to delete\npreset '{_deleteConfirmName}'?");`.
+  `garrys-torch.lib/GarrysTorchSubmod.cs:457` (now `:467`, null-coalesced) — `ImGui.Text($"Are you sure you want to delete\npreset '{_deleteConfirmName}'?");`.
   `_deleteConfirmName` is `string?` (declared `GarrysTorchSubmod.cs:52`) and is interpolated into
   `ImGui.Text`'s `ImString` interpolated-string handler, whose `AppendFormatted(string value, ...)`
   parameter became **non-nullable** in the rev 4729 Brutal update -> **CS8604** "possible null
@@ -261,7 +261,7 @@ prefixes live in `IFeelSeenPatches` (`i-feel-seen.lib/IFeelSeenPatches.cs`). Sta
 (`i-feel-seen/Patcher.cs:11`). Embedded host: `unscience/Mod.cs:60` (`var iFeelSeen = new IFeelSeenSubmod()`,
 added at `:75`), tracker handed to the supermod patcher at `unscience/Mod.cs:106`
 (`Patcher.IFeelSeenTracker = iFeelSeen.Tracker`), patches applied at
-`unscience/Patcher.cs:48` (`IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!)`).
+`unscience/Patcher.cs:71` (`IFeelSeenPatches.Apply(_harmony, IFeelSeenTracker!)`).
 
 **UI/hotkeys** — Standalone window "I Feel Seen", 400x350, toggled by **F11**
 (`i-feel-seen/Mod.cs:47,73`). Content (`IFeelSeenSubmod.RenderContent:27`): filterable vehicle
@@ -274,16 +274,16 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Harmony (prefix) + Reflection (string) | `i-feel-seen.lib/IFeelSeenPatches.cs:27,30` | `Vehicle.GetWorldMatrix(Camera camera)` — `public float4x4?`; resolved `AccessTools.Method(typeof(Vehicle), "GetWorldMatrix")` (string), prefix `(Vehicle __instance, Camera camera, ref float4x4? __result)` | `KSA/Vehicle.cs:2772` | Yes | Same (OLD `Vehicle.cs:2682`) | **String-resolved**; method is `public`, non-virtual. Return type `float4x4?` must match prefix `ref` param. Stable OLD->NEW. |
-| 2 | Harmony (prefix) + Reflection (string) | `i-feel-seen.lib/IFeelSeenPatches.cs:28,31` | `Vehicle.UpdateRenderData(Viewport viewport, int inFrameIndex)` — `public virtual void`; resolved `AccessTools.Method(typeof(Vehicle), "UpdateRenderData")`, prefix `(Vehicle __instance, Viewport viewport, int inFrameIndex)` | `KSA/Vehicle.cs:2785` | Yes | Same (OLD `Vehicle.cs:2695`) | **String-resolved.** `virtual`; `KittenEva` overrides it (`KSA/KittenEva.cs:62`) — see findings. |
-| 3 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:57` | `Camera.GetPositionEgo(IPosition astronomical)` — `public double3` | `KSA/Camera.cs:213` | Yes | Same (OLD `Camera.cs:212`) | Passes `__instance` (Vehicle is `IPosition`). |
-| 4 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:59` | `Vehicle.Body2Cce` — `public doubleQuat Body2Cce` | `KSA/Vehicle.cs:423` | Yes | Same (OLD `Vehicle.cs:390`) | Rotation for the override matrix. |
-| 5 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:69` | `Viewport.GetCamera()` — `public Camera` | `KSA/Viewport.cs:366` | Yes | Same (OLD `Viewport.cs:366`) | — |
-| 6 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:69` | `Vehicle.GetMatrixAsmb2Ego(Camera camera)` — `public double4x4` | `KSA/Vehicle.cs:833` | Yes | Same (OLD `Vehicle.cs:798`) | — |
-| 7 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:70` | `Vehicle.IsEditedVehicle` — `public bool` | `KSA/Vehicle.cs:356` | Yes | Same (OLD `Vehicle.cs:323`) | Passed to `PartTree.UpdateRenderData`. |
-| 8 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:70` | `PartTree.UpdateRenderData(ref readonly double4x4 matrixAsmb2Ego, bool isEditedVehicle, Viewport viewport, int frameIndex)` — `public void` (via `Vehicle.Parts`, `KSA/Vehicle.cs:264`) | `KSA/PartTree.cs:435` | Yes | Same (OLD `PartTree.cs:431`) | Mod passes `in matrixAsmb2Ego` -> `ref readonly`. Re-implements the original's body to bypass the cull check. |
-| 9 | Direct typed API | `i-feel-seen.lib/IFeelSeenSubmod.cs:29` + `VehicleTracker` | `VehicleProvider.GetAllVehicles()` chain + `Vehicle.Id`; tracked entries compared by reference | `KSA/Universe.cs:92` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
-| 10 | Harmony + Reflection | `i-feel-seen/Patcher.cs:15` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:2379` | Yes | Same | Shared guard. |
+| 1 | Harmony (prefix) + Reflection (string) | `i-feel-seen.lib/IFeelSeenPatches.cs:27,30` (prefix body `:52`) | `Vehicle.GetWorldMatrix(Camera camera)` — `public float4x4?`; resolved `AccessTools.Method(typeof(Vehicle), "GetWorldMatrix")` (string), prefix `(Vehicle __instance, Camera camera, ref float4x4? __result)` | `KSA/Vehicle.cs:3662` | Yes | Same (OLD `Vehicle.cs:3501`; body identical) | **String-resolved**; method is `public`, non-virtual, single overload. Only game caller in both trees is `KittenEva.UpdateRenderData` (`KSA/KittenEva.cs:1065`). |
+| 2 | Harmony (prefix) + Reflection (string) | `i-feel-seen.lib/IFeelSeenPatches.cs:28,31` (prefix body `:64`) | `Vehicle.UpdateRenderData(IViewport viewport, int inFrameIndex)` — `public virtual void`; resolved `AccessTools.Method(typeof(Vehicle), "UpdateRenderData")`, prefix `(Vehicle __instance, IViewport viewport, int inFrameIndex)` | `KSA/Vehicle.cs:3675` | Yes | **Retyped @5402** — `Viewport` → `IViewport` (OLD `Vehicle.cs:3514`); mod prefix updated. Still the single `UpdateRenderData` overload. | **String-resolved.** `virtual`; `KittenEva` overrides it (`KSA/KittenEva.cs:1062`, also `IViewport`) — see findings. Cull gate (`objectDiameterPixels < 1.0`) and the non-kitten call site (`KSA/Program.cs:4210`) unchanged; `viewport == Program.MainViewport` became `viewport.IsMain()`. |
+| 3 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:57` | `Camera.GetPositionEgo(IPosition astronomical)` — `public double3` | `KSA/Camera.cs:231` | Yes | Same (OLD `Camera.cs:231`; body identical) | Passes `__instance` (Vehicle is `IPosition`). |
+| 4 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:59` | `Vehicle.Body2Cce` — `public doubleQuat Body2Cce` | `KSA/Vehicle.cs:475` | Yes | Same (OLD `Vehicle.cs:469`) | Rotation for the override matrix. |
+| 5 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:69` | `IViewport.GetCamera()` — `Camera` (interface member; implemented by `GameViewport` via `ViewportBase`) | `KSA/IViewport.cs:51` | Yes | **Retyped @5402** — was `Viewport.GetCamera()` at `KSA/Viewport.cs:366`; `Viewport.cs` no longer exists | Mod receives the `IViewport` from the prefix and calls through the interface. |
+| 6 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:69` | `Vehicle.GetMatrixAsmb2Ego(Camera camera)` — `public double4x4` | `KSA/Vehicle.cs:1256` | Yes | Same (OLD `Vehicle.cs:1204`) | — |
+| 7 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:70` | `Vehicle.IsEditedVehicle` — `public bool` | `KSA/Vehicle.cs:408` | Yes | Same (OLD `Vehicle.cs:402`) | Passed to `PartTree.UpdateRenderData`. |
+| 8 | Direct typed API (prefix body) | `i-feel-seen.lib/IFeelSeenPatches.cs:70` | `PartTree.UpdateRenderData(ref readonly double4x4 matrixAsmb2Ego, bool isEditedVehicle, IViewport viewport, int frameIndex)` — `public void` (via `Vehicle.Parts`, `KSA/Vehicle.cs:604`) | `KSA/PartTree.cs:912` | Yes | **Retyped @5402** — `Viewport` → `IViewport` (OLD `PartTree.cs:912`); body also gained a `Parachute.UpdateLineRenderData` loop (`:938-945`) | Mod passes `in matrixAsmb2Ego` -> `ref readonly`. Re-implements the original's body to bypass the cull check; because it calls the real `PartTree.UpdateRenderData`, tracked vehicles get chute lines too. Chute canopies are drawn by the new, uncalled-by-mod `Vehicle.UpdateParachuteRenderData(IViewport)` (`Vehicle.cs:3706`, invoked without a distance cull from `Program.cs:4329,4524`). |
+| 9 | Direct typed API | `i-feel-seen.lib/IFeelSeenSubmod.cs:29` + `VehicleTracker` | `VehicleProvider.GetAllVehicles()` chain + `Vehicle.Id`; tracked entries compared by reference | `KSA/Universe.cs:94` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
+| 10 | Harmony + Reflection | `i-feel-seen/Patcher.cs:15` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard. |
 | 11 | Lifecycle | `i-feel-seen/Mod.cs:19-69` | StarMap attrs (full set) | (StarMap.API package) | Yes | Same | Patches applied in `OnFullyLoaded` after tracker init. |
 
 **Game assets referenced** — None.
@@ -314,17 +314,17 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
 ## Cross-cutting notes (all three mods)
 
 - **Shared chokepoints to watch first** (a change breaks multiple mods at once):
-  - `VehicleProvider` chain — `Universe.CurrentSystem` (`KSA/Universe.cs:92`),
-    `CelestialSystem.All` (`KSA/CelestialSystem.cs:57`),
+  - `VehicleProvider` chain — `Universe.CurrentSystem` (`KSA/Universe.cs:94`),
+    `CelestialSystem.All` (`KSA/CelestialSystem.cs:64`),
     `LookupCollection<Astronomical>.UnsafeAsList()` (`KSA/LookupCollection.cs:210`),
-    `Vehicle.Id` (`KSA/Astronomical.cs:85`), `Program.ControlledVehicle` (`KSA/Program.cs:254`).
+    `Vehicle.Id` (`KSA/Astronomical.cs:104`), `Program.ControlledVehicle` (`KSA/Program.cs:503`).
     Drives every mod's vehicle list. All signature-identical OLD->NEW.
-  - `Universe.ExecuteNextVehicleSolvers(double, SimStep)` (`KSA/Universe.cs:1660`) — patched by
+  - `Universe.ExecuteNextVehicleSolvers(double, SimStep)` (`KSA/Universe.cs:1834`) — patched by
     eternal-flame and central to garrys-torch's timing rationale.
-  - `GameSettings.OnKeyAll` (`KSA/GameSettings.cs:2379`) — shared `HotkeyGuard`, `nameof`-resolved.
+  - `GameSettings.OnKeyAll` (`KSA/GameSettings.cs:3301`) — shared `HotkeyGuard`, `nameof`-resolved.
 - **Embedded vs standalone Harmony:** when the unscience supermod is loaded it owns one
   `Harmony("MeowSci.Unscience")` that re-registers eternal-flame's solver prefix
-  (`unscience/Patcher.cs:92-126`) and i-feel-seen's render prefixes (`unscience/Patcher.cs:48`);
+  (`unscience/Patcher.cs:144-178`) and i-feel-seen's render prefixes (`unscience/Patcher.cs:71`);
   garrys-torch registers no game patch in either mode. Running a standalone mod *and* the supermod
   simultaneously would double-patch `ExecuteNextVehicleSolvers` — not a game-version risk, but a
   packaging note.
@@ -371,3 +371,69 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
   with the setting on, that could now interact with clutter statics. Worth a live check.
 - ℹ️ Re-test the [`../ISSUES.md`](../ISSUES.md) error spam for garrys-torch under the rewritten
   bubble model; the spam's shape may have changed. (The paired flexo entry is moot — flexo was removed.)
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Revisions 5349–5400 are **unlogged** (no changelog entries); the only logged commit in this span is
+rev 5401 *"Fixed crash for incorrect data stride for thumbnail rendering"*. Everything below comes from
+the decomp diff. Solution builds clean against 5402.
+
+- ✅ **eternal-flame clean.** `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep)`
+  (`KSA/Universe.cs:1834`) keeps its signature, is still the only overload, and its body differs from
+  5348 only by the removal of a `ClutterEcotypePhysicalData.DebugDrawColliders` block at the end of
+  `SyncGroundClutter`. `Vehicle.RefillConsumables()` (`Vehicle.cs:3169`) is byte-identical;
+  `KSA/Battery.cs`, `ModuleStateful.cs`, `LookupCollection.cs` and `GameSettings.cs` are byte-identical.
+- ✅ **Viewport rework knock-ons are absorbed.** KSA replaced the `Viewport` class with
+  `IViewport` / `IGameViewport` / `GameViewport` / `ViewportBase` / `ViewportRegistry`
+  (`Viewport.Index` → `IViewport.ShaderSlot`; `Program.MainViewport` is now `IGameViewport`,
+  `Program.cs:485`). For this area that retyped exactly three bindings — `Vehicle.UpdateRenderData(IViewport,int)`
+  (`Vehicle.cs:3675`), `PartTree.UpdateRenderData(…, IViewport, int)` (`PartTree.cs:912`) and
+  `IViewport.GetCamera()` (`IViewport.cs:51`) — all in i-feel-seen's prefix, already fixed
+  (`IFeelSeenPatches.cs:64-70`). `KittenEva.UpdateRenderData` still overrides with the same
+  `base.` call (`KittenEva.cs:1062`). garrys-torch and eternal-flame touch no viewport type.
+- ✅ **i-feel-seen's cull bypass still lands.** `Vehicle.UpdateRenderData`'s gate is unchanged
+  (`objectDiameterPixels < 1.0`), the non-kitten call site is unchanged (`Program.cs:4210`), and
+  `Vehicle.GetWorldMatrix` (`Vehicle.cs:3662`) is byte-identical with `KittenEva.cs:1065` its only caller.
+  `PartTree.UpdateRenderData` gained a parachute line-render loop (`PartTree.cs:938-945`), which the prefix
+  inherits because it calls the real method; canopies go through the new, uncullled
+  `Vehicle.UpdateParachuteRenderData(IViewport)` (`Vehicle.cs:3706`).
+- ✅ **garrys-torch typed + reflected surface intact.** `JobSystems.VehicleSolver` (`JobSystems.cs:16`),
+  `Vehicle.Teleport` (`Vehicle.cs:2209`, body identical bar a log line number) and `UpdatePerFrameData`
+  (`:2613`, identical), `GetJobSimStep` (`Universe.cs:2322`), `Orbit.CreateFromStateCci` (`Orbit.cs:1563`)
+  and every `Part` accessor still resolve. The `KittenEva` → `_renderable` → `_characterAvatar` →
+  `CharacterAvatar.Core` → `CharacterCore.Scale` chain is intact and still **field-shaped**
+  (`KittenEva.cs:15`, `KittenRenderable.cs:12`, `CharacterAvatar.cs:211`, `:34`); `CharacterCore` only
+  gained a `HeadMeshIndices` list and `KittenRenderable` a `HideHead` flag.
+- ⚠️ **New parachute cloth scheduler runs concurrently with the frame.** `JobSystems.ClothSolvers`
+  (`JobSystems.cs:18`) is kicked by `Universe.ExecuteNextClothSolvers` **before**
+  `ExecuteNextVehicleSolvers` (`Program.cs:2144-2145`) and joined only at the next `PrepareFrame`
+  (`ClothSolvers.Wait()`, `Program.cs:2105`). `ChuteClothSystem.SnapshotAndKick` snapshots vehicle
+  physics on the main thread (`ChuteClothSystem.cs:609`) and `ChuteClothJob` holds no `Vehicle` reference,
+  so garrys-torch's `VehicleSolver.Wait()` drain (`GarrysTorchSubmod.cs:103`) is still sufficient — the
+  weld teleport cannot race the cloth job on `Vehicle` state. Only cosmetic cost: a welded source's canopy
+  is simulated from the pre-teleport snapshot (one frame of lag). Nothing to change; the eternal-flame /
+  kiwis-marbles / kitchen-sink solver prefixes now fire with cloth jobs already in flight, which is harmless
+  for the same reason (kiwis-marbles' "no worker in flight" comment is now slightly overstated).
+- ⚠️ **Part structural failure + debris are new and reach welded vehicles.** `PartFailure.Detect`
+  (`KSA/PartFailure.cs:47`, called from `PhysicsBubble.cs:1459`) runs for every non-kitten, non-on-rails
+  vehicle and compares Bepu contact-pressure accumulators against `Part.CrashTolerancePascals`
+  (`Part.cs:853`); `PartFailureEvent.Apply` sheds debris (`Vehicle.SpawnSubPartDebris`, `Vehicle.cs:1719`),
+  isolates/destroys parts and can call `Universe.DestroyVehicle(vehicle, CrewDisposition.Kill)`.
+  `GameSettings.cs` is byte-identical and no global off-switch symbol exists. garrys-torch teleports a
+  source vehicle into contact range of its target every frame; contacts that were previously harmless can
+  now destroy parts. `Vehicle.Teleport` itself gained **no** gating.
+  **Open recommendations (not applied):** (1) live-test a two-capsule weld and watch for
+  *"exceeded its crash tolerance"* log lines / debris; (2) add an `IsDisposed` guard for `Source`/`Target`
+  at the top of `WeldEngine.UpdateWeld` (`WeldEngine.cs:19` dereferences `entry.Source.Parent`
+  unguarded) so a game-side destroy of either end unwelds cleanly instead of throwing into `OnAfterUi`.
+- ℹ️ **Debris vehicles appear in every vehicle list.** `Vehicle.IsDebris` (`Vehicle.cs:392`) and
+  `Class => IsDebris ? "Debris" : "Vehicle"` (`:423`) are new; `VehicleProvider.GetAllVehicles()` uses
+  `OfType<Vehicle>()`, so eternal-flame / garrys-torch / i-feel-seen combos will list shed fragments.
+  No mod filters on `Astronomical.Class`. Cosmetic; an `IsDebris` filter in `VehicleProvider` is optional.
+- ℹ️ `Universe.DestroyVehicle` gained an optional `CrewDisposition` parameter and now hands cameras off
+  (`HandOffCameras`, `Universe.cs:1778`); `Vehicle.Split` gained a `(Connection, IConnector, …)` overload;
+  `Part.Connection.IConnector` gained `Asmb2VehicleAsmb`. None are called by these mods.
+- **Needs a live pass:** the weld + part-failure interaction above (highest priority), welding a vehicle
+  with deployed chutes, and the standing [`../ISSUES.md`](../ISSUES.md) garrys-torch error-spam check.

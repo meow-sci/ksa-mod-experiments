@@ -25,7 +25,7 @@ internal static class PerAxisScaleDrag
     public static void Step(
         VehicleEditor editor,
         in double4x4 matrixVehicleAsmb2Ego,
-        Viewport viewport,
+        IViewport viewport,
         Func<Part, double, double> quantizeScale,
         Action<Part, Action<Part>> forEachPartWithSymmetry)
     {

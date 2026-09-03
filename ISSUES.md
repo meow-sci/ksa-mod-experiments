@@ -9,6 +9,27 @@
 
 ---
 
+## Triage notes — KSA `2026.9.7.5402` upgrade (2026-09-02)
+
+Full review: [`plans/KSA_5402_UPGRADE.md`](plans/KSA_5402_UPGRADE.md). Three compile breaks this pass
+(`KSA.Viewport` → `IViewport` in five libs, `Cursor.InputRay` in graffiti, exhaust `AddInstance` air
+state in pyro), all fixed; the build is green, 63/63 projects, 0 warnings, 0 errors. Revisions
+5349–5400 are unlogged, so the review came from the source diff. Everything below still needs a live pass.
+
+- **garry's torch — works but throws errors** — a **new candidate** cause: 5402 adds part structural
+  failure (`PartFailure.Detect`, no off-switch). Welded sources overlap the target every frame, so
+  contacts between the two compounds can now shed debris or destroy a vehicle, and
+  `WeldEngine.UpdateWeld` dereferences `Source.Parent` with no disposed guard. Watch for
+  *"exceeded its crash tolerance"* log lines while welding. `Vehicle.Teleport` is byte-identical.
+- **eternal flame refill during burns** — not explained by this span: `RefillConsumables` and
+  `ExecuteNextVehicleSolvers` are byte-identical. Still open.
+- **humble arteest vehicle paint** — still dead by design (rev 4693). Unchanged.
+- **pyro refraction slider does nothing (new)** — game-side: 5402 never sets
+  `_hasRefractionInstances`, so the refraction pass cannot run for stock engines either. Confirm live.
+- **kitten animations / blinky** — no symbol they depend on moved; the 5348 fixes still await a live pass.
+
+---
+
 ## Triage notes — KSA `2026.8.22.5348` upgrade (2026-08-23)
 
 Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compile break this pass

@@ -14,8 +14,9 @@ namespace MeowSci.GraffitiLib;
 /// triangle raycast (<c>Part.RayCastEgo</c>) — the same call flight-mode hover picking makes —
 /// so the hit point is on the art surface, not on a collider primitive. Only if nothing was hit
 /// does the terrain march run.</para>
-/// <para><c>Cursor.InputRay</c> is the mouse cursor's picking ray in EGO space (origin at the
-/// camera, ecliptic axes), refreshed by the game each frame from <c>Cursor.UpdateInputRay</c>.</para>
+/// <para><c>Cursor.GetEgoRay(viewport)</c> is the mouse cursor's picking ray in EGO space (origin at
+/// the camera, ecliptic axes), built from the viewport-local cursor position and that viewport's
+/// camera (KSA 5402+; formerly the cached <c>Cursor.InputRay</c>).</para>
 /// <para>Game thread only — every call here reads live game state.</para>
 /// </remarks>
 internal static class DecalPicker
@@ -52,7 +53,7 @@ internal static class DecalPicker
         if (Program.GetMainCamera() is not { } camera)
             return false;
 
-        var ray = Cursor.InputRay;
+        var ray = Cursor.GetEgoRay(Program.MainViewport);
         if (!double.IsFinite(ray.Direction.X) || ray.Direction.LengthSquared() <= 0)
             return false;
 

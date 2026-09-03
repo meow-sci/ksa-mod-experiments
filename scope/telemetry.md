@@ -6,12 +6,12 @@ and verified against decompiled sources.
 
 **Verified game versions**
 
-- NEW decomp `2026.6.9.4750` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD decomp `2026.6.8.4680` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
+- NEW decomp `2026.9.7.5402` root: `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD decomp `2026.8.22.5348` root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
 
 Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root
 (namespace-foldered, e.g. `KSA/Vehicle.cs`). **Mod code** paths are relative to the
-repo root `C:\Users\Alex\repos\meow-sci\unscience`.
+repo root `~/repos/meow-sci/unscience`.
 
 **How these mods are hosted (both)**
 
@@ -60,18 +60,18 @@ reset on `Reset()` / mod reload. No StarMap save hooks.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:11` (called `average-twr.lib/AverageTwrSubmod.cs:31`) | `Program.ControlledVehicle` — `public static Vehicle? ControlledVehicle` | `KSA/Program.cs:254` | Yes | Same (OLD `Program.cs:253`) | Returns null when no vehicle controlled; mod null-checks. |
-| 2 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `Vehicle.NavBallData` — `public ref readonly NavBallData NavBallData` | `KSA/Vehicle.cs:528` | Yes | Same (OLD `Vehicle.cs:493`) | `ref readonly` struct accessor. |
+| 1 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:11` (called `average-twr.lib/AverageTwrSubmod.cs:31`) | `Program.ControlledVehicle` — `public static Vehicle? ControlledVehicle` | `KSA/Program.cs:503` | Yes | Same (OLD `Program.cs:480`) | Returns null when no vehicle controlled; mod null-checks. |
+| 2 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `Vehicle.NavBallData` — `public ref readonly NavBallData NavBallData` | `KSA/Vehicle.cs:590` | Yes | Same (OLD `Vehicle.cs:584`) | `ref readonly` struct accessor. |
 | 3 | Direct typed API | `average-twr.lib/TwrDataReader.cs:6` | `NavBallData.ThrustWeightRatio` — `public double ThrustWeightRatio` (field) | `KSA/NavBallData.cs:21` | ✅ | **Semantic drift (rev 5114)** | Public struct field; value 0 until flight computer populates it. **Meaning changed on 5117**: the game now computes it as `ComputeActiveThrust(AtmosphericPressure) * throttle / weight` (`KSA/Vehicle.cs:2454-2457`) instead of `TotalEngineVacuumThrust * throttle / weight`. Same field, same type, **ambient-corrected and propellant-aware** value. No code change needed; the mod's readings shift. |
-| 4 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `Vehicle.FlightComputer` — `public FlightComputer FlightComputer { get; private set; }` | `KSA/Vehicle.cs:415` | ✅ | Same | — |
-| 5 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `Vehicle.ComputeActiveThrust(float ambientPressure) → float` | `KSA/Vehicle.cs:6069` | ✅ | **NEW binding (replaces `VehicleConfig.TotalEngineVacuumThrust`)** | Sums `EngineController.ComputeActivePerformance(state, com, ambientPressure).ThrustMax.Length()` over active engines; skips engines with no propellant. This is the same call the game's navball TWR uses. |
-| 6 | Direct typed API | `average-twr.lib/TwrDataReader.cs:26` | `FlightComputer.AmbientPressure` — `public float AmbientPressure` (field) | `KSA/FlightComputer.cs:57` | ✅ | **NEW binding (rev 5114)** | Populated from `states.Environment.AtmosphericPressure` each FC update (`KSA/FlightComputer.cs:296`). 0 in vacuum, which makes `ComputeActiveThrust` return `VacuumData` directly. |
-| 7 | Direct typed API | `average-twr.lib/TwrDataReader.cs:27` | `Vehicle.TotalMass` — `public float TotalMass => _props.TotalMassPropsAsmb.Props.Mass` | `KSA/Vehicle.cs:512` | ✅ | Same | kg. Mod divides thrust/mass for max accel. |
-| 8 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:11-12` | `Vehicle.Parent` — `public IParentBody Parent => Orbit.Parent` | `KSA/Vehicle.cs:332` | Yes | Same (OLD `Vehicle.cs:299`) | Only used in `ComputeSurfaceGravity`, which is **not called** on the sampling path. Still must compile. |
+| 4 | Direct typed API | `average-twr.lib/TwrDataReader.cs:27` | `Vehicle.FlightComputer` — `public FlightComputer FlightComputer { get; private set; }` | `KSA/Vehicle.cs:467` | ✅ | Same (OLD `Vehicle.cs:461`) | — |
+| 5 | Direct typed API | `average-twr.lib/TwrDataReader.cs:27` | `Vehicle.ComputeActiveThrust(float ambientPressure) → float` | `KSA/Vehicle.cs:6460` | ✅ | Same (OLD `Vehicle.cs:6243`; body identical). NEW binding @5117 (replaces `VehicleConfig.TotalEngineVacuumThrust`) | Sums `EngineController.ComputeActivePerformance(state, com, ambientPressure).ThrustMax.Length()` over active engines; skips engines with no propellant. This is the same call the game's navball TWR uses. |
+| 6 | Direct typed API | `average-twr.lib/TwrDataReader.cs:27` | `FlightComputer.AmbientPressure` — `public float AmbientPressure` (field) | `KSA/FlightComputer.cs:75` | ✅ | Same (OLD `FlightComputer.cs:75`). NEW binding @5117 (rev 5114) | Populated from `states.Environment.AtmosphericPressure` each FC update (`KSA/FlightComputer.cs:332`). 0 in vacuum, which makes `ComputeActiveThrust` return `VacuumData` directly. |
+| 7 | Direct typed API | `average-twr.lib/TwrDataReader.cs:28` | `Vehicle.TotalMass` — `public float TotalMass => _props.TotalMassPropsAsmb.Props.Mass` | `KSA/Vehicle.cs:566` | ✅ | Same (OLD `Vehicle.cs:560`) | kg. Mod divides thrust/mass for max accel. |
+| 8 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:11-12` | `Vehicle.Parent` — `public IParentBody Parent => Orbit.Parent` | `KSA/Vehicle.cs:372` | Yes | Same (OLD `Vehicle.cs:370`) | Only used in `ComputeSurfaceGravity`, which is **not called** on the sampling path. Still must compile. |
 | 9 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:11` | `IParentBody.MeanRadius` — `double MeanRadius { get; }` (via `IRadius`) | `KSA/IRadius.cs:5` | Yes | Same (present both, IRadius) | Dead path (see #8). |
 | 10 | Direct typed API (dead path) | `average-twr.lib/TwrDataReader.cs:12` | `IParentBody.Mass` — `double Mass { get; }` | `KSA/IParentBody.cs:11` | Yes | Same (OLD `IParentBody.cs:11`) | Dead path (see #8). |
-| 11 | Harmony + Reflection | `average-twr/Patcher.cs:19` -> `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool OnKeyAll(GlfwKeyEvent keyEvent)`; resolved via `AccessTools.Method(typeof(GameSettings), nameof(GameSettings.OnKeyAll))`, prefix `ref bool __result` | `KSA/GameSettings.cs:2379` | Yes | Same (OLD `GameSettings.cs:2347`) | Reflection by `nameof` — breaks only if method renamed/removed or return type changes from bool. |
-| 12 | Direct typed API | `ksa-abstractions.lib/HotkeyGuard.cs:38` | `Program.ConsoleWindow.IsOpen` — `public static ConsoleWindow ConsoleWindow` + `.IsOpen` | `KSA/Program.cs:246` | Yes | Same (OLD `Program.cs:245`) | Guard so console typing isn't suppressed. |
+| 11 | Harmony + Reflection | `average-twr/Patcher.cs:19` -> `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool OnKeyAll(GlfwKeyEvent keyEvent)`; resolved via `AccessTools.Method(typeof(GameSettings), nameof(GameSettings.OnKeyAll))`, prefix `ref bool __result` | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical 5348→5402; single overload) | Reflection by `nameof` — breaks only if method renamed/removed or return type changes from bool. |
+| 12 | Direct typed API | `ksa-abstractions.lib/HotkeyGuard.cs:38` | `Program.ConsoleWindow.IsOpen` — `public static ConsoleWindow ConsoleWindow` + `.IsOpen` | `KSA/Program.cs:284` | Yes | Same (OLD `Program.cs:267`) | Guard so console typing isn't suppressed. |
 | 13 | Render/GPU | `average-twr.lib/AverageTwrSubmod.cs:41-157`, `average-twr/Mod.cs:75-81` | `Brutal.ImGuiApi.ImGui` tables/buttons/text + `SubmodUI` child window | `Brutal.ImGuiApi/*` | Yes | Same | Binding library, not KSA telemetry; compiled clean vs NEW. Standard widgets only. |
 | 14 | Lifecycle | `average-twr/Mod.cs:19-73` | StarMap attributes: `StarMapMod`, `StarMapImmediateLoad`, `StarMapAllModsLoaded`, `StarMapBeforeGui`, `StarMapAfterGui`, `StarMapUnload` (StarMap.API 0.3.6) | (StarMap.API package) | Yes | Same | Sampling in `OnBeforeUi`, render in `OnAfterUi`. |
 
@@ -146,12 +146,12 @@ not serialized, reset to defaults on reload. `IsRecording` defaults `false`
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:11` (called `geeforce.lib/GeeForceSubmod.cs:31`) | `Program.ControlledVehicle` — `public static Vehicle? ControlledVehicle` | `KSA/Program.cs:254` | Yes | Same (OLD `Program.cs:253`) | Null-checked before sampling. |
-| 2 | Direct typed API | `ksa-abstractions.lib/SimTimeProvider.cs:9` (called `geeforce.lib/GeeForceSubmod.cs:34`) | `Universe.GetElapsedSimTime()` — `public static SimTime GetElapsedSimTime()` | `KSA/Universe.cs:1991` | Yes | Same (OLD `Universe.cs:1440`) | Returns `SimTime`. |
-| 3 | Direct typed API | `geeforce.lib/GeeForceSubmod.cs:34` | `SimTime.Seconds()` — `public double Seconds()` (instance) | `KSA/SimTime.cs:67` | Yes | Same (OLD `SimTime.cs:67`) | `SimTime` is `readonly struct`; timestamps the sample. |
-| 4 | Direct typed API | `geeforce.lib/GForceRecorder.cs:96` | `Vehicle.AccelerationBody` — `public double3 AccelerationBody => KinematicMeasurements.AccelerationBody` | `KSA/Vehicle.cs:518` | Yes | Same (OLD `Vehicle.cs:485`) | Backed by `KinematicMeasurements.AccelerationBody` (`double3` field, `KSA/KinematicMeasurements.cs:9`). Body-frame proper accel; mod reads `.X/.Y/.Z/.Length()`. |
-| 5 | Harmony + Reflection | `geeforce/Patcher.cs:19` -> `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool OnKeyAll(GlfwKeyEvent keyEvent)`; resolved via `nameof`, prefix `ref bool __result` | `KSA/GameSettings.cs:2379` | Yes | Same (OLD `GameSettings.cs:2347`) | Reflection by `nameof`; breaks only if renamed/removed or non-bool return. |
-| 6 | Direct typed API | `ksa-abstractions.lib/HotkeyGuard.cs:38` | `Program.ConsoleWindow.IsOpen` — `public static ConsoleWindow ConsoleWindow` + `.IsOpen` | `KSA/Program.cs:246` | Yes | Same (OLD `Program.cs:245`) | Console-typing guard. |
+| 1 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:11` (called `geeforce.lib/GeeForceSubmod.cs:31`) | `Program.ControlledVehicle` — `public static Vehicle? ControlledVehicle` | `KSA/Program.cs:503` | Yes | Same (OLD `Program.cs:480`) | Null-checked before sampling. |
+| 2 | Direct typed API | `ksa-abstractions.lib/SimTimeProvider.cs:15` (called `geeforce.lib/GeeForceSubmod.cs:34`) | `Universe.GetElapsedTime()` — `public static UniverseTime GetElapsedTime()` (renamed from `GetElapsedSimTime()`/`SimTime` @5261, rev 5211) | `KSA/Universe.cs:2114` | Yes | Same (OLD `Universe.cs:2060`) | Returns `UniverseTime` (Int128 nanoseconds). |
+| 3 | Direct typed API | `geeforce.lib/GeeForceSubmod.cs:34` | `UniverseTime.Seconds()` — `public double Seconds()` (instance; was `SimTime.Seconds()` before 5261) | `KSA/UniverseTime.cs:95` | Yes | Same (file byte-identical 5348→5402) | `UniverseTime` is a `readonly struct`; timestamps the sample. |
+| 4 | Direct typed API | `geeforce.lib/GForceRecorder.cs:96` | `Vehicle.AccelerationBody` — `public double3 AccelerationBody => KinematicMeasurements.AccelerationBody` | `KSA/Vehicle.cs:572` | Yes | Same (OLD `Vehicle.cs:566`) | Backed by `KinematicMeasurements.AccelerationBody` (`double3` field, `KSA/KinematicMeasurements.cs:9`, file byte-identical). Body-frame proper accel; mod reads `.X/.Y/.Z/.Length()`. Since 5402 the integrated value includes parachute drag/torque (see 5348→5402 summary). |
+| 5 | Harmony + Reflection | `geeforce/Patcher.cs:19` -> `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool OnKeyAll(GlfwKeyEvent keyEvent)`; resolved via `nameof`, prefix `ref bool __result` | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Reflection by `nameof`; breaks only if renamed/removed or non-bool return. |
+| 6 | Direct typed API | `ksa-abstractions.lib/HotkeyGuard.cs:38` | `Program.ConsoleWindow.IsOpen` — `public static ConsoleWindow ConsoleWindow` + `.IsOpen` | `KSA/Program.cs:284` | Yes | Same (OLD `Program.cs:267`) | Console-typing guard. |
 | 7 | Render/GPU | `geeforce.lib/GForceUI.cs:180-392` | `Brutal.ImGuiApi` draw list: `GetWindowDrawList`, `ImDrawListPtr.AddRectFilled/AddLine/AddText/AddCircleFilled`, `PushClipRect`, `GetColorU32`, `ImColor8`, `float2/float4` | `Brutal.ImGuiApi/*` | Yes | Same | Binding library, not KSA telemetry; compiled clean vs NEW. Heaviest render surface of the two mods (custom plotting). |
 | 8 | Lifecycle | `geeforce/Mod.cs:19-73` | StarMap attributes (same set as average-twr) | (StarMap.API package) | Yes | Same | Sampling in `OnBeforeUi`, render in `OnAfterUi`. |
 
@@ -185,7 +185,7 @@ not serialized, reset to defaults on reload. `IsRecording` defaults `false`
   compile error; a signature/return-type change to non-`bool` would break the prefix contract.
 - **Shared helper `VehicleProvider` also exposes** `GetAllVehicles()`/`FindVehicle()`
   (`ksa-abstractions.lib/VehicleProvider.cs:14-29`) touching `Universe.CurrentSystem`
-  (`KSA/Universe.cs:92`, OLD `91`), `CelestialSystem.All.UnsafeAsList()`, and `Vehicle.Id` (`IObjectId`).
+  (`KSA/Universe.cs:94`), `CelestialSystem.All.UnsafeAsList()` (`KSA/CelestialSystem.cs:64`), and `Vehicle.Id` (`IObjectId`).
   Neither average-twr nor geeforce calls these, but they compile into the shared assembly — listed here so a
   future break in those members is attributed correctly.
 - Both mods are **read-only telemetry**: the only Harmony patch is the shared `HotkeyGuard`; no game state is mutated.
@@ -217,3 +217,39 @@ not serialized, reset to defaults on reload. `IsRecording` defaults `false`
   save game."* Relevant to steely-eyed's mission evaluation if it tracks burn mode.
 - ✅ **steely-eyed clean.** The `Situation` enum is unchanged, so its `.ToString()` name comparisons
   (`"Landed"`, `"Floating"`, …) still match. Its SQLite/YAML surface is game-free.
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Revisions 5349–5400 are **unlogged**; the only changelog entry in this span is rev 5401 (thumbnail data
+stride crash fix), so the decomp diff is the sole evidence. Solution builds clean against 5402.
+
+- ✅ **Both mods clean — no symbol moved.** `KSA/KinematicMeasurements.cs`, `NavBallData.cs`,
+  `Situation.cs`, `SituationEx.cs`, `UniverseTime.cs`, `GameSettings.cs`, `IParentBody.cs`, `IRadius.cs`,
+  `PhysicalAtmosphereReference.cs` and `DistanceReference.cs` are **byte-identical** 5348→5402.
+  `Vehicle.ComputeActiveThrust(float)` (`Vehicle.cs:6460`) has an identical body; `FlightComputer.cs`
+  differs only in `DrawUi(IGameViewport, …)` (`:1817`) — `AmbientPressure` (`:75`) and its update
+  (`:332`) are untouched. `Program.ControlledVehicle` (`Program.cs:503`) and `ConsoleWindow` (`:284`) only
+  shifted.
+- ✅ **Viewport rework does not reach telemetry.** The `Viewport` → `IViewport`/`IGameViewport` rework
+  retyped nothing average-twr or geeforce binds; the shared `HotkeyGuard` target `GameSettings.OnKeyAll`
+  (`:3301`) is unchanged and still single-overload.
+- ⚠️ **geeforce readings move under parachutes, no code change.** `PhysicsStates.ComputeDerivatives` /
+  `IntegrateVelocityVerlet` gained a `ReadOnlySpan<ActiveChute> chutes` parameter and a canopy
+  force/torque block (`KSA/PhysicsStates.cs:909-961`, `:997`), plus a chute-aware timestep
+  (`ComputeChuteTimestep`, `:498`). `Vehicle.AccelerationBody` therefore now includes chute drag once a
+  parachute is deployed. Nothing geeforce binds changed shape.
+- ⚠️ **average-twr unaffected by the frame-order change.** `Universe.ExecuteNextClothSolvers` now runs
+  before `ExecuteNextVehicleSolvers` (`Program.cs:2144-2145`); the navball TWR computation
+  (`Vehicle.cs:2762`) is untouched.
+- ℹ️ **steely-eyed-missile-kitten clean.** `Situation` still has exactly `Maneuvering=0, Freefall=1,
+  Rolling=2, Landed=3, Sailing=4, Floating=5, Dragging=6, Bottomed=7`, so its `.ToString()` compares
+  (`VehicleTelemetry.cs:149`, `Events/EventDetector.cs:62,83,103`, `UI/MonitorUI.cs:117-118`) still match.
+  `Vehicle.GetSurfaceSpeed()` (`Vehicle.cs:2928`) now delegates to a new `GetSurfaceVelocityCci()` with
+  the same arithmetic; `GetInertialSpeed/GetBarometricAltitude/GetRadarAltitude/OrbitalSpeed/
+  InertMass/PropellantMass/GetPositionEcl` only shifted. New `Vehicle.IsDebris` (`:392`) means shed
+  debris fragments now enumerate as vehicles (`Class` reports `"Debris"`), so monitored-vehicle lists may
+  gain entries after a structural failure.
+- **Needs a live pass:** none for these mods. (Optional: confirm geeforce's g-trace under a deployed
+  chute looks plausible now that chute forces are integrated.)

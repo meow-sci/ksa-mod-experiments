@@ -61,7 +61,7 @@ automatically.
 
 ## How it works
 
-- **Render hook** — Harmony **postfix** on `Vehicle.AddVolumetricExhaustInstances(Camera, Viewport,
+- **Render hook** — Harmony **postfix** on `Vehicle.AddVolumetricExhaustInstances(Camera, IViewport,
   VolumetricExhaustRenderer, double)`, the per-frame, per-visible-vehicle call where the game submits its
   own engine plumes. pyro submits the plumes welded to that vehicle to the same renderer with the same
   camera and frame delta, so they land in the same batch, same pass, same transient LUT slices.

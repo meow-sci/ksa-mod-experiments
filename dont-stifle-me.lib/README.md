@@ -19,9 +19,9 @@ supermod.
 | Game target (`KSA.VehicleEditor`) | Patch | What it does |
 |---|---|---|
 | `private static (double Min, double Max) ScaleBoundsFor(Part)` | postfix | When clamp removal is active, returns `(1e-6, +inf)` instead of `(0.5, 2.0)`. Both the drag accumulator and `QuantizeScale` read this, so one patch lifts the clamp everywhere. |
-| `private void UpdateSelectedScale(ref readonly double4x4, Viewport)` | prefix | When per-axis scaling is active, runs `PerAxisScaleDrag.Step` and skips the original (which writes `new double3(s, s, s)`). Falls through to stock on any exception. |
+| `private void UpdateSelectedScale(ref readonly double4x4, IViewport)` | prefix | When per-axis scaling is active, runs `PerAxisScaleDrag.Step` and skips the original (which writes `new double3(s, s, s)`). Falls through to stock on any exception. |
 | `private static double QuantizeScale(Part, double rawScale)` | prefix | When `Snap` is off, returns `rawScale` clamped to `ScaleBoundsFor(part)` and skips the 0.25 m snapping. Both the stock uniform drag and the per-axis drag call this, so one prefix covers both. |
-| `public void UpdateScaleGizmo(ref readonly double4x4, doubleQuat, Viewport, double)` | postfix | Per-frame hook: when `GizmoGrabbed` is false, ends the drag session so the next grab re-seeds from the part's actual scale. Avoids a `Brutal.Glfw` dependency on `OnMouseButton`. |
+| `public void UpdateScaleGizmo(ref readonly double4x4, doubleQuat, IViewport, double)` | postfix | Per-frame hook: when `GizmoGrabbed` is false, ends the drag session so the next grab re-seeds from the part's actual scale. Avoids a `Brutal.Glfw` dependency on `OnMouseButton`. |
 
 `PerAxisScaleDrag.Step` mirrors the stock math (near-plane cursor delta → projected on the gizmo
 axis → scaled by part depth), then calls the game's own private `QuantizeScale` and

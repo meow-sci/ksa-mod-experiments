@@ -2,7 +2,12 @@
 
 Scope for **rocky-mcrock-face** (`rocky-mcrock-face.lib`, bundled in the unscience supermod), which
 swaps the meshes and textures of KSA's planetary ring system (Saturn's rock field + 2D band) at
-runtime. Written against KSA build **2026.8.22.5348**.
+runtime. Written against KSA build **2026.8.22.5348**; re-verified against **2026.9.7.5402**.
+
+**Versions compared**
+- NEW = `2026.9.7.5402` — decomp root `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD = `2026.8.22.5348` — decomp root `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
+- Line numbers below are NEW (5402) unless marked OLD; verified by grep/diff of both trees.
 
 ## How it hooks the game
 
@@ -44,7 +49,7 @@ primitive 0.
    `RenderCore.Gltf/GltfUtils.cs` fills absent streams). Any game change to either side breaks
    converted meshes with garbage rendering, not a compile error.
 4. **RebuildRenderer alone does NOT rebuild ring data — the rings renderer must be disposed
-   first.** `PlanetTransparenciesRenderer.RebuildFrameResources` (`:325-343`) only calls
+   first.** `PlanetTransparenciesRenderer.RebuildFrameResources` (`:304`, branch `:330-337`) only calls
    `_ringsRenderer.RebuildFrameResources(...)` when `_ringRendererCreated` is true — that
    destroys/rebuilds pipelines and frame images but never re-runs `PopulatePlanets` (ctor-only,
    `PlanetaryRingsRenderer.cs:170`), so `PlanetaryRingsRenderData` (meshes, UBO, instances)
@@ -53,7 +58,7 @@ primitive 0.
    device (`Renderer.Device.WaitIdle()` — in-flight frames may reference ring GPU resources),
    calls the public `PlanetaryRingsRenderer.Dispose()` on the reflected instance, clears the
    private `_ringRendererCreated` flag, THEN calls `Program.RebuildRenderer(bool = false)`
-   (`KSA/Program.cs:4742`, which also WaitIdles at `:4749`) so the game's own create branch
+   (`KSA/Program.cs:4913`, which also WaitIdles at `:4920`) so the game's own create branch
    rebuilds everything — including instance buffers resized for density/render-distance changes
    (`PopulatePlanets` runs before `CreateMeshRenderingResources` in the ctor). Called from the
    ImGui phase — the same phase the game's settings Apply uses. If this branching ever changes
@@ -68,11 +73,42 @@ primitive 0.
    renderer **before** disposing clones, and caches clones for its lifetime so a GC can never free
    a mesh the renderer still references.
 
+### 5348 → 5402 (2026-09-02)
+
+- ✅ **No code change.** The entire `KSA.Rendering.Rings.Rendering/PlanetaryRingsRenderer.cs` diff
+  (167 lines) is the game-wide `Viewport` → `IViewport` retype plus `inViewport.Index` →
+  `inViewport.ShaderSlot` inside `RenderRingFarSide`/`RenderRingNearSideAndVolumetrics`/`UpdateMeshes`/
+  `RenderMeshes` (`:347,373,485,571`). `PopulatePlanets` (`:324`), `ComputeRingNormal` (`:455`),
+  `Dispose` (`:473`), the `MeshLods[i].DeviceMesh` draw (`:597`) and `MakeMeshesVertexInput` (`:880`)
+  did not move. `PlanetaryRingsRenderData.cs` and `RingMeshesDistribution.cs` are **byte-identical**,
+  so the ctor-baking contract (narrative #1) is untouched.
+- ✅ `KSA/PlanetTransparenciesRenderer.cs` diff = `UpdateRingMeshes`/`RenderRingMeshes`/`Render` taking
+  `IViewport` and one `ShaderSlot` rename; `_ringsRenderer :40`, `_ringRendererCreated :46`,
+  `_anyRings :68`, `PopulatePlanets :150`, `RebuildFrameResources :304` (create branch `:330-337`) and
+  `DisposeRingRenderer :354` are unchanged. `Program.RebuildRenderer` moved to `:4913` (was `:4742`);
+  its body still `Device.WaitIdle()`s (`:4920`) before `_planetTransparenciesRenderer.RebuildFrameResources`
+  (`:4934`); the only body changes are `MainViewport.Resize` → `((IViewportLifecycle)MainViewport).ApplyResize`,
+  `_compositeRenderer[0]` → `[MainViewport.ShaderSlot]` and the CMAA2 loop iterating
+  `ViewportRegistry.Views`. `Program._planetTransparenciesRenderer` is at `:176`, `Instance :453`,
+  `GetRenderer :558`.
+- ✅ Every reference/asset class the swap touches is byte-identical (`MeshReference`, `MeshFileReference`,
+  `RingLodReference`, `RingObjectsReference`, `PbrMaterialReference`, `TextureReference`,
+  `SerializedCollection`, `Gltf2Reference`, `FileReference`, `DeviceMeshInterleaved`), as is
+  `GameSettings.cs`; `ModLibrary.AllFiles/AllGltfs/AllMeshes` are still internal static fields at
+  `:68,76,80`. `RaytracingRenderer.cs:1027-1029` still throws on a non-interleaved subpart, so the
+  clone-instead-of-flip design remains necessary. `RenderCore.Animation/Skeleton.cs` gained
+  `CloneRig()` — irrelevant to the bind-pose glTF import (`MeshReference.Load` unchanged).
+- ℹ️ Content diffs (`RayIntersections.glsl` cylinder fix, `ModelPbr.frag`/`ModelNormal.frag` two-sided
+  normals, new `StaticObjectNormalIndirect.frag`, `ParachuteAssets.xml`) touch no ring shader or asset.
+- Revisions 5349–5400 are unlogged (only rev 5401 has a changelog entry); the diff above is the evidence.
+- **Live pass**: none required. If convenient, one Apply on Saturn to confirm the rebuild path still
+  re-reads ring data after the `RebuildRenderer` body changes.
+
 ## Touchpoints
 
-Decomp paths relative to `~/repos/meow-sci/ksa-game-assemblies/current/decomp`.
+Decomp paths relative to `~/repos/meow-sci/ksa-game-assemblies/current/decomp` (NEW = 5402).
 
-| # | Game member | Kind | Decomp path | Mod code ref | 5348 |
+| # | Game member | Kind | Decomp path | Mod code ref | 5402 |
 |---|---|---|---|---|---|
 | 1 | `AstronomicalTemplate.RingsReference : PlanetaryRingsReference?` (public field, via `Celestial.BodyTemplate`) | direct API | `KSA/AstronomicalTemplate.cs:66`; `KSA/Celestial.cs:83` | `RingSwapController.RefreshBodies` | OK |
 | 2 | `PlanetaryRingsReference.{Texture, ControlTexture : TextureReference, RingObjects : RingObjectsReference}` (public fields) | direct API | `KSA/PlanetaryRingsReference.cs:23,26,35` | `RingSwapController.{Apply,Restore,TakeSnapshot}` | OK |
@@ -83,16 +119,16 @@ Decomp paths relative to `~/repos/meow-sci/ksa-game-assemblies/current/decomp`.
 | 7 | `MeshReference` — public `Id/Simple/Interleaved/PrimitiveCount/BoundingSphereRadius` fields, `HostPrimitives`/`DevicePrimitives` get-only props, `DeviceMesh => DevicePrimitives[0]`, `Bind(Renderer, StagingPool)`, `Dispose()` | direct API | `KSA/MeshReference.cs:17-58,120,145` | `RingMeshFactory`, `RingAssetCatalog` | OK — **multi-primitive shape is new @5348** (`DevicePrimitives[]` replaced the old single `DeviceMesh` field) |
 | 8 | `MeshReference.<HostPrimitives>k__BackingField : MeshAsset[]` (auto-prop backing field) | **reflection (string)** | `KSA/MeshReference.cs:40` | `RingMeshFactory` static field lookup — null-checked; Apply fails with a UI error, never crashes | OK |
 | 9 | `ModLibrary.AllMeshes : SerializedCollection<MeshReference>` / `ModLibrary.AllFiles : SerializedCollection<FileReference>` / `ModLibrary.AllGltfs : SerializedCollection<Gltf2Reference>` (internal static fields) | **reflection (string)** | `KSA/ModLibrary.cs:80,68,76` | `RingAssetCatalog.Collection<T>` — same pattern/names as parts-now `GameRegistry` (AllMeshes/AllFiles already on the watchlist) | OK |
-| 9b | `Gltf2Reference.{Id, Source : FileReference?}` + `FileReference.ModPath` · `GltfUtility.LoadModel(string) : Gltf` + `Gltf.Meshes[].Name` (JSON-only parse for the catalog) · `GltfLoader(string)` ctor + `MeshReference.Load(GltfLoader, int mesh, createDeviceMesh: false)` (conversion — the exact import `MeshFileReference.DoLoad` runs for the stock ring rocks; skinned meshes import in bind pose) | direct API | `KSA/Gltf2Reference.cs:10`; `KSA/FileReference.cs:23`; `Brutal.GltfApi/GltfUtility.cs:38`, `GltfLoader.cs:23`; `KSA/MeshReference.cs:76` | `RingAssetCatalog.RefreshGltfMeshes`, `RingMeshFactory.GetRingUsableFromGltf` — makes character/MMU/helmet meshes (the glTF-file pipeline, never in `AllMeshes`) selectable | OK |
+| 9b | `Gltf2Reference.{Id, Source : FileReference?}` + `FileReference.ModPath` · `GltfUtility.LoadModel(string) : Gltf` + `Gltf.Meshes[].Name` (JSON-only parse for the catalog) · `GltfLoader(string)` ctor + `MeshReference.Load(GltfLoader, int mesh, createDeviceMesh: false)` (conversion — the exact import `MeshFileReference.DoLoad` runs for the stock ring rocks; skinned meshes import in bind pose) | direct API | `KSA/Gltf2Reference.cs:10`; `KSA/FileReference.cs:24`; `Brutal.GltfApi/GltfUtility.cs:38`, `GltfLoader.cs:23`; `KSA/MeshReference.cs:76` | `RingAssetCatalog.RefreshGltfMeshes`, `RingMeshFactory.GetRingUsableFromGltf` — makes character/MMU/helmet meshes (the glTF-file pipeline, never in `AllMeshes`) selectable | OK |
 | 9c | `DeviceMeshInterleaved.IndexCount` (public field) · `SimpleVkMesh.IndexCount` | direct API | `KSA/DeviceMeshInterleaved.cs:117`; `RenderCore.Mesh/SimpleVkMesh.cs:26` | `RingAssetCatalog.GetMeshIndexCount`, `RingMeshFactory.GetConvertedIndexCount` — UI triangle-cost readout only | OK |
-| 10 | `SerializedCollection<T>.GetList() : List<T>` (live list — copied before iteration) | direct API | `KSA/SerializedCollection.cs:41` | `RingAssetCatalog.Refresh` | OK |
+| 10 | `SerializedCollection<T>.GetList() : List<T>` (live list — copied before iteration) | direct API | `KSA/SerializedCollection.cs:42` | `RingAssetCatalog.Refresh` | OK |
 | 11 | `TextureReference.{Id, BindlessHandle : int}` + `TexturePowerReference : TextureReference` | direct API | `KSA/TextureReference.cs:70`; `KSA/TexturePowerReference.cs` | `RingAssetCatalog` (handle==0 ⇒ excluded), `RingSwapController` | OK |
-| 12 | `Program.{Instance : static Program, GetRenderer() : static Renderer, RebuildRenderer(bool = false)}` | direct API | `KSA/Program.cs:434,535,4742` | `RingSwapController.RebuildRenderer`, `RingMeshFactory` | OK |
-| 13 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer, _ringRendererCreated}` (private fields) + public `PlanetaryRingsRenderer.Dispose()` (typed) + `Renderer.Device.WaitIdle()` | **reflection (string)** + direct API | `KSA/Program.cs:157`; `KSA/PlanetTransparenciesRenderer.cs:40,46,354-361`; `PlanetaryRingsRenderer.cs:473`; `Brutal.VulkanApi.Abstractions/DeviceExtensions.cs` | `RingSwapController.{IsRingsRendererCreated, DisposeRingsRendererForRecreation}` — the dispose-for-recreation step that makes the rebuild actually re-read ring data (narrative #4). A field rename degrades to a frame-resources-only rebuild: Apply hitches but changes nothing — **the original symptom**, so a silent break here is user-visible immediately | OK |
+| 12 | `Program.{Instance : static Program, GetRenderer() : static Renderer, RebuildRenderer(bool = false)}` | direct API | `KSA/Program.cs:453,558,4913` | `RingSwapController.RebuildRenderer`, `RingMeshFactory` | OK — body retyped for `IViewport`/`ShaderSlot` (5402), call order unchanged |
+| 13 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer, _ringRendererCreated}` (private fields) + public `PlanetaryRingsRenderer.Dispose()` (typed) + `Renderer.Device.WaitIdle()` | **reflection (string)** + direct API | `KSA/Program.cs:176`; `KSA/PlanetTransparenciesRenderer.cs:40,46,354-361`; `PlanetaryRingsRenderer.cs:473`; `Brutal.VulkanApi.Abstractions/DeviceExtensions.cs` | `RingSwapController.{IsRingsRendererCreated, DisposeRingsRendererForRecreation}` — the dispose-for-recreation step that makes the rebuild actually re-read ring data (narrative #4). A field rename degrades to a frame-resources-only rebuild: Apply hitches but changes nothing — **the original symptom**, so a silent break here is user-visible immediately | OK |
 | 14 | `Renderer.Allocator.CreateStagingPool(renderer.GraphicsAndCompute, 1)` + `StagingPool` dispose = submit+wait; `SimpleVkMesh` built by `MeshReference.Bind` | direct API (render) | `Brutal.VulkanApi.Abstractions/StagingPoolExtensions.cs:5`, `StagingPool.cs:167`; `RenderCore.Mesh/SimpleVkMesh.cs:69` | `RingMeshFactory.GetRingUsable` | OK |
 | 15 | `GameSettings.{ShowRings(), ShowRingMeshes()} : static bool` | direct API | `KSA/GameSettings.cs:3122,3133` | submod UI status hints | OK |
 | 16 | `Universe.CurrentSystem.All.OfType<Celestial>()` | direct API | `KSA/Universe.cs:94`; `KSA/CelestialSystem.cs` | `RingSwapController.RefreshBodies` | OK |
-| 17 | Consumer contract (not called, relied upon): `PlanetaryRingsRenderData` ctor bakes `LodProperties[i].Y = MeshLods[i].DeviceMesh.IndexCount`, `MeshCullingRadius = max BoundingSphereRadius`, `MeshDiffuseId/NormalId/PbrId = …BindlessHandle`; `PlanetaryRingsRenderer.{PopulatePlanets, RenderMeshes}` | behavioral invariant | `KSA.Rendering.Rings.Rendering/PlanetaryRingsRenderData.cs:180-326`; `PlanetaryRingsRenderer.cs:324,571-603` | design keystone — see narrative #1-#3 | OK |
+| 17 | Consumer contract (not called, relied upon): `PlanetaryRingsRenderData` ctor bakes `LodProperties[i].Y = MeshLods[i].DeviceMesh.IndexCount`, `MeshCullingRadius = max BoundingSphereRadius`, `MeshDiffuseId/NormalId/PbrId = …BindlessHandle`; `PlanetaryRingsRenderer.{PopulatePlanets, RenderMeshes(Celestial, CommandBuffer, IViewport, int)}` | behavioral invariant | `KSA.Rendering.Rings.Rendering/PlanetaryRingsRenderData.cs:180-326` (byte-identical 5348↔5402); `PlanetaryRingsRenderer.cs:324,571-603` | design keystone — see narrative #1-#3 | OK (`RenderMeshes` param retyped `Viewport`→`IViewport`, `Index`→`ShaderSlot`; draw logic unchanged) |
 
 Related but **not** integration points: `RingSelection` (mod-local, session-only state — overrides
 are deliberately not persisted; a game restart is back to stock).
@@ -103,7 +139,8 @@ are deliberately not persisted; a game restart is back to stock).
 
 Scope for **bloomin-onion** (`bloomin-onion.lib`, bundled in the unscience supermod), which builds
 brand-new `PlanetaryRingsReference` trees at runtime and puts them on any celestial. Written against
-KSA build **2026.8.22.5348**. Shares rocky-mcrock-face's catalog + mesh conversion (touchpoints #7-#11
+KSA build **2026.8.22.5348**, re-verified against **2026.9.7.5402** (same NEW/OLD roots as above).
+Shares rocky-mcrock-face's catalog + mesh conversion (touchpoints #7-#11
 above apply unchanged; bloomin-onion's own rows are numbered B1+ below).
 
 ## How it hooks the game
@@ -164,20 +201,43 @@ game's own virtual `Bind` — so the ring renderer's `Texture.Get().ImageView` /
    `StaticCelestial` construction; the mod refreshes those struct fields by reflection, best-effort
    and fully guarded. Failure = the far-away sprite lacks/keeps a shadow band; nothing else.
 
+### 5348 → 5402 (2026-09-02)
+
+- ✅ **No code change.** Everything the builder constructs is byte-identical this span
+  (`PlanetaryRingsReference`, `PlanetaryRingsVolumeReference`, `RingRaymarchingStepReference`,
+  `RingObjectsReference`, `RingLodReference`, `MeshFileReference`, `PbrMaterialReference`,
+  `DistanceReference`, `RadianReference`, `DoubleReference`, `BoolReference`, `MathEx`,
+  `AstronomicalTemplate`, `TextureReference`, `SerializedId`, `DistantSphereData`,
+  `GpuTextureSystem`), so narratives #1–#3 and #5 stand unchanged. `Get()` self-resolution (#2) is
+  unaffected — `MeshFileReference.Get()` is still `:28`.
+- ✅ The three reflected private fields (`_ringsRenderer :40`, `_ringRendererCreated :46`,
+  `_anyRings :68`) and the public `PopulatePlanets() : bool` (`:150`) did not move; the
+  `RebuildFrameResources` gate (`!_ringRendererCreated && _anyRings`, `:330-337`) is unchanged (#6).
+- ✅ `StaticCelestial._distantRenderer` (`:8`) and `DistantSphereRenderer._data` (`:24`, ring fields
+  written at `:59-65`) are unchanged; `DistantSphereRenderer` only had `Render(...)` retyped to
+  `IViewport`/`ShaderSlot`. `StaticCelestial.RenderSphereThisFrame` is now `new bool[8]` indexed by
+  `ShaderSlot` (was `Program.ViewportCount`/`Index`) — not touched by the mod (#8).
+- ✅ `Celestial.{Id, MeanRadius, BodyTemplate, Parent}` (`:104` via `Astronomical`, `:91`, `:83`, `:73`)
+  unchanged; `Celestial.cs`'s own diff is UI (`IGameViewport`) plus terrain-modifier maths that now
+  uses `MeanRadius` instead of `RenderData.SurfaceRadius` (`:825-857`) — unrelated (#4).
+- ✅ `PlanetRenderer.cs:1985-1993` (per-frame ring-shadow read) and
+  `AtmosphereRenderer.AssignPlanetSlots` (`:305-312`) are unchanged (B10).
+- **Live pass**: none required for bloomin-onion specifically.
+
 ## Touchpoints (bloomin-onion)
 
-| # | Game member | Kind | Decomp path | Mod code ref | 5348 |
+| # | Game member | Kind | Decomp path | Mod code ref | 5402 |
 |---|---|---|---|---|---|
 | B1 | `PlanetaryRingsReference` (all public fields: `DefinitionFrame, Inclination, LongitudeOfAscendingNode, InnerRadius, OuterRadius, Texture, ControlTexture, DetailScale, Volume, RingObjects`; `IsValid()` deliberately unused — narrative #1) · `PlanetaryRingsVolumeReference.{MinThickness, MaxThickness, MinRenderDistance, MaxRenderDistance, Step, FadeToMeshes}` · `RingRaymarchingStepReference.{Scale, MinSize, MaxSize}` · `RingObjectsReference.{Name, Thickness, Size, RenderDistance, Density, Lods, MaterialReference}` · `RingLodReference.{MinScreenSizePixels, MeshFileReference}` · `MeshFileReference.Mesh` · `PbrMaterialReference.{DiffuseReference, NormalReference, PBRMap}` — **constructed**, not just mutated | direct API | `KSA/PlanetaryRingsReference.cs`; `KSA/PlanetaryRingsVolumeReference.cs`; `KSA/RingRaymarchingStepReference.cs`; `KSA/RingObjectsReference.cs`; `KSA/RingLodReference.cs`; `KSA/MeshFileReference.cs:15`; `KSA/PbrMaterialReference.cs:10-17` | `RingReferenceBuilder.Build`, `RingDefinitionSerializer.FromReference` | OK |
 | B2 | `DistanceReference(double, DistanceUnit)` / `(double meters)` · `RadianReference(double radians)` + `.ToDegrees()` · `DoubleReference.FromValue` · `BoolReference(bool)` · `DistanceReference.{InMeters(), InKilometers()}` · `MathEx.{ToDeviationAngle, ToCompassAngle}(double)` · `OrbitDefinitionFrame` | direct API | `KSA/DistanceReference.cs:105-140`; `KSA/RadianReference.cs:23,66`; `KSA/DoubleReference.cs:44`; `KSA/BoolReference.cs:14`; `KSA/MathEx.cs:178,189`; `KSA/OrbitDefinitionFrame.cs` | `RingReferenceBuilder`, `RingDefinitionSerializer` | OK |
 | B3 | `AstronomicalTemplate.RingsReference` (public field, **written**) via `Celestial.BodyTemplate : CelestialTemplate` · `Celestial.{Id, MeanRadius, Parent}` | direct API | `KSA/AstronomicalTemplate.cs:66`; `KSA/Celestial.cs:73,83,91` | `RingDefinitionController.{Apply, Remove, RestoreTemplate, HasStockRings}`, `RingReferenceBuilder.Validate` | OK |
-| B4 | `PlanetTransparenciesRenderer.PopulatePlanets() : bool` (public) | direct API | `KSA/PlanetTransparenciesRenderer.cs:169` | `RingRendererRebuilder.Rebuild` — refreshes `HasRings` per body + `_bodiesSortedBackToFront` sizing | OK |
-| B5 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer, _ringRendererCreated, _anyRings}` (private fields) + public `PlanetaryRingsRenderer.Dispose()` + `Device.WaitIdle()` + `Program.RebuildRenderer()` | **reflection (string)** + direct API | `KSA/Program.cs:157,4742`; `KSA/PlanetTransparenciesRenderer.cs:40,46,68,325-343` | `RingRendererRebuilder.{Rebuild, DisposeRingsRenderer, IsRingsRendererCreated}` — `_anyRings` is the only field new vs rocky (narrative #6) | OK |
-| B6 | `TextureReference` subclassing: public `Category, Width, Height, Manifest, BindlessHandle, Bind(Renderer, StagingPool)` (virtual), `Dispose(Device)`, `SetHash()` · `TextureReference.<TextureAsset>k__BackingField` (private-set auto-prop) | direct API + **reflection (string)** | `KSA/TextureReference.cs:36-77,133-166`; `KSA/SerializedId.cs:52` | `PaintedTextureReference.Create/Release` — null-checked; a miss disables Painted mode in the UI (`IsSupported`) with a clear message | OK |
-| B7 | `RenderCore.TextureAsset(ITexture, string)` ctor · `Brutal.TextureApi.Abstractions.GenericTexture.Defaults.RGBA8UNorm(int2)` + `.Data` · `TextureFormatExtensions.Descriptor()` → `FormatDescriptor.{IsBlockCompressed, BlockSizeInBytes}` · `TextureAsset.Texture.Format` | direct API | `RenderCore/TextureAsset.cs:21`; `Brutal.TextureApi.Abstractions/GenericTexture.cs:80,122`; `FormatDescriptor.cs` | `PaintedTextureReference.Create`, `RingReferenceBuilder.IsCpuSampleable` | OK |
-| B8 | `StaticCelestial._distantRenderer` → `DistantSphereRenderer._data` (private struct `DistantSphereData` public fields `UseRingShadows, RingInnerRadius, RingOuterRadius, RingTextureId, SamplerClampId`) · `Program.TextureSystem.SamplerClampHandle` | **reflection (string)**, cosmetic | `KSA/StaticCelestial.cs:8`; `KSA/DistantSphereRenderer.cs:24,57-66`; `KSA/GpuTextureSystem.cs:24` | `RingRendererRebuilder.SyncDistantSphereShadow` — every lookup null-tolerant, wrapped in try/catch | OK |
+| B4 | `PlanetTransparenciesRenderer.PopulatePlanets() : bool` (public) | direct API | `KSA/PlanetTransparenciesRenderer.cs:150` | `RingRendererRebuilder.Rebuild` — refreshes `HasRings` per body + `_bodiesSortedBackToFront` sizing | OK |
+| B5 | `Program._planetTransparenciesRenderer` → `PlanetTransparenciesRenderer.{_ringsRenderer, _ringRendererCreated, _anyRings}` (private fields) + public `PlanetaryRingsRenderer.Dispose()` + `Device.WaitIdle()` + `Program.RebuildRenderer()` | **reflection (string)** + direct API | `KSA/Program.cs:176,4913`; `KSA/PlanetTransparenciesRenderer.cs:40,46,68,304-337` | `RingRendererRebuilder.{Rebuild, DisposeRingsRenderer, IsRingsRendererCreated}` — `_anyRings` is the only field new vs rocky (narrative #6) | OK |
+| B6 | `TextureReference` subclassing: public `Category, Width, Height, Manifest, BindlessHandle, Bind(Renderer, StagingPool)` (virtual), `Dispose(Device)`, `SetHash()` · `TextureReference.<TextureAsset>k__BackingField` (private-set auto-prop) | direct API + **reflection (string)** | `KSA/TextureReference.cs:38-70` (fields), `:125` (`virtual Bind`), `:77` (`Dispose`); `KSA/SerializedId.cs:58` | `PaintedTextureReference.Create/Release` (`:19-20,50,60-61`) — null-checked; a miss disables Painted mode in the UI (`IsSupported`) with a clear message | OK |
+| B7 | `RenderCore.TextureAsset(ITexture, string)` ctor · `Brutal.TextureApi.Abstractions.GenericTexture.Defaults.RGBA8UNorm(int2)` + `.Data` · `TextureFormatExtensions.Descriptor()` → `FormatDescriptor.{IsBlockCompressed, BlockSizeInBytes}` · `TextureAsset.Texture.Format` | direct API | `RenderCore/TextureAsset.cs:21`; `Brutal.TextureApi.Abstractions/GenericTexture.cs:78,122`; `FormatDescriptor.cs` | `PaintedTextureReference.Create`, `RingReferenceBuilder.IsCpuSampleable` | OK |
+| B8 | `StaticCelestial._distantRenderer` → `DistantSphereRenderer._data` (private field of the **public struct `KSA.DistantSphereData`**, public fields `UseRingShadows, RingInnerRadius, RingOuterRadius, RingTextureId, SamplerClampId`) · `Program.TextureSystem.SamplerClampHandle` | **reflection (string)**, cosmetic | `KSA/StaticCelestial.cs:8`; `KSA/DistantSphereRenderer.cs:24,59-65`; `KSA/DistantSphereData.cs:7,25-33`; `KSA/GpuTextureSystem.cs:24`; `KSA/Program.cs:116` | `RingRendererRebuilder.SyncDistantSphereShadow` (`:87-102`) — every lookup null-tolerant, wrapped in try/catch | OK |
 | B9 | `GameSettings.{ShowRings(), ShowRingMeshes()}` · `CelestialProvider.GetAllCelestials()` (ksa-abstractions → `Universe.CurrentSystem.All`) | direct API | `KSA/GameSettings.cs:3122,3133`; `KSA/Universe.cs:94` | submod UI / `BloominOnionSubmod.RefreshBodies` | OK |
-| B10 | Consumer contract (relied upon): `PlanetTransparenciesRenderer.RebuildFrameResources` takes `CreateRingsRenderer` only when `!_ringRendererCreated && _anyRings`; `PlanetaryRingsRenderer.PopulatePlanets` iterates `Universe.CurrentSystem.All.OfType<Celestial>()` reading `BodyTemplate.RingsReference` at ctor; `PlanetRenderer` reads `RingsReference` per frame for the ring shadow (`PlanetRenderer.cs:1985-1993`); `AtmosphereRenderer.AssignPlanetSlots` keys on `AtmosphericBody` only (so a ring-only body joining `_planetsWithTransparencies` is harmless) | behavioral invariant | `KSA/PlanetTransparenciesRenderer.cs:325-343`; `PlanetaryRingsRenderer.cs:324-346`; `KSA/AtmosphereRenderer.cs:305-317` | design keystone — narrative #1, #6 | OK |
+| B10 | Consumer contract (relied upon): `PlanetTransparenciesRenderer.RebuildFrameResources` takes `CreateRingsRenderer` only when `!_ringRendererCreated && _anyRings`; `PlanetaryRingsRenderer.PopulatePlanets` iterates `Universe.CurrentSystem.All.OfType<Celestial>()` reading `BodyTemplate.RingsReference` at ctor; `PlanetRenderer` reads `RingsReference` per frame for the ring shadow (`PlanetRenderer.cs:1985-1993`); `AtmosphereRenderer.AssignPlanetSlots` keys on `AtmosphericBody` only (so a ring-only body joining `_planetsWithTransparencies` is harmless) | behavioral invariant | `KSA/PlanetTransparenciesRenderer.cs:304-337`; `PlanetaryRingsRenderer.cs:324-346`; `KSA/PlanetRenderer.cs:1985-1993`; `KSA/AtmosphereRenderer.cs:305-317` | design keystone — narrative #1, #6 | OK |
 
 Related but **not** integration points: `RingDefinition` / `RingPresetStore` (mod-local model +
 TOML under `.unscience/bloomin-onion-rings.toml`; body assignments deliberately session-only).

@@ -95,7 +95,7 @@ public static class IvaForceRender
     /// KSA's stock gate hides Internal meshes unless the main viewport is in IVA mode,
     /// but editor previews are never rendered through an IVA camera.
     /// </summary>
-    private static void AddInstancePostfix(PartModel __instance, PartModel.PerInstanceData __0, Viewport __1)
+    private static void AddInstancePostfix(PartModel __instance, PartModel.PerInstanceData __0, IViewport __1)
     {
         if (Program.Editor == null) return;
         if (!__instance.Template.Internal) return;

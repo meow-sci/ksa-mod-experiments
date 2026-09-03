@@ -73,8 +73,28 @@ public static class PlumeEmitter
                               + vehicle.PosAsmbToBody(positionVehicleAsmb).Transform(vehicle.Body2Cce);
         double3 axisWorld = axisVehicleAsmb.NormalizeOrZero().Transform(vehicle.Body2Cce);
 
-        renderer.AddInstance(float3.Pack(in positionEgo), float3.Pack(in axisWorld), instance, plume.Throttle);
+        ComputeAirState(vehicle, out float3 airVelocity, out float airDensity);
+        renderer.AddInstance(float3.Pack(in positionEgo), float3.Pack(in axisWorld), instance, plume.Throttle,
+            airVelocity, airDensity);
         return true;
+    }
+
+    /// <summary>
+    /// Air velocity (ego/CCE frame) and ambient air density the renderer uses to fold and bend the plume in
+    /// atmosphere — the same derivation as <c>Vehicle.AddVolumetricExhaustInstances</c> (KSA 5402+).
+    /// Density is 0 in vacuum or when the parent body has no atmosphere.
+    /// </summary>
+    private static void ComputeAirState(Vehicle vehicle, out float3 airVelocity, out float airDensity)
+    {
+        var parent = vehicle.Parent;
+        airVelocity = float3.Pack(vehicle.GetSurfaceVelocityCci().Transform(parent.GetCci2Cce()));
+        airDensity = 0f;
+
+        AtmosphereReference? atmosphere = parent.GetAtmosphereReference();
+        if (atmosphere == null) return;
+
+        double altitudeMeters = (vehicle.GetPositionEcl() - parent.GetPositionEcl()).Length() - parent.MeanRadius;
+        airDensity = (float)atmosphere.Physical.GetAtmosphericDensityAtAltitude(altitudeMeters);
     }
 
     private static void ApplyLookOverrides(PlumeEntry plume, VolumetricExhaustInstance instance,

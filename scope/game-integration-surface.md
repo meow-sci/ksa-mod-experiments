@@ -4,11 +4,13 @@ Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bea
 Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the 11 per-area `scope/`
 files. Use it on every KSA update to find which mods a changed game member puts at risk.
 
-**Verification baseline:** cataloged against KSA build **2026.8.22.5348**
+**Verification baseline:** cataloged against KSA build **2026.9.7.5402**
 (`~/repos/meow-sci/ksa-game-assemblies/current/decomp`), diffed from the previously verified baseline
-**2026.8.19.5261**, which is also what sits on disk as `ksa-game-assemblies_prev`. **Baseline == OLD**,
-so this is a clean single hop of **87 revisions (5262–5348)** and the **changelog gap is zero** — NEW's
-`version.json` alone covers the whole span.
+**2026.8.22.5348**, which is also what sits on disk as `ksa-game-assemblies_prev`. **Baseline == OLD**,
+a single hop — but ⚠ **the changelog gap is 52 revisions**: NEW's `version.json` covers only
+`5400 → 5402` (one logged commit, rev 5401), so revisions **5349–5400** were reviewed from the **source
+diff only** (197 `KSA/*.cs` changed, 66 added, 2 removed). Full record:
+[`../plans/KSA_5402_UPGRADE.md`](../plans/KSA_5402_UPGRADE.md).
 Decomp paths are relative to the decomp root (`KSA/…`); Content paths relative to `…/current/Content`.
 Per-row detail and the exact 5261↔5348 diff live in the linked area scope files.
 
@@ -211,7 +213,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.Cursor
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `InputRay : static Ray` (refreshed by `UpdateInputRay(Camera?)`) | direct API | `KSA/Cursor.cs:25,40` | graffiti | `graffiti.lib/DecalPicker.cs` | OK @5348 | the mouse cursor's ego-space picking ray. Updated AFTER the UI phase (`KSA/Program.cs:2146`), so a click handled in AfterGui reads the previous frame's ray — exactly what the player last saw |
+| `GetEgoRay(IViewport) : static Ray` (= `viewport.GetCamera().ScreenToEgoRay(GetPosition(viewport))`) · `GetPosition(IViewport) : float2` · `DesktopPosition : float2` | direct API | `KSA/Cursor.cs:27,22,11` | graffiti | `graffiti.lib/DecalPicker.cs:56` | **CHANGED @5402** (fixed) | **replaced `InputRay`/`UpdateInputRay`/`ScreenPosition` @5402** — the ray is now built on demand from the **same-frame** camera + cursor (`SetDesktopPosition` runs in `PrepareImGui`, `Program.cs:2091`, before the UI phase). graffiti passes `Program.MainViewport` |
 
 ### KSA.DeviceMeshInterleaved (+ nested static Shared)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -295,7 +297,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.GenericGizmo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `GenericGizmo(MeshReference, IGizmoRenderData, int)` ctor; `.GetSegmentDataByViewport(Viewport) : PerSegmentData[]`; `Static.GenericGizmoRenderData`; `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | render-pass | `KSA/GenericGizmo.cs:208,277,15,170` | dont-stifle-me | `dont-stifle-me.lib/PerAxisScaleDrag.cs:43` | OK | per-axis scale-gizmo drag (reads `VehicleEditor.ScaleGizmo` segment data). Was flexo's editor gizmos until flexo was removed @5348 |
+| `GenericGizmo(MeshReference, IGizmoRenderData, int)` ctor; `.GetSegmentDataByViewport(IViewport) : PerSegmentData[]` (keyed by `ViewportId` @5402); `Static.GenericGizmoRenderData`; `PerSegmentData{Active,PositionEgo,Body2Cce,Scale,Color}` | render-pass | `KSA/GenericGizmo.cs:208,277,15,170` | dont-stifle-me | `dont-stifle-me.lib/PerAxisScaleDrag.cs:43` | OK @5402 (`Viewport`→`IViewport`) | per-axis scale-gizmo drag (reads `VehicleEditor.ScaleGizmo` segment data). Was flexo's editor gizmos until flexo was removed @5348 |
 
 ### KSA.GlobalShaderBindings
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -648,17 +650,17 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, unladen-swallow) | `VehicleProvider.cs:11` | OK | |
 | `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
 | `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint), parts-now | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:98`, `RuntimeModUnloader.cs:110` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets. parts-now uses it for the unload safety gate and to clear the hover preview before a purge. Disposed+nulled in `Program.PrepareFrame` |
-| `ThumbnailViewport : static Viewport` (viewport index 1; `IsOffscreen`/`ShouldRenderGizmos=false`) | direct (render) | `KSA/Program.cs:445,966-967` | parts-now | `Runtime/PartThumbnailGenerator.cs:141` | OK | dedicated offscreen thumbnail viewport — no camera save/restore, no resize, no `UpdateShaderData`. Shared with the part browser's hover preview (see `ThumbnailDynamic`) |
+| `ThumbnailViewport : static IViewport` (a `PartThumbnailViewport` from `ViewportRegistry.CreatePartThumbnailViewport(_renderer, ViewportOptionFlags.RenderPartModels, sampler)`; throws until built) | direct (render) | `KSA/Program.cs:497,949` | parts-now | `Runtime/PartThumbnailGenerator.cs:141` | OK | dedicated offscreen thumbnail viewport — no camera save/restore, no resize, no `UpdateShaderData`. Shared with the part browser's hover preview (see `ThumbnailDynamic`) |
 | `BindlessTextures : BindlessTextureLibrary` (public field) | direct API | `KSA/Program.cs:88,850` | parts-now, graffiti | `Runtime/BundleValidatorRulesIdentity.cs:222`; `Ui/StatusPanel.cs:202-210`; `graffiti.lib/DecalRenderer.cs`, `DecalTextures.cs` | OK | V15 texture-budget rule + the Status panel gauge; graffiti allocates/frees decal slots and binds the table as set 2. Constructed with `maxTextures = 1024` |
-| `{EditorFlag : static bool, OffscreenTarget : static RenderTarget, RenderedViewport / MainViewport : static Viewport, SetViewport(CommandBuffer) : static, PointClampedSampler : static VkSampler, Instance.ResourceFrameIndex : int, Instance.ColorFormat : readonly VkFormat}` | direct API (render seam gates + pass state) | `KSA/Program.cs:205,438,472,468,4148,450,199,203` | graffiti | `graffiti.lib/GraffitiPatches.cs`, `DecalRenderer.cs` | OK @5348 | the decal pass's editor/main-viewport identity checks + GridPass-style pass state (viewport, depth sampler, frame-ring slot, colour format). See `scope/decals.md` #2 |
+| `{EditorFlag : static bool, OffscreenTarget : static RenderTarget, RenderedViewport : static IViewport / MainViewport : static IGameViewport (`.ShaderSlot` feeds `GlobalShaderBindings.DynamicOffset`), SetViewport(CommandBuffer) : static, PointClampedSampler : static VkSampler, Instance.ResourceFrameIndex : int, Instance.ColorFormat : readonly VkFormat}` | direct API (render seam gates + pass state) | `KSA/Program.cs:224,457,491,485,4293,469,218,222` | graffiti | `graffiti.lib/GraffitiPatches.cs`, `DecalRenderer.cs` | OK @5348 | the decal pass's editor/main-viewport identity checks + GridPass-style pass state (viewport, depth sampler, frame-ring slot, colour format). See `scope/decals.md` #2 |
 | `IsMainThread() : static bool` | behavior dependency | `KSA/Program.cs:520` | parts-now | (via `Loading.OnFrame`, `KSA/Loading.cs:92`) | OK | 🔶 **U7** — see `KSA.Loading` |
 | `RendererRebuildNeeded : static bool` (field) | direct API | `KSA/Program.cs:383` (consumed `PrepareFrame` :2080) | humble-arteest (VehiclePaint) | `VehiclePaintShaders.cs` (`RequestRendererRebuild`) | OK | game's **deferred** full-renderer rebuild flag — the safe way for a mod to force shader/pipeline recompilation (same path a graphics-setting change takes) |
-| `MainViewport : static Viewport { get; }` | direct API | `KSA/Program.cs:403` | IvaForceRender, kitchen-sink | `IvaForceRender.cs:102` | OK | `.Mode`, `.MapCamera`, `.BaseCamera` |
+| `MainViewport : static IGameViewport { get; }` (= `ViewportRegistry.MainViewport`) | direct API | `KSA/Program.cs:485` | IvaForceRender, kitchen-sink, graffiti | `IvaForceRender.cs:102`; `DecalPicker.cs:56`; `DecalRenderer.cs:402` | OK @5402 (retyped) | `.Mode` (now an `IViewport` property, `KSA/IViewport.cs:29`), `.MapCamera`, `.BaseCamera`, `.ShaderSlot` |
 | `GetCamera() : static Camera` | direct API | `KSA/Program.cs:504` | glass | `FovController.cs:42` | OK | |
-| `GetRenderCamera() : Camera` (= `RenderedViewport.GetCamera()`) | direct (render) | `KSA/Program.cs:594`, `RenderedViewport` `:472` | thug-life | `ThugLifeQuadRenderer.cs:252` | OK | **replaced `GetMainCamera()` (`:584`)** — `RenderMainPass` runs per visible viewport (main + both crew-portrait viewports), and ego space is camera-relative, so the main camera mis-transformed the portrait passes |
+| `GetRenderCamera() : Camera` (= `RenderedViewport.GetCamera()`) | direct (render) | `KSA/Program.cs:642`, `RenderedViewport` `:491` | thug-life | `ThugLifeQuadRenderer.cs:252` | OK | **replaced `GetMainCamera()` (`:584`)** — `RenderMainPass` runs per visible viewport (main + both crew-portrait viewports), and ego space is camera-relative, so the main camera mis-transformed the portrait passes |
 | `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, mesh-deform, parts-now | `ThugLifeRenderManager.cs:81`; `MeshDeformShaders.cs:39`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
-| `OffscreenTarget : RenderTarget` (→ `.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`) | direct (render-pass) | `KSA/Program.cs:438` | thug-life | `ThugLifeQuadRenderer.cs:152` | OK | replaced `OffScreenPass`/`RenderPassState` @5261 (dynamic rendering). ⚠ **null until `BuildRenderTargets()` (`Program.cs:934`), which runs after `ModLibrary.LoadAll()` (`:897`) — i.e. after `[StarMapAllModsLoaded]`; the mod's pipeline build is lazy for exactly this reason** |
-| `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:3781` | thug-life | `ThugLifeQuadRenderer.cs:264` | OK | sizes to `RenderedViewport` |
+| `OffscreenTarget : RenderTarget` (→ `.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`) | direct (render-pass) | `KSA/Program.cs:457` | thug-life | `ThugLifeQuadRenderer.cs:152` | OK | replaced `OffScreenPass`/`RenderPassState` @5261 (dynamic rendering). ⚠ **null until `BuildRenderTargets()` (`Program.cs:970` @5402), which runs after `ModLibrary.LoadAll()` (`:942`) — i.e. after `[StarMapAllModsLoaded]`; the mod's pipeline build is lazy for exactly this reason** |
+| `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:4293` | thug-life | `ThugLifeQuadRenderer.cs:264` | OK | sizes to `RenderedViewport` |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
 | `Instance : static (singleton)` | reflection (private) | `KSA/Program.cs:371` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:53,56`; `KittenColor.cs:55-73` | OK | render-systems root |
 | `MaterialSystem : GpuMaterialSystem` (field) | reflection-field | `KSA/Program.cs:94` | doh, humble-arteest | `MaterialSystemAccessor.cs:63`; `KittenColor.cs:55-73` | OK | |
@@ -821,13 +823,14 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `VehicleEngine : enum byte { MainIgnite, MainShutdown }` | enum | `KSA/VehicleEngine.cs:3-6` | unladen-swallow, blinky | `ActionIgnite.cs:34`; `BlinkyGridManager.cs:258` | OK | both members present |
 
-### KSA.Viewport
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
+### KSA.IViewport / KSA.IGameViewport (replaced `KSA.Viewport` @5402)
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 5402 | Notes |
 |---|---|---|---|---|---|---|
-| `Mode : CameraMode` (field) | direct API | `KSA/Viewport.cs:14` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:102` | OK | vs `CameraMode.IVA` |
-| `GetCamera() : Camera` | direct API | `KSA/Viewport.cs:366` | i-feel-seen, parts-now | `IFeelSeenPatches.cs:69`; `parts-now.lib/Runtime/PartThumbnailGenerator.cs:142` | OK | parts-now takes the **thumbnail** viewport's camera |
-| `Size : int2` (field) · `Index : int` (field) | direct API | `KSA/Viewport.cs:30,34` | parts-now | `PartThumbnailGenerator.cs:515`; `Index` consumed indirectly by `ThumbnailDynamic.UpdateGlobalCameraData`'s camera-UBO slice | OK | `Size` is compared against `ThumbnailRenderer.SIZE` only to warn when `PartThumbnailSize` drifted since boot (both square ⇒ framing unaffected) |
-| `Viewport` (param of `UpdateRenderData`/`AddInstance`/render prefixes) | Harmony arg type | `KSA/Viewport.cs` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender | (render prefixes) | OK | |
+| `Mode : CameraMode { get; }` (property) | direct API | `KSA/IViewport.cs:29` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:102` | OK (retyped) | vs `CameraMode.IVA`. Was a field on the old `Viewport` class |
+| `GetCamera() : Camera` | direct API | `KSA/IViewport.cs:51` | i-feel-seen, parts-now, dont-stifle-me | `IFeelSeenPatches.cs:69`; `parts-now.lib/Runtime/PartThumbnailGenerator.cs:142`; `PerAxisScaleDrag.cs:36` | OK (retyped) | parts-now takes the **thumbnail** viewport's camera |
+| `Size : int2 { get; }` · `ShaderSlot : int { get; }` (was `Viewport.Index`) | direct API | `KSA/IViewport.cs:41,13` | parts-now, graffiti | `PartThumbnailGenerator.cs:515`; `DecalRenderer.cs:402`; `ShaderSlot` consumed indirectly by `ThumbnailDynamic.UpdateGlobalCameraData`'s camera-UBO slice | OK (retyped) | slots come from `ViewportRegistry`'s pool (max 8); the per-viewport UBOs are now sized for 8 slots (rev 5401 stride fix, `GlobalShaderBindings.cs:94,217`) |
+| `IViewport` (param of `UpdateRenderData`/`AddInstance`/`OnFrame`/`UpdateSelectedScale`/render prefixes) | Harmony arg type | `KSA/IViewport.cs:9` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender, dont-stifle-me, camera-controller-override, pyro | (render/editor prefixes) | **CHANGED @5402** (fixed) | every game method that took `Viewport` now takes `IViewport`; all remain single overloads, so by-name `AccessTools.Method` still resolves. Prefixes that name the param declare `IViewport` |
+| `ViewportOptionFlags.RenderPartModels` / `UseRaytracing` gates | new gating | `KSA/ViewportOptionFlags.cs`; `PartModel.cs:410-415` | IvaForceRender, humble-arteest, mesh-deform (postfix/prefix on `AddInstance`) | `IvaForceRender.cs:98-106` | ADDITIVE | `AddInstance` early-returns for viewports without `RenderPartModels`; every game-created viewport has it (`ViewportPresets.cs`), so dormant. Recommended mirror in IvaForceRender's postfix (open) |
 
 ### KSA.VolumetricExhaustTemplate
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -840,8 +843,8 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `VolumetricExhaustRenderer` (type; Harmony arg) | Harmony arg type | `KSA/VolumetricExhaustRenderer.cs:20` | pyro | `PyroPatches.cs:36` | OK @5348 | lib references `Brutal.Vulkan*` + `BepuUtilities` so the type resolves |
-| `AddInstance(float3 emitterPosition, float3 axis, VolumetricExhaustInstance, float throttle) : void` | direct API | `KSA/VolumetricExhaustRenderer.cs:860` | pyro | `pyro.lib/PlumeEmitter.cs:76` | OK @5348 | the game's own nozzle submission entry; reads `instance.ShaderData` + `LastPlumeData`, derives all plume geometry. **5348 delta already handled:** reads `PlumeData.ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity` |
-| `Disabled : bool` | direct API | `KSA/VolumetricExhaustRenderer.cs:312` | pyro | `pyro.lib/PyroSubmod.cs:75` | OK @5348 | `_maxInstanceCount == 0` (exhausts off in settings) |
+| `AddInstance(float3 emitterPosition, float3 axis, VolumetricExhaustInstance, float throttle, float3 airVelocity, float airDensity) : float` | direct API | `KSA/VolumetricExhaustRenderer.cs:710` | pyro | `pyro.lib/PlumeEmitter.cs:76-78` (+ `ComputeAirState` `:87-98`) | **CHANGED @5402** (fixed) | **gained `airVelocity`/`airDensity` @5402** for atmospheric plume bend/fold (`ExhaustPlumeDeformation`, `:809-811`); pyro mirrors `Vehicle.AddVolumetricExhaustInstances` (`Vehicle.cs:5518-5525`). ⚠ **refraction regression @5402:** nothing sets `_hasRefractionInstances` any more (OLD `:960`), so the refraction pass never runs — game-side, needs live confirmation. Previous note: the game's own nozzle submission entry; reads `instance.ShaderData` + `LastPlumeData`, derives all plume geometry. **5348 delta already handled:** reads `PlumeData.ApparentExhaustVelocity`, `ThroatRadius`, `ThroatDensity` |
+| `Disabled : bool` | direct API | `KSA/VolumetricExhaustRenderer.cs:352` | pyro | `pyro.lib/PyroSubmod.cs:75` | OK @5348 | `_maxInstanceCount == 0` (exhausts off in settings) |
 
 ### KSA.VolumetricExhaustInstance / KSA.VolumetricExhaustReference / KSA.ExhaustInstance
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -957,7 +960,7 @@ on every game update FIRST.
 | Type.Member (string) | Mod(s) | Why string-based | 5348 |
 |---|---|---|---|
 | `Camera.OnFrame` (`OrbitController`/`FlyController.OnFrame`) | camera-controller-override | `AccessTools.Method(…, "OnFrame")` | OK |
-| ~~`Controller.___Transform`~~ (field injector) | ~~camera-controller-override~~ | ~~Harmony field-injection by name~~ | **RETIRED @5261** — the prefix now reads the public `__instance.Camera` (`CameraControllerOverridePatches.cs:42-54`), so the injector is gone and this can no longer fail at `Apply` time. (`Controller` does declare `protected readonly Transform Transform`, but `Camera` is the field that actually carries the view.) |
+| ~~`Controller.___Transform`~~ (field injector) | ~~camera-controller-override~~ | ~~Harmony field-injection by name~~ | **RETIRED @5261** — the prefix now reads the public `__instance.Camera` (`CameraControllerOverridePatches.cs:42-54`), so the injector is gone and this can no longer fail at `Apply` time. ((no `Transform` member exists on `KSA.Controller` in either tree), but `Camera` is the field that actually carries the view.) |
 | `Camera._fovRadians` | glass | `AccessTools.Field` private field by name | OK (single most-important glass check) |
 | `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` | glass | `AccessTools.Method` by name | OK |
 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` | i-feel-seen | `AccessTools.Method(typeof(Vehicle), "…")` | OK |
@@ -1032,9 +1035,61 @@ on every game update FIRST.
 
 ---
 
-## 6. Confirmed-broken / changed summary (vs 5348)
+## 6. Confirmed-broken / changed summary (vs 5402)
 
-### 5261 → 5348 (current span — 87 revisions, 5262–5348)
+### 5348 → 5402 (current span — 54 revisions, 5349–5402; only rev 5401 logged)
+
+Reconstructed from the source diff: a **viewport registry rework** (`Viewport` class → `IViewport`/
+`IGameViewport`/`ViewportRegistry`, `Index` → `ShaderSlot`, per-viewport GPU arrays fixed at 8 slots —
+rev 5401's "thumbnail stride" fix), **parachutes** with a Bepu cloth solver (`JobSystems.ClothSolvers`,
+runs before the vehicle solvers), **part structural failure / debris** (`PartFailure`,
+`Part.CrashTolerancePascals`, `Vehicle.IsDebris`), an **exhaust plume deformation** rework
+(`ExhaustPlumeDeformation`, `PlumeBend.glsl`, `ExhaustInstance` 224 → 272 B), and a **light-switch
+consolidation** (`Part.IsLightSwitchedOff()`). Full review:
+[`../plans/KSA_5402_UPGRADE.md`](../plans/KSA_5402_UPGRADE.md).
+
+**CHANGED (compile breaks against 5402 — all fixed this pass)**
+- `KSA.Viewport` **removed** → `IViewport`/`IGameViewport`; `Viewport.Index` → `IViewport.ShaderSlot`.
+  Six one-line retypes: `ksa-abstractions.lib/IvaForceRender.cs:98`, `dont-stifle-me.lib/EditorScalePatches.cs:124`,
+  `dont-stifle-me.lib/PerAxisScaleDrag.cs:28`, `i-feel-seen.lib/IFeelSeenPatches.cs:64`,
+  `parts-now.lib/Runtime/PartThumbnailGenerator.cs:61,176,338,512`, `graffiti.lib/DecalRenderer.cs:402`.
+- `Cursor.InputRay` **removed** → `Cursor.GetEgoRay(IViewport)` (`KSA/Cursor.cs:27`); ray is now
+  same-frame. `graffiti.lib/DecalPicker.cs:56`.
+- `VolumetricExhaustRenderer.AddInstance` **re-signatured** (+`float3 airVelocity, float airDensity`,
+  returns `float`) (`:710`). `pyro.lib/PlumeEmitter.cs:76-98` mirrors `Vehicle.AddVolumetricExhaustInstances`.
+
+**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
+- ⚠️ **pyro / game — exhaust refraction dead.** `_hasRefractionInstances` is never set true in 5402
+  (OLD `VolumetricExhaustRenderer.cs:960`); pyro's Refraction slider is inert. Game-side. `scope/exhaust-plumes.md`
+- ⚠️ **garrys-torch vs part failure.** `PartFailure.Detect` (`PhysicsBubble.cs:1459`) can now shed
+  debris / destroy overlapping welded vehicles; `WeldEngine.UpdateWeld:19` has no disposed guard.
+  `Vehicle.Teleport` byte-identical. Recommended: guard + live weld test. `scope/vehicle-physics.md`
+- ⚠️ **graffiti terrain decals.** `Celestial.GetTerrainHeightFromDirCcf` accurate path now uses
+  `MeanRadius` (`Celestial.cs:825-857`). Live placement check. `scope/decals.md`
+- ⚠️ **IvaForceRender vs the `RenderPartModels` gate** (dormant today; mirror recommended).
+  `scope/00-architecture-and-abstractions.md`
+- ⚠️ **thug-life** — `RenderMainPass` (`:347`) now also runs per secondary viewport; still unverified live.
+- Debris fragments (`Vehicle.IsDebris`) now appear in every mod's vehicle combo via `VehicleProvider`
+  (cosmetic; optional filter). `kiwis-marbles`: cloth solvers snapshot before the weld prefix (one-frame
+  lag for a chute near a welded body). `glass`: `UpdateProjection` prefix now also hits thumbnail cameras.
+  `zippo`/`red-alert`/`its-so-shiny`: light state now resolved via `Part.IsLightSwitchedOff()`, which
+  still reads `LightIsActive` first — no change. `Part.DisplayName` now prefers the template name (labels).
+
+**VERIFIED CLEAN this span**
+- **Entire string-reflection watchlist (§4) resolves**, same kind and type (con-man's seven fields
+  byte-identical at the same lines; `CharacterAvatar.Core`/`CharacterCore.Scale` still fields).
+- **Every Harmony patch-target signature unchanged** apart from `Viewport → IViewport`, all single
+  overloads; `GameSettings.cs` byte-identical; `ExecuteNextVehicleSolvers` body identical.
+- **GPU byte layouts identical** — `PerInstanceData` (both), `MaterialData`; `StateBitFlag` bits 11..31 unused.
+- **Shaders** — `MeshIndirect.*`, `UnlitMesh.*`, `MaterialSet.glsl`, ring shaders byte-identical; anchors intact.
+- **Frames** — `IParentBody`, `CelestialFrameMath`, `Camera` FOV members, `KinematicMeasurements`,
+  `NavBallData`, `Situation` unchanged. No `Brutal*` decomp changes.
+
+**Known-broken reconciliation:** `___Transform` and zippo `"Color"` are closed (stale rows corrected);
+humble-arteest Vehicle Paint / mesh-deform still dead by design (4693); the "supermod never wires
+`IvaForceRender.Patch`" note was stale (wired at `unscience/Patcher.cs:74`).
+
+### 5261 → 5348 (previous span — 87 revisions, 5262–5348)
 
 Dominated by **ground clutter** (collisions, exclusion masks, destruction, distribution fixes), a
 **terrain precision rework** (`PrecisionFuncs.glsl`, `AnchoredNoise.glsl`, split-double anchors), a

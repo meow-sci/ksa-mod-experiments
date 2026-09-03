@@ -61,7 +61,7 @@ public static class IFeelSeenPatches
         return false;
     }
 
-    private static bool UpdateRenderDataPrefix(Vehicle __instance, Viewport viewport, int inFrameIndex)
+    private static bool UpdateRenderDataPrefix(Vehicle __instance, IViewport viewport, int inFrameIndex)
     {
         if (_tracker == null || !_tracker.IsTracked(__instance))
             return true;

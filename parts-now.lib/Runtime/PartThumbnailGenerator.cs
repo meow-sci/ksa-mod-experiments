@@ -58,7 +58,7 @@ public sealed class PartThumbnailGenerator : IDisposable
 
     private Renderer? _renderer;
     private ThumbnailRenderer? _thumbRenderer;
-    private Viewport? _viewport;
+    private IViewport? _viewport;
     private Camera? _camera;
     private ThumbnailPart? _root;
     private ThumbnailReadback? _readback;
@@ -173,7 +173,7 @@ public sealed class PartThumbnailGenerator : IDisposable
         }
 
         Camera camera = _camera!;
-        Viewport viewport = _viewport!;
+        IViewport viewport = _viewport!;
 
         // INVARIANT: never move this camera — move the root part. ThumbnailCreator.MoveRootPart
         // positions the ThumbnailPart in front of a camera parked at origin/identity, and
@@ -335,7 +335,7 @@ public sealed class PartThumbnailGenerator : IDisposable
         ThumbnailReference thumbnail,
         ThumbnailRenderResources resources)
     {
-        Viewport viewport = _viewport!;
+        IViewport viewport = _viewport!;
         int size = ThumbnailRenderer.SIZE;
 
         CommandBuffer commandBuffer = renderer.Device.AllocateCommandBuffer(new VkCommandBufferAllocateInfo
@@ -509,7 +509,7 @@ public sealed class PartThumbnailGenerator : IDisposable
     /// player changed the setting mid-session the two differ — but both are square, so the
     /// projection is still correct. Warn and carry on; never mutate the game setting.
     /// </summary>
-    private static void WarnOnSizeMismatch(Viewport viewport)
+    private static void WarnOnSizeMismatch(IViewport viewport)
     {
         int size = ThumbnailRenderer.SIZE;
         if (viewport.Size.X != size || viewport.Size.Y != size)

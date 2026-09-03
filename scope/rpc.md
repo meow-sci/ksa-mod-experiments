@@ -9,11 +9,12 @@ catalogued in that lib's own `scope/` file. The two things unladen-swallow owns 
 
 **Verified game versions**
 
-- NEW decomp `2026.6.9.4750` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD decomp `2026.6.8.4680` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
+- NEW decomp `2026.9.7.5402` root: `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD decomp `2026.8.22.5348` root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
 
-Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root (e.g. `KSA/Vehicle.cs`).
-**Mod code** paths are relative to the repo root `C:\Users\Alex\repos\meow-sci\unscience`.
+Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root (e.g. `KSA/Vehicle.cs`);
+line numbers are **@5402** unless a cell says otherwise. **Mod code** paths are relative to the repo
+root `~/repos/meow-sci/unscience`.
 
 ---
 
@@ -36,8 +37,8 @@ sibling submods' static `.Instance` accessors are visible to the RPC endpoints.
 - **Standalone mod** — `unladen-swallow/Mod.cs` is its own `[StarMapMod]`. It news a
   `UnladenSwallowSubmod`, applies `Patcher.Patch()`, and drains the game-thread queue from its own
   `[StarMapBeforeGui]` (`Mod.cs:39-44` → `_submod.Update(dt)`).
-- **Bundled in unscience** — `unscience/Mod.cs:84` adds `new UnladenSwallowSubmod()` to the
-  supermod's 22-submod list (`unscience.csproj:32` references `unladen-swallow.lib`). The supermod's
+- **Bundled in unscience** — `unscience/Mod.cs:92` adds `new UnladenSwallowSubmod()` to the
+  supermod's 26-submod list (`unscience.csproj:34` references `unladen-swallow.lib`). The supermod's
   per-frame submod loop calls the same `Update(dt)` → same drain.
 - **Delegation reach.** `unladen-swallow.lib.csproj:13-19` references exactly seven libs:
   `ksa-abstractions.lib`, `glass.lib`, `blinky.lib`, `its-so-shiny.lib`,
@@ -73,10 +74,10 @@ mutations are scheduled.)
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | StarMap lifecycle attrs | `unladen-swallow/Mod.cs:9,19,22,39,46,61` | `[StarMapMod]`/`ImmediateLoad`/`AllModsLoaded`/`BeforeGui`/`AfterGui`/`Unload` → game hooks `Program.OnDrawUiFrame(double)` (BeforeGui) & `Program.OnDrawUiViewports(double)` (AfterGui) | `KSA/Program.cs:2639`, `:2666` | Yes | None (OLD `:2582`/`:2609`) | StarMap.API seam (string-named hooks owned by StarMap, not this mod). See `scope/00-architecture-and-abstractions.md`. |
+| 1 | StarMap lifecycle attrs | `unladen-swallow/Mod.cs:9,19,22,39,46,61` | `[StarMapMod]`/`ImmediateLoad`/`AllModsLoaded`/`BeforeGui`/`AfterGui`/`Unload` → game hooks `Program.OnDrawUiFrame(double)` (BeforeGui) & `Program.OnDrawUiViewports(double)` (AfterGui) | `KSA/Program.cs:3021`, `:3051` | Yes | Signatures none (OLD `:2892`/`:2921`); `OnDrawUiViewports` body now iterates `ViewportRegistry.GameViews` (5402) — irrelevant to a postfix | StarMap.API seam (string-named hooks owned by StarMap, not this mod). See `scope/00-architecture-and-abstractions.md`. |
 | 2 | Game-thread **drain** | `unladen-swallow.lib/UnladenSwallowSubmod.cs:23` (`GameThread.DrainOnGameThread()` in `Update`) | none — pure C# queue drain, runs inside `[StarMapBeforeGui]` | n/a | n/a | n/a | The single point where queued HTTP work executes on the game thread. No game member. |
 | 3 | Off-thread **enqueue** | every endpoint, e.g. `FovEndpoint.cs:23,33`, `ActionIgnite.cs:26` (`GameThread.Scheduler.Schedule(...)`) | none — pure C# (`Task<T>` + ConcurrentQueue) | n/a | n/a | n/a | Marshals HTTP-worker work onto the game thread. No game member. |
-| 4 | Harmony (shared, required) | `unladen-swallow/Patcher.cs:19` (Patch), `:31` (Unpatch); `:18` `PatchAll` finds **no** own patches | `MeowSci.KsaAbstractions.HotkeyGuard` → `GameSettings.OnKeyAll(GlfwKeyEvent)` | `KSA/GameSettings.cs:2379` | Yes | None (OLD `:2347`) | Mod declares zero Harmony patches of its own; only HotkeyGuard. See HotkeyGuard in `scope/00-…`. |
+| 4 | Harmony (shared, required) | `unladen-swallow/Patcher.cs:19` (Patch), `:31` (Unpatch); `:18` `PatchAll` finds **no** own patches | `MeowSci.KsaAbstractions.HotkeyGuard` → `GameSettings.OnKeyAll(GlfwKeyEvent)` | `KSA/GameSettings.cs:3301` | Yes | None (OLD `:3301`; file byte-identical) | Mod declares zero Harmony patches of its own; only HotkeyGuard. See HotkeyGuard in `scope/00-…`. |
 | 5 | ImGui toggle | `unladen-swallow/Mod.cs:52` (`ImGui.IsKeyPressed(ImGuiKey.F11)`), `:81` (`ImGui.Begin`) | Brutal.ImGuiApi only — not a KSA game member | `Brutal.ImGuiApi/*` | Yes | None observed | F11 toggles the control window. Rides Brutal packages (rev-4729 watch). |
 | 6 | GenHTTP host bind | `unladen-swallow.lib/SwallowServer.cs:38-44` (`Host.Create()…Bind(0.0.0.0,7887)…StartAsync()`) | none — GenHTTP 10.5.0 (3rd-party) + OS socket | n/a | n/a | n/a | NOT a game API. Breakage here = library/port/firewall, not a game update. |
 
@@ -115,11 +116,11 @@ ignite/shutdown.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | Direct typed API (method) | `ActionIgnite.cs:34`, `ActionShutdown.cs:34` | `KSA.Vehicle.SetEnum(Enum? enumValue)` — `public void` | `KSA/Vehicle.cs:4838` | Yes | None (OLD `:4776`, identical sig) | Compile-time bound (`using KSA;`). The `VehicleEngine` branch dispatches to private `SetAction`. |
-| 2 | Direct typed API (enum) | `ActionIgnite.cs:34` (`MainIgnite`), `ActionShutdown.cs:34` (`MainShutdown`) | `KSA.VehicleEngine` — `public enum VehicleEngine : byte { MainIgnite, MainShutdown }` | `KSA/VehicleEngine.cs:3-6` | Yes | None (OLD identical) | Two-member enum; both members present/unchanged. |
-| 3 | Effect path (downstream, not called directly) | (reached via #1) | `KSA.Vehicle.SetAction(VehicleEngine)` — `private void`, sets `_manualControlInputs.EngineOn = true/false` | `KSA/Vehicle.cs:4912` | Yes | None — body byte-identical (OLD `:4850`) | **No `IsControllable` gate on this path** (see findings). |
-| 4 | Direct API (provider + read) | `ActionIgnite.cs:28-29`, `ActionShutdown.cs:28-29`, `BlinkyGridScanEndpoint.cs:88`, `BlinkyEngineDeactivateEndpoint.cs:52`, `BlinkyGridsEndpoint.cs:142`, `ShinyGridScanEndpoint.cs:80`, `ShinyGridsEndpoint.cs:150` | `VehicleProvider.GetAllVehicles()` → `KSA.Vehicle.Id` (read) — resolve vehicle by id | seam: `scope/00-…`; `Vehicle.Id` → `KSA/Astronomical.cs:85` | Yes | None | All vehicle lookups funnel through the ksa-abstractions seam, not raw `Universe`. |
-| 5 | Game type reference only | `BlinkyGridScanEndpoint.cs:58` (`new List<Part>()`), plus `Vehicle` typing in the 7 `using KSA;` endpoints | `KSA.Part`, `KSA.Vehicle` (types passed to blinky/shiny libs) | `KSA/Part.cs`, `KSA/Vehicle.cs:28` | Yes | None | Types referenced only to hold/pass values into the libs; no further member calls. |
+| 1 | Direct typed API (method) | `ActionIgnite.cs:34`, `ActionShutdown.cs:34` | `KSA.Vehicle.SetEnum(Enum? enumValue)` — `public void` | `KSA/Vehicle.cs:6096` | Yes | None (OLD `:5879`, identical sig; `VehicleEngine` branch unchanged) | Compile-time bound (`using KSA;`). The `VehicleEngine` branch dispatches to private `SetAction`. |
+| 2 | Direct typed API (enum) | `ActionIgnite.cs:34` (`MainIgnite`), `ActionShutdown.cs:34` (`MainShutdown`) | `KSA.VehicleEngine` — `public enum VehicleEngine : byte { MainIgnite, MainShutdown }` | `KSA/VehicleEngine.cs:3-6` | Yes | None (file byte-identical) | Two-member enum; both members present/unchanged. |
+| 3 | Effect path (downstream, not called directly) | (reached via #1) | `KSA.Vehicle.SetAction(VehicleEngine)` — `private void`, sets `_manualControlInputs.EngineOn = true/false` | `KSA/Vehicle.cs:6184` | Yes | None — body byte-identical (OLD `:5967`) | **No `IsControllable` gate on this path** (`IsControllable` itself is at `:588`; see findings). |
+| 4 | Direct API (provider + read) | `ActionIgnite.cs:28-29`, `ActionShutdown.cs:28-29`, `BlinkyGridScanEndpoint.cs`, `BlinkyEngineDeactivateEndpoint.cs`, `BlinkyGridsEndpoint.cs`, `ShinyGridScanEndpoint.cs`, `ShinyGridsEndpoint.cs` (each `VehicleProvider.GetAllVehicles().FirstOrDefault(v => v.Id == …)`) | `VehicleProvider.GetAllVehicles()` → `KSA.Vehicle.Id` (read) — resolve vehicle by id | seam: `scope/00-…`; `Vehicle.Id` → `KSA/Astronomical.cs:104` | Yes | None (OLD `:104`) | All vehicle lookups funnel through the ksa-abstractions seam, not raw `Universe`. |
+| 5 | Game type reference only | `BlinkyGridScanEndpoint.cs:58`, `ShinyGridScanEndpoint.cs:48` (`new List<Part>()`), plus `Vehicle` typing in the 7 `using KSA;` endpoints | `KSA.Part`, `KSA.Vehicle` (types passed to blinky/shiny libs) | `KSA/Part.cs`, `KSA/Vehicle.cs:28` | Yes | None | Types referenced only to hold/pass values into the libs; no further member calls. |
 
 ---
 
@@ -162,8 +163,9 @@ ignite/shutdown.
   fov→`scope/camera.md` (glass), blinky/shiny→`scope/pixel-grids-and-render.md`,
   camera→`scope/camera.md`, torch→`scope/vehicle-physics.md` (garrys-torch),
   zippo→`scope/celestial-and-lights.md`, vehicle-resolution→`scope/00-architecture-and-abstractions.md`.
-  Camera's pre-existing `___Transform` field-injector defect (see `scope/camera.md`) would surface
-  through `POST /camera/animate` as an inert animation, not an HTTP error.
+  Camera's then-current `___Transform` field-injector defect (see `scope/camera.md`; **retired @5261**,
+  the prefix now reads `__instance.Camera`) surfaced through `POST /camera/animate` as an inert
+  animation, not an HTTP error.
 
 ---
 
@@ -183,3 +185,43 @@ ignite/shutdown.
   drive the camera mods without UI clicking.
 - ℹ️ **Transport is game-free.** GenHTTP, the routing table and the DTOs couple to nothing in KSA and can
   only break via package churn. No GenHTTP bump this span.
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Span note: only rev **5401** ("Fixed crash for incorrect data stride for thumbnail rendering") is
+logged; revisions **5349–5400 are unlogged**, so the source diff is the only evidence. The span's
+headline change — `Viewport` → `IViewport`/`IGameViewport`/`ViewportRegistry` — does not touch
+anything unladen-swallow calls directly.
+
+- ✅ **No direct game touchpoint moved.** `Vehicle.SetEnum(Enum?)` (`KSA/Vehicle.cs:6096`) and the
+  private `SetAction(VehicleEngine)` it dispatches to (`:6184`) are byte-identical to 5348
+  (`:5879`/`:5967`); `EngineOn` is still written unconditionally (no `IsControllable` gate, `:588`).
+  `KSA/VehicleEngine.cs` byte-identical. `Vehicle.Id` → `Astronomical.Id` (`:104`) unchanged.
+- ✅ **Vehicle resolution seam clean.** `VehicleProvider.GetAllVehicles()` → `Universe.CurrentSystem`
+  (`:94`) → `CelestialSystem.All` (`:64`) → `LookupCollection.UnsafeAsList()` (`:210`, file identical).
+  `Program.ControlledVehicle` (`:503`) is a property with a `ClearHeldPlayerInput()` setter — it already
+  was at 5348; the provider only reads it.
+- ✅ **StarMap hooks / `GameThread` drain unchanged.** `Program.OnDrawUiFrame` (`:3021`) and
+  `OnDrawUiViewports` (`:3051`) keep `private void (double)`; the latter's body now walks
+  `ViewportRegistry.GameViews` and draws only `HasUi` secondary viewports, which is irrelevant to a
+  postfix. `[StarMapBeforeGui]` still drains the queue every frame while the HUD is visible; the
+  hidden-HUD (F2) replay via `HiddenUiFrameHook` → `Program.OnDrawUiConsole` (`:3009`, called `:2201`)
+  also survives (see `scope/00-…`).
+- ✅ **HotkeyGuard clean.** `GameSettings.cs` byte-identical (`OnKeyAll` `:3301`). `Program.OnKey`
+  (`:1718`) split its guard chain into two `if`s (`:1723`, `:1727`), but `OnKeyAll` is still the first
+  game term and the guard's forced `true` still returns before camera/controller handling.
+- ⚠️ **`Microsoft.Extensions.ObjectPool` version — unverifiable from the macOS snapshot.** Neither
+  `ksa-game-assemblies/current/dll` nor `_prev` contains `Microsoft.Extensions.ObjectPool.dll`, and
+  `Directory.Build.props:52` points `KSAFolder` at that directory on this machine, so the
+  `<Reference Condition="Exists(…)">` in both `unladen-swallow*.csproj` is false here (pre-existing;
+  the build still passes because the GenHTTP package assets are excluded, not because the game copy
+  is bound). Re-check the shipped version on a Windows install before trusting the 11.x-vs-10.x
+  binding note above.
+- ✅ **Delegated libs:** the only compile break in the suite this span was the `Viewport`→`IViewport`
+  retype (IvaForceRender, i-feel-seen, dont-stifle-me, graffiti, parts-now, thug-life-adjacent) — none
+  on an unladen-swallow endpoint path except via glass/blinky/its-so-shiny/camera/torch/zippo, which are
+  re-verified in their own scope files. GenHTTP 10.5.0 unchanged.
+- **Live pass wanted:** `POST /vehicle/actions/ignite` on a controlled vehicle; `POST /camera/animate`
+  (still the quickest end-to-end check of the camera mods after the viewport rework).

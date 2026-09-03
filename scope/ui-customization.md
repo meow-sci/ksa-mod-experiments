@@ -6,19 +6,20 @@ touch is enumerated and verified against decompiled sources.
 
 **Verified game versions**
 
-- NEW decomp `2026.6.9.4750` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD decomp `2026.6.8.4680` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
+- NEW decomp `2026.9.7.5402` root: `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD decomp `2026.8.22.5348` root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
 
 Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root
-(namespace-foldered, e.g. `KSA/GaugeCanvas.cs`, `Brutal.ImGuiApi/ImGuiStyle.cs`).
-**Mod code** paths are relative to the repo root `C:\Users\Alex\repos\meow-sci\unscience`.
+(namespace-foldered, e.g. `KSA/GaugeCanvas.cs`, `Brutal.ImGuiApi/ImGuiStyle.cs`); line numbers are
+**@5402** unless a cell says otherwise. **Mod code** paths are relative to the repo root
+`~/repos/meow-sci/unscience`.
 
 **How these mods are hosted (all three)**
 
 Each mod ships as a thin standalone StarMap host (`<mod>/Mod.cs` + `<mod>/Patcher.cs`)
 whose logic lives in a `*.lib` exposing a `MeowSci.KsaAbstractions.ISubmod`. The same
 submod instances are also embedded in the **unscience** supermod
-(`unscience/Mod.cs:61,67,77` create `SkittlesSubmod`, `ConManSubmod`,
+(`unscience/Mod.cs:65,72,83` create `SkittlesSubmod`, `ConManSubmod`,
 `KitchenSinkSubmod`). Both hosts toggle a window with **F11** and call
 `SubmodUI.BeginContentArea` / `EndContentArea` for the body.
 
@@ -66,7 +67,7 @@ the current style as "Game Default", ships the Carbon Rod preset, loads config, 
 applies the saved startup theme. `RenderContent()` draws the picker; `RenderFloatingWindows()`
 hosts the editor window. `Dispose()` calls `ThemeManager.RestoreDefaults()` to re-apply
 the captured default. Created standalone (`skittles/Mod.cs:27`) and in the supermod
-(`unscience/Mod.cs:61,81`).
+(`unscience/Mod.cs:65,90`).
 
 **UI/hotkeys** — Standalone window "Skittles — Theme Manager", 420x360, **F11** toggle
 (`skittles/Mod.cs:48,75`). Picker: Active label, filterable theme combobox
@@ -125,7 +126,7 @@ public setters), then force-repositions the live ImGui windows by title.
 `LayoutManager`; logs a warning if reflection fails. `Update(dt)` applies the startup
 default once canvases exist (`ConManSubmod.cs:43-55`). `RenderContent()` is the whole
 UI; `Dispose()` is a no-op. Created standalone (`con-man/Mod.cs:27`) and in the supermod
-(`unscience/Mod.cs:67`). If `GaugeStateAccessor.IsValid` is false the UI shows a red
+(`unscience/Mod.cs:72`). If `GaugeStateAccessor.IsValid` is false the UI shows a red
 "game may have been updated" message instead of operating (`ConManSubmod.cs:59-64`) —
 the built-in breakage canary.
 
@@ -146,13 +147,13 @@ they survive sessions. No game assets.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | 2 | `con-man.lib/GaugeStateAccessor.cs:28` | `GaugeCanvas._canvases : static List<GaugeCanvas>` (NonPublic+Static) | `KSA/GaugeCanvas.cs:20` | Yes | None (OLD:19) | **string-based reflection — required field** (IsValid gate) |
-| 2 | 2 | `GaugeStateAccessor.cs:29` | `GaugeCanvas._enabled : bool` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:63` | Yes | None (OLD:62) | **string-based — required field** |
-| 3 | 2 | `GaugeStateAccessor.cs:30` | `GaugeCanvas._customOffset : float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:54` | Yes | None (OLD:53) | **string-based — required field** |
-| 4 | 2 | `GaugeStateAccessor.cs:31` | `GaugeCanvas._customScale : float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:56` | Yes | None (OLD:55) | **string-based — required field** |
-| 5 | 2 | `GaugeStateAccessor.cs:32` | `GaugeCanvas._windowPosition : float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:50` | Yes | None (OLD:49) | string-based — **optional** (not in IsValid; degrades to `float2.Zero`) |
-| 6 | 2 | `GaugeStateAccessor.cs:33` | `GaugeCanvas._windowSize : float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:52` | Yes | None (OLD:51) | string-based — **optional** (degrades to `(100,100)`) |
-| 7 | 2 | `GaugeStateAccessor.cs:34` | `GaugeCanvas._windowTitle : string` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:37` | Yes | None (OLD:36) | string-based — **optional** (skips reposition if null) |
+| 1 | 2 | `con-man.lib/GaugeStateAccessor.cs:28` | `GaugeCanvas._canvases : private static List<GaugeCanvas>` (NonPublic+Static) | `KSA/GaugeCanvas.cs:92` | Yes | None (OLD:92, byte-identical) | **string-based reflection — required field** (IsValid gate). Public read-only mirror `AllCanvases` exists at `:177` |
+| 2 | 2 | `GaugeStateAccessor.cs:29` | `GaugeCanvas._enabled : private bool = true` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:143` | Yes | None (OLD:143) | **string-based — required field**. Public `SetEnabled(bool)`/`ToggleEnabled()` at `:664/:669` OR in `AlwaysEnabled` |
+| 3 | 2 | `GaugeStateAccessor.cs:30` | `GaugeCanvas._customOffset : private float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:134` | Yes | None (OLD:134) | **string-based — required field** |
+| 4 | 2 | `GaugeStateAccessor.cs:31` | `GaugeCanvas._customScale : private float2 = float2.One` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:136` | Yes | None (OLD:136) | **string-based — required field** |
+| 5 | 2 | `GaugeStateAccessor.cs:32` | `GaugeCanvas._windowPosition : private float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:130` | Yes | None (OLD:130) | string-based — **optional** (not in IsValid; degrades to `float2.Zero`) |
+| 6 | 2 | `GaugeStateAccessor.cs:33` | `GaugeCanvas._windowSize : private float2` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:132` | Yes | None (OLD:132) | string-based — **optional** (degrades to `(100,100)`) |
+| 7 | 2 | `GaugeStateAccessor.cs:34` | `GaugeCanvas._windowTitle : protected string` (NonPublic+Instance) | `KSA/GaugeCanvas.cs:115` | Yes | None (OLD:115; `protected` since 5018, still NonPublic) | string-based — **optional** (skips reposition if null) |
 | 8 | 3 | `LayoutManager.cs:119,147`; `ConManSubmod.cs:316` | `GaugeCanvas.Id : string` (inherited `SerializedId.Id { get; set; }`) | `KSA/SerializedId.cs:13` | Yes | None | layout dictionary key; GaugeCanvas→GaugeBase→SerializedId |
 | 9 | 3 | `LayoutManager.cs:169-170` | `ImGui.SetWindowPos/SetWindowSize(ImString name, in float2, ImGuiCond)` | `Brutal.ImGuiApi/ImGui.cs:5756,5767` | Yes | None | (ImGui) reposition live window by title; `string`→`ImString` |
 | 10 | 3 | `ConManSubmod.cs:68-73` | `ImGui.GetStyle()` + `ImGuiStylePtr.ItemSpacing/FramePadding` | `Brutal.ImGuiApi/ImGui.cs:5431` | Yes | None | (ImGui) layout math |
@@ -263,7 +264,7 @@ with deferred physics resync.
 
 **Unscience integration** — `KitchenSinkSubmod : ISubmod` (`kitchen-sink.lib/KitchenSinkLib.cs:12`),
 holding a `FlexoPartTest` and `FlexoSubpartTest`. Created standalone
-(`kitchen-sink/Mod.cs:30`) and in the supermod (`unscience/Mod.cs:77`).
+(`kitchen-sink/Mod.cs:30`) and in the supermod (`unscience/Mod.cs:83`).
 `UpdateBeforeVehicleSolvers` is driven by a Harmony prefix on
 `Universe.ExecuteNextVehicleSolvers` (`kitchen-sink/Patcher.cs:52-75`, priority First).
 **Wiring (Phase 4):** the supermod now applies `IvaForceRender.Patch` (`unscience/Patcher.cs`), so
@@ -285,33 +286,33 @@ state is in-memory (`_mutatedTemplates`) and reset on toggle-off / unload.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
-| 1 | 3 | `KitchenSinkLib.cs:56` | `Program.Editor : static VehicleEditor?` | `KSA/Program.cs:194` | Yes | None (OLD:193) | null-guarded |
-| 2 | 3 | `KitchenSinkLib.cs:57` | `VehicleEditor.EditingSpace : VehicleEditingSpace` (field) | `KSA/VehicleEditor.cs:334` | Yes | None | |
-| 3 | 3 | `KitchenSinkLib.cs:57,59` | `VehicleEditingSpace.Parts : PartTree?` (field) | `KSA/VehicleEditingSpace.cs:14` | Yes | None | null-guarded |
-| 4 | 3 | `KitchenSinkLib.cs:59` | `PartTree.States : ModuleStateList` (field) | `KSA/PartTree.cs:25` | Yes | None (OLD:25) | passed as `oldStates` |
-| 5 | 3 | `KitchenSinkLib.cs:60` | `PartTree.ReinitializeDerivedValues(ModuleStateList oldStates) : void` | `KSA/PartTree.cs:189` | Yes | None (OLD:186) | overload (also a 0-arg one); `ModuleStateList` present both revs |
-| 6 | 1 | `ksa-abstractions.lib/IvaForceRender.cs:42` | `PartModel..ctor(PartModelModule.Template)` **protected** (Harmony postfix via `AccessTools.Constructor`) | `KSA/PartModel.cs:351` | Yes | None (byte-identical file) | catches parts built after toggle |
-| 7 | 1 | `IvaForceRender.cs:46` | `PartModel.AddInstance(PerInstanceData, Viewport, int frameIndex) : void` (Harmony postfix; captures `__0`,`__1` only) | `KSA/PartModel.cs:375` | Yes | None | method is **3-arg**; postfix ignores `frameIndex` (`__2`) — fine |
-| 8 | 3 | `IvaForceRender.cs:98,105` | `PartModel.PerInstanceData` (struct) | `KSA/PartModel.cs:299` | Yes | None | postfix param `__0` |
-| 9 | 3 | `IvaForceRender.cs:105` | `PartModel.ViewportData.Get(PartModel, Viewport) : ViewportData` → `.InstanceList : List<PerInstanceData>` `.Add` | `KSA/PartModel.cs:281,277` | Yes | None | nested class `ViewportData`:275 |
-| 10 | 3 | `IvaForceRender.cs:111` | `PartModel.Instances : static List<PartModel>` | `KSA/PartModel.cs:325` | Yes | None | enumerated on toggle-on |
-| 11 | 3 | `IvaForceRender.cs:87,89,113,117,125` | `PartModel.Template : PartModelModule.Template` (field) | `KSA/PartModel.cs:329` | Yes | None | |
-| 12 | 3 | `IvaForceRender.cs:87,89,113,125` | `PartModelModule.Template.Internal : bool` (field) | `KSA/PartModelModule.cs:36` | Yes | None (OLD:36) | the field flipped to force visibility |
-| 13 | 3 | `IvaForceRender.cs:103` | `PartModelModule.Template.RayTracing : RaytracingMode` + `RaytracingMode.ShadowProxy` | `KSA/PartModelModule.cs:30,14` | Yes | None | shadow-proxy skip in editor postfix |
-| 14 | 3 | `IvaForceRender.cs:100` | `Program.Editor` (null check, editor-preview gate) | `KSA/Program.cs:194` | Yes | None | |
-| 15 | 3 | `IvaForceRender.cs:102` | `Program.MainViewport : Viewport` `.Mode : CameraMode` `== CameraMode.IVA` | `KSA/Program.cs:403`; `Viewport.cs:14`; `CameraMode.cs:14` | Yes | None (OLD Program:402) | |
-| 16 | 1 | `kitchen-sink/Patcher.cs:56` | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` (Harmony prefix; captures `dtPlayer` by name) | `KSA/Universe.cs:1660` | Yes | None (OLD:1109) | method is **2-arg**; prefix declares only `dtPlayer` — valid; single overload so `AccessTools.Method` is unambiguous |
-| 17 | 3 | `FlexoPartTest.cs:184` (via `VehicleProvider.cs:15`) | `Universe.CurrentSystem : static CelestialSystem?` `.All : LookupCollection<Astronomical>` `.UnsafeAsList()` | `KSA/Universe.cs:92`; `CelestialSystem.cs:57` | Yes | None (OLD:91/56) | Flexo vehicle enumeration |
-| 18 | 3 | `FlexoPartTest.cs:85,91`; `VehicleProvider.cs:23` | `Vehicle.Id : string` (inherited `Astronomical.Id { get; protected set; }`) | `KSA/Astronomical.cs:85` | Yes | None | read-only to mod |
-| 19 | 3 | `FlexoPartTest.cs:201` | `Vehicle.Parts : PartTree` (field) → `PartTree.Parts : ReadOnlySpan<Part>` | `KSA/Vehicle.cs:264`; `PartTree.cs:67` | Yes | None (OLD:233/65) | |
-| 20 | 3 | `FlexoPartTest.cs:108,115` | `Part.Template : PartTemplate` `.Id` | `KSA/Part.cs:323` | Yes | None (OLD:322) | combo labels |
-| 21 | 3 | `FlexoPartTest.cs:216,250,263` | `Part.PositionParentAsmb : double3 { get; set; }` | `KSA/Part.cs:333` (backing field) | Yes | None (OLD:332) | written by Flexo |
-| 22 | 3 | `FlexoPartTest.cs:217,251,264` | `Part.Asmb2ParentAsmb : doubleQuat { get; set; }` | `KSA/Part.cs:337` (backing field) | Yes | None (OLD:336) | written by Flexo |
-| 23 | 3 | `FlexoPartTest.cs:227` | `Part.TreeChildren : List<Part>` (field) | `KSA/Part.cs:387` | Yes | None (OLD:386) | descendant snapshot |
-| 24 | 3 | `FlexoPartTest.cs:302`; `FlexoSubpartTest.cs:230` | `Part.SubParts : ReadOnlySpan<Part>` | `KSA/Part.cs:655` | Yes | None (OLD:654) | cache invalidation walk |
-| 25 | 3 | `FlexoPartTest.cs:253,266` | `Part.BoundingBoxVehicleAsmb : (double3,double3) { get; set; }` + `ComputeBoundingBoxVehicleAsmb() : (double3,double3)` | `KSA/Part.cs:515,853` | Yes | None (OLD:514/852) | recompute after move |
-| 26 | 3 | `FlexoPartTest.cs:320`; `FlexoSubpartTest.cs:291` | `Vehicle.UpdateAfterPartTreeModification() : void` | `KSA/Vehicle.cs:1277` | Yes | None (OLD:1232) | deferred to solver prefix |
-| 27 | 2 | `FlexoPartTest.cs:319`; `FlexoSubpartTest.cs:290` | `PartTree.RecomputeStaticMass() : void` **private** (HarmonyLib `Traverse.Method("RecomputeStaticMass")`) | `KSA/PartTree.cs:306` | Yes | None (OLD:302) | **string-based reflection** — silently caught if renamed |
+| 1 | 3 | `KitchenSinkLib.cs:56` | `Program.Editor : static VehicleEditor?` | `KSA/Program.cs:226` | Yes | None (OLD:207) | null-guarded |
+| 2 | 3 | `KitchenSinkLib.cs:57` | `VehicleEditor.EditingSpace : VehicleEditingSpace` (field) | `KSA/VehicleEditor.cs:545` | Yes | None (OLD:545) | |
+| 3 | 3 | `KitchenSinkLib.cs:57,59` | `VehicleEditingSpace.Parts : PartTree?` (field) | `KSA/VehicleEditingSpace.cs:16` | Yes | None (OLD:16; file diff is 3 `Viewport`→`IViewport` draw signatures) | null-guarded |
+| 4 | 3 | `KitchenSinkLib.cs:59` | `PartTree.States : ModuleStateList` (field) | `KSA/PartTree.cs:39` | Yes | None (OLD:39) | passed as `oldStates` |
+| 5 | 3 | `KitchenSinkLib.cs:60` | `PartTree.ReinitializeDerivedValues(ModuleStateList oldStates) : void` | `KSA/PartTree.cs:308` | Yes | None (OLD:308; 0-arg overload `:302`) | `ModuleStateList.cs` byte-identical |
+| 6 | 1 | `ksa-abstractions.lib/IvaForceRender.cs:42` | `PartModel..ctor(PartModelModule.Template)` **protected** (Harmony postfix via `AccessTools.Constructor`) | `KSA/PartModel.cs:384` | Yes | None (OLD:383; body identical, only ctor) | catches parts built after toggle |
+| 7 | 1 | `IvaForceRender.cs:46` (lookup), `:98` (postfix sig) | `PartModel.AddInstance(PerInstanceData, IViewport, int frameIndex) : void` (Harmony postfix; captures `__0`,`__1` only) | `KSA/PartModel.cs:408` | Yes | **RETYPED @5402** `Viewport`→`IViewport` (OLD:407) — postfix `__1` updated; **NEW GATE @5402** `:410-413` early-returns unless `viewport.HasAny(ViewportOptionFlags.RenderPartModels)`; IVA/raytracing gate `:415` now per-viewport | method is **3-arg**; postfix ignores `frameIndex` (`__2`). ⚠ postfix does not yet mirror the new gate — see 5348→5402 summary |
+| 8 | 3 | `IvaForceRender.cs:98,105` | `PartModel.PerInstanceData` (struct) | `KSA/PartModel.cs:332` | Yes | None (OLD:331) | postfix param `__0` |
+| 9 | 3 | `IvaForceRender.cs:105` | `PartModel.ViewportData.Get(PartModel, IViewport) : ViewportData` → `.InstanceList : List<PerInstanceData>` `.Add` | `KSA/PartModel.cs:314,310` | Yes | **RETYPED @5402** param `Viewport`→`IViewport` (OLD:313/309); lookup keyed by `viewport.Id : ViewportId` | nested class `ViewportData`:308 |
+| 10 | 3 | `IvaForceRender.cs:111` | `PartModel.Instances : static List<PartModel>` | `KSA/PartModel.cs:358` | Yes | None (OLD:357) | enumerated on toggle-on |
+| 11 | 3 | `IvaForceRender.cs:87,89,113,116,125` | `PartModel.Template : PartModelModule.Template` (field) | `KSA/PartModel.cs:362` | Yes | None (OLD:361) | |
+| 12 | 3 | `IvaForceRender.cs:87,89,101,113,116,125` | `PartModelModule.Template.Internal : bool` (field) | `KSA/PartModelModule.cs:40` | Yes | None (OLD:40) | the field flipped to force visibility |
+| 13 | 3 | `IvaForceRender.cs:103` | `PartModelModule.Template.RayTracing : RaytracingMode` + `RaytracingMode.ShadowProxy` | `KSA/PartModelModule.cs:32,15` | Yes | None (OLD:32/15) | shadow-proxy skip in editor postfix |
+| 14 | 3 | `IvaForceRender.cs:100` | `Program.Editor` (null check, editor-preview gate) | `KSA/Program.cs:226` | Yes | None | |
+| 15 | 3 | `IvaForceRender.cs:102` | `Program.MainViewport : IGameViewport` `.Mode : CameraMode { get; }` `== CameraMode.IVA` | `KSA/Program.cs:485`; `IViewport.cs:29` (impl `ViewportBase.cs:36`); `CameraMode.cs:14` | Yes | **RETYPED @5402** — `MainViewport` was `Viewport` (OLD Program:468), `Mode` was a public field (OLD `Viewport.cs:14`); `CameraMode.cs` identical | compile-bound read; no code change |
+| 16 | 1 | `kitchen-sink/Patcher.cs:56` | `Universe.ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` (Harmony prefix; captures `dtPlayer` by name) | `KSA/Universe.cs:1834` | Yes | None (OLD:1767; body identical) | method is **2-arg**; prefix declares only `dtPlayer` — valid; single overload so `AccessTools.Method` is unambiguous |
+| 17 | 3 | `FlexoPartTest.cs:184`; `FlexoSubpartTest.cs:193` (via `VehicleProvider.cs:15`) | `Universe.CurrentSystem : static CelestialSystem?` `.All : LookupCollection<Astronomical>` `.UnsafeAsList()` | `KSA/Universe.cs:94`; `CelestialSystem.cs:64` | Yes | None (OLD:94/57) | Flexo vehicle enumeration |
+| 18 | 3 | `FlexoPartTest.cs:84,91`; `VehicleProvider.cs:22` | `Vehicle.Id : string` (inherited `Astronomical.Id { get; protected set; }`) | `KSA/Astronomical.cs:104` | Yes | None (OLD:104) | read-only to mod |
+| 19 | 3 | `FlexoPartTest.cs:201`; `FlexoSubpartTest.cs:214` | `Vehicle.Parts : PartTree { get; set; }` → `PartTree.Parts : ReadOnlySpan<Part>` | `KSA/Vehicle.cs:604`; `PartTree.cs:95` | Yes | None (OLD:598/95; `Parts` is a property, not a field) | |
+| 20 | 3 | `FlexoPartTest.cs:108,115` | `Part.Template : PartTemplate` `.Id` | `KSA/Part.cs:576` | Yes | None (OLD:568) | combo labels |
+| 21 | 3 | `FlexoPartTest.cs:216,250,263` | `Part.PositionParentAsmb : double3 { get; set; }` | `KSA/Part.cs:752` | Yes | None (OLD:744; property body diffed identical) | written by Flexo |
+| 22 | 3 | `FlexoPartTest.cs:217,251,264` | `Part.Asmb2ParentAsmb : doubleQuat { get; set; }` | `KSA/Part.cs:766` | Yes | None (OLD:758; property body diffed identical) | written by Flexo |
+| 23 | 3 | `FlexoPartTest.cs:227` | `Part.TreeChildren : List<Part>` (field) | `KSA/Part.cs:666` | Yes | None (OLD:658) | descendant snapshot |
+| 24 | 3 | `FlexoPartTest.cs:302`; `FlexoSubpartTest.cs:230` | `Part.SubParts : ReadOnlySpan<Part>` | `KSA/Part.cs:1079` | Yes | None (OLD:1052) | cache invalidation walk |
+| 25 | 3 | `FlexoPartTest.cs:253,266,279,286,306` | `Part.BoundingBoxVehicleAsmb : (double3,double3) { get; set; }` + `ComputeBoundingBoxVehicleAsmb() : (double3 Min, double3 Max)` | `KSA/Part.cs:831,1464` | Yes | Property none (OLD:823). Method **body refactored @5402** (OLD:1424): now `ComputeSubPartBoundingBox(inVehicleAsmb: true)` (`:1484`) accumulating **all** `MeshViewModule`s per sub-part via `AccumulateMeshBounds` (`:1504`) instead of only `span[0]`; signature unchanged | recompute after move; bounds may grow slightly for multi-mesh subparts |
+| 26 | 3 | `FlexoPartTest.cs:320`; `FlexoSubpartTest.cs:291` | `Vehicle.UpdateAfterPartTreeModification() : void` | `KSA/Vehicle.cs:1881` | Yes | None (OLD:1727; body identical) | deferred to solver prefix |
+| 27 | 2 | `FlexoPartTest.cs:319`; `FlexoSubpartTest.cs:290` | `PartTree.RecomputeStaticMass() : void` **private** (HarmonyLib `Traverse.Method("RecomputeStaticMass")`) | `KSA/PartTree.cs:778` | Yes | None (OLD:778; public `RefreshStaticMass()` wrapper at `:773`) | **string-based reflection** — silently caught if renamed |
 | 28 | 1 | `kitchen-sink/Patcher.cs:22` | `HotkeyGuard.Patch` (abstraction) | `ksa-abstractions.lib/HotkeyGuard.cs` | n/a | None | shared guard |
 
 **Game assets referenced** — None (operates on already-loaded `PartModel`/`PartTree`
@@ -376,5 +377,62 @@ instances; no `Content/` paths).
   `PartModel.AddInstance`, `PartModel.Instances`, `PartModelModule.Template.Internal`, `CameraMode.IVA` —
   are all unchanged. `PartTree.RecomputeStaticMass` still private and `Traverse`-able.
   Rev 5312 added raytracing to IVA kittens — worth a live look at IVA force-render.
-- ❌ **Still open:** the unscience supermod never calls `IvaForceRender.Patch`, so kitchen-sink's IVA
-  force-render remains partial inside the supermod. Unchanged by this build.
+- ✅ **`IvaForceRender.Patch` IS wired in the supermod** (`unscience/Patcher.cs:74`, unpatch `:114`) — the
+  "still open" wording that used to sit here was stale; the Phase-4 wiring predates 5348.
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Span note: only rev **5401** ("Fixed crash for incorrect data stride for thumbnail rendering") is
+logged; revisions **5349–5400 are unlogged**, so the source diff is the only evidence. Headline
+game change in the span: the `Viewport` class was replaced by `IViewport`/`IGameViewport`/
+`ViewportBase`/`ViewportRegistry` (`Program.Viewports` removed), plus parachutes and part
+structural limits.
+
+- ✅ **con-man — all seven reflected `GaugeCanvas` fields are byte-identical at the same lines**
+  (`KSA/GaugeCanvas.cs:92,143,134,136,130,132,115`), still declared on `GaugeCanvas` itself (nothing in
+  `GaugeBase.cs`), same kinds (fields) and types; `_windowTitle` still `protected`. The whole file diff
+  is two `Viewport`→`IViewport` render signatures (`:1347`, `:1367`). The apply math con-man assumes
+  (`_windowPosition = GetWindowPos() - _customOffset`, `_windowSize = GetWindowSize() / _customScale`,
+  `:828-837`), the `IsContextVisible()` draw gate (`:719`) and the rev-5293 Hud-Scale arithmetic
+  (`:536`, `:817`, `:861`) are unchanged — so the two **open behavioral items from 5261/5348
+  (context-visibility veto, Hud-Scale-relative layouts) carry over untouched**. `GaugeStateAccessor.IsValid`
+  stays true; `SerializedId.Id` (`:13`) identical.
+- ✅ **skittles clean.** Zero `Brutal*` files in the diff list; `Brutal.ImGuiApi/ImGuiCol.cs` (60 slots +
+  `COUNT`) and `ImGuiStyle.cs` byte-identical; `KSAColor.cs` byte-identical (`Xkcd` `:23`, `PaleGrey`
+  `:837`, `Scarlet` `:1561`). The Brutal DLLs changed hash at identical size (rebuild only). Solution
+  builds with 0 warnings against 5402.
+- 🔴 **kitchen-sink / IvaForceRender — one compile break, fixed.** `PartModel.AddInstance` (`:408`) and
+  `PartModel.ViewportData.Get` (`:314`) now take `IViewport`; the postfix's `__1` in
+  `ksa-abstractions.lib/IvaForceRender.cs:98` was retyped `Viewport`→`IViewport`. `Program.MainViewport`
+  is now `IGameViewport` (`KSA/Program.cs:485`) and `.Mode` an interface property (`KSA/IViewport.cs:29`)
+  — compile-bound reads, no code change. `PartModel..ctor` (`:384`), `Instances` (`:358`), `Template`
+  (`:362`), `PartModelModule.Template.Internal/RayTracing/ShadowProxy` (`:40/:32/:15`) and
+  `CameraMode.IVA` are unchanged.
+- ⚠️ **Open recommendation — mirror `AddInstance`'s new gate in the postfix.** `PartModel.AddInstance`
+  now early-returns unless `viewport.HasAny(ViewportOptionFlags.RenderPartModels)` (`:410-413`), and its
+  IVA/raytracing branch is per-viewport (`viewport.HasAll(UseRaytracing) && viewport.Mode == IVA`,
+  `:415`). A Harmony postfix runs even after that early return, so `AddInstancePostfix` would add an
+  internal instance to a list the game never drains for a flag-less viewport. Dead today (every viewport
+  the game creates has the flag: `KSA/Program.cs:948,949,952,956`), but cheap to harden:
+  `if (!__1.HasAny(ViewportOptionFlags.RenderPartModels)) return;` and read `__1.Mode` rather than
+  `Program.MainViewport.Mode`. The stock `(!Template.Internal || viewport.Mode == IVA)` gate (`:424`) the
+  feature works around is unchanged. **Needs a live pass** in the editor with Force IVA on.
+- ✅ **kitchen-sink Fix-Invisible-Subparts / Flexo clean.** `PartTree.States` (`:39`),
+  `ReinitializeDerivedValues(ModuleStateList)` (`:308`), private `RecomputeStaticMass` (`:778`),
+  `VehicleEditor.EditingSpace` (`:545`), `VehicleEditingSpace.Parts` (`:16`), `Vehicle.Parts` (`:604`,
+  property), `UpdateAfterPartTreeModification` (`:1881`, body identical), `Part.PositionParentAsmb` /
+  `Asmb2ParentAsmb` (`:752/:766`, bodies identical), `TreeChildren` (`:666`), `SubParts` (`:1079`),
+  `Universe.ExecuteNextVehicleSolvers` (`:1834`, body identical, single overload) — all unchanged.
+  `PartTree.cs`'s only diff is `UpdateRenderData` (`IViewport`) plus parachute line rendering.
+- ℹ️ **Semantic drift, no action:** `Part.ComputeBoundingBoxVehicleAsmb()` (`:1464`) was refactored into
+  `ComputeSubPartBoundingBox(inVehicleAsmb: true)` (`:1484`) and now accumulates **every**
+  `MeshViewModule` of each sub-part (`AccumulateMeshBounds`, `:1504`) instead of only the first, so the
+  bounds Flexo writes back into `BoundingBoxVehicleAsmb` (`:831`) may be slightly larger for multi-mesh
+  subparts. Signature/return type unchanged.
+- ✅ **`IvaForceRender.Patch` is wired in the supermod** (`unscience/Patcher.cs:74`); the
+  `KitchenSinkSolverPatch` prefix remains standalone-only (`kitchen-sink/Patcher.cs:24`), as before.
+- **Live pass wanted:** con-man Apply/Save at a non-100 % Hud Scale (carried over); Force IVA in the
+  editor after the `IViewport` retype; skittles theme apply at a non-100 % Interface Scale (carried
+  over from 5348).

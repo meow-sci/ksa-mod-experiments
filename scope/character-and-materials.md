@@ -8,17 +8,18 @@ sources **and** the Content shader tree, in both game builds.
 
 **Verified game versions**
 
-- NEW decomp `2026.6.9.4750` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\decomp`
-- OLD decomp `2026.6.8.4680` root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\decomp`
-- NEW Content root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies\current\Content`
-- OLD Content root: `C:\Users\Alex\repos\meow-sci\ksa-game-assemblies_2026.6.8.4680\current\Content`
+- NEW decomp `2026.9.7.5402` root: `~/repos/meow-sci/ksa-game-assemblies/current/decomp`
+- OLD decomp `2026.8.22.5348` root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp`
+- NEW Content root: `~/repos/meow-sci/ksa-game-assemblies/current/Content`
+- OLD Content root: `~/repos/meow-sci/ksa-game-assemblies_prev/current/Content`
 
 Paths in the **Decomp/Content path (NEW)** column are relative to the NEW decomp root
 (namespace-foldered, e.g. `KSA/PartModel.cs`) or the NEW Content root
 (e.g. `Core/Shaders/Mesh/MeshIndirect.vert`). **Mod code** paths are relative to the repo
-root `C:\Users\Alex\repos\meow-sci\unscience`. Every game target was grepped/read in BOTH
+root `~/repos/meow-sci/unscience`. Every game target was grepped/read in BOTH
 decomps and (for shaders) BOTH Content trees; "Δ vs OLD" records the real delta (line moves
-are not deltas).
+are not deltas). Line numbers in the tables were last refreshed against **5402**; earlier
+per-pass sections keep the line numbers of the build they were written against.
 
 **How these mods are hosted (all three)**
 
@@ -51,7 +52,8 @@ are not deltas).
 - **`StateBitFlag` bit map** (identical in the static, dynamic and glass structs): game uses bits **0..10** (0 highlighted · 1 grabbed · 2 fake-translucent · 3 selected · 4 edited-vehicle/no-celestial-shadow · 5 IVA/no-planet-shine · 6 no-emissive · 7 add-emissive-color · 8 selected-connected · 9 selected-disconnected · 10 fuel-flow highlight). **Bits 11..31 are free** and are what humble-arteest's Vehicle Paint uses.
 - **std430 stride is exactly 80 B in every variant** — the maximal enabled combination (static: `EMISSIVE`+`THIN_FILM`+`WETNESS`; dynamic: `TEMPERATURE`+`THIN_FILM`+`WETNESS`) fills it precisely, so there is **no spare trailing space** to append a field to. Any future per-instance mod data must reuse free bits, not new fields.
 - `KSA/MaterialData.cs` — **byte-identical**, `[StructLayout(Sequential, Pack=1)]`: `int AlbedoTexture`(0) `int NormalTexture`(4) `int RoughMetallicAOTexture`(8) `int Sampler`(12) `float4 AlbedoColor`(**16**) `float4 RoughnessMetalScale`(32) `float4 ExtraData`(48) `int EmissiveTexture`(64).
-- `KSA/CharacterAvatar.cs`, `KSA/CatExpressionAnim.cs`, `KSA/CatFurRenderable.cs`, `KSA/StaticMeshRenderable.cs`, `KSA/CharacterReference.cs`, `KSA/CharacterTexturesReference.cs`, `KSA/PbrMaterialReference.cs`, `KSA/GpuTextureSystem.cs`, `KSA/PartModelDynamicModule.cs` — all **byte-identical** OLD↔NEW.
+- `KSA/CharacterAvatar.cs`, `KSA/CatExpressionAnim.cs`, `KSA/CatFurRenderable.cs`, `KSA/StaticMeshRenderable.cs`, `KSA/CharacterReference.cs`, `KSA/CharacterTexturesReference.cs`, `KSA/PbrMaterialReference.cs`, `KSA/GpuTextureSystem.cs`, `KSA/PartModelDynamicModule.cs` — all **byte-identical** OLD↔NEW (4680↔4750).
+- **@5402 re-check:** `MaterialData` still byte-identical (the 80 B stride is `EmissiveTexture`(64) + `Padding0..2`(68-79)); both `PerInstanceData` structs byte-for-byte identical (`PartModel.cs:332-343`, `PartModelDynamic.cs:342-353`); `StateBitFlag` writers still stop at bit 10. `PartModel.AddInstance`/`PartModelDynamic.AddInstance` and the two `*Module.UpdateRenderData` now take `IViewport` (was `Viewport`) and `AddInstance` is gated on `ViewportOptionFlags.RenderPartModels` — see the 5348 → 5402 area summary.
 
 ---
 
@@ -76,37 +78,37 @@ Vehicle/character filterable combos, offset/count, color picker + XKCD combo, pe
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + sig / struct-offset) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
-| 1 | Reflection (private) | MaterialSystemAccessor.cs:53,56 | `KSA.Program` type; `Program.Instance` static prop | KSA/Program.cs:371 | ✅ | none (was :370) | singleton root |
-| 2 | Reflection | MaterialSystemAccessor.cs:63 | `Program.MaterialSystem : GpuMaterialSystem` (field) | KSA/Program.cs:94 | ✅ | none | |
+| 1 | Reflection (private) | MaterialSystemAccessor.cs:53,56 | `KSA.Program` type; `Program.Instance` static prop (`public static Program Instance { get; private set; }`) | KSA/Program.cs:453 | ✅ | none (was :434 @5348) | singleton root |
+| 2 | Reflection | MaterialSystemAccessor.cs:63 | `Program.MaterialSystem : GpuMaterialSystem` (`public readonly` field) | KSA/Program.cs:118 | ✅ | none (was :99 @5348) | |
 | 3 | Reflection (hierarchy) | MaterialSystemAccessor.cs:67 | `AssetManager<T>.AssetMap` (protected `ConcurrentDictionary<AssetName,T>`) | KSA/AssetManager.cs:11 | ✅ | none | walks base types |
 | 4 | Reflection | MaterialSystemAccessor.cs:71 | `GpuObjectSystem<T>.BigBuffer : BufferEx` (public get/protected set) | KSA/GpuObjectSystem.cs:18 | ✅ | none | |
 | 5 | Reflection (hierarchy) | MaterialSystemAccessor.cs:75 | `GpuObjectSystem<T>.DeviceCtx : IVulkanContext` (protected field) | KSA/GpuObjectSystem.cs:16 | ✅ | none | |
 | 6 | Reflection (hierarchy) | MaterialSystemAccessor.cs:78,123 | `GpuObjectSystem<T>.CreateObject(AssetName, T) : bool` | KSA/GpuObjectSystem.cs:45 | ✅ | none | `(AssetName)name, MaterialData` |
 | 7 | Reflection (hierarchy) | MaterialSystemAccessor.cs:81,151 | `AssetManager<T>.GetOrLoad(AssetName) : T` | KSA/AssetManager.cs:49 | ✅ | none | returns `GpuObjectAssetRef` |
 | 8 | Reflection | MaterialSystemAccessor.cs:154,183,249 | asset-ref `.Handle` (int) on `GpuObjectAssetRef` | KSA/GpuObjectAssetRef.cs | ✅ | none | map name→buffer index |
-| 9 | Reflection | MaterialSystemAccessor.cs:84,87,90 | `Program.SuperMeshRenderSystem`; `.TextureSystem : GpuTextureSystem`; `GpuTextureSystem.GetOrLoad` | KSA/Program.cs:96; SuperMeshRenderSystem.cs:39 | ✅ | none | texture bindless lookup |
+| 9 | Reflection | MaterialSystemAccessor.cs:84,87,90 | `Program.SuperMeshRenderSystem`; `.TextureSystem : GpuTextureSystem` (`public readonly`); `GpuTextureSystem.GetOrLoad` | KSA/Program.cs:120; SuperMeshRenderSystem.cs:40 | ✅ | none (5402 `SuperMeshRenderSystem.cs` diff is two-sided skinned techniques + `IViewport` only) | texture bindless lookup |
 | 10 | GPU write (Vulkan) | MaterialSystemAccessor.cs:282-295; KittenMaterialSet.cs:19,84 | `BufferEx.VkBuffer`; `IVulkanContext.Device.CreateStagingPool`; `VkUtils.StageAndUploadToBuffer`; `ByteSize.Of<MaterialData>()`; `Marshal.OffsetOf<MaterialData>(AlbedoColor)`=16 | KSA/MaterialData.cs:17; Brutal.Vulkan | ✅ | none | writes `float4` at `handle*80+16`; span→bytes via BCL `MemoryMarshal.AsBytes` (no `CommunityToolkit.HighPerformance` reference) |
 | 11 | Typed | MaterialFactory.cs:247-257 | `KSA.MaterialData` ctor fields (Albedo/Normal/RoughMetallicAO/Sampler/AlbedoColor/RoughnessMetalScale/Emissive/ExtraData) | KSA/MaterialData.cs:6-23 | ✅ | none | `Pack=1`, identical |
-| 12 | Reflection | MaterialFactory.cs:219 | `ModLibrary.Get<PbrMaterialReference>(string)` | KSA/ModLibrary.cs:968 | ✅ | none (was :860) | |
+| 12 | Reflection | MaterialFactory.cs:219 | `ModLibrary.Get<PbrMaterialReference>(string)` | KSA/ModLibrary.cs:1042 | ✅ | none (was :1040 @5348) | |
 | 13 | Typed | MaterialFactory.cs:382,390 | `ModLibrary.Get<CharacterReference>`; `CharacterReference.CharacterTextures : CharacterTexturesReference` | KSA/CharacterReference.cs:32 | ✅ | none (file identical) | |
 | 14 | Reflection | MaterialFactory.cs:406-408 | `CharacterTexturesReference.{CharacterBodyMaterial,CharacterHeadMaterial,CharacterEyeMaterial} : PbrMaterialReference` | KSA/CharacterTexturesReference.cs:9,12,15 | ✅ | none (file identical) | |
 | 15 | Reflection | MaterialFactory.cs:413-418,242-245 | `PbrMaterialReference.{DiffuseReference,NormalReference,PBRMap,EmissiveMap,Id}`; non-generic `.Get()` | KSA/PbrMaterialReference.cs:9-18 | ✅ | none (file identical) | `.BindlessHandle` off resolved `TextureReference` |
 | 16 | Reflection | MaterialFactory.cs:504-525 | `Program.CharacterRenderSystem`; `CharacterRenderSystem._resources : CharacterRenderResources`; `.FurTexture/.CatFurMaskTexture` (`.BindlessHandle`), `.FurSampler` (`.BindlessIndex`) | KSA/CharacterRenderSystem.cs:7; CharacterRenderResources.cs:24-30 | ✅ | fields none; file diff is internal shader wiring only (see below) | fur `ExtraData` handles |
 | 17 | Reflection | MaterialFactory.cs:541-577,592-593 | `GpuTextureSystem.{SamplerRepeatHandle,DefaultWhiteTexture,DefaultBlackTexture}`; `SuperMeshRenderSystem.GltfSystem`; `GltfPbrSystem.BlankMaterialTexture.BindlessHandle` | KSA/GpuTextureSystem.cs:26,32,34; GltfPbrSystem.cs:31 | ✅ | none (GpuTextureSystem.cs identical) | default-texture fallbacks |
-| 18 | Reflection (internal field) | KittenSpawner.cs:322,329,333 | `ModLibrary.AllParts` (internal static `SerializedCollection<PartTemplate>`); `.Find(KeyHash) : PartTemplate` | KSA/ModLibrary.cs:86; SerializedCollection.cs:37 | ✅ | none (was :85) | `"KittenBackPackPart"` |
-| 19 | Reflection (internal field) | KittenSpawner.cs:347,354,357 | `ModLibrary.AllCharacters` (internal static `SerializedCollection<CharacterReference>`); `.GetList() : List<T>` | KSA/ModLibrary.cs:90; SerializedCollection.cs:42 | ✅ | none (was :89) | character enumeration |
-| 20 | Typed | KittenSpawner.cs:156 | `new KittenEva(CelestialSystem, string, doubleQuat, double3, IParentBody, string, Part, Orbit)` | KSA/KittenEva.cs:27 | ✅ | none (was :25) | 8-arg ctor identical |
-| 21 | Typed (pattern) | KittenSpawner.cs:13-21 | mirrors `EVADoor.CreateKittenEva(Vehicle)` | KSA/EVADoor.cs:84 | ✅ | none (was :65; call shape identical) | |
-| 22 | Typed | KittenSpawner.cs:278-289 | `new Part(id, PartTemplate)`; `Part.Tree.ReinitializeDerivedValues/RefillConsumables`; `Part.SubtreeModules.Get<Tank>()`; `Tank.ConfigureFor(IReactantMix)` | KSA/Tank.cs:382 | ✅ | none | backpack/propellant |
-| 23 | Typed | KittenSpawner.cs:281 | `SubstanceLibrary.TryGetCombustionProcess(KeyHash)`; `KeyHash.Make` | KSA/SubstanceLibrary.cs:122 | ✅ | none | `"MMH_NTO_1.6"` |
-| 24 | Typed | KittenSpawner.cs:169,258 | `Orbit.CreateFromStateCci(IParentBody, SimTime, double3, double3, byte4)`; `Orbit.OrbitLineColor` | KSA/Orbit.cs:1396 | ✅ | none | |
-| 25 | Typed | KittenSpawner.cs:56,121,167 | `Universe.CurrentSystem : CelestialSystem?`; `Universe.GetElapsedSimTime() : SimTime` | KSA/Universe.cs:92,1991 | ✅ | none | |
-| 26 | Typed | KittenSpawner.cs:231,239-242,230 | `Vehicle.GetAsmb2Cci()`; `.Body2Cce`; `.BodyRates`; `.Parent`; `.Orbit.StateVectors`(`.PositionCci/.VelocityCci`); `double3.Transform(doubleQuat)` | KSA/Vehicle.cs:2247,423,458 | ✅ | none | spawn positioning |
-| 27 | Typed | KittenSpawner.cs:171,174,175 | `KittenEva.Teleport(Orbit?,doubleQuat?,double3?)`; `IParentBody.Children.Add`; `Vehicle.UpdatePerFrameData()` | KSA/Vehicle.cs:1594,1972 | ✅ | none | |
-| 28 | Typed | KittenSpawner.cs:62,67,68 | `CelestialSystem.All.TryGet(string,out Astronomical)`; `CelestialSystem.Deregister(Vehicle)`; `Vehicle.Dispose()` | KSA/CelestialSystem.cs; Vehicle.cs | ✅ | none | despawn |
-| 29 | Reflection | KittenSpawner.cs:506,513 | `KittenEva._renderable : KittenRenderable` → `._characterAvatar : CharacterAvatar` (both private) | KSA/KittenRenderable.cs:10 | ✅ | none | avatar root |
-| 30 | Reflection (field path) | KittenSpawner.cs:388-408,523-537 | `CharacterAvatar.Core.CharacterModel.MaterialIndices`; `.Fur.CatFurRenderable.MaterialIndices`; `.Attachments.Helmet.HelmetMesh/.VisorMesh.MaterialIndices`; `.Attachments.Mmu.MmuMesh.MaterialIndices` | KSA/CharacterAvatar.cs (identical); AnimatedRenderable.cs:33; CatFurRenderable.cs:22; StaticMeshRenderable.cs:31 | ✅ | none | `MaterialIndices` is `protected int[]` on each renderable; in-place handle swap |
-| 31 | Typed (context) | — (not referenced) | `KittenEva.IsControllable => true` / `Vehicle.IsControllable` (virtual) | KSA/KittenEva.cs:15; Vehicle.cs:526 | ✅ | **ADDED in NEW (rev 4699)** — absent in OLD | informational: spawned kittens now controllable; not a break |
+| 18 | Reflection (internal field) | KittenSpawner.cs:341,348 | `ModLibrary.AllParts` (internal static `SerializedCollection<PartTemplate>`); `.Find(KeyHash) : PartTemplate` | KSA/ModLibrary.cs:86; SerializedCollection.cs:37 | ✅ | none | `"KittenBackPackPart"` (`:275`) |
+| 19 | Reflection (internal field) | KittenSpawner.cs:366,373 | `ModLibrary.AllCharacters` (internal static `SerializedCollection<CharacterReference>`); `.GetList() : List<T>` | KSA/ModLibrary.cs:100; SerializedCollection.cs:42 | ✅ | none (line was already `:100` @5348) | character enumeration |
+| 20 | Typed | KittenSpawner.cs:156-164 | `new KittenEva(CelestialSystem system, string characterId, doubleQuat body2Cce, double3 bodyRates, IParentBody parent, string id, Part root, Orbit orbit)` | KSA/KittenEva.cs:78 | ✅ | none (5402 `KittenEva.cs` diff is `UpdateRenderData(IViewport)`, `UpdateHighlight(IGameViewport)` + new `DrawHud` only) | 8-arg ctor identical |
+| 21 | Typed (pattern) | KittenSpawner.cs:13-21 | mirrors `EVADoor.CreateKittenEva(Vehicle, IVASeat, KittenRosterEntryData)` (private) | KSA/EVADoor.cs:194 | ✅ | none (file byte-identical 5348↔5402) | call shape mirrored, not invoked |
+| 22 | Typed | KittenSpawner.cs:275-289 | `new Part(id, PartTemplate)` (`Part.cs:1386`); `Part.Tree.ReinitializeDerivedValues/RefillConsumables` (`PartTree.cs:302,793`); `Part.SubtreeModules.Get<Tank>()`; `Tank.ConfigureFor(ReactantMix, bool recreateResourceManagers = true)` | KSA/Tank.cs:804 | ✅ | none (`Tank.cs` byte-identical) | backpack/propellant |
+| 23 | Typed | KittenSpawner.cs:281,301-306 | `SubstanceLibrary.TryGetReaction(KeyHash)` → `MixtureReaction.AtMixtureRatio(DefaultMixtureRatio).ReactantMix`; `KeyHash.Make` | KSA/SubstanceLibrary.cs:218 | ✅ | none (`SubstanceLibrary.cs` byte-identical; `TryGetCombustionProcess` removed at 5018) | `"MMH_NTO"` |
+| 24 | Typed | KittenSpawner.cs:168-169,258 | `Orbit.CreateFromStateCci(IParentBody, UniverseTime, double3, double3, byte4)`; `Orbit.OrbitLineColor : byte4` | KSA/Orbit.cs:1563,1138 | ✅ | none (`Orbit.cs` differs elsewhere only) | |
+| 25 | Typed | KittenSpawner.cs:56,121,167,257 | `Universe.CurrentSystem : CelestialSystem?`; `Universe.GetElapsedTime() : UniverseTime` | KSA/Universe.cs:94,2114 | ✅ | none (was `:2060` @5348) | `GetElapsedSimTime` was renamed at 5211 — fixed then |
+| 26 | Typed | KittenSpawner.cs:231,239-242,230 | `Vehicle.GetAsmb2Cci()`; `.Body2Cce`; `.BodyRates`; `.Parent`; `.Orbit.StateVectors`(`.PositionCci/.VelocityCci`); `double3.Transform(doubleQuat)` | KSA/Vehicle.cs:3110,475,510,372 | ✅ | none (line moves) | spawn positioning |
+| 27 | Typed | KittenSpawner.cs:171,174,175 | `KittenEva.Teleport(Orbit?,doubleQuat?,double3?)`; `IParentBody.Children.Add` (`IParentBody.cs:27`); `Vehicle.UpdatePerFrameData()` (override) | KSA/Vehicle.cs:2209,2613 | ✅ | none (line moves) | |
+| 28 | Typed | KittenSpawner.cs:61,67,68 | `CelestialSystem.All.TryGet(string,out Astronomical)` (`All :64`); `CelestialSystem.Deregister(Astronomical)` (`:91`, takes the `Vehicle` by upcast); `Vehicle.Dispose()` | KSA/CelestialSystem.cs:64,91; Vehicle.cs | ✅ | none (5402 `CelestialSystem.cs` diff is the internal `AstronomicalRef` lookup only) | despawn |
+| 29 | Reflection | KittenSpawner.cs:525,532 | `KittenEva._renderable : KittenRenderable` (`KittenEva.cs:15`) → `._characterAvatar : CharacterAvatar` (both private) | KSA/KittenEva.cs:15; KSA/KittenRenderable.cs:12 | ✅ | none | avatar root |
+| 30 | Reflection (field path) | KittenSpawner.cs:388-430,538-575 | `CharacterAvatar.Core.CharacterModel.MaterialIndices`; `.Fur.CatFurRenderable.MaterialIndices`; `.Attachments.Helmet.HelmetMesh/.VisorMesh.MaterialIndices`; `.Attachments.Mmu.MmuMesh.MaterialIndices` | KSA/CharacterAvatar.cs:211,32,219/61,213/107,109,128; AnimatedRenderable.cs:34; CatFurRenderable.cs:22; StaticMeshRenderable.cs:31 | ✅ | 5402 additive only: `CharacterCore.HeadMeshIndices : List<int>` (`CharacterAvatar.cs:46`, from `CharacterCoreReference.HeadMeshIndices` `:21-22` / `CharacterAssets.xml:244-251`); `AnimatedRenderable.{PrePassIgnoreMeshIndices,MaskedMeshIndices,HideMaskedMeshes}` (`:62-66`) | `MaterialIndices` is `protected readonly int[]` on each renderable; in-place handle swap. ℹ️ `KittenRenderable.HideHead` (`:98`, set by `IVASeat.cs:103` when the camera is in that seat) masks the head meshes and skips the fur draw (`:355-360`) — cosmetic, the handle swap is untouched |
+| 31 | Typed (context) | — (not referenced) | `KittenEva.IsControllable => true` / `Vehicle.IsControllable` (virtual) | KSA/KittenEva.cs:63; Vehicle.cs:588 | ✅ | **ADDED (rev 4699)** | informational: spawned kittens now controllable; not a break |
 
 ### Game assets referenced
 
@@ -217,22 +219,22 @@ rebuild, which is what recompiles the part pipelines.
 |---|---|---|---|---|---|---|---|
 | A1 | Harmony PREFIX | VehiclePaintPatches.cs `ResolveFromFile`/`FromFilePrefix` | `RenderCore.ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags shaderStage, CompileOptions? options) : VkShaderModule` (**static**) | RenderCore/ShaderModuleUtils.cs:115 | ✅ | n/a (new seam) | The only interception point that works ≥4693: part pipelines recompile per variant straight from disk. Prefix returns `true` (stock behavior) for every non-target path and on any error |
 | A2 | Typed call | VehiclePaintPatches.cs `FromFilePrefix` | `ShaderModuleUtils.FromString(Device, ReadOnlySpan<byte>, VkShaderStageFlags, CompileOptions?, ReadOnlySpan<byte> debugName)`; `ShaderStageFromFileExtension(string)` | RenderCore/ShaderModuleUtils.cs:77,198 | ✅ | n/a (new) | `debugName` = the original file path (NUL-terminated) so relative `#include`s resolve exactly as stock; `options` passed through unmodified |
-| A3 | Harmony PREFIX | VehiclePaintPatches.cs `PartModelModulePrefix` | `PartModelModule.UpdateRenderData(in double4x4, bool, Viewport, int) : void`; reads `Module<T>.Parent : Part` | KSA/PartModelModule.cs:79; KSA/Module.cs:419 | ✅ | none | Records which `Part` is about to submit; it is the **only** caller of `PartModel.AddInstance` |
-| A4 | Harmony PREFIX | VehiclePaintPatches.cs `PartModelDynamicModulePrefix` | `PartModelDynamicModule.UpdateRenderData(in double4x4, bool, Viewport, int) : void` | KSA/PartModelDynamicModule.cs:55 | ✅ | none | Same hand-off for dynamic parts; only caller of `PartModelDynamic.AddInstance` |
-| A5 | Harmony PREFIX | VehiclePaintPatches.cs `AddInstancePrefix` | `PartModel.AddInstance(PerInstanceData instanceData, Viewport, int) : void` — ORs paint into `instanceData.StateBitFlag` | KSA/PartModel.cs:375 (struct :299-310) | ✅ | none | Binds by param name `instanceData`; **no** `Unsafe.As` mirror struct any more — writes the public field directly |
-| A6 | Harmony PREFIX | VehiclePaintPatches.cs `AddInstanceDynamicPrefix` | `PartModelDynamic.AddInstance(PerInstanceData inInstanceData, Viewport, int) : void` | KSA/PartModelDynamic.cs:379 (struct :309-320) | ✅ | none | Param name `inInstanceData` |
-| A7 | Typed | VehiclePaintShaders.cs `RequestRendererRebuild` | `Program.RendererRebuildNeeded : bool` (public static) | KSA/Program.cs:383 (consumed at :2080 `PrepareFrame`) | ✅ | n/a (new) | The game's own deferred-rebuild flag — the same path a Frost/Water graphics-setting change takes, so pipelines are destroyed at a frame boundary, not mid-record |
-| A8 | Typed | VehiclePaintShaders.cs `TryResolveShaderPath` | `ModLibrary.Get<ShaderReference>("MeshIndirectFrag")` → `FileReference.ModPath : string` | KSA/PartModelRenderer.cs:109; KSA/FileReference.cs:23 | ✅ | none | Pre-flight check only, so a shader change fails visibly at "Enable" instead of silently |
+| A3 | Harmony PREFIX | VehiclePaintPatches.cs:49-50,160-164 `PartModelModulePrefix` | `PartModelModule.UpdateRenderData(in double4x4, bool, IViewport viewport, int) : void`; reads `Module<T>.Parent : Part` | KSA/PartModelModule.cs:87; KSA/Module.cs:419 | ✅ | 5402: `Viewport`→`IViewport` (single overload, resolved by name → no impact); light-switch test collapsed to `Parent.FullPart.IsLightSwitchedOff()` (`:106-108`, still bit 6) | Records which `Part` is about to submit. Callers of `PartModel.AddInstance`: this (`:155`) **and** `KSA.Rendering.Thumbnails/ThumbnailPart.cs:226` (thumbnails, `StateBitFlag = 0`, no `UpdateRenderData` → `_pendingPart` is null → unpainted, harmless) |
+| A4 | Harmony PREFIX | VehiclePaintPatches.cs:51-52,166-170 `PartModelDynamicModulePrefix` | `PartModelDynamicModule.UpdateRenderData(in double4x4, bool, IViewport viewport, int) : void` | KSA/PartModelDynamicModule.cs:55 | ✅ | 5402: `Viewport`→`IViewport`; same `IsLightSwitchedOff()` collapse (`:97-99`) | Same hand-off for dynamic parts; callers of `PartModelDynamic.AddInstance`: this (`:127`) and `ThumbnailPart.cs:231` (same null-slot guard) |
+| A5 | Harmony PREFIX | VehiclePaintPatches.cs:53-54,174-178 `AddInstancePrefix` | `PartModel.AddInstance(PerInstanceData instanceData, IViewport viewport, int frameIndex) : void` — ORs paint into `instanceData.StateBitFlag` | KSA/PartModel.cs:408 (struct :332-343) | ✅ | 5402: `Viewport`→`IViewport`; new early-return `if (!viewport.HasAny(ViewportOptionFlags.RenderPartModels)) return;` (`:410`) runs **after** the prefix — the pending slot is still consumed, nothing leaks | Binds by param name `instanceData` (unchanged); **no** `Unsafe.As` mirror struct any more — writes the public field directly |
+| A6 | Harmony PREFIX | VehiclePaintPatches.cs:55-56,180-184 `AddInstanceDynamicPrefix` | `PartModelDynamic.AddInstance(PerInstanceData inInstanceData, IViewport viewport, int inFrameIndex) : void` | KSA/PartModelDynamic.cs:412 (struct :342-353) | ✅ | 5402: `Viewport`→`IViewport`; same `RenderPartModels` gate (`:414`) | Param name `inInstanceData` (unchanged) |
+| A7 | Typed | VehiclePaintShaders.cs:108 `RequestRendererRebuild` | `Program.RendererRebuildNeeded : bool` (public static) | KSA/Program.cs:431 (consumed at :2097 `PrepareFrame`) | ✅ | none (line moves) | The game's own deferred-rebuild flag — the same path a Frost/Water graphics-setting change takes, so pipelines are destroyed at a frame boundary, not mid-record |
+| A8 | Typed | VehiclePaintShaders.cs:256-257 `TryResolveShaderPath` | `ModLibrary.Get<ShaderReference>("MeshIndirectFrag")` → `FileReference.ModPath : string` | KSA/PartModelRenderer.cs:110,195; KSA/FileReference.cs:23 | ✅ | none | Pre-flight check only, so a shader change fails visibly at "Enable" instead of silently |
 | A9 | **Shader text edit** (in memory) | VehiclePaintShaders.cs `Inject`/`BuildSnippet` | `MeshIndirect.frag` **and** `MeshIndirectRaytraced.frag` — anchor = first line starting `vec3 sampledColor` and ending `;`; also requires the `inStateFlags` varying | Content/Core/Shaders/Mesh/MeshIndirect.frag:114; MeshIndirectRaytraced.frag:156 | ✅ | n/a (new anchors) | Anchored on the albedo *declaration*, not an exact line, so incidental upstream edits do not break it. Snippet appends after the sample so paint flows through thin film / frost / PBR. Uses `gammaToLinear` (Common/Shared.glsl:203) |
-| A10 | **Per-instance bit budget** | VehiclePaint.cs `EncodeBits` (`PaintBitShift`=11, 7:7:7) | `PerInstanceData.StateBitFlag` **bits 11..31** — game writes only bits 0..10 | writers: KSA/PartModelModule.cs:82-133, PartModelDynamicModule.cs:81-107; readers: MeshIndirect.frag:308-353, MeshIndirectRaytraced.frag:290-333 | ✅ | none | 🔶 **The one thing to re-check on every game update:** if KSA starts using bit 11 or above, paint and that feature will corrupt each other. `RayTraceInstance.StateFlags` is `int` (RaytracingRenderer.cs:32), so the bits survive the RT path too |
-| A11 | Typed | PaintTargets.cs | `Program.Editor : VehicleEditor?`; `VehicleEditor.EditingSpace.Parts : PartTree?`; `.UnattachedPartTrees : List<PartTree>`; `PartTree.Parts : ReadOnlySpan<Part>`; `Part.SubParts/Id/DisplayName/Modules` | KSA/Program.cs:202; VehicleEditor.cs:407,529; PartTree.cs:80; Part.cs:622 | ✅ | n/a (new) | Enumerates paint targets in both flight (via `VehicleProvider`) and the editor — mirrors the two sources `Program` itself walks at :4019-4029 |
-| B1 | Reflection | KittenColor.cs:55-73 | `Program.Instance`→`MaterialSystem`→`AssetMap`/`BigBuffer`/`DeviceCtx` (same chain as doh #1-5) | KSA/Program.cs:94; GpuObjectSystem.cs:16,18; AssetManager.cs:11 | ✅ | none | |
-| B2 | GPU write (Vulkan) | KittenColor.cs:191-215 | `BigBuffer.VkBuffer` + `VkUtils.StageAndUploadToBuffer` at `handle*ByteSize.Of<MaterialData>() + OffsetOf(AlbedoColor=16)` | KSA/MaterialData.cs:17 | ✅ | none | tints fur/body/eyes; span→bytes via BCL `MemoryMarshal.AsBytes` (no `CommunityToolkit.HighPerformance` reference) |
-| B3 | Shader path (read-only) | (effect) KittenColor.cs concept | `ModelPbr.frag` → `MaterialSet.glsl`: `albedo = mat.albedoColor * texture(...)`; alpha `discard` | Content/Core/Shaders/Mesh/ModelPbr.frag; Common/MaterialSet.glsl | ✅ | MaterialSet.glsl **identical**; ModelPbr.frag differs only in SSAO ordering (rev 4671) | tint path intact |
-| C1 | Harmony PREFIX | EngineEmissivePatches.cs:40,51,70 | `PartModelDynamic.AddInstance(PerInstanceData inInstanceData, Viewport, int) : void` (prefix `ref … inInstanceData`) | KSA/PartModelDynamic.cs:379 | ✅ | **none** (PartModelDynamic.cs byte-identical) | param name `inInstanceData` matches |
-| C2 | Struct reinterpret (`Unsafe.As`) | EngineEmissivePatches.cs:29-36,77-80 | `PartModelDynamic.PerInstanceData` — writes `Temperature`@**68**, `TfiThickness`@**72** | KSA/PartModelDynamic.cs:309-319 | ✅ | **none** (identical) | ✅ mirror struct matches **exactly** |
-| C3 | Typed | EngineEmissive.cs:123,129,159 | `Part.Modules.Get<PartModelDynamicModule>()`; `PartModelDynamicModule.PartModelDynamic` (`required`) | KSA/PartModelDynamicModule.cs:32 | ✅ | none (file identical) | engine discovery via `PartHelpers.GetAllParts` |
-| C4 | Shader path (read-only) | (effect) — no mod edit | Temperature→emissive LUT logic, formerly `DynamicMeshIndirect.frag`, now `MeshIndirect.frag` under `#ifdef ENABLE_TEMPERATURE` | Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219 (vert:18-20,71-73) | ✅ | **MOVED** (4693): `DynamicMeshIndirect.frag/.vert` files **removed**; dynamic pipeline now compiles `MeshIndirectVert/Frag` with `ENABLE_TEMPERATURE` (PartModelRenderer.cs:170-171, was DynamicMeshIndirect* :156-157) | ✅ feature still works — game still reads `PerInstanceData.Temperature` |
+| A10 | **Per-instance bit budget** | VehiclePaint.cs:41,228-235 `EncodeBits` (`PaintBitShift`=11, 7:7:7) | `PerInstanceData.StateBitFlag` **bits 11..31** — game writes only bits 0..10 | writers: KSA/PartModelModule.cs:90-116, PartModelDynamicModule.cs:81-99, PartModelGlassModule.cs:82-86; readers: MeshIndirect.frag:312-353, MeshIndirectRaytraced.frag:291-333 | ✅ | none @5402 — writers still `<<0..3`, `<<8..10`, `0x10..0x80`; thumbnails write `StateBitFlag = 0` | 🔶 **The one thing to re-check on every game update:** if KSA starts using bit 11 or above, paint and that feature will corrupt each other. `RayTraceInstance.StateFlags` is `int` (RaytracingRenderer.cs:32, copied at :1107), so the bits survive the RT path too |
+| A11 | Typed | PaintTargets.cs:63,73-74,132-135,144,155 | `Program.Editor : VehicleEditor?`; `VehicleEditor.EditingSpace : VehicleEditingSpace` → `.Parts : PartTree?`; `.UnattachedPartTrees : List<PartTree>`; `PartTree.Parts : ReadOnlySpan<Part>`; `Part.SubParts/Id/DisplayName/Modules` | KSA/Program.cs:226; VehicleEditor.cs:545,689; VehicleEditingSpace.cs:16; PartTree.cs:95; Part.cs:1079,698,700,680 | ✅ | none (line moves) | Enumerates paint targets in both flight (via `VehicleProvider`) and the editor — mirrors the two sources `Program` itself walks |
+| B1 | Reflection | KittenColor.cs:58-73 | `Program.Instance`→`MaterialSystem`→`AssetMap`/`BigBuffer`/`DeviceCtx` (same chain as doh #1-5) | KSA/Program.cs:453,118; GpuObjectSystem.cs:16,18; AssetManager.cs:11 | ✅ | none | |
+| B2 | GPU write (Vulkan) | KittenColor.cs:204-214 | `BigBuffer.VkBuffer` + `VkUtils.StageAndUploadToBuffer` at `handle*ByteSize.Of<MaterialData>() + OffsetOf(AlbedoColor=16)` | KSA/MaterialData.cs:17 | ✅ | none (file byte-identical) | tints fur/body/eyes; span→bytes via BCL `MemoryMarshal.AsBytes` (no `CommunityToolkit.HighPerformance` reference) |
+| B3 | Shader path (read-only) | (effect) KittenColor.cs concept | `ModelPbr.frag` → `MaterialSet.glsl`: `albedo = mat.albedoColor * texture(...)` (`:31`); alpha `discard` (`ModelPbr.frag:67`) | Content/Core/Shaders/Mesh/ModelPbr.frag:65-75; Common/MaterialSet.glsl:31 | ✅ | MaterialSet.glsl **identical**; ModelPbr.frag @5402 adds only `faceNorm = gl_FrontFacing ? inNormal : -inNormal` (`:70-73`, two-sided parachute canopy) — albedo path untouched | tint path intact |
+| C1 | Harmony PREFIX | EngineEmissivePatches.cs:46-47,57,76-78 | `PartModelDynamic.AddInstance(PerInstanceData inInstanceData, IViewport viewport, int inFrameIndex) : void` (prefix `ref … inInstanceData`) | KSA/PartModelDynamic.cs:412 | ✅ | 5402: `Viewport`→`IViewport` + `RenderPartModels` gate (`:414`, after the prefix) — resolved by name, single overload → no impact | param name `inInstanceData` matches |
+| C2 | Struct reinterpret (`Unsafe.As`) | EngineEmissivePatches.cs:34-42,83-86 | `PartModelDynamic.PerInstanceData` — writes `Temperature`@**68**, `TfiThickness`@**72** | KSA/PartModelDynamic.cs:342-353 | ✅ | **none** (struct byte-identical; game use of bytes 68–79 unchanged: `MeshIndirect.vert:82 outTemperature = instanceData.Temperature`) | ✅ mirror struct matches **exactly** |
+| C3 | Typed | EngineEmissive.cs:123,129,159 | `Part.Modules.Get<PartModelDynamicModule>()`; `PartModelDynamicModule.PartModelDynamic` (`required`) | KSA/PartModelDynamicModule.cs:32 | ✅ | none | engine discovery via `PartHelpers.GetAllParts` |
+| C4 | Shader path (read-only) | (effect) — no mod edit | Temperature→emissive LUT logic, formerly `DynamicMeshIndirect.frag`, now `MeshIndirect.frag` under `#ifdef ENABLE_TEMPERATURE` | Content/Core/Shaders/Mesh/MeshIndirect.frag:46-48 (decl: `inTemperature`@loc7, `temperatureLut` binding 9), :297-304 (LUT sample); vert:46-47,81-82 | ✅ | **MOVED** (4693): `DynamicMeshIndirect.frag/.vert` files **removed**; dynamic pipeline now compiles `MeshIndirectVert/Frag` with `ENABLE_TEMPERATURE` (PartModelRenderer.cs:197,209). Both shader files byte-identical 5348↔5402 | ✅ feature still works — game still reads `PerInstanceData.Temperature` |
 
 ### Game assets referenced
 
@@ -338,16 +340,16 @@ Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim
 | 10 | Typed | KittenAnimationDriver.cs | `CatEarAnim.ExpressionWeight : float` | KSA/CatEarAnim.cs:13 | ✅ | game sets it once at construction; mod value holds |
 | 11 | Typed | KittenAnimationDriver.cs | `CatEyeAnim.{MaxLookAtAngle, LookPitchOffsetDeg} : float` | KSA/CatEyeAnim.cs:22,24 | ✅ | `LookPitchOffsetDeg` is rewritten every frame by `UpdateLocomotionAnimationState`, so it is re-applied from the pose prefix |
 | 12 | Typed | KittenAnimationDriver.cs | `CatExpressionAnim.ExpressionWeight : float` on the personality + reactive processors | KSA/CatExpressionAnim.cs:12 | ✅ | reactive weight is damped from acceleration every frame in `UpdateRenderData`, so it can only be **capped**, never held |
-| 13 | Typed | KittenExpressionController.cs | `new CatExpressionAnim { CharacterAvatar, ExpressionAnim, ExpressionWeight, Priority }` appended to `AnimatedRenderable.AnimProcessors : List<IAnimProcessor>` | KSA/CatExpressionAnim.cs:8; CatPostAnim.cs:10,12; AnimatedRenderable.cs:47 | ✅ | **mod-owned processor** — required because the game rewrites its own. `CharacterAvatar` is a `required` member on `CatPostAnim` |
-| 14 | Reflection (private, cached `FieldInfo`) | KittenExpressionController.cs | `CatExpressionAnim._expressionPose : TransformTRS[]?` (set null to bust the sampled-pose cache) | KSA/CatExpressionAnim.cs:16 | ✅ | now busted on the mod's **own** processor; cache logic at `UpdateLocalPose` |
-| 15 | Typed | KittenExpressionController.cs | `CharacterAvatar.Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | KSA/CharacterAvatar.cs:192-200 | ✅ | per-variant selection, not just a random pick |
-| 16 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.MmuAnimations.{MmuIdleDefaultAnim, MmuIdleActionsAnim, MmuMove{Left,Right,Forward,Backward,Up,Down}LoopAnim, MmuArmRetractAnim}` | KSA/CharacterAvatar.cs:158-177 | ✅ | `MmuIdleActionsAnim` list + `MmuArmRetractAnim` are new to the mod this pass |
-| 17 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.{BlinkAnim, HelmetMaskAnim} : AnimationAssetRef?` | KSA/CharacterAvatar.cs:149,151 | ✅ | overlay poses |
+| 13 | Typed | KittenExpressionController.cs | `new CatExpressionAnim { CharacterAvatar, ExpressionAnim, ExpressionWeight, Priority }` appended to `AnimatedRenderable.AnimProcessors : List<IAnimProcessor>` | KSA/CatExpressionAnim.cs:8; CatPostAnim.cs:10,12; AnimatedRenderable.cs:52 | ✅ | **mod-owned processor** — required because the game rewrites its own. `CharacterAvatar` is a `required` member on `CatPostAnim` |
+| 14 | Reflection (private, cached `FieldInfo`) | KittenExpressionController.cs:27-28 | `CatExpressionAnim._expressionPose : TransformTRS[]?` (set null to bust the sampled-pose cache) | KSA/CatExpressionAnim.cs:16 | ✅ | now busted on the mod's **own** processor; cache logic at `UpdateLocalPose`. File byte-identical 5348↔5402 |
+| 15 | Typed | KittenExpressionController.cs | `CharacterAvatar.Expressions.{Angry,Awe,Happy,Sad,Scared} : List<AnimationAssetRef>?` | KSA/CharacterAvatar.cs:194-202 | ✅ | per-variant selection, not just a random pick |
+| 16 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.MmuAnimations.{MmuIdleDefaultAnim, MmuIdleActionsAnim, MmuMove{Left,Right,Forward,Backward,Up,Down}LoopAnim, MmuArmRetractAnim}` | KSA/CharacterAvatar.cs:162-178 | ✅ | `MmuIdleActionsAnim` list + `MmuArmRetractAnim` are new to the mod this pass |
+| 17 | Typed | KittenAnimationCatalog.cs | `CharacterAvatar.Animations.{HelmetMaskAnim, BlinkAnim} : AnimationAssetRef?` | KSA/CharacterAvatar.cs:151,153 | ✅ | overlay poses |
 | 18 | Typed | KittenAnimationCatalog.cs | `AnimationAssetRef.{Id, AnimLength, LoopPeriod}`; `IAnimation.{AnimLength, LoopPeriod}` | KSA/AnimationAssetRef.cs:8-16; IAnimation.cs:7 | ✅ | `Id` needs a `Planet.Core` assembly reference (`Core.AssetName`) |
-| 19 | Harmony prefix | KittenAnimationPatches.cs | `AnimatedRenderable.UpdateAnimation(double dt)` — `(AnimatedRenderable __instance, ref double dt)` | KSA/AnimatedRenderable.cs:123 | ✅ | **the whole override mechanism**; runs for every animated renderable in the scene |
-| 20 | Typed | KittenAnimationDriver.cs | `AnimatedRenderable.{SetAnimation(IAnimation, float), PlayAnimation(IAnimation, float), FreezeAnimation}` | KSA/AnimatedRenderable.cs:113,118,53 | ✅ | `SetAnimation` is a no-op when the clip is already current (`BoneAnimRuntime.SetAnimation:92`), so it is safe per frame |
-| 21 | Typed | KittenAnimationsSubmod.cs | `CharacterAvatar.Core.CharacterModel : AnimatedRenderable`; `CharacterAvatar.Personality` | KSA/CharacterAvatar.cs:209,32,219 | ✅ | model identity is what the prefix matches on |
-| 22 | Typed (mutating global) | TuningSection.cs | `KittenLocomotionTuning.Current` (public static field) + `Default`; fields `AnimBlendTime`, `IdleSpeedThreshold`, `PlaybackRateMin/Max`, `Walk/Run/Ladder/TumbleClipNominalSpeed`, `Moonwalk*`, `NominalSwimAnimSpeed`, `SwimBlendFullSpeed/HalfLife`, `SwimEyePitchFactor`, `JumpLandDuration`, `JumpLandBounceIgnoreTime`, `LadderEyePitchDeg` | KSA/KittenLocomotionTuning.cs:5-221 | ✅ | **global** — affects every kitten. The game ships the full editor at menu bar → Debug → Kitten Tuning (`Program.cs:3589`) |
+| 19 | Harmony prefix | KittenAnimationPatches.cs:31-39 | `AnimatedRenderable.UpdateAnimation(double dt)` — `(AnimatedRenderable __instance, ref double dt)` | KSA/AnimatedRenderable.cs:134 | ✅ | **the whole override mechanism**; runs for every animated renderable in the scene. 5402: single overload, signature unchanged; new early-out `if (SkinningPoseIsViewportInvariant && _lastSkinningFrameNumber == Program.FrameNumber)` (`:140-144`) — the flag (`:42`) is only ever set by `ChuteRenderable.cs:28` (parachutes), never on the kitten body model, so the prefix's per-frame behaviour is unchanged for the kitten |
+| 20 | Typed | KittenAnimationDriver.cs | `AnimatedRenderable.{SetAnimation(IAnimation, float), PlayAnimation(IAnimation, float), FreezeAnimation}` | KSA/AnimatedRenderable.cs:124,129,58 | ✅ | `SetAnimation` is a no-op when the clip is already current (`KSA/BoneAnimRuntime.SetAnimation`), so it is safe per frame |
+| 21 | Typed | KittenAnimationsSubmod.cs | `CharacterAvatar.Core.CharacterModel : AnimatedRenderable`; `CharacterAvatar.Personality` | KSA/CharacterAvatar.cs:211,32,221 | ✅ | model identity is what the prefix matches on |
+| 22 | Typed (mutating global) | TuningSection.cs | `KittenLocomotionTuning.Current` (public static field) + `Default`; fields `AnimBlendTime`, `IdleSpeedThreshold`, `PlaybackRateMin/Max`, `Walk/Run/Ladder/TumbleClipNominalSpeed`, `Moonwalk*`, `NominalSwimAnimSpeed`, `SwimBlendFullSpeed/HalfLife`, `SwimEyePitchFactor`, `JumpLandDuration`, `JumpLandBounceIgnoreTime`, `LadderEyePitchDeg` | KSA/KittenLocomotionTuning.cs:5-221 | ✅ | **global** — affects every kitten. The game ships the full editor at menu bar → Debug → Kitten Tuning (`Program.cs:3718`) |
 | 23 | Typed | TuningSection.cs | `KittenLocomotion.{ComputeMoonwalkWeight(float, in KittenLocomotionTuning), ResolveSwimBlend(float, in KittenLocomotionTuning)}` | KSA/KittenLocomotion.cs:24,476 | ✅ | derived-weight readout only |
 
 ### Game assets referenced
@@ -378,7 +380,7 @@ Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim
   catalog collects the misses in `UnresolvedFields`, logs them once on bind and shows a red warning in
   the UI, so a game update degrades visibly instead of quietly dropping buttons.
 - ✅ **`CharacterAvatar.Animations.WalkingAnimations` is superseded — deliberately dropped.**
-  `InitalizeFromCharacterRef` (`CharacterAvatar.cs:403-406`) only ever assigns `WalkingAnim` (a
+  `InitalizeFromCharacterRef` (`CharacterAvatar.cs:406-408` @5402) only ever assigns `WalkingAnim` (a
   duplicate of the ground walk clip) and **never assigns `RunningAnim`**, so the mod's old "Running"
   button was a permanent no-op. Run now comes from `CharacterGroundAnimations.AnimRun` via
   `KittenRenderable._groundRunAnim`.
@@ -442,3 +444,68 @@ Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim
 - ℹ️ Additive kitten work this span, no binding impact: seated idle + fidget (5268), MMU fold-away (5269),
   low-gravity walk/run (5284), swimming + `KittenLocomotion` swim state (5314), crew-portrait bone
   tracking and FOV (5270/5273), vehicle destruction now kills crew (5316).
+
+---
+
+## Area summary — Update-risk findings (5348 → 5402)
+
+Revisions 5349–5400 are **unlogged** in any KSA changelog (only rev 5401 "Fixed crash for incorrect
+data stride for thumbnail rendering" is logged), so this pass is source-diff-only. Solution builds
+clean against 5402 (63 projects, 0 warnings, 0 errors). **No code change was needed in this area.**
+
+- ✅ **The `Viewport` → `IViewport` rework is a no-op for every Harmony seam here.**
+  `PartModelModule.UpdateRenderData` (`:87`), `PartModelDynamicModule.UpdateRenderData` (`:55`),
+  `PartModel.AddInstance` (`:408`) and `PartModelDynamic.AddInstance` (`:412`) all changed their
+  viewport parameter type only; parameter **names** are unchanged, each has a single overload, and
+  humble-arteest resolves them with `AccessTools.Method(type, name)` and binds only `__instance` /
+  `ref … instanceData` / `ref … inInstanceData`. Both `AddInstance`s gained
+  `if (!viewport.HasAny(ViewportOptionFlags.RenderPartModels)) return;` (`PartModel.cs:410`,
+  `PartModelDynamic.cs:414`) — it runs **after** the prefixes, so the `_pendingPart` hand-off is still
+  consumed 1:1 and nothing leaks across submissions. `MAIN_GAME`, `SECONDARY_GAME`, `PART_THUMBNAIL`
+  and `CHARACTER_PORTRAIT` presets all include `RenderPartModels` (`ViewportPresets.cs:5-11`).
+- ✅ **GPU byte layouts identical.** `MaterialData.cs` byte-identical (`AlbedoColor`@16, 80 B stride
+  incl. `Padding0..2`), so doh's and Kitten Color's `handle*80+16` staged writes still land.
+  `PartModel.PerInstanceData` (`:332-343`) and `PartModelDynamic.PerInstanceData` (`:342-353`) are
+  byte-for-byte identical to 5348; the game's use of bytes 68–79 (`EmissiveColor`/`packing1`/`Wetness`,
+  `Temperature`/`TfiThickness`/`Wetness`) is unchanged, so Engine Emissive's mirror struct is exact.
+- ✅ **`StateBitFlag` bits 11..31 invariant holds.** Writers (`PartModelModule.cs:90-116`,
+  `PartModelDynamicModule.cs:81-99`, `PartModelGlassModule.cs:82-86`) still stop at bit 10; the only
+  body change is the light-switch test collapsing to `Parent.FullPart.IsLightSwitchedOff()` (still bit
+  6). Readers `MeshIndirect.frag:312-353` / `MeshIndirectRaytraced.frag:291-333` unchanged;
+  `RayTraceInstance.StateFlags` still `int`. Correction to A3/A4: `ThumbnailPart.cs:226,231` is a second
+  caller of both `AddInstance`s (with `StateBitFlag = 0`, no `UpdateRenderData`) — the null
+  `_pendingPart` guard already covers it, so thumbnails are simply unpainted.
+- ✅ **Shaders.** `MeshIndirect.vert`, `MeshIndirect.frag`, `MeshIndirectRaytraced.frag`,
+  `MeshGlassIndirect(.Raytraced).frag`, `Common/MaterialSet.glsl`, `Common/Shared.glsl` and
+  `Selected.comp` are **byte-identical** 5348↔5402 — the `vec3 sampledColor` anchors (`:114` / `:156`),
+  `inStateFlags`, `gammaToLinear` (`:203`) and the `ENABLE_TEMPERATURE` LUT (`:46-48`, `:297-304`) are
+  all in place; mesh-deform's `MeshIndirect.vert` probe still self-disables exactly as before.
+  `ModelPbr.frag` gained only a `gl_FrontFacing` normal flip for the new two-sided parachute canopy
+  (`:70-73`); the albedo path Kitten Color/doh depend on (`:65-75`, `MaterialSet.glsl:31`) is untouched.
+- ✅ **The KittenEva reflection chain is intact and still field-shaped.** `KittenEva` (type-name
+  compare) → `_renderable` (`:15`, private field) → `KittenRenderable._characterAvatar` (`:12`, private
+  field) → `CharacterAvatar.Core` (`public CharacterCore Core;`, `:211`, `public struct` at `:30`) →
+  `CharacterCore.Scale` (`public float Scale = 0.01f;`, `:34`). `CatExpressionAnim.cs`, `CatEyeAnim.cs`,
+  `CatEarAnim.cs`, `CatPostAnim.cs`, `CatFurRenderable.cs`, `StaticMeshRenderable.cs` are byte-identical;
+  all 17 `KittenRenderable` private animation/sampler fields (`:30-38`, `:42-72`) and
+  `KittenEva.{Renderable,LocomotionState,ControlMode,AnimPlaybackRate,AnimJumpChainStage,
+  AnimJumpChainCountdown}` (`:51-67`) and the 8-arg ctor (`:78`) are unchanged.
+- ℹ️ **Additive character changes, no binding impact.** `CharacterCore.HeadMeshIndices : List<int>`
+  (`CharacterAvatar.cs:46`, loaded from the new `<HeadMeshIndices>` in `CharacterAssets.xml:244-251`
+  via `CharacterCoreReference.cs:21-22`); `KittenRenderable.HideHead` (`:98`, set by `IVASeat.cs:103`
+  when the camera is in that seat) masks the head meshes and skips the fur draw (`:355-360`);
+  `AnimatedRenderable.{SkinningPoseIsViewportInvariant, PrePassIgnoreMeshIndices, MaskedMeshIndices,
+  HideMaskedMeshes}` (`:42`, `:62-66`) and a two-sided skinned depth technique in the ctor (`:89`).
+  doh's `MaterialIndices` handle swap and garrys-torch's boxed `Core` write-back are unaffected (the
+  extra reference-typed member in the struct copies through `SetValue`).
+- ✅ **kitten-animations' `UpdateAnimation` prefix is unaffected by the new skinning cache.**
+  `AnimatedRenderable.UpdateAnimation(double)` (`:134`) keeps its signature and single overload; the
+  new `SkinningPoseIsViewportInvariant` early-out (`:140-144`) is only ever armed by
+  `ChuteRenderable.cs:28`. The `_lastPoseUpdateFrameNumber` gate (`:147`) is unchanged; the skeleton
+  local pose is now re-applied from `_processedPose` on every call (`:170-174`), which is benign for
+  the mod's forced clip and mod-owned expression processor.
+- 🔍 **Needs a live pass:** (a) doh recolour still lands on body/head/fur/helmet/MMU, including with a
+  seated kitten whose head is hidden in its own seat cam; (b) Vehicle Paint / Engine Emissive on a
+  vehicle rendered in a secondary viewport (both `AddInstance` gates + per-viewport `UpdateRenderData`
+  pairing); (c) kitten-animations forced clips + expressions on screen (still outstanding from the 5348
+  pass); (d) cloned materials with raytracing on (carried over from 5261→5348).

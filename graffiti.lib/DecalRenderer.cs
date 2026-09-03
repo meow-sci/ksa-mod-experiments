@@ -399,7 +399,7 @@ internal sealed unsafe class DecalRenderer : IDisposable
             commandBuffer.BindPipeline(VkPipelineBindPoint.Graphics, _pipeline);
             Program.SetViewport(commandBuffer);
 
-            var globalOffset = (ByteSize32)GlobalShaderBindings.DynamicOffset(Program.MainViewport.Index);
+            var globalOffset = (ByteSize32)GlobalShaderBindings.DynamicOffset(Program.MainViewport.ShaderSlot);
             var globalSet = GlobalShaderBindings.DescriptorSet;
             commandBuffer.BindDescriptorSets(VkPipelineBindPoint.Graphics, _pipelineLayout, 0,
                 new ReadOnlySpan<VkDescriptorSet>(ref globalSet),
