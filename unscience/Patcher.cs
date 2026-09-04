@@ -16,6 +16,7 @@ using MeowSci.KiwisMarblesLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
+using MeowSci.FreeFallinLib;
 using MeowSci.HotPursuitLib;
 using MeowSci.PyroLib;
 
@@ -78,6 +79,7 @@ internal static class Patcher
         TryApply("kitten-animations", () => KittenAnimationPatches.Apply(_harmony!));
         TryApply("pyro", () => PyroPatches.Apply(_harmony!));
         TryApply("graffiti", () => GraffitiPatches.Apply(_harmony!));
+        TryApply("free-fallin", () => FreeFallinPatches.Apply(_harmony!));
         TryApply("hot-pursuit", () => HotPursuitPatches.Apply(_harmony!));
         Console.WriteLine("unscience: Harmony patches applied");
     }
@@ -119,6 +121,7 @@ internal static class Patcher
                 TryRemove("kitten-animations", () => KittenAnimationPatches.Remove(_harmony!));
                 TryRemove("pyro", () => PyroPatches.Remove(_harmony!));
                 TryRemove("graffiti", () => GraffitiPatches.Remove(_harmony!));
+                TryRemove("free-fallin", () => FreeFallinPatches.Remove(_harmony!));
                 TryRemove("hot-pursuit", () => HotPursuitPatches.Remove(_harmony!));
             }
             VehiclePaint.Cleanup();

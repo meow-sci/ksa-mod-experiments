@@ -7,6 +7,9 @@ umbrella mod. Start with [`REPOSITORY_INDEX.md`](REPOSITORY_INDEX.md) for the co
 The current camera experiments include `hot-pursuit`: click a vehicle part to mount a live feed in
 one of KSA's stock secondary viewports, then tune its part-local pose, FOV, and resolution.
 
+The parachute experiments include `free-fallin`: globally tint the stock canopy, replace its albedo
+with a PNG or composite a centered decal onto it, and tune its PBR response.
+
 To install dependencies:
 
 ```bash

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MeowSci.FreeFallinLib</AssemblyName>
+    <RootNamespace>MeowSci.FreeFallinLib</RootNamespace>
+    <Description>Free Fallin core — global parachute texture, tint, and PBR customization.</Description>
+    <PackageId>MeowSci.FreeFallinLib</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Core.Common" Condition="Exists('$(KSAFolder)Brutal.Core.Common.dll')"><HintPath>$(KSAFolder)Brutal.Core.Common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Core.Numerics" Condition="Exists('$(KSAFolder)Brutal.Core.Numerics.dll')"><HintPath>$(KSAFolder)Brutal.Core.Numerics.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Core.Strings" Condition="Exists('$(KSAFolder)Brutal.Core.Strings.dll')"><HintPath>$(KSAFolder)Brutal.Core.Strings.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.ImGui" Condition="Exists('$(KSAFolder)Brutal.ImGui.dll')"><HintPath>$(KSAFolder)Brutal.ImGui.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.ImGui.Abstractions" Condition="Exists('$(KSAFolder)Brutal.ImGui.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.ImGui.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Texture" Condition="Exists('$(KSAFolder)Brutal.Texture.dll')"><HintPath>$(KSAFolder)Brutal.Texture.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Texture.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Texture.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Texture.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Ktx" Condition="Exists('$(KSAFolder)Brutal.Ktx.dll')"><HintPath>$(KSAFolder)Brutal.Ktx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Vulkan" Condition="Exists('$(KSAFolder)Brutal.Vulkan.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.Vulkan.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Vulkan.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Planet.Core" Condition="Exists('$(KSAFolder)Planet.Core.dll')"><HintPath>$(KSAFolder)Planet.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Planet.Render.Core" Condition="Exists('$(KSAFolder)Planet.Render.Core.dll')"><HintPath>$(KSAFolder)Planet.Render.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="KSA" Condition="Exists('$(KSAFolder)KSA.dll')"><HintPath>$(KSAFolder)KSA.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

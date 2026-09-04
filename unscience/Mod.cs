@@ -28,6 +28,7 @@ using MeowSci.RedAlertLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
+using MeowSci.FreeFallinLib;
 using MeowSci.HotPursuitLib;
 using MeowSci.PyroLib;
 using MeowSci.RockyMcRockFaceLib;
@@ -74,6 +75,7 @@ public class Mod
             _submods.Add(new DohSubmod());
             _submods.Add(new DontStifleMeSubmod());
             _submods.Add(new EternalFlameSubmod());
+            _submods.Add(new FreeFallinSubmod());
             _submods.Add(new GarrysTorchSubmod());
             _submods.Add(new GeeForceSubmod());
             _submods.Add(new GlassSubmod());

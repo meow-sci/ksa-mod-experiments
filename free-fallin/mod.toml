@@ -1,0 +1,7 @@
+name = "free-fallin"
+description = "Customize every parachute canopy's texture, tint, and PBR material"
+version = "0.1.0"
+author = "meow sci"
+
+[StarMap]
+EntryAssembly = "MeowSci.FreeFallin"
