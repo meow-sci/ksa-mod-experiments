@@ -100,7 +100,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
 | [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
 | [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
-| [`camera.md`](camera.md) | camera-controller-override, glass, hot-pursuit | `OrbitController/FlyController/FixedController.OnFrame`, `Camera._fovRadians`; four public secondary-viewport leases under the sealed 8-slot registry; part-raycast camera mounts |
+| [`camera.md`](camera.md) | camera-controller-override, glass, hot-pursuit | `OrbitController/FlyController/FixedController.OnFrame`, `Camera._fovRadians`; four public secondary-viewport leases under the sealed 8-slot registry; part-raycast camera mounts; Hot Pursuit nearby-celestial sync and stock secondary-render omissions |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor` (**doh @5402**: spawn/despawn now `JobSystems.VehicleSolver.Wait()` before touching the shapes registry), `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
@@ -139,9 +139,11 @@ items, one game-side regression.**
   the way `Vehicle.AddVolumetricExhaustInstances` does.
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
-- **hot-pursuit (new)** — public secondary-viewport leasing and the part-relative camera pose compile
-  against 5402; needs live checks for scaled/robotic parts, target destruction/debris handoff,
-  terrain clamping, Glass coexistence, slot contention, and close/reopen lease behavior.
+- **hot-pursuit** — nearby-celestial synchronization now prevents the 5402 secondary distant-sphere
+  artifact after each mounted pose; the stock secondary renderer still omits particle and volumetric
+  exhaust passes, so engine plumes are not expected. Live checks remain for scaled/robotic parts,
+  target destruction/debris handoff, terrain clamping, Glass coexistence, slot contention, and
+  close/reopen lease behavior.
 - **pyro (and the game) — refraction is dead in 5402.** Nothing sets `_hasRefractionInstances` any
   more, so pyro's Refraction slider is inert. Game-side; confirm on a stock engine.
 - **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed.

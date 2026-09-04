@@ -95,11 +95,17 @@ one of KSA's stock secondary viewports for a live feed welded to that exact surf
   visibility, close/reopen, and removal controls
 - Uses KSA's public `ViewportRegistry.TryClaimSecondaryViewport` ownership API and stock viewport
   rendering/window; no custom Vulkan path
+- Synchronizes each mounted camera's public nearby-celestial, distance, terrain-height, and altitude
+  state after writing its ECL pose, preventing KSA's distant-sphere pass from drawing the nearby body
+  as a dark-grey plane/sphere
+- KSA 5402's stock `Program.RenderViewport` omits particle, volumetric-exhaust, main
+  planet/ocean/cloud, part-glass, and overall-bloom passes for secondary viewports, so these feeds
+  are not complete copies of the main renderer; engine plumes and generic particles remain absent
 - Shares the four preallocated secondary slots with stock Add Camera and docking cameras; KSA's
   eight-slot registry is sealed after startup, so four is the absolute extra-camera ceiling
 - Missing/despawned targets become safely dormant; closed viewport windows release their lease
-- `hot-pursuit.lib`: `HotPursuitSubmod`, camera/owner state, ray picker, part-relative pose math, and
-  `HotPursuitPatches` (selective `FixedController.OnFrame` prefix)
+- `hot-pursuit.lib`: `HotPursuitSubmod`, camera/owner state, ray picker, part-relative pose math,
+  `HotPursuitCelestialState`, and `HotPursuitPatches` (selective `FixedController.OnFrame` prefix)
 - Session-only state; standalone F11 window and unscience `ISubmod` integration
 
 ### [camera-controller-override](camera-controller-override) / [camera-controller-override.lib](camera-controller-override.lib)

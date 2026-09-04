@@ -164,8 +164,14 @@ docking cameras, or another mod.
   `Part.MatrixAsmb2Ego`, converts the point from
   the main camera's ego frame to ECL, transforms tangents normally and the surface normal by the
   inverse-transpose (then re-orthogonalizes the basis for non-uniform scale), then
-  writes `Camera.PositionEcl` and `WorldRotation`. The postfix runs before `GameViewport.OnFrame`
-  calls `Camera.OnFrame`, so view/frustum data is baked from the current part pose without UI-hook lag.
+  writes `Camera.PositionEcl` and `WorldRotation`. Immediately after writing `PositionEcl`, it
+  applies the same public terrain clamp that `Camera.OnFrame` is about to apply, then
+  `HotPursuitCelestialState.Synchronize` calls `Program.FindNearbyCelestial` for that secondary
+  camera, mirrors KSA's 80,000 km surface-distance rejection, and fills the camera's public
+  distance, terrain-height, and current-altitude fields. This prevents the nearby body from also
+  entering `StaticCelestialDistanceRendering` as a distant sphere. The prefix runs before
+  `GameViewport.OnFrame` calls `Camera.OnFrame`, so view/frustum data is baked from the current
+  part pose without UI-hook lag.
 
 **Integration points**
 
@@ -174,10 +180,11 @@ docking cameras, or another mod.
 | 1 | Harmony selective prefix (explicit signature; typed arg) | `hot-pursuit.lib/HotPursuitPatches.cs` | `FixedController.OnFrame(IViewport,double)` | `KSA/FixedController.cs:22` | Keystone timing seam. Returns false only for a registry-confirmed owned viewport; missing/stale leases run stock. Caller still invokes `Camera.OnFrame` immediately afterward. |
 | 2 | Direct viewport lease API | `HotPursuitSubmod.cs` | `ViewportRegistry.{AvailableSecondaryCount,TryClaimSecondaryViewport(IViewportOwner,out IGameViewport),TryGetOwned,ReleaseSecondaryViewport(IViewportOwner)}` | `KSA/ViewportRegistry.cs:54,181,213,246` | Four shared leases; reset-on-claim/release means all settings are reapplied. Allocation is sealed and capped at 8. |
 | 3 | Direct viewport configuration | `HotPursuitSubmod.cs`, `.Ui.cs` | `IGameViewport.{SetName,SetCameraMode,SetResizeAllowed,RequestResize,SetVisible,BaseCamera}`; `CameraMode.Fixed` | `KSA/IGameViewport.cs`; `KSA/IViewport.cs`; `KSA/CameraMode.cs` | Stock render targets and ImGui window. Closing `DrawImGui` releases the lease. |
-| 4 | Direct camera API | `HotPursuitSubmod.cs`, `HotPursuitPose.cs` | `Camera.{SetFollow(...changeControl:false),SetFieldOfView(float),PositionEcl,WorldRotation,LookAtRotation}` | `KSA/Camera.cs:597,412,110,134,198` | `changeControl:false` is load-bearing: true would change the controlled vehicle. `Camera.OnFrame` can terrain-clamp low mounts to 0.5 m AGL. |
+| 4 | Direct camera API | `HotPursuitSubmod.cs`, `HotPursuitPose.cs`, `HotPursuitCelestialState.cs` | `Camera.{SetFollow(...changeControl:false),SetFieldOfView(float),PositionEcl,WorldRotation,LookAtRotation,ClampCamera,NearbyCelestial,DistanceToNearbyCelestialKm,DistanceToNearbyCelestialSurfaceMeanKm,NearbyCelestialTerrainHeight,CurrentAltitudeKm}` | `KSA/Camera.cs:31-37,71,110,134,198,412,597,628` | `changeControl:false` is load-bearing: true would change the controlled vehicle. Hot Pursuit applies the public 0.5 m AGL terrain clamp before synchronizing celestial metrics; `Camera.OnFrame` repeats the now-idempotent clamp immediately afterward. |
 | 5 | Direct picking API | `HotPursuitPicker.cs` | `Cursor.GetEgoRay(IViewport)`; `Part.RayCastEgo(...)`; `Vehicle.{BoundingSphereRadiusBody,GetMatrixAsmb2Ego(Camera)}` | `KSA/Cursor.cs:27`; `KSA/Part.cs:2398`; `KSA/Vehicle.cs` | Same-frame main cursor ray. Hit position/normal belong to the returned closest sub-part, not necessarily the top-level part. Terrain is deliberately unsupported. |
 | 6 | Direct part transform/addressing | `HotPursuitCamera.cs`, `HotPursuitPose.cs`, `HotPursuitSubmod.cs` | `Part.{InstanceId,SubParts,MatrixAsmb2Ego}`; `Vehicle.Id`; `Universe.CurrentSystem` via `VehicleProvider` | `KSA/Part.cs:321,655,1165`; `KSA/Astronomical.cs:85` | Stable id re-resolution makes missing/failed/staged targets dormant rather than dereferencing destroyed objects. Full matrix includes scale and articulated sub-part parents. |
-| 7 | Lifecycle/shared input guard | `hot-pursuit/Mod.cs`, `Patcher.cs`; unscience host | StarMap attributes; `HotkeyGuard` | StarMap / abstraction | No game assets or custom shaders. |
+| 7 | Direct nearby-celestial lookup | `hot-pursuit.lib/HotPursuitCelestialState.cs` | `Program.FindNearbyCelestial(Camera)` | `KSA/Program.cs:5037` | KSA's `OnFrameCelestials` updates only `Program.GetCamera()` (the main/frame camera); Hot Pursuit explicitly performs the equivalent lookup for its owned secondary camera after `PositionEcl`. |
+| 8 | Lifecycle/shared input guard | `hot-pursuit/Mod.cs`, `Patcher.cs`; unscience host | StarMap attributes; `HotkeyGuard` | StarMap / abstraction | No game assets or custom shaders. |
 
 **Compatibility and live-test risks**
 
@@ -185,9 +192,14 @@ docking cameras, or another mod.
   viewport cameras. This preserves Hot Pursuit's per-camera FOV; re-check both together after camera
   changes.
 - `Camera.OnFrame` calls terrain clamping, so a hull mount below 0.5 m AGL will be raised.
-- Secondary viewports are full scene renders and expensive. Some global effects/shadows are not
-  identical to the main view; verify vehicles, atmosphere, plumes, night lighting, scaled/robotic
-  parts, target destruction/debris handoff, closing/reopening, and simultaneous docking cameras live.
+- Secondary viewports are substantial additional scene renders and expensive, but KSA 5402's
+  `Program.RenderViewport` does not run `ParticleSystem`, `VolumetricExhaustRenderer`, the main
+  planet/ocean/cloud pipeline, part-glass, or overall-bloom passes. Engine plumes and generic
+  particles are therefore absent by design; those game-owned passes bind main-camera
+  targets/resources and are not safe to inject from Hot Pursuit. Other effects/shadows are not
+  guaranteed identical to the main view; verify the nearby-body artifact, vehicles, night lighting,
+  scaled/robotic parts, target destruction/debris handoff, closing/reopening, and simultaneous
+  docking cameras live.
 - No reflection, assets, shaders, or custom Vulkan resources are used by Hot Pursuit itself.
 
 ---

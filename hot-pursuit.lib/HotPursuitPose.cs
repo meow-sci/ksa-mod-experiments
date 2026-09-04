@@ -64,9 +64,15 @@ internal static class HotPursuitPose
             return false;
         upEcl /= upLength;
 
-        ownedViewport.BaseCamera.PositionEcl = positionEcl;
-        ownedViewport.BaseCamera.WorldRotation = Camera.LookAtRotation(forwardEcl, upEcl);
-        ownedViewport.BaseCamera.SetFieldOfView(entry.FieldOfView);
+        var camera = ownedViewport.BaseCamera;
+        camera.PositionEcl = positionEcl;
+        // GameViewport calls Camera.OnFrame after this prefix, which terrain-clamps the camera.
+        // Clamp once now as well so the celestial metrics below describe the final render pose;
+        // Camera.OnFrame's second clamp is then idempotent.
+        camera.ClampCamera();
+        HotPursuitCelestialState.Synchronize(camera);
+        camera.WorldRotation = Camera.LookAtRotation(forwardEcl, upEcl);
+        camera.SetFieldOfView(entry.FieldOfView);
         return true;
     }
 
