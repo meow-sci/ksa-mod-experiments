@@ -1,0 +1,37 @@
+# graffiti.lib
+
+Core implementation for the standalone `graffiti` mod and the `unscience` umbrella mod. It places
+session-scoped projected PNG decals on vehicle art meshes, deployed parachute cloth, KittenEva
+avatars, and celestial terrain.
+
+## Main components
+
+- `GraffitiSubmod` owns lifecycle, public placement/removal APIs, anchor resolution, and UI state.
+- `DecalPicker` (plus `DecalPicker.Parachute`) casts the cursor ray against live parachute cloth triangles, vehicle part meshes,
+  KittenEva bounding spheres, and finally the nearby body's CPU terrain surface.
+- `DecalAnchors` recomposes part-local, cloth-barycentric, or geodetic anchors into ego-space
+  projection boxes every frame.
+- `DecalRenderer` and `DecalShaders` implement the post-resolve projected-decal Vulkan pass.
+- `DecalTextures`, `DecalLibrary`, and `FileBrowser` manage imported PNGs and GPU residency.
+- `GraffitiPatches` installs the `RenderTarget.ResolveAttachments` postfix used by both hosts.
+
+## Parachute behavior
+
+KSA renders a canopy outside the normal `Part` view-mesh hierarchy. Graffiti therefore builds a
+240-triangle CPU pick proxy from `Parachute.ClothPositionsFront` using the stock 8-ring × 16-spoke
+topology. A hit stores its three cloth-node indices and barycentric coordinates. On later frames,
+the anchor point and normal are rebuilt from those live nodes so the projection follows reefing,
+inflation, and flutter. Canopy resolution uses the module runtime id with a parent-part id plus
+canopy-index fallback for scene reloads.
+
+The visible canopy is a bone-skinned GLB driven by the cloth nodes, not the literal proxy mesh.
+Normal decal projection depth covers their small surface difference. See
+[`../scope/decals.md`](../scope/decals.md) for all game integration dependencies and live-test risks.
+
+## Build
+
+Build the repository solution from the root:
+
+```bash
+dotnet build ksa-mod-experiments.slnx
+```

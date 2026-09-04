@@ -9,14 +9,14 @@ namespace MeowSci.GraffitiLib;
 /// <summary>
 /// Graffiti — click-to-place PNG decals. Pick a PNG from the decal library (imported through a
 /// file browser or dropped into <c>.unscience/decals</c> by hand), arm placement, click anywhere
-/// in the 3D world, and a projected decal is painted onto the vehicle hull or terrain under the
+/// in the 3D world, and a projected decal is painted onto the vehicle, parachute, or terrain under the
 /// cursor. This file holds state, lifecycle, the per-frame driver and the public API; the ImGui
 /// panels live in the partial files.
 /// </summary>
 public sealed partial class GraffitiSubmod : ISubmod
 {
     public string Name => "Graffiti - PNG Decals";
-    public string Tooltip => "Paint your own PNG decals onto vehicle hulls and terrain with a click.";
+    public string Tooltip => "Paint PNG decals onto vehicles, deployed parachutes, and terrain with a click.";
 
     public static GraffitiSubmod? Instance { get; private set; }
 
@@ -126,8 +126,8 @@ public sealed partial class GraffitiSubmod : ISubmod
     // ---- public API ----
 
     /// <summary>
-    /// Raycasts from the mouse cursor into the world and places a decal on the nearest vehicle
-    /// hull or terrain hit within <paramref name="range"/> metres.
+    /// Raycasts from the mouse cursor into the world and places a decal on the nearest vehicle,
+    /// deployed parachute, or terrain hit within <paramref name="range"/> metres.
     /// </summary>
     /// <param name="imageName">A decal library file name (see <see cref="DecalLibrary"/>).</param>
     /// <param name="range">Maximum hit distance, metres.</param>
@@ -164,6 +164,13 @@ public sealed partial class GraffitiSubmod : ISubmod
             Kind = pick.Kind,
             TargetId = pick.Kind == DecalAnchorKind.Terrain ? pick.Body!.Id : pick.Vehicle!.Id,
             PartInstanceId = pick.Part?.InstanceId ?? 0,
+            ParachuteInstanceId = pick.Parachute?.InstanceId ?? 0,
+            ParachuteCanopyIndex = pick.ParachuteCanopyIndex,
+            ClothNodeA = pick.ClothNodeA,
+            ClothNodeB = pick.ClothNodeB,
+            ClothNodeC = pick.ClothNodeC,
+            ClothBarycentric = pick.ClothBarycentric,
+            ClothNormalSign = pick.ClothNormalSign,
             Position = pick.Position,
             Normal = pick.Normal,
             // The picker's rotation is the "reads upright from here" default; the caller's roll
@@ -178,6 +185,7 @@ public sealed partial class GraffitiSubmod : ISubmod
             Brightness = Math.Clamp(brightness, 0.01, 8.0),
             Vehicle = pick.Vehicle,
             Part = pick.Part,
+            Parachute = pick.Parachute,
             Body = pick.Body,
             TextureHandle = handle.Value,
             TextureState = DecalTextureState.Ready,
@@ -247,6 +255,22 @@ public sealed partial class GraffitiSubmod : ISubmod
         var vehicle = system?.Get(entry.TargetId) as Vehicle;
         entry.Vehicle = vehicle;
         entry.Part = vehicle == null ? null : FindPart(vehicle, entry.PartInstanceId);
+        entry.Parachute = entry.Kind == DecalAnchorKind.Parachute && vehicle != null
+            ? FindParachute(vehicle, entry.ParachuteInstanceId, entry.PartInstanceId,
+                entry.ParachuteCanopyIndex)
+            : null;
+    }
+
+    private static Parachute? FindParachute(Vehicle vehicle, ulong instanceId, uint partInstanceId,
+        int canopyIndex)
+    {
+        foreach (var parachute in vehicle.Parts.Modules.Get<Parachute>())
+            if (parachute.InstanceId == instanceId)
+                return parachute;
+        foreach (var parachute in vehicle.Parts.Modules.Get<Parachute>())
+            if (parachute.Parent.InstanceId == partInstanceId && parachute.CanopyIndex == canopyIndex)
+                return parachute;
+        return null;
     }
 
     /// <summary>Finds a part or sub-part by its stable instance id; null once it is gone.</summary>
@@ -350,6 +374,8 @@ public sealed partial class GraffitiSubmod : ISubmod
     {
         if (entry.Kind == DecalAnchorKind.Terrain)
             return $"{entry.TargetId} ({entry.Position.X:0.00}°, {entry.Position.Y:0.00}°)";
+        if (entry.Kind == DecalAnchorKind.Parachute)
+            return $"{entry.TargetId}/parachute";
         var part = entry.Part != null ? $"/{entry.Part.Id}" : "";
         return $"{entry.TargetId}{part}";
     }

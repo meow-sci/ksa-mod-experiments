@@ -82,7 +82,7 @@ public sealed partial class GraffitiSubmod
     {
         var dl = ImGui.GetForegroundDrawList();
         var pos = ImGui.GetMousePos() + new float2(18f, 18f);
-        ImString hint = $"place '{_armedDecalName}' — click a vehicle or terrain (Esc cancels)";
+        ImString hint = $"place '{_armedDecalName}' — click a vehicle, parachute, or terrain (Esc cancels)";
         dl.AddText(pos + new float2(1f, 1f), ImColor8.Black, hint);
         dl.AddText(pos, ImColor8.White, hint);
     }

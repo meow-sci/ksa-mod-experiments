@@ -54,7 +54,9 @@ internal static class DecalAnchors
     internal static bool TryCompose(DecalEntry entry, Camera camera)
         => entry.Kind == DecalAnchorKind.Terrain
             ? TryComposeTerrain(entry, camera)
-            : TryComposeVehicle(entry, camera);
+            : entry.Kind == DecalAnchorKind.Parachute
+                ? TryComposeParachute(entry, camera)
+                : TryComposeVehicle(entry, camera);
 
     /// <summary>
     /// Geodetic anchor: the decal sits on the terrain at (lat, lon), its +z along the local
@@ -139,22 +141,55 @@ internal static class DecalAnchors
             return false;
         var axisZ = entry.Normal / normalLength;
 
-        // "PNG up" defaults to the part's own +Y projected onto the decal's tangent plane, so a
-        // decal on the side of a stack reads upright along the stack. When +Y IS the normal
-        // (a decal on a nose cone's tip, say) that projection vanishes and +X stands in.
-        if (!TryTangent(double3.UnitY, axisZ, out var axisY) && !TryTangent(double3.UnitX, axisZ, out axisY))
+        var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
+        var partMatrix = part.MatrixAsmb2Ego(in vehicleMatrix);
+        return FinishVehicleLike(entry, entry.Position, axisZ, partMatrix);
+    }
+
+    /// <summary>Follows a live canopy triangle by recomputing its barycentric point and normal.</summary>
+    private static bool TryComposeParachute(DecalEntry entry, Camera camera)
+    {
+        if (entry.Vehicle is not { } vehicle || entry.Parachute is not { } parachute
+            || parachute.ClothPositionsFront is not { } positions)
+            return false;
+        var maxNode = Math.Max(entry.ClothNodeA, Math.Max(entry.ClothNodeB, entry.ClothNodeC));
+        if (entry.ClothNodeA < 0 || entry.ClothNodeB < 0 || entry.ClothNodeC < 0
+            || maxNode >= positions.Length)
+            return false;
+
+        var a = double3.Unpack(in positions[entry.ClothNodeA]);
+        var b = double3.Unpack(in positions[entry.ClothNodeB]);
+        var c = double3.Unpack(in positions[entry.ClothNodeC]);
+        var position = a * entry.ClothBarycentric.X + b * entry.ClothBarycentric.Y
+                       + c * entry.ClothBarycentric.Z;
+        var normal = double3.Cross(b - a, c - a) * entry.ClothNormalSign;
+        var normalLength = normal.Length();
+        if (!double.IsFinite(normalLength) || normalLength <= 0)
+            return false;
+        normal /= normalLength;
+
+        var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
+        var attachAsmb = double3.Unpack(in parachute.AttachLocationPartAsmb)
+            .Transform(parachute.Parent.MatrixAsmb2VehicleAsmb);
+        var local2Ego = double4x4.CreateTranslation(attachAsmb) * vehicleMatrix;
+        return FinishVehicleLike(entry, position, normal, local2Ego);
+    }
+
+    private static bool FinishVehicleLike(DecalEntry entry, double3 position, double3 axisZ,
+        double4x4 parent)
+    {
+        // "PNG up" defaults to the anchor frame's +Y projected onto the tangent plane. When +Y
+        // is the normal, +X stands in. For cloth this basis flexes with the current triangle.
+        if (!TryTangent(double3.UnitY, axisZ, out var axisY)
+            && !TryTangent(double3.UnitX, axisZ, out axisY))
             return false;
         var axisX = double3.Cross(axisY, axisZ);
-
         var roll = entry.RotationDeg * Deg2Rad;
         var cos = Math.Cos(roll);
         var sin = Math.Sin(roll);
         var rolledX = axisX * cos + axisY * sin;
         var rolledY = axisY * cos - axisX * sin;
-
-        var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
-        var partMatrix = part.MatrixAsmb2Ego(in vehicleMatrix);
-        return Finish(entry, Basis(rolledX, rolledY, axisZ), entry.Position, partMatrix, useParent: true,
+        return Finish(entry, Basis(rolledX, rolledY, axisZ), position, parent, useParent: true,
             entry.Depth);
     }
 

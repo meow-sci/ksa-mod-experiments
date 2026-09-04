@@ -4,7 +4,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>MeowSci.GraffitiLib</AssemblyName>
     <RootNamespace>MeowSci.GraffitiLib</RootNamespace>
-    <Description>Graffiti mod core — click-to-place projected PNG decals on vehicles and terrain.</Description>
+    <Description>Graffiti mod core — click-to-place projected PNG decals on vehicles, parachutes, and terrain.</Description>
     <PackageId>MeowSci.GraffitiLib</PackageId>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>

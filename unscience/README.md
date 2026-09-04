@@ -13,7 +13,7 @@ A unified supermod that consolidates 28 KSA feature libraries into a single ImGu
 | Garry's Torch | Welds vehicles together with position/rotation/scale offsets |
 | G-Force Monitor | Records and displays g-forces at 40 Hz with history, peak detection, and jerk analysis |
 | Glass — Camera Lens | Overrides camera FOV with presets or manual control |
-| Graffiti — PNG Decals | Click-to-place projected PNG decals on vehicle hulls and terrain |
+| Graffiti — PNG Decals | Click-to-place projected PNG decals on vehicle hulls, deployed parachute cloth, and terrain |
 | Free Fallin — Parachute Customizer | Applies a global stock tint, panel-tiled or cohesive full-canopy PNG, centered decal, and canopy PBR controls |
 | I Feel Seen | Forces vehicle render data updates at any distance |
 | Its So Shiny | Builds and controls Blinky-style pixel grids from built-in light parts |

@@ -1,7 +1,7 @@
 # Decals (graffiti) — Game Integration Scope
 
 Permanent reference for detecting when KSA game updates break **graffiti** (click-to-place
-projected PNG decals on vehicles and terrain). Every game-facing member the mod touches is
+projected PNG decals on vehicles, deployed parachute canopies, and terrain). Every game-facing member the mod touches is
 enumerated with its decompiled-source path.
 
 **Verified game versions**
@@ -49,7 +49,8 @@ against that build.
    `OnFrameViewports`, and `Cursor.GetEgoRay(viewport)` builds the ray from that position and the
    viewport's current camera at call time — the click ray is now **same-frame**, not one frame
    stale (5348 and earlier cached `Cursor.InputRay` after the UI phase).
-3. **Picking** (`DecalPicker.cs`) — `Cursor.GetEgoRay(Program.MainViewport)` swept vehicles-first with
+3. **Picking** (`DecalPicker.cs`) — `Cursor.GetEgoRay(Program.MainViewport)` sweeps vehicles and
+   their deployed canopies before terrain. Ordinary parts use
    `Part.RayCastEgo` (the identical sweep KSA's flight-mode hover picking runs: bounding-sphere
    broad phase, then `Ray.RaycastWatertight` over the view mesh), else a 64-step march + 24
    bisections over `Celestial.GetTerrainHeightFromDirCcf` in CCF (the shape of
@@ -61,10 +62,17 @@ against that build.
    element), anchoring to the root part at the chord midpoint with the normal facing the
    clicker; the placement then floors the box depth at the sphere diameter
    (`PickResult.SuggestedMinDepth`) so the projected box reaches the avatar inside.
+   A deployed parachute canopy is not a part view mesh: `DecalPicker.Parachute.cs` transforms its
+   public `Parachute.ClothPositionsFront` nodes through the same attachment-local matrix
+   as `Parachute.DrawCanopy`, tessellated as the topology's apex fan plus adjacent ring quads, and
+   tested with `Ray.RaycastWatertight`. The hit stores three node indices + barycentric weights and
+   the clicked side, so the anchor follows the live two-sided cloth surface each frame.
 4. **Per-frame composition** (`DecalAnchors.cs`) — decal-space cube → ego as S·R·T·parent in
    double, inverted in double, packed to float push constants. Vehicle anchors:
    `Vehicle.GetMatrixAsmb2Ego(Camera)` + `Part.MatrixAsmb2Ego` (includes scale + sub-part
-   chain). Terrain anchors: ENU basis via `Vehicle.ComputeEnu2Cce` + terrain radius, positioned
+   chain). Parachute anchors recompute the barycentric point and triangle normal from the current
+   front cloth nodes, then use the canopy attachment-local matrix. Terrain anchors: ENU basis via
+   `Vehicle.ComputeEnu2Cce` + terrain radius, positioned
    as body-ego + body-fixed offset (the terrain-debug-overlay idiom).
 5. **Draw** (`DecalRenderer.cs`) — pipeline layout = set 0 `GlobalShaderBindings` (dynamic
    offset per viewport, `DynamicOffset(Program.MainViewport.ShaderSlot)` since 5402 — was
@@ -98,7 +106,8 @@ against that build.
 | 7 | Direct API (pipeline) | `DecalRenderer.cs` | `Presets.{InputAssembly.TriangleList, Rasterization.Fill.CullFront}`; `RenderingPresets.{ReverseZDepthStencil.NoDepthTest, BlendState.BlendColorAlphaOver}`; `Renderer.{Device, Allocator, Graphics, GraphicsAndCompute, MaxFramesInFlight, DynamicStateInfo, ViewportState}`; `VkUtils.StageAndUploadToBuffer` | `Brutal.VulkanApi.Abstractions/Presets.cs`; `KSA/RenderingPresets.cs`; `Core/Renderer.cs`; `RenderCore/VkUtils.cs` | ✅ | reverse-Z + CullFront semantics are load-bearing (see risk notes) |
 | 8 | Direct API (textures) | `DecalTextures.cs` | `TextureLoader.LoadFromMemory`; `TextureAsset(.LoadOptions)`; `new SimpleVkTexture(Allocator, StagingPool, TextureAsset, CreateOptions)`; `Stb/Ktx/GliTexture.Destroy()`; `CreateStagingPool` ext | `Brutal.TextureApi/TextureLoader.cs:130`; `RenderCore/TextureAsset.cs:35`; `RenderCore/SimpleVkTexture.cs:245`; `Brutal.VulkanApi.Abstractions/StagingPoolExtensions.cs` | ✅ | R8G8B8A8UNorm forces 4 channels; `ITexture` has no IDisposable — `Destroy()` must be called or the decode buffer leaks |
 | 9 | Direct API (pick) | `DecalPicker.cs:53-56,82-103` | `Cursor.GetEgoRay(IViewport)` (**replaced `Cursor.InputRay` @5402**); `Part.RayCastEgo(ref readonly double4x4, Ray, out …×8, out Part?, out Part?)`; `Vehicle.{BoundingSphereRadiusBody, GetMatrixAsmb2Ego(Camera)}`; `Camera.{GetPositionEgo(IPosition), NearbyCelestial}` | `KSA/Cursor.cs:27`; `KSA/Part.cs:2398`; `KSA/Vehicle.cs:1256`; `KSA/Camera.cs:231,71` | ✅ **fixed @5402** (compile break, `Cursor.InputRay`/`UpdateInputRay`/`ScreenPosition` removed) | `GetEgoRay(viewport)` = `viewport.GetCamera().ScreenToEgoRay(Cursor.GetPosition(viewport))` — ego-space, built on demand from the viewport-local cursor position (`DesktopPosition - viewport.Position`) and the **current** camera, so it is same-frame (was one frame stale). Passed `Program.MainViewport` (main-viewport-only feature). RayCastEgo only hits SUB-parts — a top-level part with no sub-parts returns false (the loop never runs); acceptable: stock parts all have sub-parts |
-| 9b | Direct API (kitten pick) | `DecalPicker.cs:125-153` (`TryPickKitten`) | `KittenEva` (type, `is` check); `new BoundingSphere3D(double3, double)`; `Ray.Raycast(BoundingSphere3D, out double, out bool)`; `Double3Ex.GetAbsoluteLargestElement(double3)`; `Part.{PositionEgo(ref readonly double4x4), ScaleTotal, MatrixAsmb2Ego}`; `PartTree.Root` | `KSA/KittenEva.cs:13`; `KSA/BoundingSphere3D.cs`; `KSA/Ray.cs:38`; `KSA/Double3Ex.cs:165`; `KSA/Part.cs:1155,802,1165`; `KSA/PartTree.cs:97` | ✅ (`Ray.cs`, `BoundingSphere3D.cs`, `Double3Ex.cs` byte-identical) | mirrors the game's own `KittenEva.UpdateHighlight(IGameViewport)` sphere pick (`KittenEva.cs:1102-1125`; @5402 it takes `Cursor.GetEgoRay(inViewport)` and reports via `inViewport.PartPicker.TryOffer`, the sphere math is unchanged) — kittens render through `CharacterAvatar`, not part view meshes, so `RayCastEgo` can never hit them |
+| 9b | Direct API (kitten pick) | `DecalPicker.cs` (`TryPickKitten`) | `KittenEva` (type, `is` check); `new BoundingSphere3D(double3, double)`; `Ray.Raycast(BoundingSphere3D, out double, out bool)`; `Double3Ex.GetAbsoluteLargestElement(double3)`; `Part.{PositionEgo(ref readonly double4x4), ScaleTotal, MatrixAsmb2Ego}`; `PartTree.Root` | `KSA/KittenEva.cs:13`; `KSA/BoundingSphere3D.cs`; `KSA/Ray.cs:38`; `KSA/Double3Ex.cs:165`; `KSA/Part.cs:1155,802,1165`; `KSA/PartTree.cs:97` | ✅ (`Ray.cs`, `BoundingSphere3D.cs`, `Double3Ex.cs` byte-identical) | mirrors the game's own `KittenEva.UpdateHighlight(IGameViewport)` sphere pick (`KittenEva.cs:1102-1125`; @5402 it takes `Cursor.GetEgoRay(inViewport)` and reports via `inViewport.PartPicker.TryOffer`, the sphere math is unchanged) — kittens render through `CharacterAvatar`, not part view meshes, so `RayCastEgo` can never hit them |
+| 9c | Direct API (parachute pick + anchor) | `DecalPicker.Parachute.cs` (`TryPickParachute`); `DecalAnchors.cs` (`TryComposeParachute`); `GraffitiSubmod.cs` (`FindParachute`) | `PartTree.Modules.Get<Parachute>()`; `ModuleBase.InstanceId`; `Parachute.{ClothPositionsFront, AttachLocationPartAsmb, Parent, CanopyIndex}`; `ChuteClothSystem.Topology`; `ChuteClothTopology.{Rings, Spokes, ApexIndex, CanopyNodeCount, NodeIndex}`; `Ray.RaycastWatertight(double3,double3,double3,out double)`; `Part.MatrixAsmb2VehicleAsmb` | `KSA/Parachute.cs:182-210,1108-1153`; `KSA/ChuteClothSystem.cs:84-98`; `KSA/ChuteClothTopology.cs`; `KSA/Ray.cs:141`; `KSA/ModuleBase.cs:27`; `KSA/Part.cs` | ✅ added @5402 | Canopies bypass `Part.RayCastEgo`. The proxy triangles use the same current front cloth buffer and attachment-local→ego transform as canopy rendering. Re-resolution prefers the runtime module id and falls back to stable parent-part id + authored canopy index after reload; barycentric node weights follow inflation/flutter. The visible skinned GLB is bone-driven by these nodes rather than being the literal 240-triangle proxy, so projection depth absorbs small surface differences; requires a live placement check. |
 | 10 | Direct API (terrain) | `DecalPicker.cs:180-245`; `DecalAnchors.cs:79-90` | `Celestial.{GetCce2Ccf, GetCcf2Cce, GetCci2Cce, MeanRadius, GetTerrainHeightFromDirCcf(dir,bool), GetDirCcfFromLatLon, GetLatitudeFromCcf, GetLongitudeFromCcf}`; `Vehicle.ComputeEnu2Cce(double3, doubleQuat)` | `KSA/Celestial.cs:540,534,522,91,791,669,707,742`; `KSA/Vehicle.cs:3143` | ⚠ signature-identical; **accurate-path drift @5402 — needs live check** | lat/lon statics return DEGREES; height is metres above MeanRadius (0 for no heightmap); ComputeEnu2Cce returns null on the spin axis (pole fallback basis in `DecalAnchors`). ⚠ **`accurate: true` is load-bearing** everywhere the surface radius matters: only accurate mode evaluates the procedural terrain modifiers (`Celestial.cs:877-880`, gated `if (accurate)` since the 5319–5325 terrain precision rework) — the metres-scale displacement the rendered surface includes. @5402 the modifier evaluation's radius inputs (`gradientWeight`, `CelestialRadiusKm`, `Celestial.cs:825-848`) switched from `RenderData.SurfaceRadius` to `(float)MeanRadius`; if the GPU terrain did not move identically, terrain decals float/sink again. The composed radius is cached per entry (`DecalEntry.TerrainRadius`; terrain is static) |
 | 11 | Direct API (anchor re-resolve) | `GraffitiSubmod.cs:240-260` | `Universe.CurrentSystem.Get(string)`; `Vehicle.Parts.Parts`; `Part.{SubParts, InstanceId, MatrixAsmb2Ego(in double4x4), Id}` | `KSA/Universe.cs:94`; `KSA/CelestialSystem.cs:288`; `KSA/Part.cs:1079,574,1165,698` | ✅ | per-frame; a despawned anchor makes the decal dormant, never pruned |
 | 12 | Build refs | `graffiti.lib.csproj` | `Brutal.Vulkan(.Abstractions/.Vma)`, `Brutal.ShaderC`, `Brutal.Texture(.Abstractions)`, `Brutal.Ktx`, `Brutal.Core.Memory`, `Planet.Core`, `Planet.Render.Core` | — | ✅ | Planet.Render.Core carries `RenderCore`/`RenderCore.Systems`; Planet.Core carries `Core.Renderer` |
@@ -200,6 +209,8 @@ stride for thumbnail rendering" is recorded); the source diff below is the only 
   in-game look confirms. Also re-check a decal on a `KittenEva`: the game's own kitten pick is now
   gated by `ViewportOptionFlags.AllowSelection` / `CursorTarget.IsHitTestViewport`; graffiti's
   mirror is not, by design.
-- ℹ Not graffiti-facing: `ModelPbr.frag`/`ModelNormal.frag` two-sided normal flip (parachute
-  canopies), `RayIntersections.glsl` cylinder `quadraticA` fix, new
-  `Mesh/StaticObjectNormalIndirect.frag`, parachutes / `PartFailure` / `ExhaustPlumeDeformation`.
+- ⚠ **Needs a live canopy-decal check.** Place on the top and underside while reefed and fully
+  inflated; confirm the cloth proxy selects the visible canopy, the clicked-side normal passes the
+  grazing-angle test, and barycentric anchoring follows flutter without leaving the projection box.
+- ℹ Not otherwise graffiti-facing: `RayIntersections.glsl` cylinder `quadraticA` fix, new
+  `Mesh/StaticObjectNormalIndirect.frag`, `PartFailure` / `ExhaustPlumeDeformation`.

@@ -8,6 +8,8 @@ public enum DecalAnchorKind
 {
     /// <summary>Anchored to a vehicle part (or sub-part) in that part's local frame.</summary>
     Vehicle,
+    /// <summary>Anchored by barycentric coordinates to a deployed parachute's live cloth mesh.</summary>
+    Parachute,
     /// <summary>Anchored to a celestial's terrain at geodetic (lat, lon).</summary>
     Terrain,
 }
@@ -28,9 +30,9 @@ public enum DecalTextureState
 /// <remarks>
 /// Mutated on the game thread only (UI + <c>GraffitiSubmod.Update</c>); read by the render
 /// postfix on the same main thread, so no locking is required. Nothing here is stored in
-/// ecliptic or ego coordinates: a vehicle anchor lives in its part's local frame and a terrain
-/// anchor in geodetic lat/lon, so both survive bubble frame switches, floating-origin shifts
-/// and planet rotation.
+/// ecliptic or ego coordinates: a vehicle anchor lives in its part's local frame, a parachute
+/// anchor in cloth-node barycentric coordinates, and a terrain anchor in geodetic lat/lon, so
+/// all survive bubble frame switches, floating-origin shifts and planet rotation.
 /// </remarks>
 public sealed class DecalEntry
 {
@@ -47,16 +49,33 @@ public sealed class DecalEntry
     /// <summary>The anchor vehicle id or celestial body id (stable across despawn/respawn).</summary>
     public string TargetId { get; init; } = "";
 
-    /// <summary>The anchor part's <c>InstanceId</c> (vehicle anchors only; 0 for a terrain anchor).</summary>
+    /// <summary>The anchor part id, or the parachute's parent-part id; 0 for terrain.</summary>
     public uint PartInstanceId { get; init; }
 
-    /// <summary>Vehicle: part-local metres. Terrain: <c>(latitudeDeg, longitudeDeg, 0)</c>.</summary>
+    /// <summary>The parachute module's runtime instance id (parachute anchors only).</summary>
+    public ulong ParachuteInstanceId { get; init; }
+
+    /// <summary>The authored canopy index used with the parent part id after a scene reload.</summary>
+    public int ParachuteCanopyIndex { get; init; }
+
+    /// <summary>The three live cloth-node indices of a parachute anchor triangle.</summary>
+    public int ClothNodeA { get; init; }
+    public int ClothNodeB { get; init; }
+    public int ClothNodeC { get; init; }
+
+    /// <summary>Barycentric weights within the parachute anchor triangle.</summary>
+    public double3 ClothBarycentric;
+
+    /// <summary>Preserves which side of the two-sided canopy was clicked.</summary>
+    public double ClothNormalSign = 1.0;
+
+    /// <summary>Vehicle: part-local metres. Parachute: initial cloth-local hit. Terrain: lat/lon.</summary>
     public double3 Position;
 
-    /// <summary>Vehicle: the part-local surface normal the decal box points down. Terrain: zero (up is the radial).</summary>
+    /// <summary>Vehicle/parachute: local surface normal at placement. Terrain: zero.</summary>
     public double3 Normal;
 
-    /// <summary>Vehicle: roll about <see cref="Normal"/>. Terrain: compass heading. Degrees.</summary>
+    /// <summary>Vehicle/parachute: roll about the live normal. Terrain: compass heading. Degrees.</summary>
     public double RotationDeg;
 
     /// <summary>Decal width in metres (the decal-space x extent).</summary>
@@ -84,6 +103,9 @@ public sealed class DecalEntry
 
     /// <summary>The resolved anchor part (or sub-part), re-resolved by <see cref="PartInstanceId"/> each frame.</summary>
     public Part? Part;
+
+    /// <summary>The resolved deployed parachute module, or null while unavailable/stowed.</summary>
+    public Parachute? Parachute;
 
     /// <summary>The resolved anchor celestial, or null while the system does not contain it.</summary>
     public Celestial? Body;

@@ -10,16 +10,17 @@ namespace MeowSci.GraffitiLib;
 /// vehicle part, else a terrain hit on the nearby celestial.
 /// </summary>
 /// <remarks>
-/// <para><b>Vehicles first, terrain behind.</b> The vehicle sweep uses KSA's own watertight
+/// <para><b>Vehicles and canopies first, terrain behind.</b> The vehicle sweep uses KSA's own watertight
 /// triangle raycast (<c>Part.RayCastEgo</c>) — the same call flight-mode hover picking makes —
-/// so the hit point is on the art surface, not on a collider primitive. Only if nothing was hit
+/// so the hit point is on the art surface, not on a collider primitive; deployed canopies use
+/// their live cloth triangles because they are separate renderables. Only if nothing was hit
 /// does the terrain march run.</para>
 /// <para><c>Cursor.GetEgoRay(viewport)</c> is the mouse cursor's picking ray in EGO space (origin at
 /// the camera, ecliptic axes), built from the viewport-local cursor position and that viewport's
 /// camera (KSA 5402+; formerly the cached <c>Cursor.InputRay</c>).</para>
 /// <para>Game thread only — every call here reads live game state.</para>
 /// </remarks>
-internal static class DecalPicker
+internal static partial class DecalPicker
 {
     private const double Rad2Deg = 180.0 / Math.PI;
 
@@ -39,12 +40,19 @@ internal static class DecalPicker
         DecalAnchorKind Kind,
         Vehicle? Vehicle,
         Part? Part,
+        Parachute? Parachute,
         Celestial? Body,
         double3 Position,
         double3 Normal,
         double Distance,
         double RotationDeg,
-        double SuggestedMinDepth = 0.0);
+        double SuggestedMinDepth = 0.0,
+        int ParachuteCanopyIndex = 0,
+        int ClothNodeA = 0,
+        int ClothNodeB = 0,
+        int ClothNodeC = 0,
+        double3 ClothBarycentric = default,
+        double ClothNormalSign = 1.0);
 
     /// <summary>Casts the cursor ray and returns the nearest anchor within <paramref name="range"/> metres.</summary>
     internal static bool TryPick(double range, out PickResult result)
@@ -81,11 +89,24 @@ internal static class DecalPicker
         // cursor, and KSA 5402 sheds failed parts as ordinary (if unlabelled) vehicles.
         foreach (var vehicle in VehicleProvider.GetAllVehicles(includeDebris: true))
         {
+            var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
+
+            // Canopies are skinned cloth renderables outside the Part view-mesh hierarchy, so
+            // Part.RayCastEgo cannot see them. Test their published cloth surface explicitly.
+            foreach (var parachute in vehicle.Parts.Modules.Get<Parachute>())
+            {
+                if (TryPickParachute(vehicle, parachute, in vehicleMatrix, ray, best,
+                        out var parachuteResult))
+                {
+                    best = parachuteResult.Distance;
+                    found = true;
+                    result = parachuteResult;
+                }
+            }
+
             var centre = camera.GetPositionEgo(vehicle);
             if (centre.Length() - vehicle.BoundingSphereRadiusBody > range)
                 continue;
-
-            var vehicleMatrix = vehicle.GetMatrixAsmb2Ego(camera);
 
             // A KittenEva has no raycastable part view mesh — the game's own hover pick
             // (KittenEva.UpdateHighlight) tests its bounding sphere instead, and so do we.
@@ -115,7 +136,7 @@ internal static class DecalPicker
 
                 best = distance;
                 found = true;
-                result = new PickResult(DecalAnchorKind.Vehicle, vehicle, closestSubPart ?? part, null,
+                result = new PickResult(DecalAnchorKind.Vehicle, vehicle, closestSubPart ?? part, null, null,
                     positionAsmb, normalAsmb / normalLength, distance, 0.0);
             }
         }
@@ -161,7 +182,7 @@ internal static class DecalPicker
         if (!double.IsFinite(normalLength) || normalLength <= 0)
             return false;
 
-        result = new PickResult(DecalAnchorKind.Vehicle, kitten, root, null,
+        result = new PickResult(DecalAnchorKind.Vehicle, kitten, root, null, null,
             positionAsmb, towardCamera / normalLength, distance, 0.0,
             SuggestedMinDepth: radius * 2.0);
         return true;
@@ -227,7 +248,7 @@ internal static class DecalPicker
         if (!double.IsFinite(latitude) || !double.IsFinite(longitude))
             return false;
 
-        result = new PickResult(DecalAnchorKind.Terrain, null, null, body,
+        result = new PickResult(DecalAnchorKind.Terrain, null, null, null, body,
             new double3(latitude, longitude, 0), default, below,
             Heading(body, hitCcf, ray.Direction));
         return true;

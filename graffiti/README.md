@@ -1,6 +1,6 @@
 # graffiti — click-to-place PNG decals
 
-Paint your own PNG images onto **vehicle hulls and terrain** with a single click. Pick a decal,
+Paint your own PNG images onto **vehicle hulls, deployed parachutes, and terrain** with a single click. Pick a decal,
 press **Place at Click...**, click anywhere in the 3D world — a projected decal is painted onto
 whatever surface is under the cursor and stays welded to it (part-local on vehicles, geodetic
 lat/lon on terrain).
@@ -37,7 +37,7 @@ Two projects, following the repo's submod pattern:
    mesh whose surface drifts vertically from the true height as you zoom out, and a fixed-depth
    box would empty out and vanish long before the draw-distance cull.
 3. Press **Place at Click...** — the mod arms a one-shot placement mode with a hint following the
-   cursor. **Click** a vehicle, a kitten, or the ground to place; **Esc** (or the Cancel button)
+   cursor. **Click** a vehicle, deployed parachute, kitten, or the ground to place; **Esc** (or the Cancel button)
    backs out.
    A miss ("nothing hit within range") keeps placement armed so a slightly-off click isn't a
    whole round trip; a successful placement returns to normal.
@@ -71,6 +71,10 @@ RPC; graffiti raycasts through the clicked cursor position via `Cursor.GetEgoRay
   they get the game's own hover-pick treatment: a bounding-sphere raycast anchored to the root
   part, with the box depth floored at the sphere diameter so the projected decal reaches the fur
   inside. (Kitten decals ride the kitten's body frame, not its animated limbs.)
+  Deployed canopies are separate skinned cloth renderables and are absent from the part view-mesh
+  hierarchy, so they are tested against the current 8-ring × 16-spoke cloth surface. A canopy hit
+  stores its triangle's cloth-node indices and barycentric coordinates; the decal consequently
+  follows inflation, reefing, and flutter instead of remaining fixed to the parachute housing.
 - **Anchor → matrices** — every frame, each decal composes a `[-0.5,0.5]³` decal-space cube
   (S·R·T·parent, row-vector convention) into ego space in double precision:
   part anchors through `Part.MatrixAsmb2Ego` (includes part scale and the sub-part chain),

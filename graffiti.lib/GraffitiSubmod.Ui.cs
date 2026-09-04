@@ -52,7 +52,7 @@ public sealed partial class GraffitiSubmod
     private void RenderPlaceSection()
     {
         bool open = ImGui.CollapsingHeader("Place Decal (?)", ImGuiTreeNodeFlags.DefaultOpen);
-        ImGui.SetItemTooltip("Pick a PNG from the decal library, press Place at Click...,\nthen click anywhere in the 3D world. The decal is projected onto\nthe vehicle hull or terrain under the cursor.");
+        ImGui.SetItemTooltip("Pick a PNG from the decal library, press Place at Click...,\nthen click anywhere in the 3D world. The decal is projected onto\nthe vehicle, parachute, or terrain under the cursor.");
         if (!open) return;
 
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
