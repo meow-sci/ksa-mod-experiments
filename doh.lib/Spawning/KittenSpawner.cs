@@ -63,7 +63,10 @@ public sealed class KittenSpawner
 
             if (astro is Vehicle vehicle)
             {
-                // Match game's two-phase removal (EVADoor ingress / docking pattern)
+                // Match game's two-phase removal (EVADoor ingress / docking pattern).
+                // Dispose releases physics shapes (same registry lock as spawn), so the
+                // vehicle solver must be idle first.
+                WaitForVehicleSolverIdle();
                 Universe.CurrentSystem?.Deregister(vehicle);
                 vehicle.Dispose();
             }
@@ -152,7 +155,10 @@ public sealed class KittenSpawner
             double3 kittenPosCci = pos.BasePositionCci + chainOffset;
             double3 kittenVelCci = pos.VelocityCci;
 
-            // Create KittenEva
+            // Create KittenEva. The Vehicle ctor mutates the BepuPhysics shapes registry
+            // (BepuHandles.Create -> ConstraintSim.UnlockShapes), which throws if the
+            // background vehicle physics step is still running. Wait for it to go idle.
+            WaitForVehicleSolverIdle();
             var kittenEva = new KittenEva(
                 system,
                 characterId,
@@ -208,6 +214,18 @@ public sealed class KittenSpawner
             Success = true,
             SpawnedKittens = results.ToArray()
         };
+    }
+
+    /// <summary>
+    /// Blocks until the game's background vehicle physics step (VehicleUpdateTask, kicked
+    /// from Program.PrepareFrame and running concurrently with the UI pass) has finished.
+    /// Constructing or disposing a Vehicle mutates the shared shapes registry, which the
+    /// game locks while that step runs. PrepareFrame would wait on this same scheduler
+    /// next frame anyway, so this only moves the wait earlier.
+    /// </summary>
+    private static void WaitForVehicleSolverIdle()
+    {
+        JobSystems.VehicleSolver?.Wait();
     }
 
     private PositionResult ResolvePositioning(SpawnRequest request)
