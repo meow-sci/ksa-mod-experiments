@@ -442,9 +442,11 @@ Runtime Part / SubPart loader. Paste Part XML into a brand new mod folder, or lo
 ---
 
 ### [dont-stifle-me](dont-stifle-me) / [dont-stifle-me.lib](dont-stifle-me.lib)
-Vehicle editor un-limiter. KSA build `2026.8.22.5348` clamped top-level part scaling to 0.5x–2x and made the scale gizmo uniform across all axes; this mod restores the old freedom behind a single toggle.
-- Two toggles: **Enabled** (clamp removal + per-axis scaling, default on) and **Snap scaling** (0.25 m diameter increments, default on = game behavior); flip live
+Vehicle editor un-limiter. Restores free part scaling and provides an extensible switch for widening authored editor-value ranges.
+- Scale toggles: **Enabled** (clamp removal + per-axis scaling, default on) and **Snap scaling** (0.25 m diameter increments, default on = game behavior); flip live
+- **jpl said no clamps** (default off) expands parachute diameter from its authored 20–50 m range to 2–1000 m; original per-instance bounds are restored when disabled or unloaded
 - Postfix on `VehicleEditor.ScaleBoundsFor` widens bounds to `(1e-6, +inf)`; prefix on `UpdateSelectedScale` applies the drag to the dragged axis only; prefix on `QuantizeScale` bypasses snapping when off
+- Prefixes on `VehicleEditor.DrawParachuteSection` and `Parachute.SetDiameter` widen both the displayed slider and the stock setter clamp, including symmetry counterparts
 - Reuses the game's private `QuantizeScale` / `ForEachPartWithSymmetry` delegates so snapping (when on) and symmetry match stock
 - Standalone: "Don't Stifle Me" top-level menu via `Program.DrawProgramMenusHook` postfix; bundled in unscience as a submod section
 - Known limit: connectors/mass follow the largest axis (game's `ScaleFactors`), so non-uniform parts may have off-surface connectors

@@ -104,7 +104,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor` (**doh @5402**: spawn/despawn now `JobSystems.VehicleSolver.Wait()` before touching the shapes registry), `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** postfix/prefix on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` (all new @5348). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** scale patches on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale`, plus configurable editor-limit patches on `DrawParachuteSection` / `Parachute.SetDiameter` (2–1000 m diameter). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + `Cursor.GetEgoRay` picking, CPU terrain march; **no string reflection** (new @5348) |
 | [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
@@ -153,6 +153,9 @@ items, one game-side regression.**
 - **IvaForceRender** — `PartModel.AddInstance` now early-returns for viewports without
   `RenderPartModels`; a postfix still runs after that, so the postfix now mirrors the gate (and reads
   IVA mode off its own viewport). Dormant either way; wants a look in the editor with Force IVA on.
+- **dont-stifle-me parachute limits** — the new **jpl said no clamps** control patches the 5402
+  parachute editor slider and setter clamp to accept 2–1000 m. It compiles against the current
+  surface but needs a live editor pass, including a symmetry counterpart.
 - **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
   a live pass on any build since 5261.
 
@@ -170,6 +173,7 @@ bloomin-onion and dont-stifle-me have still never been exercised in-game.
 
 **What still needs a live pass:** F11 smoke; pyro plume bend in atmosphere + heat-haze check;
 garrys-torch weld with crash-tolerance log watch; graffiti vehicle + terrain decal placement;
-parts-now runtime part thumbnail (rev 5401); dont-stifle-me scale-then-attach; kiwis-marbles weld near
+parts-now runtime part thumbnail (rev 5401); dont-stifle-me scale-then-attach plus 2 m / 1000 m
+parachute edits with symmetry; kiwis-marbles weld near
 a deployed chute; hot-pursuit placement/motion/lease contention + Glass independent FOV; the standing thug-life / humble-arteest / blinky /
 its-so-shiny render checks. A green `dotnet build` does not cover these, and there is no test suite.

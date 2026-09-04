@@ -49,25 +49,30 @@ survivor, now used by **dont-stifle-me**.
 ## dont-stifle-me
 
 ### Purpose
-Undoes two editor restrictions introduced in `2026.8.22.5348`: the **0.5x–2.0x** top-level part
+Undoes editor restrictions. The original feature targets two restrictions introduced in
+`2026.8.22.5348`: the **0.5x–2.0x** top-level part
 scale clamp (`VehicleEditor.MINIMUM_SCALE` / `MAXIMUM_SCALE`, surfaced through `ScaleBoundsFor`) and
 **uniform-only** scale-gizmo drags (`UpdateSelectedScale` writes `new double3(s, s, s)`), and can
 bypass the 0.25 m diameter **snapping** (`QuantizeScale`). Runtime toggles in `EditorScaleSettings`
-(`Enabled`, `Snap`); patches are installed once and gate themselves per call.
+(`Enabled`, `Snap`); patches are installed once and gate themselves per call. The extensible
+`EditorLimitSettings.JplSaidNoClamps` toggle additionally changes the parachute editor diameter range
+from each chute's authored bounds (20–50 m in current stock content) to **2–1000 m**.
 
 ### Unscience integration
 - `DontStifleMeSubmod : ISubmod` (`dont-stifle-me.lib/DontStifleMeSubmod.cs`).
 - `dont-stifle-me/Patcher.cs` applies `HotkeyGuard.Patch`, `EditorScalePatches.Apply(_harmony)` and
-  `MenuBarPatch.Apply(_harmony)`; `unscience/Patcher.cs` applies only `EditorScalePatches` under
-  `TryApply("dont-stifle-me", …)` / `TryRemove` (the supermod has its own menu entry).
+  `EditorValueLimitPatches.Apply(_harmony)`, then `MenuBarPatch.Apply(_harmony)`;
+  `unscience/Patcher.cs` applies both patch groups under isolated `TryApply` / `TryRemove` calls (the
+  supermod has its own menu entry).
 
 ### UI / hotkeys
-- Standalone: **"Don't Stifle Me"** top-level menu (`Enabled`, `Snap scaling` checkboxes) drawn
+- Standalone: **"Don't Stifle Me"** top-level menu (`Enabled`, `Snap scaling`, and **jpl said no
+  clamps** checkboxes) drawn
   from a postfix on `Program.DrawProgramMenusHook` — the same hook unscience's `MenuBarPatch` uses.
   No window, no hotkey.
 
 ### Persistence
-- None (in-memory toggles, all default on).
+- None (in-memory toggles; scale controls default on, **jpl said no clamps** defaults off).
 
 ### Integration points
 
@@ -87,6 +92,9 @@ red notice in the UI), not at compile time. Every one is also listed in
 | 6 | Typed API (editor state) | `PerAxisScaleDrag.cs:32-43` | `VehicleEditor.{Selected, HighlightedGizmoSegmentIndex, ScaleGizmo, CursorPositionScreen, CursorPositionScreenLastFrame, GizmoGrabbed}` (public fields) | `KSA/VehicleEditor.cs:551,579,573,681,683,581` | ✅ | none | Segment index → axis `0=X,1=Y,2=Z` is an **invariant of `ScaleGizmo`'s 3-segment construction** (`:1179`), not checkable by grep. |
 | 7 | Typed API (math) | `PerAxisScaleDrag.cs:36-49` | `IViewport.GetCamera()`, `Camera.ScreenToEgoNearPlane(double2)`, `GenericGizmo.GetSegmentDataByViewport(IViewport)` / `PerSegmentData.Body2Cce`, `Part.PositionEgo(in double4x4)` | `KSA/IViewport.cs:51`, `KSA/Camera.cs:684`, `KSA/GenericGizmo.cs:277,176`, `KSA/Part.cs:1155` | ✅ | ⚠️ @5402: `KSA.Viewport` deleted → `IViewport`; `GetSegmentDataByViewport` now keys its lookup by `ViewportId` (`GenericGizmo.cs:206,279,298` use `inViewport.Id`) — transparent to the caller | Mirrors stock `UpdateSelectedScale` math line-for-line; **semantic drift** in the stock routine (e.g. a different depth heuristic) would leave per-axis drags feeling different from uniform ones without any symbol change. |
 | 8 | Typed API (apply) | `PerAxisScaleDrag.cs:69-74` | `Part.Scale { get; set; }` (`double3`), `Part.RefreshScaleAndReposition()`, `Part.Tree`, `PartTree.RefreshStaticMass()` | `KSA/Part.cs:815,1592,662`, `KSA/PartTree.cs:773` | ✅ | none @5402 (`RefreshScale :1571` / `RefreshScaleAndReposition :1592` bodies untouched) | 🔶 **Standing limitation:** `Part.RefreshScale` collapses `double3` to `new ScaleFactors(max axis)` for connectors, `IRescale` modules and mass. Non-uniform parts keep a non-uniform *mesh* but uniform connector offsets. If the game ever re-derives `Part.Scale` from `ScaleFactors` (uniformizes on load/refresh), per-axis scaling silently stops sticking. |
+| 8a | Harmony (prefix, by-name) | `EditorValueLimitPatches.cs:29-35,73-83` | `VehicleEditor.DrawParachuteSection(Part, ReadOnlySpan<Parachute>) : private void` | `KSA/VehicleEditor.cs:1932` | ✅ | new dont-stifle-me consumer @5402 | Before the stock diameter slider reads `parachute.Tuning.MinDiameterM` / `MaxDiameterM` (`:1977-1985`), expands every chute in the selected subtree to 2 / 1000 while the toggle is on. The prefix intentionally binds only `part`, avoiding a Harmony patch parameter for the byref-like `ReadOnlySpan`. |
+| 8b | Harmony (prefix, typed signature) | `EditorValueLimitPatches.cs:31-37,85-92` | `Parachute.SetDiameter(float diameterM) : public void` | `KSA/Parachute.cs:369` | ✅ | new dont-stifle-me consumer @5402 | Expands all chute modules on the receiving part before the stock method calls `Tuning.ClampDiameter`; required because `VehicleEditor.ForEachModuleWithSymmetry` invokes `SetDiameter` on counterparts whose slider was not drawn. Original per-instance min/max pairs are tracked and restored on toggle-off/unload. |
+| 8c | Typed API (runtime bounds) | `EditorValueLimitPatches.cs:63-70,94-106` | `Parachute.Tuning : ChuteTuning`; `ChuteTuning.{MinDiameterM, MaxDiameterM, DiameterM, ClampDiameter(float)}`; `Part.SubtreeModules` / `Part.Modules` | `KSA/Parachute.cs:140,369-378`; `KSA/ChuteTuning.cs:5,33-35,61`; `KSA/Part.cs` | ✅ | new dont-stifle-me consumer @5402 | Only the bounds are changed; stock `SetDiameter`, symmetry propagation, inert-mass refresh, save data, drag physics, cloth and rendering continue to consume `Tuning.DiameterM`. Disabling does not retroactively clamp a value already chosen, matching the scale feature's non-destructive toggle behavior. |
 
 | 9 | Harmony (postfix, `nameof`) — standalone only | `dont-stifle-me/MenuBarPatch.cs:15,20` | `Program.DrawProgramMenusHook() : public void` (empty hook called inside the main menu bar) | `KSA/Program.cs:3876` (call site `:3863`) | ✅ | none | Same target as unscience's `MenuBarPatch`; draws `ImGui.BeginMenu("Don't Stifle Me")`. |
 
@@ -95,6 +103,9 @@ red notice in the UI), not at compile time. Every one is also listed in
   inlines `ScaleBoundsFor` itself into its two callers, patch #1 has no target → clamp returns.
 - The TRS debug menu (`DrawTransformMenu`, `:6836`) still writes `part.Scale` per-axis with no clamp;
   unaffected by, and independent of, this mod.
+- `DrawParachuteSection` is private and resolved by name. A rename or overload addition disables the
+  editor-limit patch group with a logged error and red UI warning; the scale patch group remains
+  independently usable in unscience.
 
 ---
 
@@ -494,14 +505,16 @@ parts-now (all silent at runtime — see *Update-risk findings* above for the fu
   No effect here: parts-now thumbnails use `ThumbnailCreator.CollectDraws`, every boot viewport carries the
   flag (`Program.cs:948-956`), and the kitchen-sink `IvaForceRender` postfix (now
   `ksa-abstractions.lib/IvaForceRender.cs:98`, already `IViewport`) behaves as before.
-- ✅ **Parachutes + structural limits: additive schema, no consumer.** `PartTemplate` gained
+- ✅ **Parachutes + structural limits: additive schema; parachutes now consumed by dont-stifle-me.** `PartTemplate` gained
   `CrashTolerance` (`[XmlAttribute] double = NaN`, `:17-18`) and `<SubPartGroup>`/`SubPartGroups`
   (`:107-108`, merged in `ApplyGameData :327`); `Parachute.TemplateData` (`[XmlType("Parachute")]`,
   `Parachute.cs:12`, `ModuleList.cs:128`) is picked up by `XmlHelper`'s reflection-built overrides (file
   identical), so parts-now's game-serializer path and its real `PartTemplate.ApplyGameData` call
   (`RuntimeModLoaderGpuStates.cs:255,287`) need nothing. New `PartStructuralLimits` / `PartFailure` /
   `PartContactLoad` types and `Part.{CrashTolerancePascals, InertMassKg, StructuralPart,
-  IsAttachedInternal}` are not referenced by any unscience mod. Content: new `ParachuteAssets.xml`
+  IsAttachedInternal}` are not referenced by any unscience mod. Dont-stifle-me now consumes
+  `Parachute`, `ChuteTuning`, `VehicleEditor.DrawParachuteSection`, and `Parachute.SetDiameter` only;
+  it does not touch the cloth/physics implementation. Content: new `ParachuteAssets.xml`
   (GltfFile/PbrMaterial only, listed in `mod.toml`), four new radial parachute Parts + 14 SubParts in
   `CoreUtilityA*`, `CrashTolerance="3e6"` on `CorePropulsionA_Prefab_EngineA2..A6`, one new shader id in
   `DefaultAssets.xml` (`StaticObjectPrePassIndirectFrag`).

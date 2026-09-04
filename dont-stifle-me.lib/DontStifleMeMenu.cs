@@ -20,7 +20,14 @@ public static class DontStifleMeMenu
         ImGui.SetItemTooltip("Snap scale drags to 0.25 m diameter increments (game default).\nOff = free, continuous scaling.");
         ImGui.EndDisabled();
 
-        if (!EditorScalePatches.IsApplied)
+        if (ImGui.MenuItem("jpl said no clamps", "", ref EditorLimitSettings.JplSaidNoClamps) &&
+            !EditorLimitSettings.JplSaidNoClamps)
+        {
+            EditorValueLimitPatches.RestoreTrackedBounds();
+        }
+        ImGui.SetItemTooltip("Expand selected vehicle-editor value ranges.\nCurrently: parachute diameter 2-1000 m.");
+
+        if (!EditorScalePatches.IsApplied || !EditorValueLimitPatches.IsApplied)
         {
             ImGui.Separator();
             ImGui.TextColored(new Brutal.Numerics.float4(1f, 0.3f, 0.3f, 1f), "Patches not applied - check log");
