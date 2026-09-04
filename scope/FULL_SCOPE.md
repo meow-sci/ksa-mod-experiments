@@ -80,7 +80,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 - **One consolidated Harmony instance.** `unscience/Patcher.cs` owns a single
   `Harmony("MeowSci.Unscience")`; each feature lib exposes `Apply(Harmony)`/`Remove(Harmony)` and the
   supermod applies them all onto that instance. `HotkeyGuard` is applied first.
-- **`ISubmod` aggregation.** 24 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
+- **`ISubmod` aggregation.** 27 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
   `RenderContent`/`RenderFloatingWindows`/`Dispose`); the same classes power each feature's standalone
   mod too.
 - **`ksa-abstractions.lib` is the game-facing seam.** Cross-cutting game access is funneled through a
@@ -100,7 +100,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
 | [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
 | [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
-| [`camera.md`](camera.md) | camera-controller-override, glass | `OrbitController/FlyController.OnFrame`, `Camera._fovRadians`; the `___Transform` injector bug is **fixed** (prefix now reads `__instance.Camera`) |
+| [`camera.md`](camera.md) | camera-controller-override, glass, hot-pursuit | `OrbitController/FlyController/FixedController.OnFrame`, `Camera._fovRadians`; four public secondary-viewport leases under the sealed 8-slot registry; part-raycast camera mounts |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor`, `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations reworked @5348** — Harmony prefix on `AnimatedRenderable.UpdateAnimation`, the ground animation set read from 17 private `KittenRenderable` fields, and a mod-owned `CatExpressionAnim` |
@@ -112,8 +112,8 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (26): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
-doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, graffiti, humble-arteest,
+Bundled in the unscience supermod (27): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
+doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, graffiti, hot-pursuit, humble-arteest,
 i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro,
 red-alert, rocky-mcrock-face, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
 jplrepo live in the repo but are **not** loaded by the supermod.)
@@ -139,6 +139,9 @@ items, one game-side regression.**
   the way `Vehicle.AddVolumetricExhaustInstances` does.
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
+- **hot-pursuit (new)** — public secondary-viewport leasing and the part-relative camera pose compile
+  against 5402; needs live checks for scaled/robotic parts, target destruction/debris handoff,
+  terrain clamping, Glass coexistence, slot contention, and close/reopen lease behavior.
 - **pyro (and the game) — refraction is dead in 5402.** Nothing sets `_hasRefractionInstances` any
   more, so pyro's Refraction slider is inert. Game-side; confirm on a stock engine.
 - **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed.
@@ -166,5 +169,5 @@ bloomin-onion and dont-stifle-me have still never been exercised in-game.
 **What still needs a live pass:** F11 smoke; pyro plume bend in atmosphere + heat-haze check;
 garrys-torch weld with crash-tolerance log watch; graffiti vehicle + terrain decal placement;
 parts-now runtime part thumbnail (rev 5401); dont-stifle-me scale-then-attach; kiwis-marbles weld near
-a deployed chute; glass with thumbnails open; the standing thug-life / humble-arteest / blinky /
+a deployed chute; hot-pursuit placement/motion/lease contention + Glass independent FOV; the standing thug-life / humble-arteest / blinky /
 its-so-shiny render checks. A green `dotnet build` does not cover these, and there is no test suite.

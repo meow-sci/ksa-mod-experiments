@@ -39,7 +39,7 @@ public static class FovController
     /// <summary>Returns the current camera FOV in degrees (reads the live camera state; must be called on the game thread).</summary>
     public static float GetCurrentFovDegrees()
     {
-        float currentFovRad = Program.GetCamera().GetFieldOfView();
+        float currentFovRad = Program.GetMainCamera().GetFieldOfView();
         return currentFovRad * (180f / MathF.PI);
     }
 
@@ -52,6 +52,6 @@ public static class FovController
     {
         if (!IsOverrideActive) return;
         float clampedFov = MathF.Max(MinFov, MathF.Min(MaxFov, OverrideFovDegrees));
-        Program.GetCamera().SetFieldOfView(clampedFov);
+        Program.GetMainCamera().SetFieldOfView(clampedFov);
     }
 }

@@ -1,7 +1,7 @@
 # Camera / View Mods — Game Integration Scope
 
 Permanent reference for detecting when KSA game updates break the camera/view mods
-(`camera-controller-override`, `glass`). Every game-facing member these mods touch is
+(`camera-controller-override`, `glass`, `hot-pursuit`). Every game-facing member these mods touch is
 enumerated and verified against decompiled sources.
 
 **Verified game versions**
@@ -13,13 +13,14 @@ Paths in the **Decomp path (NEW)** column are relative to the NEW decomp root
 (namespace-foldered, e.g. `KSA/Camera.cs`). **Mod code** paths are relative to the
 repo root `~/repos/meow-sci/unscience`.
 
-**How these mods are hosted (both)**
+**How these mods are hosted**
 
 - Camera state + game reads/writes live in the `*.lib` projects (`camera-controller-override.lib`,
-  `glass.lib`). Each `.lib` exposes an `ISubmod` (`MeowSci.KsaAbstractions.ISubmod`) and a
+  `glass.lib`, `hot-pursuit.lib`). Each `.lib` exposes an `ISubmod`
+  (`MeowSci.KsaAbstractions.ISubmod`) and a
   static patch helper (`CameraControllerOverridePatches`, `GlassPatches`) consumed two ways:
-  1. **Standalone** StarMap mod (`camera-controller-override/Mod.cs`, `glass/Mod.cs`) — own ImGui
-     window; its own `Patcher.cs` applies the lib's patch helper.
+  1. **Standalone** StarMap mod (`camera-controller-override/Mod.cs`, `glass/Mod.cs`,
+     `hot-pursuit/Mod.cs`) — own ImGui window; its own `Patcher.cs` applies the lib's patch helper.
   2. **Embedded** in the **unscience** supermod: `unscience/Mod.cs:62,66` adds
      `CameraControllerOverrideSubmod`, `unscience/Mod.cs:73` adds `GlassSubmod`; `unscience/Patcher.cs:59-63`
      calls `CameraControllerOverridePatches.Apply` and `unscience/Patcher.cs:70` calls `GlassPatches.Apply`.
@@ -127,6 +128,70 @@ visibility/header state, not animation data.
 
 ---
 
+## hot-pursuit
+
+**Purpose** — Click a rendered vehicle part and mount a live camera to the exact hit sub-part.
+Each entry leases one of KSA's four preallocated secondary viewports and exposes part-local XYZ
+translation, mount-relative pitch/yaw/roll, FOV, resolution, visibility and lease controls.
+
+**Feasibility boundary** — KSA creates main + thumbnail + four secondary + two portrait viewports
+at boot, exhausting `ViewportRegistry.MAX_VIEWPORTS == 8`, then seals allocation. Hot Pursuit does
+not reflect into allocation or create GPU resources: it uses the supported public secondary-lease
+API. Therefore at most four Hot Pursuit cameras can render, less any slots held by stock Add Camera,
+docking cameras, or another mod.
+
+**Unscience integration**
+
+- `HotPursuitSubmod` (`hot-pursuit.lib/HotPursuitSubmod.cs` plus UI/placement partials) owns entries,
+  stable target re-resolution, leases, and UI. `unscience/Mod.cs` creates it and calls the normal
+  `ISubmod` lifecycle.
+- `HotPursuitPatches.Apply/Remove` is used by both `hot-pursuit/Patcher.cs` and
+  `unscience/Patcher.cs`.
+- Standalone F11 and unscience both use the stock `GameViewport.DrawImGui` window for each feed.
+  Closing that window releases the registry lease; the submod detects that through `TryGetOwned`
+  and offers Reopen rather than retaining a stale reference.
+
+**Placement and coordinate model**
+
+- Placement is a one-shot world click using `Cursor.GetEgoRay(Program.MainViewport)`. It sweeps all
+  live vehicles (including debris), calls the same mesh-precise `Part.RayCastEgo` used by KSA hover
+  picking, and stores the returned closest sub-part, position, and normal. The latter two are in the
+  hit sub-part's local assembly frame.
+- The initial mount point is 0.15 m along the local hit normal. A tangent derived from local +Y (or
+  +X fallback) completes the outward-facing basis.
+- A `FixedController.OnFrame` prefix checks whether the passed viewport currently belongs to Hot
+  Pursuit and skips stock fixed-camera math only for those views. It composes the mount through
+  `Part.MatrixAsmb2Ego`, converts the point from
+  the main camera's ego frame to ECL, transforms tangents normally and the surface normal by the
+  inverse-transpose (then re-orthogonalizes the basis for non-uniform scale), then
+  writes `Camera.PositionEcl` and `WorldRotation`. The postfix runs before `GameViewport.OnFrame`
+  calls `Camera.OnFrame`, so view/frustum data is baked from the current part pose without UI-hook lag.
+
+**Integration points**
+
+| # | Kind | Mod code | Game target (Type.Member + signature) | Decomp path (NEW) | Risk/notes |
+|---|------|----------|----------------------------------------|-------------------|------------|
+| 1 | Harmony selective prefix (explicit signature; typed arg) | `hot-pursuit.lib/HotPursuitPatches.cs` | `FixedController.OnFrame(IViewport,double)` | `KSA/FixedController.cs:22` | Keystone timing seam. Returns false only for a registry-confirmed owned viewport; missing/stale leases run stock. Caller still invokes `Camera.OnFrame` immediately afterward. |
+| 2 | Direct viewport lease API | `HotPursuitSubmod.cs` | `ViewportRegistry.{AvailableSecondaryCount,TryClaimSecondaryViewport(IViewportOwner,out IGameViewport),TryGetOwned,ReleaseSecondaryViewport(IViewportOwner)}` | `KSA/ViewportRegistry.cs:54,181,213,246` | Four shared leases; reset-on-claim/release means all settings are reapplied. Allocation is sealed and capped at 8. |
+| 3 | Direct viewport configuration | `HotPursuitSubmod.cs`, `.Ui.cs` | `IGameViewport.{SetName,SetCameraMode,SetResizeAllowed,RequestResize,SetVisible,BaseCamera}`; `CameraMode.Fixed` | `KSA/IGameViewport.cs`; `KSA/IViewport.cs`; `KSA/CameraMode.cs` | Stock render targets and ImGui window. Closing `DrawImGui` releases the lease. |
+| 4 | Direct camera API | `HotPursuitSubmod.cs`, `HotPursuitPose.cs` | `Camera.{SetFollow(...changeControl:false),SetFieldOfView(float),PositionEcl,WorldRotation,LookAtRotation}` | `KSA/Camera.cs:597,412,110,134,198` | `changeControl:false` is load-bearing: true would change the controlled vehicle. `Camera.OnFrame` can terrain-clamp low mounts to 0.5 m AGL. |
+| 5 | Direct picking API | `HotPursuitPicker.cs` | `Cursor.GetEgoRay(IViewport)`; `Part.RayCastEgo(...)`; `Vehicle.{BoundingSphereRadiusBody,GetMatrixAsmb2Ego(Camera)}` | `KSA/Cursor.cs:27`; `KSA/Part.cs:2398`; `KSA/Vehicle.cs` | Same-frame main cursor ray. Hit position/normal belong to the returned closest sub-part, not necessarily the top-level part. Terrain is deliberately unsupported. |
+| 6 | Direct part transform/addressing | `HotPursuitCamera.cs`, `HotPursuitPose.cs`, `HotPursuitSubmod.cs` | `Part.{InstanceId,SubParts,MatrixAsmb2Ego}`; `Vehicle.Id`; `Universe.CurrentSystem` via `VehicleProvider` | `KSA/Part.cs:321,655,1165`; `KSA/Astronomical.cs:85` | Stable id re-resolution makes missing/failed/staged targets dormant rather than dereferencing destroyed objects. Full matrix includes scale and articulated sub-part parents. |
+| 7 | Lifecycle/shared input guard | `hot-pursuit/Mod.cs`, `Patcher.cs`; unscience host | StarMap attributes; `HotkeyGuard` | StarMap / abstraction | No game assets or custom shaders. |
+
+**Compatibility and live-test risks**
+
+- Glass now scopes its reflection-based FOV injection and direct FOV application to the main
+  viewport cameras. This preserves Hot Pursuit's per-camera FOV; re-check both together after camera
+  changes.
+- `Camera.OnFrame` calls terrain clamping, so a hull mount below 0.5 m AGL will be raised.
+- Secondary viewports are full scene renders and expensive. Some global effects/shadows are not
+  identical to the main view; verify vehicles, atmosphere, plumes, night lighting, scaled/robotic
+  parts, target destruction/debris handoff, closing/reopening, and simultaneous docking cameras live.
+- No reflection, assets, shaders, or custom Vulkan resources are used by Hot Pursuit itself.
+
+---
+
 ## glass
 
 **Purpose** — Camera field-of-view control: 8 photographic lens presets plus a manual FOV slider
@@ -154,10 +219,10 @@ call `Camera.ChangeFieldOfView`, `KSA/Camera.cs:769,774`) are suppressed by the 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
 | 1 | **Reflection (AccessTools.Field — PRIVATE)** | `glass.lib/GlassPatches.cs:20` | `KSA.Camera._fovRadians` — `private float _fovRadians = 0.87266463f` | `KSA/Camera.cs:53` | **Yes** | **None** (OLD `KSA/Camera.cs:53`, identical declaration) | **Single most important check — PASSED (5402).** String-based private field; a rename would silently break all FOV control with no compile error. Name + type unchanged through every build since 4680. |
-| 2 | Reflection (private field write, `SetValue`) | `glass.lib/GlassPatches.cs:62` | `KSA.Camera._fovRadians` (write target FOV in radians each frame) | `KSA/Camera.cs:53` | Yes | None | Same field as #1; written in `UpdateProjectionPrefix` so the very next projection build uses the override. Since 5402 the prefix also fires for part-thumbnail viewport cameras (see 5348→5402 summary). |
-| 3 | Reflection (AccessTools.Method) + Harmony prefix (skips original) | `glass.lib/GlassPatches.cs:25,28` | `KSA.Camera.ChangeFieldOfView(float change)` — `public void` | `KSA/Camera.cs:450` | Yes | None (OLD `KSA/Camera.cs:450`; single overload) | Prefix returns `false` (skip) when override active, so the game cannot change FOV. Public method. |
-| 4 | Reflection (AccessTools.Method) + Harmony prefix (`void`, runs-before) | `glass.lib/GlassPatches.cs:26,29` | `KSA.Camera.UpdateProjection()` — `public void` | `KSA/Camera.cs:466` | Yes | None (OLD `KSA/Camera.cs:466`; single overload) | `void` prefix injects `_fovRadians` then lets original rebuild the projection matrix (`CreatePerspectiveFieldOfViewReverseZ`). |
-| 5 | Direct typed API (static + instance) | `glass.lib/FovController.cs:42` | `KSA.Program.GetCamera() : Camera` (static, `=> FrameViewport.GetCamera()`) + `KSA.Camera.GetFieldOfView() : float` (returns RADIANS) | `KSA/Program.cs:647`, `KSA/Camera.cs:785` | Yes | None (OLD `KSA/Program.cs:599`, `KSA/Camera.cs:774`; `FrameViewport` is now typed `IViewport`, `Program.cs:493`) | Reads live FOV for the UI display. Compile-time bound. |
+| 2 | Reflection (private field write, `SetValue`) | `glass.lib/GlassPatches.cs:57-66` | `KSA.Camera._fovRadians` (write target FOV in radians) | `KSA/Camera.cs:53` | Yes | behavior narrowed for Hot Pursuit | `UpdateProjectionPrefix` now first checks `ViewportRegistry.IsMainCamera(__instance)`, so secondary/portrait/thumbnail cameras retain their independent projection. |
+| 3 | Reflection (AccessTools.Method) + Harmony prefix (skips original) | `glass.lib/GlassPatches.cs:25,50-53` | `KSA.Camera.ChangeFieldOfView(float change)` — `public void` | `KSA/Camera.cs:450` | Yes | behavior narrowed for Hot Pursuit | Prefix blocks stock FOV input only for a main viewport camera while override is active. |
+| 4 | Reflection (AccessTools.Method) + Harmony prefix (`void`, runs-before) | `glass.lib/GlassPatches.cs:26,57-66` | `KSA.Camera.UpdateProjection()` — `public void` | `KSA/Camera.cs:466` | Yes | None (OLD declaration identical) | Main-camera-only prefix injects `_fovRadians`, then original rebuilds the projection matrix. |
+| 5 | Direct typed API (static + instance) | `glass.lib/FovController.cs:40-55` | `KSA.Program.GetMainCamera() : Camera` + `KSA.Camera.GetFieldOfView() : float` (RADIANS) | `KSA/Program.cs:632`, `KSA/Camera.cs:785` | Yes | switched from frame camera | Reads/applies the player's main lens explicitly so a frame-scoped secondary camera cannot be stomped. |
 | 6 | Direct typed API (instance) | `glass.lib/FovController.cs:55` | `KSA.Camera.SetFieldOfView(float fovDegrees)` — `public void` (param is DEGREES; converts to radians internally) | `KSA/Camera.cs:412` | Yes | None (OLD `KSA/Camera.cs:412`) | Called from `ApplyFov()` on the game thread. Note the asymmetry: setter takes **degrees**, getter (#5) returns **radians**. |
 | 7 | Harmony patch (shared, required) | `glass/Patcher.cs:15` (+ unscience via HotkeyGuard) | `MeowSci.KsaAbstractions.HotkeyGuard.Patch(Harmony)` | n/a (abstraction lib) | Yes | n/a | Per-mod requirement. |
 | 8 | Lifecycle (StarMap attributes) | `glass/Mod.cs:19,22,38,45,60` | `StarMap.API` load/gui/unload attributes | StarMap library | Yes | n/a | Standalone load lifecycle. |
@@ -228,15 +293,13 @@ builds clean against 5402.
   and seeds it at the top of `OnFrame` (`:495-500`); `FlyController.ClampCamera` now uses the controller's
   own `Camera` and the new surface-clamp helper (`FlyController.cs:845-862`). When a sequence is playing the
   prefix skips the whole body as before; on resume the seeding simply runs next frame.
-- ⚠️ **glass now also overrides part-thumbnail cameras (low, needs a look).** The viewport rework added
-  `PartThumbnailViewport`, `GameViewport`, `ViewportRegistry` etc. — each owning a `Camera` whose
-  `UpdateProjection` runs through the instance-agnostic glass prefix (portrait cameras were already hit
-  at 5348; thumbnail cameras are the new recipients). If part thumbnails look distorted while the override
-  is on, gate the prefix on `ViewportRegistry.IsMainCamera(__instance)`.
+- ✅ **glass secondary-camera isolation implemented with Hot Pursuit.** The viewport rework made
+  the previous instance-agnostic prefix affect thumbnail, portrait, docking and extra cameras.
+  `GlassPatches` now gates both interception paths with `ViewportRegistry.IsMainCamera`, and
+  `FovController` reads/writes `Program.GetMainCamera()`. Each secondary camera retains its own FOV.
 - ℹ️ **Follow-target handoffs are new** — `Universe.HandOffCameras` (`Universe.cs:1778`) and the
   debris/wreckage paths in `DestroyVehicleFromEvent` re-`SetFollow` any camera following a destroyed
   vehicle. camera-controller-override reads `Camera.Following` each frame (`AnimationHelpers.cs:33`),
   so a running sequence will retarget rather than throw.
-- **Needs a live pass:** glass override vs part thumbnails (above). No live item for
-  camera-controller-override beyond confirming a sequence still drives the main camera after the
-  `IViewport` retype (compile-verified; behaviour unchanged by inspection).
+- **Needs a live pass:** glass + Hot Pursuit with different FOVs, plus confirming a
+  camera-controller-override sequence still drives the main camera after the `IViewport` retype.

@@ -22,7 +22,7 @@ Verification baseline:
   (NuGet **`StarMap.API` v0.3.6**, `PrivateAssets="all"`) is the loader seam, NOT the game — StarMap
   itself Harmony-patches the game's render loop and invokes the mod's attributed methods. So the
   shell never references the game's frame loop directly; it rides StarMap's hooks.
-- **Submod aggregation.** The host instantiates 26 `ISubmod` implementations (one per feature
+- **Submod aggregation.** The host instantiates 27 `ISubmod` implementations (one per feature
   lib), stores them in a list, and drives them uniformly: `Initialize()` once, `Update(dt)` every
   frame (even hidden), `RenderContent()` inside a `CollapsingHeader`, `RenderFloatingWindows()`
   always, `Dispose()` on unload. The same `ISubmod` classes are reused by each feature's own
@@ -105,6 +105,7 @@ are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
 | `KittenAnimationPatches` | kitten-animations.lib | 76 | 115 | `AnimatedRenderable.UpdateAnimation(double)` (**string** via `AccessTools.Method`) | prefix `(AnimatedRenderable __instance, ref double dt)` | ⚠️ **hot path** — runs for every animated renderable every frame; must stay a reference compare + early return. See character-and-materials scope |
 | `PyroPatches` | pyro.lib | 77 | 116 | `Vehicle.AddVolumetricExhaustInstances` (`nameof`) | postfix | see exhaust-plumes scope |
 | `GraffitiPatches` | graffiti.lib | 78 | 117 | `RenderTarget.ResolveAttachments` (`nameof`) | postfix | see decals scope |
+| `HotPursuitPatches` | hot-pursuit.lib | 79 | 118 | `FixedController.OnFrame(IViewport,double)` (`nameof`) | selective prefix | skips stock math only for owned part-mounted cameras; see camera scope |
 
 Non-Harmony cleanup also driven by `Patcher.Unload()`: `VehiclePaint.Cleanup()` (line 119) and
 `EngineEmissive.Cleanup()` (line 120), both humble-arteest.lib.
@@ -489,9 +490,9 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
   surface the suite uses.
 - ✅ **`IvaForceRender.Patch` IS wired in the supermod** (`unscience/Patcher.cs:74`, unpatch `:114`) — an
   earlier draft of this summary said "still open"; that was stale (the Phase-4 wiring predates 5348).
-- ℹ️ **space-tape is gone.** Its `ISubmod` registration, `ProjectReference` and the
-  `SpaceTapeSubmod.HideHostWindow` wiring were removed from `unscience/Mod.cs` and
-  `unscience/unscience.csproj`. **The supermod now aggregates 22 submods, not 23.**
+- ℹ️ **space-tape remains retired.** Hot Pursuit is a new, separate camera feature built on
+  5402's public secondary-viewport leases and current part raycast surface; it does not revive the
+  removed editor/decoupler implementation. **The supermod now aggregates 27 submods.**
 
 ---
 

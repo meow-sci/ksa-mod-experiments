@@ -47,9 +47,9 @@ public static class GlassPatches
     }
 
     // Block the game's FOV change input — we control FOV when override is active.
-    private static bool ChangeFieldOfViewPrefix()
+    private static bool ChangeFieldOfViewPrefix(Camera __instance)
     {
-        if (!FovController.IsOverrideActive) return true;
+        if (!FovController.IsOverrideActive || !IsMainCamera(__instance)) return true;
         return false;
     }
 
@@ -57,8 +57,15 @@ public static class GlassPatches
     private static void UpdateProjectionPrefix(Camera __instance)
     {
         if (!FovController.IsOverrideActive) return;
+        // Glass is the player's lens for the main camera. Do not stomp the independent
+        // projections of stock secondary viewports (for example Hot Pursuit cameras), which
+        // explicitly own their per-camera FOV.
+        if (!IsMainCamera(__instance)) return;
         if (_fovRadiansField == null) return;
         float targetRadians = (float)(FovController.OverrideFovDegrees * (Math.PI / 180.0));
         _fovRadiansField.SetValue(__instance, targetRadians);
     }
+
+    private static bool IsMainCamera(Camera camera)
+        => ViewportRegistry.IsMainCamera(camera);
 }

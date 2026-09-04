@@ -1,5 +1,12 @@
 # ksa-mod-experiments
 
+Silly Kitten Space Agency mods, available as standalone projects and through the `unscience`
+umbrella mod. Start with [`REPOSITORY_INDEX.md`](REPOSITORY_INDEX.md) for the complete catalog and
+[`scope/FULL_SCOPE.md`](scope/FULL_SCOPE.md) for the game-integration map.
+
+The current camera experiments include `hot-pursuit`: click a vehicle part to mount a live feed in
+one of KSA's stock secondary viewports, then tune its part-local pose, FOV, and resolution.
+
 To install dependencies:
 
 ```bash

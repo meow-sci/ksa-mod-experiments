@@ -28,6 +28,7 @@ using MeowSci.RedAlertLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
+using MeowSci.HotPursuitLib;
 using MeowSci.PyroLib;
 using MeowSci.RockyMcRockFaceLib;
 using MeowSci.BloominOnionLib;
@@ -77,6 +78,7 @@ public class Mod
             _submods.Add(new GeeForceSubmod());
             _submods.Add(new GlassSubmod());
             _submods.Add(new GraffitiSubmod());
+            _submods.Add(new HotPursuitSubmod());
             _submods.Add(new HumbleArteestSubmod());
             _submods.Add(iFeelSeen);
             _submods.Add(new ItsSoShinySubmod());
@@ -338,4 +340,3 @@ public class Mod
         UnscienceState.SaveSubmodState(_headerOpen, _submodVisibility);
     }
 }
-

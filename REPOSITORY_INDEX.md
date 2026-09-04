@@ -85,6 +85,23 @@ Vehicle render distance override. Allows tracking and toggling render visibility
 
 ## Camera & View Control Mods
 
+### [hot-pursuit](hot-pursuit) / [hot-pursuit.lib](hot-pursuit.lib)
+Part-mounted secondary cameras. Arm placement, click a rendered vehicle part, and Hot Pursuit leases
+one of KSA's stock secondary viewports for a live feed welded to that exact surface.
+- Mesh-precise placement via `Cursor.GetEgoRay(Program.MainViewport)` + `Part.RayCastEgo`; anchors the
+  returned hit sub-part by stable vehicle id and `Part.InstanceId`
+- Cameras follow vehicle, robotics, sub-part, floating-origin, and scaled-part motion every frame
+- Per-camera part-local XYZ translation, mount-relative pitch/yaw/roll, 15-120 degree FOV, resolution,
+  visibility, close/reopen, and removal controls
+- Uses KSA's public `ViewportRegistry.TryClaimSecondaryViewport` ownership API and stock viewport
+  rendering/window; no custom Vulkan path
+- Shares the four preallocated secondary slots with stock Add Camera and docking cameras; KSA's
+  eight-slot registry is sealed after startup, so four is the absolute extra-camera ceiling
+- Missing/despawned targets become safely dormant; closed viewport windows release their lease
+- `hot-pursuit.lib`: `HotPursuitSubmod`, camera/owner state, ray picker, part-relative pose math, and
+  `HotPursuitPatches` (selective `FixedController.OnFrame` prefix)
+- Session-only state; standalone F11 window and unscience `ISubmod` integration
+
 ### [camera-controller-override](camera-controller-override) / [camera-controller-override.lib](camera-controller-override.lib)
 Advanced camera animation system. Provides 8 configurable animation types (zoom, spiral, orbit, shake) with easing functions and keyframe sequencing for orbit and fly camera modes.
 - Zoom in/out, zoom to offset, spiral zoom in/out, standard orbit, loopy orbit, shake animations
@@ -378,15 +395,15 @@ Define **brand-new planetary rings at runtime** and apply them to **any celestia
 ## Unified Supermod
 
 ### [unscience](unscience)
-Unified supermod that consolidates 14 standalone mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates patches from blinky, camera-controller-override, glass, i-feel-seen, skittles, and dont-stifle-me. Standalone mods continue to work independently.
+Unified supermod that consolidates the standalone feature mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates their patches. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (26 total)
+- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Garry's Torch, G-Force Monitor, Glass, Graffiti, Hot Pursuit, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (27 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
-- Consolidated Harmony patches: blinky render-skip, camera-controller-override sequence playback, glass FOV override, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, graffiti decal pass
-- References all `.lib` projects: average-twr.lib, blinky.lib, bloomin-onion.lib, camera-controller-override.lib, con-man.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, graffiti.lib, humble-arteest.lib, i-feel-seen.lib, kitten-animations.lib, kiwis-marbles.lib, pyro.lib, red-alert.lib, rocky-mcrock-face.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib
+- Consolidated Harmony patches include blinky render-skip, camera-controller-override sequence playback, glass main-camera FOV override, hot-pursuit fixed-camera pose, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, and graffiti decal pass
+- References all feature `.lib` projects, including `hot-pursuit.lib`, plus `ksa-abstractions.lib`
 
 ---
 
