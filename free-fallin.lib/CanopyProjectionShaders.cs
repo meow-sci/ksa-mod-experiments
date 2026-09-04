@@ -7,7 +7,9 @@ using Brutal.ShaderCApi;
 using Brutal.VulkanApi;
 using HarmonyLib;
 using KSA;
+using KSA.Rendering;
 using RenderCore;
+using RenderCore.Pipelines;
 
 namespace MeowSci.FreeFallinLib;
 
@@ -28,7 +30,14 @@ internal static class CanopyProjectionShaders
     private static readonly MethodInfo FromFile = AccessTools.Method(typeof(ShaderModuleUtils), nameof(ShaderModuleUtils.FromFile),
         new[] { typeof(Device), typeof(string), typeof(VkShaderStageFlags).MakeByRefType(), typeof(CompileOptions?) })
         ?? throw new MissingMethodException(typeof(ShaderModuleUtils).FullName, nameof(ShaderModuleUtils.FromFile));
-    private static readonly MethodInfo Prefix = AccessTools.Method(typeof(CanopyProjectionShaders), nameof(FromFilePrefix))!;
+    private static readonly MethodInfo SetShaderFromMod = AccessTools.Method(typeof(Utils), nameof(Utils.SetShaderFromMod),
+        new[] { typeof(SimpleShaderStages), typeof(Device), typeof(string), typeof(bool) })
+        ?? throw new MissingMethodException(typeof(Utils).FullName, nameof(Utils.SetShaderFromMod));
+    private static readonly MethodInfo FromFilePatch = AccessTools.Method(typeof(CanopyProjectionShaders), nameof(FromFilePrefix))!;
+    private static readonly MethodInfo SetShaderFromModPatch = AccessTools.Method(typeof(CanopyProjectionShaders), nameof(SetShaderFromModPrefix))!;
+
+    private static bool _skinnedVertexCompiled;
+    private static bool _pbrFragmentCompiled;
 
     internal static bool Available { get; private set; }
     internal static string? LastError { get; private set; }
@@ -37,6 +46,8 @@ internal static class CanopyProjectionShaders
     {
         SourceCache.Clear();
         LastError = null;
+        _skinnedVertexCompiled = false;
+        _pbrFragmentCompiled = false;
         Available = ValidateSources();
         if (!Available)
         {
@@ -44,7 +55,8 @@ internal static class CanopyProjectionShaders
             return;
         }
 
-        harmony.Patch(FromFile, prefix: new HarmonyMethod(Prefix));
+        harmony.Patch(FromFile, prefix: new HarmonyMethod(FromFilePatch));
+        harmony.Patch(SetShaderFromMod, prefix: new HarmonyMethod(SetShaderFromModPatch));
         Program.RendererRebuildNeeded = true;
         Console.WriteLine("free-fallin: full-canopy projection shaders armed; renderer rebuild requested");
     }
@@ -54,7 +66,10 @@ internal static class CanopyProjectionShaders
         if (!Available) return;
         Available = false;
         SourceCache.Clear();
-        harmony.Unpatch(FromFile, Prefix);
+        _skinnedVertexCompiled = false;
+        _pbrFragmentCompiled = false;
+        harmony.Unpatch(FromFile, FromFilePatch);
+        harmony.Unpatch(SetShaderFromMod, SetShaderFromModPatch);
         Program.RendererRebuildNeeded = true;
         Console.WriteLine("free-fallin: full-canopy projection shaders removed; renderer rebuild requested");
     }
@@ -63,6 +78,23 @@ internal static class CanopyProjectionShaders
     {
         if (!Available)
             throw new InvalidOperationException(LastError ?? "Full-canopy projection shaders are unavailable on this KSA build.");
+        if (!_skinnedVertexCompiled || !_pbrFragmentCompiled)
+            throw new InvalidOperationException("Full-canopy projection shaders have not reached the active flight renderer. Check the console for shader rebuild errors.");
+    }
+
+    /// <summary>
+    /// Stock model pipelines normally reuse cached ShaderReference modules when rebuilt. Force only
+    /// our three targets through CompileVariantWithCustomOptions so FromFilePrefix can transform them.
+    /// </summary>
+    private static void SetShaderFromModPrefix(string modId, ref bool useCustomOptions)
+    {
+        if (!Available) return;
+        foreach (string shaderId in ShaderIds)
+        {
+            if (!shaderId.Equals(modId, StringComparison.OrdinalIgnoreCase)) continue;
+            useCustomOptions = true;
+            return;
+        }
     }
 
     private static bool FromFilePrefix(Device device, string filePath, ref VkShaderStageFlags shaderStage,
@@ -75,6 +107,10 @@ internal static class CanopyProjectionShaders
             VkShaderStageFlags stage = ShaderModuleUtils.ShaderStageFromFileExtension(filePath);
             __result = ShaderModuleUtils.FromString(device, source, stage, options, NullTerminated(filePath));
             shaderStage = stage;
+            string name = Path.GetFileName(filePath);
+            if (name.Equals(SkinnedVertex, StringComparison.OrdinalIgnoreCase)) _skinnedVertexCompiled = true;
+            if (name.Equals(PbrFragment, StringComparison.OrdinalIgnoreCase)) _pbrFragmentCompiled = true;
+            Console.WriteLine($"free-fallin: compiled full-canopy shader {name}");
             return false;
         }
         catch (Exception ex)
