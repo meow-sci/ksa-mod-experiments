@@ -107,7 +107,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** scale patches on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale`, plus configurable editor-limit patches on `DrawParachuteSection` / `Parachute.SetDiameter` (2–1000 m diameter). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + `Cursor.GetEgoRay` picking, CPU terrain march; **no string reflection** (new @5348) |
-| [`parachutes.md`](parachutes.md) | free-fallin | `ChuteRenderable.Draw` prefix; private `_renderable` + protected `AnimatedRenderable.MaterialIndices`; runtime `MaterialData` and PNG/PBR texture uploads; stock `ParachuteCanopy_Material` asset (new @5402) |
+| [`parachutes.md`](parachutes.md) | free-fallin | `ChuteRenderable.Draw` + `ShaderModuleUtils.FromFile` prefixes; private `_renderable` + protected `AnimatedRenderable.MaterialIndices`; runtime `MaterialData` and PNG/PBR uploads; material-gated bind-pose projection through `Model{,_Skinned}.vert` / `ModelPbr.frag`; stock canopy assets (new @5402) |
 | [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
@@ -158,8 +158,10 @@ items, one game-side regression.**
   parachute editor slider and setter clamp to accept 2–1000 m. It compiles against the current
   surface but needs a live editor pass, including a symmetry counterpart.
 - **free-fallin parachute materials** — the new submod replaces canopy material slot zero at draw
-  time, supporting stock tint, PNG replacement/center compositing, and stock-scaled or uniform PBR.
-  It compiles against 5402 but needs its first live render, restore, and unload pass.
+  time, supporting stock tint, panel-tiled PNG replacement, cohesive full-canopy bind-pose
+  projection, center compositing, and stock-scaled or uniform PBR. Its projection shader transforms
+  compile to valid SPIR-V against 5402 but need a live orientation/deformation pass alongside
+  restore and unload.
 - **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
   a live pass on any build since 5261.
 
@@ -177,7 +179,8 @@ bloomin-onion and dont-stifle-me have still never been exercised in-game.
 
 **What still needs a live pass:** F11 smoke; pyro plume bend in atmosphere + heat-haze check;
 garrys-torch weld with crash-tolerance log watch; graffiti vehicle + terrain decal placement;
-parts-now runtime part thumbnail (rev 5401); free-fallin stock tint / replacement / center decal /
+parts-now runtime part thumbnail (rev 5401); free-fallin stock tint / panel replacement / Full Canopy /
+center decal /
 uniform PBR / restore-unload; dont-stifle-me scale-then-attach plus 2 m / 1000 m
 parachute edits with symmetry; kiwis-marbles weld near
 a deployed chute; hot-pursuit placement/motion/lease contention + Glass independent FOV; the standing thug-life / humble-arteest / blinky /

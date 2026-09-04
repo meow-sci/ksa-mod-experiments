@@ -21,12 +21,17 @@ public static class FreeFallinPatches
 
     private sealed class SeenMarker { }
 
-    public static void Apply(Harmony harmony) => harmony.Patch(Target, prefix: new HarmonyMethod(Prefix));
+    public static void Apply(Harmony harmony)
+    {
+        CanopyProjectionShaders.Apply(harmony);
+        harmony.Patch(Target, prefix: new HarmonyMethod(Prefix));
+    }
 
     public static void Remove(Harmony harmony)
     {
         RestoreObserved();
         harmony.Unpatch(Target, Prefix);
+        CanopyProjectionShaders.Remove(harmony);
     }
 
     public static void RestoreStock()

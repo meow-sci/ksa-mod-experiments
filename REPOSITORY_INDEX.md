@@ -380,12 +380,14 @@ Click-to-place **projected PNG decals** on vehicle hulls and terrain. Pick a PNG
 Global parachute-canopy appearance customization. Unlike Graffiti, it needs no raycast: one material
 is substituted on every canopy as it draws, so the image follows KSA's animated cloth.
 - Stock albedo tint and brightness while preserving the authored panel pattern and normal map
-- Imported PNG as a full UV replacement, or alpha-composited in the center of the stock albedo
+- Imported PNG as a repeating authored-UV panel texture, a cohesive bind-pose projection across the
+  complete canopy, or alpha-composited in the center of the stock albedo
 - Stock-map AO/roughness/metallic multipliers or uniform 0–1 PBR overrides
 - Built-in ImGui PNG browser; imports persist under `.unscience/parachutes`
 - Session-only active settings, global to existing and future parachutes, with Restore Stock
-- `free-fallin.lib`: `FreeFallinSubmod`, `CanopyMaterialController`, `FreeFallinPatches`, settings,
-  image library/browser; `free-fallin`: standalone F11 StarMap host with mandatory HotkeyGuard
+- `free-fallin.lib`: `FreeFallinSubmod`, `CanopyMaterialController`, `CanopyProjectionShaders`,
+  `FreeFallinPatches`, settings, image library/browser; `free-fallin`: standalone F11 StarMap host
+  with mandatory HotkeyGuard
 
 ### [rocky-mcrock-face](rocky-mcrock-face) / [rocky-mcrock-face.lib](rocky-mcrock-face.lib)
 Swap the **meshes and textures of KSA's planetary ring system** (Saturn's instanced rock field + 2D band) at runtime. Pick any built-in mesh — including every part/subpart mesh (~800 in a filterable dropdown) — per ring LOD, change the rock PBR material textures (diffuse/normal/AoRoughMetal), the ring band texture (which also drives the planet's ring shadow), and the rock field's size/density/draw-distance/thickness.
@@ -419,7 +421,7 @@ Unified supermod that consolidates the standalone feature mods into a single ImG
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
-- Consolidated Harmony patches include blinky render-skip, camera-controller-override sequence playback, free-fallin canopy material substitution, glass main-camera FOV override, hot-pursuit fixed-camera pose, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, and graffiti decal pass
+- Consolidated Harmony patches include blinky render-skip, camera-controller-override sequence playback, free-fallin canopy material substitution + full-canopy shader projection, glass main-camera FOV override, hot-pursuit fixed-camera pose, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, and graffiti decal pass
 - References all feature `.lib` projects, including `hot-pursuit.lib`, plus `ksa-abstractions.lib`
 
 ---

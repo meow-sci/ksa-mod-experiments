@@ -13,6 +13,7 @@ namespace MeowSci.FreeFallinLib;
 internal static class CanopyMaterialController
 {
     private const string StockMaterialId = "ParachuteCanopy_Material";
+    private const string CanopyGlbId = "ParachuteCanopyGlb";
     private static int _revision;
 
     internal static int CurrentMaterialHandle { get; private set; } = -1;
@@ -25,6 +26,7 @@ internal static class CanopyMaterialController
         PbrMaterialReference stock = ModLibrary.Get<PbrMaterialReference>(StockMaterialId).Get();
         GpuTextureSystem textures = renderSystem.TextureSystem;
 
+        float4 projectionData = ProjectionData(settings, renderSystem);
         TextureBinding albedo = ResolveAlbedo(settings, stock, textures);
         int pbrHandle;
         float4 pbrScale;
@@ -54,6 +56,7 @@ internal static class CanopyMaterialController
                             ?? renderSystem.GltfSystemSkinned.BlankNormalTexture.BindlessHandle,
             RoughMetallicAOTexture = pbrHandle,
             RoughnessMetalScale = pbrScale,
+            ExtraData = projectionData,
             EmissiveTexture = stock.EmissiveMap?.Get().BindlessHandle ?? textures.DefaultBlackTexture.BindlessHandle
         };
 
@@ -92,7 +95,7 @@ internal static class CanopyMaterialController
 
         string path = ParachuteTextureLibrary.FullPath(settings.TextureName);
         if (!File.Exists(path)) throw new FileNotFoundException("The selected PNG no longer exists.", path);
-        GenericTexture generated = settings.TextureMode == CanopyTextureMode.Replace
+        GenericTexture generated = settings.TextureMode is CanopyTextureMode.Replace or CanopyTextureMode.FullCanopy
             ? LoadReplacement(path)
             : ComposeCenteredDecal(stock, path, settings.DecalScale);
         try
@@ -101,6 +104,21 @@ internal static class CanopyMaterialController
             return new TextureBinding(uploaded.BindlessHandle, uploaded.SamplerHandle);
         }
         finally { generated.Destroy(); }
+    }
+
+    private static float4 ProjectionData(CanopyMaterialSettings settings, SuperMeshRenderSystem renderSystem)
+    {
+        if (settings.TextureMode != CanopyTextureMode.FullCanopy) return float4.Zero;
+        CanopyProjectionShaders.RequireAvailable();
+
+        SkeletonAssetRef? skeleton = renderSystem.GltfSystemSkinned.GetOrLoad(CanopyGlbId).Skeleton;
+        float radius = skeleton == null ? 0f : ChuteCanopyBones.MeasureBindHemRadius(skeleton.SkeletonData);
+        if (!(radius > 0f) || !float.IsFinite(radius))
+            throw new InvalidOperationException("Could not measure the stock canopy bind-pose radius for full-canopy projection.");
+
+        float radians = settings.FullCanopyRotationDegrees * (MathF.PI / 180f);
+        return new float4(0.5f / radius, MathF.Cos(radians), MathF.Sin(radians),
+            CanopyProjectionShaders.MaterialMarker);
     }
 
     private static GpuTextureAssetRef UploadSolidPbr(GpuTextureSystem textures, float ao, float roughness, float metallic)

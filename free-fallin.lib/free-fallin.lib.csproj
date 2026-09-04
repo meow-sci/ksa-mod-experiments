@@ -25,6 +25,7 @@
     <Reference Include="Brutal.Texture" Condition="Exists('$(KSAFolder)Brutal.Texture.dll')"><HintPath>$(KSAFolder)Brutal.Texture.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Brutal.Texture.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Texture.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Texture.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Brutal.Ktx" Condition="Exists('$(KSAFolder)Brutal.Ktx.dll')"><HintPath>$(KSAFolder)Brutal.Ktx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Brutal.ShaderC" Condition="Exists('$(KSAFolder)Brutal.ShaderC.dll')"><HintPath>$(KSAFolder)Brutal.ShaderC.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Brutal.Vulkan" Condition="Exists('$(KSAFolder)Brutal.Vulkan.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Brutal.Vulkan.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Vulkan.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Planet.Core" Condition="Exists('$(KSAFolder)Planet.Core.dll')"><HintPath>$(KSAFolder)Planet.Core.dll</HintPath><Private>false</Private></Reference>

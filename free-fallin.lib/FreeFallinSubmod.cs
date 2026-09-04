@@ -17,6 +17,7 @@ public sealed class FreeFallinSubmod : ISubmod
     private float4 _tint = float4.One;
     private float _brightness = 1f;
     private float _decalScale = 0.45f;
+    private float _fullCanopyRotation;
     private bool _useStockPbrMap = true;
     private float _ambientOcclusion = 1f;
     private float _roughness = 1f;
@@ -61,6 +62,8 @@ public sealed class FreeFallinSubmod : ISubmod
             ImGui.SameLine(0f, 10f);
             ImGui.RadioButton("Replace##ff_replace", ref _textureMode, (int)CanopyTextureMode.Replace);
             ImGui.SameLine(0f, 10f);
+            ImGui.RadioButton("Full canopy##ff_full", ref _textureMode, (int)CanopyTextureMode.FullCanopy);
+            ImGui.SameLine(0f, 10f);
             ImGui.RadioButton("Center decal##ff_decal", ref _textureMode, (int)CanopyTextureMode.CenterDecal);
 
             Label("PNG library");
@@ -99,13 +102,22 @@ public sealed class FreeFallinSubmod : ISubmod
                 ImGui.DragFloat("##ff_decal_scale", ref _decalScale, 0.01f, 0.05f, 1f, "%.2f");
                 ImGui.SetItemTooltip("Fraction of the stock albedo's width/height available to the centered PNG.");
             }
+            else if (_textureMode == (int)CanopyTextureMode.FullCanopy)
+            {
+                Label("Rotation");
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.DragFloat("##ff_full_rotation", ref _fullCanopyRotation, 1f, -180f, 180f, "%.0f deg");
+                ImGui.SetItemTooltip("Rotates the cohesive image around the canopy apex.");
+            }
             EndForm();
         }
 
         if (_textureMode == (int)CanopyTextureMode.Stock)
             ImGui.TextDisabled("Stock keeps the original panel pattern; tint recolors it multiplicatively.");
         else if (_textureMode == (int)CanopyTextureMode.Replace)
-            ImGui.TextDisabled("Replace maps the PNG across the canopy's authored UVs.");
+            ImGui.TextDisabled("Replace tiles the PNG through the canopy's authored panel UVs.");
+        else if (_textureMode == (int)CanopyTextureMode.FullCanopy)
+            ImGui.TextDisabled("Full canopy projects the PNG once across the complete circular canopy.");
         else
             ImGui.TextDisabled("Center decal alpha-composites the PNG over the stock albedo, then maps it with the cloth UVs.");
     }
@@ -163,6 +175,7 @@ public sealed class FreeFallinSubmod : ISubmod
                 Tint = _tint,
                 Brightness = Math.Clamp(_brightness, 0f, 4f),
                 DecalScale = Math.Clamp(_decalScale, .05f, 1f),
+                FullCanopyRotationDegrees = Math.Clamp(_fullCanopyRotation, -180f, 180f),
                 UseStockPbrMap = _useStockPbrMap,
                 AmbientOcclusion = Math.Clamp(_ambientOcclusion, 0f, _useStockPbrMap ? 4f : 1f),
                 Roughness = Math.Clamp(_roughness, 0f, _useStockPbrMap ? 4f : 1f),
@@ -200,7 +213,7 @@ public sealed class FreeFallinSubmod : ISubmod
 
     private void ResetControls()
     {
-        _textureMode = 0; _tint = float4.One; _brightness = 1f; _decalScale = .45f;
+        _textureMode = 0; _tint = float4.One; _brightness = 1f; _decalScale = .45f; _fullCanopyRotation = 0f;
         _useStockPbrMap = true; _ambientOcclusion = 1f; _roughness = 1f; _metallic = 1f;
     }
 

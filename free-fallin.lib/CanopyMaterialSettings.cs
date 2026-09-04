@@ -9,6 +9,7 @@ public sealed class CanopyMaterialSettings
     public float4 Tint { get; set; } = float4.One;
     public float Brightness { get; set; } = 1f;
     public float DecalScale { get; set; } = 0.45f;
+    public float FullCanopyRotationDegrees { get; set; }
     public bool UseStockPbrMap { get; set; } = true;
     public float AmbientOcclusion { get; set; } = 1f;
     public float Roughness { get; set; } = 1f;
