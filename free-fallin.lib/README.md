@@ -6,7 +6,7 @@ Reusable core for [`../free-fallin`](../free-fallin) and the unscience umbrella 
 |---|---|
 | `FreeFallinSubmod.cs` | `ISubmod` lifecycle and ImGui appearance/PBR editor |
 | `FreeFallinPatches.cs` | Prefixes `ChuteRenderable.Draw`, substitutes material handle 0, and restores observed canopies |
-| `CanopyMaterialController.cs` | Builds GPU albedo/PBR textures and `MaterialData` objects from stock assets and user settings |
+| `CanopyMaterialController.cs` | Transcodes the stock BC7 KTX2 to RGBA8 when compositing a decal, then builds GPU albedo/PBR textures and `MaterialData` objects |
 | `CanopyMaterialSettings.cs` / `CanopyTextureMode.cs` | Public settings model and Stock/Replace/CenterDecal modes |
 | `ParachuteTextureLibrary.cs` | Persistent imported-PNG library under `.unscience/parachutes` |
 | `PngFileBrowser.cs` | ImGui filesystem picker modeled after Graffiti's importer |

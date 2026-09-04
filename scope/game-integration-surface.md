@@ -1,7 +1,7 @@
 # Game Integration Surface — master index (unscience KSA mod suite)
 
 Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bearing game-shipped
-Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the 11 per-area `scope/`
+Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the per-area `scope/`
 files. Use it on every KSA update to find which mods a changed game member puts at risk.
 
 **Verification baseline:** cataloged against KSA build **2026.9.7.5402**
@@ -65,7 +65,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | `UpdateAnimation(double dt)` | **Harmony prefix** `(AnimatedRenderable __instance, ref double dt)` | `KSA/AnimatedRenderable.cs:123` | kitten-animations | `KittenAnimationPatches.cs` | OK | ⚠️ hot path — the only point in the frame where an animation override survives `KittenRenderable.UpdateRenderData`. Also scales `dt` for the playback-rate control |
 | `FreezeAnimation : bool` | direct API | `KSA/AnimatedRenderable.cs:53` | kitten-animations | `KittenAnimationDriver.cs` | OK | freeze/pause the forced clip; released back to the game on override off |
 | `AnimProcessors : List<IAnimProcessor>` | direct API | `KSA/AnimatedRenderable.cs:47` | kitten-animations | `KittenExpressionController.cs` | OK | mod **appends** its own `CatExpressionAnim` here (and removes it on unbind) |
-| `MaterialIndices : protected int[]` | reflection-field | `KSA/AnimatedRenderable.cs:33` | doh | `doh.lib/Spawning/KittenSpawner.cs:388-408` | OK | in-place handle swap (CharacterModel) |
+| `MaterialIndices : protected int[]` | reflection-field | `KSA/AnimatedRenderable.cs:34` | doh, free-fallin | `doh.lib/Spawning/KittenSpawner.cs:388-408`; `free-fallin.lib/FreeFallinPatches.cs` | OK @5402 | in-place handle swap; free-fallin writes canopy material slot zero immediately before each chute draw and restores observed renderables on disable/unload |
 
 ### KSA.AssetBundle
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -143,6 +143,13 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `MaterialIndices : protected int[]` | reflection-field | `KSA/CatFurRenderable.cs:22` | doh | `KittenSpawner.cs:388-408,523-537` | OK | fur material handle swap |
+
+### KSA.ChuteRenderable
+| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 5402 | Notes |
+|---|---|---|---|---|---|---|
+| `Draw(float3[], float[]?, floatQuat[]?, ref readonly double4x4, float diameterM, double dt)` | **Harmony prefix** | `KSA/ChuteRenderable.cs:32` | free-fallin | `free-fallin.lib/FreeFallinPatches.cs` | OK (new @5402) | substitutes the nested animated renderable's material handle before its draw; single overload |
+| `_renderable : private readonly AnimatedRenderable` | reflection-field (string) | `KSA/ChuteRenderable.cs:13` | free-fallin | `FreeFallinPatches.cs` | OK (new @5402) | load-bearing private field; exact-name reflection watchlist entry |
+| ctor binds `ParachuteCanopyGlb` + material slot 0 `ParachuteCanopy_Material` and two-sided skinned techniques | behavior + asset invariant | `KSA/ChuteRenderable.cs:17-29` | free-fallin | `CanopyMaterialController.cs`; `FreeFallinPatches.cs` | OK (new @5402) | slot zero and two-sided main/prepass/shadow sharing are required for one material swap to cover the complete canopy |
 
 ### KSA.Celestial
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -322,12 +329,13 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 |---|---|---|---|---|---|---|
 | `BigBuffer : BufferEx` (public get/protected set) | reflection-field | `KSA/GpuObjectSystem.cs:18` | doh, humble-arteest | `MaterialSystemAccessor.cs:71`; `KittenColor.cs:191-215` | OK | GPU material buffer |
 | `DeviceCtx : IVulkanContext` (protected) | reflection-field (hierarchy) | `KSA/GpuObjectSystem.cs:16` | doh, humble-arteest | `MaterialSystemAccessor.cs:75`; `KittenColor.cs:55-73` | OK | |
-| `CreateObject(AssetName, T) : bool` | reflection-method (hierarchy) | `KSA/GpuObjectSystem.cs:45` | doh | `MaterialSystemAccessor.cs:78,123` | OK | clone material |
+| `CreateObject(AssetName, T) : bool` | reflection-method (doh) / direct API (free-fallin) | `KSA/GpuObjectSystem.cs:45` | doh, free-fallin | `MaterialSystemAccessor.cs:78,123`; `free-fallin.lib/CanopyMaterialController.cs` | OK @5402 | allocates immutable runtime materials; free-fallin creates one per Apply |
 
 ### KSA.GpuTextureSystem
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `GetOrLoad`; `{SamplerRepeatHandle, DefaultWhiteTexture, DefaultBlackTexture}` | reflection-field/method | `KSA/GpuTextureSystem.cs:26,32,34` | doh | `MaterialSystemAccessor.cs:84-90`; `MaterialFactory.cs:541-577` | OK | texture bindless lookup; file byte-identical |
+| `TryAddTexture(AssetName, TextureAsset, bool)` + `GetOrLoad` | direct API | `KSA/GpuTextureSystem.cs:85-100` | free-fallin | `free-fallin.lib/CanopyMaterialController.cs` | OK @5402 | uploads replacement/composited albedo and optional 1x1 PBR textures into KSA's bindless system |
 
 ### KSA.GrainGeometryLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -450,7 +458,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.MaterialData
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `MaterialData` (`[StructLayout(Sequential,Pack=1)]`; `AlbedoColor` @offset **16**) | direct API + GPU write | `KSA/MaterialData.cs:6-23` | doh, humble-arteest (KittenColor) | `MaterialFactory.cs:247-257`; `KittenColor.cs:191-215` | OK | **byte-identical**; staged Vulkan write at `handle*80+16` stays correct |
+| `MaterialData` (`[StructLayout(Sequential,Pack=1)]`; `AlbedoColor` @offset **16**) | direct API + GPU write | `KSA/MaterialData.cs:6-23` | doh, humble-arteest (KittenColor), free-fallin | `MaterialFactory.cs:247-257`; `KittenColor.cs:191-215`; `free-fallin.lib/CanopyMaterialController.cs` | OK @5402 | **byte-identical**; free-fallin supplies albedo/normal/PBR/emissive handles, tint and `RoughnessMetalScale`; shader channel ABI is R=AO, G=roughness, B=metallic |
 
 ### KSA.MeshReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -992,6 +1000,7 @@ on every game update FIRST.
 | `VolumetricExhaustTemplate.References` (internal static field) | pyro | `AccessTools.Field(…, "References")` → `SerializedCollection<T>.GetList()` (`PlumeTemplates.cs:46`) | OK @5348 — soft: falls back to the stock 7 ids via public `Get(id)` |
 | `VolumetricExhaustInstance._shaderData` (private struct field) | pyro | `AccessTools.FieldRefAccess<…, ExhaustInstance>("_shaderData")` (`PlumeEmitter.cs:25`) | OK @5348 — soft: per-plume look overrides disable with a UI notice |
 | `KittenEva` (type name) / `KittenEva._renderable` → `KittenRenderable._characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` | garrys-torch, doh, kitten-animations | `GetType().Name` compare + private field chain | OK |
+| `ChuteRenderable._renderable` → `AnimatedRenderable.MaterialIndices` | free-fallin | private/protected field chain used immediately before `ChuteRenderable.Draw`; writes material slot zero and weakly tracks the renderable for restore | OK @5402 — new game surface and new consumer; both exact names are load-bearing |
 | `CharacterAvatar.Core.{CharacterModel,Fur,Attachments}…MaterialIndices` (AnimatedRenderable/CatFurRenderable/StaticMeshRenderable) | doh | private field-path + `protected int[]` | OK |
 | `CatExpressionAnim._expressionPose` | kitten-animations | private field by name (cache bust) | OK |
 | `KittenRenderable._ground{Idle,Walk,Run}Anim`, `_ladderAnim`, `_jumpIntroAnim`, `_flailAnim`, `_jumpLandAnim`, `_moon{Walk,Run}Anim`, `_swimAnim`, `_swimIdleAnim`, `_seatedIdleAnim`, `_seatedIdleActionAnims`, `_walk/_run/_swimPairSampler`, `_blendSampler` | kitten-animations | 17 private fields by name — the only route to the ground animation set | OK — degrades per field into a UI warning, never a crash |
@@ -1039,6 +1048,7 @@ on every game update FIRST.
 | `MeshIndirect.frag` + `MeshIndirectRaytraced.frag` (paint injection) | shader text-edit (in memory, via the `FromFile` prefix) | matched by **file name**; anchor = first `vec3 sampledColor …;` line; requires `inStateFlags` varying and `gammaToLinear` (`Common/Shared.glsl:203`) | `Content/Core/Shaders/Mesh/MeshIndirect.frag:114`; `MeshIndirectRaytraced.frag:156` | humble-arteest (VehiclePaint) | OK (rebuilt for 5018) — if the anchor moves, `Enable` fails with a UI message and rendering stays stock |
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
 | `ModelPbr.frag` → `MaterialSet.glsl` (`albedo = mat.albedoColor * texture(...)`) | shader (read-only) | — (effect of GPU buffer write) | `Content/Core/Shaders/Mesh/ModelPbr.frag`; `Common/MaterialSet.glsl` | doh, humble-arteest (KittenColor) | OK (`MaterialSet.glsl` identical; `ModelPbr.frag` only SSAO reorder rev 4671) |
+| `ParachuteCanopyGlb` + `ParachuteCanopy_Material` (`Diffuse`, `Normal`, `AoRoughMetal`) | skinned GLTF + PBR material/texture assets | exact ids from `ChuteRenderable` / `ModLibrary.Get<PbrMaterialReference>` | `Content/Core/ParachuteAssets.xml:4,23-27`; `Core/Textures/ParachuteCanopy_{Diffuse,Normal,PBR}.ktx2` | free-fallin | OK @5402 — runtime albedo is BC7; center-decal mode reopens `TextureReference.ModPath` and explicitly transcodes the source KTX2 to RGBA8 |
 | `DynamicMeshIndirect.vert/.frag`, `ModelEye.frag`, `ModelGlass.frag` | shader (removed) | (design assumption only) | — | humble-arteest (narrative), blinky/its-so-shiny GlassModule (C# only) | n/a (removed 4693/4745; `ModelTranslucent.frag` new 4747 — not referenced by id) |
 | Exhaust templates `EngineALarge`, `EngineAMed`, `EngineACompact`, `EngineAVernier`, `EngineATurbine`, `RCS`, `MmuRcsVac` | `VolumetricExhaustTemplate` ids | `VolumetricExhaustTemplate.Get(id)` — **fallback list only** (`PlumeTemplates.cs:13`); normally enumerated live from `References` | `Core/ExhaustAssets.xml:3,307,650,993,1331,1670,2009` | pyro | OK @5348 (`EngineALarge` is the create-form default) |
 | Engine part templates `CorePropulsionA_Prefab_EngineA2..A6` | part template | `ModLibrary.Get<PartTemplate>(id)` (default A3 everywhere) | `Core/CorePropulsionAAssets.xml`; `Core/CorePropulsionAGameData.xml:118,182,246,291,373` | blinky | OK — **`EngineA1` is gone from Content entirely** and has been removed from blinky's presets and config default (2026-08-23) |

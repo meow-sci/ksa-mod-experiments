@@ -137,19 +137,45 @@ internal static class CanopyMaterialController
 
     private static GenericTexture ComposeCenteredDecal(PbrMaterialReference stock, string path, float scale)
     {
-        Brutal.TextureApi.ITexture source = stock.DiffuseReference?.Get().TextureAsset.Texture
-                          ?? throw new InvalidOperationException("The stock canopy diffuse texture is unavailable.");
-        if (source.Format is not TextureFormat.R8G8B8A8_UNorm and not TextureFormat.R8G8B8A8_SRGB)
-            throw new NotSupportedException($"The stock canopy texture decoded as {source.Format}; RGBA8 is required for decal compositing.");
+        TextureReference stockDiffuse = stock.DiffuseReference?.Get()
+            ?? throw new InvalidOperationException("The stock canopy diffuse texture is unavailable.");
+        Brutal.TextureApi.ITexture source = stockDiffuse.TextureAsset.Texture;
+        Brutal.TextureApi.ITexture? decodedStock = null;
 
-        Brutal.TextureApi.ITexture decal = TextureLoader.LoadFromMemory(File.ReadAllBytes(path), TextureLoader.FormatType.Png,
-            TextureAsset.LoadOptions(VkFormat.R8G8B8A8UNorm, Brutal.KtxApi.KtxTranscodeFmt.Rgba32));
+        // KSA normally keeps vessel textures GPU-ready (BC7 on the 5402 build). CPU compositing
+        // needs texels, so reopen the original KTX2 and explicitly ask Basis/KTX to transcode it
+        // to RGBA32 instead of trying to interpret the runtime BC7 blocks as pixels.
+        if (!IsRgba8(source.Format))
+        {
+            try
+            {
+                decodedStock = TextureLoader.LoadFromFile(stockDiffuse.ModPath,
+                    TextureAsset.LoadOptions(VkFormat.R8G8B8A8UNorm, Brutal.KtxApi.KtxTranscodeFmt.Rgba32));
+                source = decodedStock;
+            }
+            catch (Exception ex)
+            {
+                // A native-BC7 KTX2 cannot be transcoded by libktx. The decal feature remains
+                // useful on a flat tintable canopy, so degrade visually instead of rejecting it.
+                Console.WriteLine($"free-fallin: stock canopy RGBA transcode failed; using a flat decal base: {ex.Message}");
+            }
+        }
+
+        Brutal.TextureApi.ITexture? decal = null;
         try
         {
+            decal = TextureLoader.LoadFromMemory(File.ReadAllBytes(path), TextureLoader.FormatType.Png,
+                TextureAsset.LoadOptions(VkFormat.R8G8B8A8UNorm, Brutal.KtxApi.KtxTranscodeFmt.Rgba32));
             int width = source.Extent.X;
             int height = source.Extent.Y;
             var output = GenericTexture.Defaults.RGBA8UNorm(new int2(width, height));
-            CopyRows(source, output, width, height);
+            if (IsRgba8(source.Format))
+                CopyRows(source, output, width, height);
+            else
+            {
+                output.Data.Fill(255);
+                Console.WriteLine($"free-fallin: stock canopy is {source.Format}; centered decal will use a flat tintable base");
+            }
 
             scale = Math.Clamp(scale, 0.05f, 1f);
             float fit = Math.Min(width * scale / decal.Extent.X, height * scale / decal.Extent.Y);
@@ -174,7 +200,11 @@ internal static class CanopyMaterialController
             }
             return output;
         }
-        finally { DestroyDecoded(decal); }
+        finally
+        {
+            DestroyDecoded(decal);
+            DestroyDecoded(decodedStock);
+        }
     }
 
     private static void CopyRows(Brutal.TextureApi.ITexture source, GenericTexture destination, int width, int height)
@@ -188,7 +218,10 @@ internal static class CanopyMaterialController
 
     private static byte ToByte(float value) => (byte)Math.Clamp((int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f), 0, 255);
 
-    private static void DestroyDecoded(Brutal.TextureApi.ITexture texture)
+    private static bool IsRgba8(TextureFormat format)
+        => format is TextureFormat.R8G8B8A8_UNorm or TextureFormat.R8G8B8A8_SRGB;
+
+    private static void DestroyDecoded(Brutal.TextureApi.ITexture? texture)
     {
         switch (texture)
         {

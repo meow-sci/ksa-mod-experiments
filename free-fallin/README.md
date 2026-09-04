@@ -9,6 +9,9 @@ standalone F11 mod and as the **Free Fallin - Parachute Customizer** section in 
 - **Replace** maps an imported PNG across the canopy's authored UVs.
 - **Center decal** alpha-composites an imported PNG over KSA's stock albedo before upload. Because
   the result is the canopy material—not a world-space Graffiti projection—it bends with the cloth.
+  KSA's runtime BC7 canopy texture is reopened from its source KTX2 and transcoded to RGBA8 for
+  this CPU composition step. If a game distribution stores native, non-transcodable BC7 instead,
+  the decal is composed over a flat tintable base rather than failing.
 - **PBR controls** either multiply the stock AO/roughness/metallic texture or replace it with
   uniform 0–1 values. Uniform mode can make the canopy genuinely metallic even when the stock
   metallic channel is zero.

@@ -80,7 +80,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 - **One consolidated Harmony instance.** `unscience/Patcher.cs` owns a single
   `Harmony("MeowSci.Unscience")`; each feature lib exposes `Apply(Harmony)`/`Remove(Harmony)` and the
   supermod applies them all onto that instance. `HotkeyGuard` is applied first.
-- **`ISubmod` aggregation.** 27 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
+- **`ISubmod` aggregation.** 28 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
   `RenderContent`/`RenderFloatingWindows`/`Dispose`); the same classes power each feature's standalone
   mod too.
 - **`ksa-abstractions.lib` is the game-facing seam.** Cross-cutting game access is funneled through a
@@ -107,13 +107,14 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** scale patches on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale`, plus configurable editor-limit patches on `DrawParachuteSection` / `Parachute.SetDiameter` (2–1000 m diameter). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + `Cursor.GetEgoRay` picking, CPU terrain march; **no string reflection** (new @5348) |
+| [`parachutes.md`](parachutes.md) | free-fallin | `ChuteRenderable.Draw` prefix; private `_renderable` + protected `AnimatedRenderable.MaterialIndices`; runtime `MaterialData` and PNG/PBR texture uploads; stock `ParachuteCanopy_Material` asset (new @5402) |
 | [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (27): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
-doh, dont-stifle-me, eternal-flame, garrys-torch, geeforce, glass, graffiti, hot-pursuit, humble-arteest,
+Bundled in the unscience supermod (28): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
+doh, dont-stifle-me, eternal-flame, free-fallin, garrys-torch, geeforce, glass, graffiti, hot-pursuit, humble-arteest,
 i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro,
 red-alert, rocky-mcrock-face, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
 jplrepo live in the repo but are **not** loaded by the supermod.)
@@ -156,6 +157,9 @@ items, one game-side regression.**
 - **dont-stifle-me parachute limits** — the new **jpl said no clamps** control patches the 5402
   parachute editor slider and setter clamp to accept 2–1000 m. It compiles against the current
   surface but needs a live editor pass, including a symmetry counterpart.
+- **free-fallin parachute materials** — the new submod replaces canopy material slot zero at draw
+  time, supporting stock tint, PNG replacement/center compositing, and stock-scaled or uniform PBR.
+  It compiles against 5402 but needs its first live render, restore, and unload pass.
 - **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
   a live pass on any build since 5261.
 
@@ -173,7 +177,8 @@ bloomin-onion and dont-stifle-me have still never been exercised in-game.
 
 **What still needs a live pass:** F11 smoke; pyro plume bend in atmosphere + heat-haze check;
 garrys-torch weld with crash-tolerance log watch; graffiti vehicle + terrain decal placement;
-parts-now runtime part thumbnail (rev 5401); dont-stifle-me scale-then-attach plus 2 m / 1000 m
+parts-now runtime part thumbnail (rev 5401); free-fallin stock tint / replacement / center decal /
+uniform PBR / restore-unload; dont-stifle-me scale-then-attach plus 2 m / 1000 m
 parachute edits with symmetry; kiwis-marbles weld near
 a deployed chute; hot-pursuit placement/motion/lease contention + Glass independent FOV; the standing thug-life / humble-arteest / blinky /
 its-so-shiny render checks. A green `dotnet build` does not cover these, and there is no test suite.
