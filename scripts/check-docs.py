@@ -6,9 +6,21 @@ are deliberately excluded: their source paths describe their recorded version.
 """
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+# Ignore leftover build directories from retired projects, just as a clean CI
+# checkout does. Include new, nonignored files so unstaged docs can be checked.
+source_files = subprocess.check_output(
+    ['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=root
+).decode().split('\0')
+source_paths = set()
+for name in filter(None, source_files):
+    path = root / name
+    if path.is_file():
+        source_paths.add(path)
+        source_paths.update(path.parents)
 errors = []
 index = (root / 'REPOSITORY_INDEX.md').read_text()
 projects = sorted(p for folder in root.iterdir() if folder.is_dir() and not folder.name.startswith('.')
@@ -35,7 +47,7 @@ for file in sorted(files):
         if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*:', target) or target.startswith('#'):
             continue
         path = target.split('#', 1)[0]
-        if path and not (file.parent / path).exists():
+        if path and (file.parent / path).resolve() not in source_paths:
             errors.append(f'{file.relative_to(root)}: broken link {target}')
     if file.parent == root / 'scope' and 'where they conflict with this section' in text:
         errors.append(f'{file.relative_to(root)}: superseded ownership disclaimer in current scope')

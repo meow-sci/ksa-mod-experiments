@@ -243,9 +243,8 @@ Check for compilation errors before continuing with implementation.
 - Document your Harmony patches explaining what they do
 - Consider performance impact of per-frame operations
 
-## Related Mods
+## Related Projects
 
-See similar template mods:
-- [unscience](../unscience) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
-- Other mods for inspiration on complete implementations
+- [Unscience](../unscience/README.md) - The shipping workspace host and lifecycle owner.
+- [Fixme library](../fixme-mod-name.lib/README.md) - The library paired with this nonshipping standalone template.
+- [Repository index](../REPOSITORY_INDEX.md) - Maintained features, shared libraries and nonshipping experiments.

@@ -2,6 +2,7 @@
 
 Unscience is one shipping mod with 26 feature libraries. Each library retains its own `.csproj` and source folder.
 Contributor rules are in [AGENTS.md](AGENTS.md). Documentation inventory/link checks run through `python3 scripts/check-docs.py`.
+Link checks exclude ignored build leftovers so retired project directories cannot mask broken links in a clean checkout.
 Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](scope/FULL_SCOPE.md).
 
 ## Shipping host and infrastructure

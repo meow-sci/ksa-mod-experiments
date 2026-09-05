@@ -51,6 +51,8 @@ Legacy feature preset files are preserved.
 
 GitHub Actions builds the solution, runs the managed/architecture/documentation/release-policy checks, and packages only the `unscience` folder. Licensed game assemblies come from the private `ksa-game-assemblies` checkout configured in CI.
 
+All checks must pass before packaging and publication. The documentation check resolves links against tracked and new nonignored source files; ignored build leftovers from retired projects cannot satisfy a link that would fail in a clean CI checkout.
+
 | Branch/event | Published build | Retention |
 |---|---|---|
 | `main` push or manual run | `tip-<UTC timestamp>-<run id>-<attempt>` prerelease | Latest 5 tip builds |
