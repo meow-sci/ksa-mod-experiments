@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ public sealed class ResultsPanel
     /// <summary>Draws the results, log and issue sections for the current (or last) job.</summary>
     public void Render()
     {
-        bool open = ImGui.CollapsingHeader("Results (?)##pn_results", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Results (?)##pn_results", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Per-part outcome of the last load, the job log, and the validation findings.");
 
         if (!open)

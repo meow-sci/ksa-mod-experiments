@@ -13,7 +13,7 @@ public sealed partial class PyroSubmod
     // doesn't show (throttle, nozzle, look) and is applied when Create Plume is clicked.
     private int _selectedPresetIndex = -1;
     private readonly ImInputString _presetFilter = new(128);
-    private PlumePreset? _pendingPreset;
+    private PlumePreset? _pendingPreset = new();
 
     // Deferred modal open flags (popups must be opened at matching ID scope)
     private bool _openDeleteModal;
@@ -97,7 +97,8 @@ public sealed partial class PyroSubmod
         _pendingPosition = preset.Position;
         _pendingRotation = preset.Rotation;
         int templateIndex = Array.IndexOf(templateIds, preset.TemplateId);
-        if (templateIndex >= 0) _pendingTemplateIndex = templateIndex;
+        _pendingTemplateIndex = templateIndex;
+        Draft.Select("Template", preset.TemplateId);
     }
 
     // ---- Save entry point (per-plume section) ----

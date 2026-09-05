@@ -2,7 +2,7 @@
 
 ## Context
 
-The KSA decompiled sources in `decomp/ksa/` may be **outdated** — the actual running binary can have a very different internal structure. Field names like `PointLights`/`SpotLights` that appear in decompiled `PartTemplate.cs` may not exist in the binary at all.
+The in-repo KSA decompiled sources in `decomp/ksa/` are historical. Use sibling `../ksa-game-assemblies/current/decomp` matched to the running build; mismatched source trees may be **outdated** — the actual running binary can have a very different internal structure. Field names like `PointLights`/`SpotLights` that appear in decompiled `PartTemplate.cs` may not exist in the binary at all.
 
 When you cannot trust the decompiled source field names, use the runtime reflection dump strategy below.
 

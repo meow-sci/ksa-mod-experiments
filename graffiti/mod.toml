@@ -1,7 +1,0 @@
-name = "graffiti"
-description = "Paint your own PNG decals onto vehicle hulls and terrain with a click"
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.Graffiti"

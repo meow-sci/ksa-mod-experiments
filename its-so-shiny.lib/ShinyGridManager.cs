@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 using System;
 using System.Collections.Generic;
 using Brutal.Numerics;
@@ -215,12 +216,12 @@ public static class ShinyGridManager
 
     private static void ApplyAppearance(PartTemplate template, float3 color, float intensity)
     {
-        var lights = MeowSci.ZippoLib.LightController.GetLightComponents(template);
+        var lights = MeowSci.KsaLights.LightController.GetLightComponents(template);
         if (lights.Count == 0)
             return;
 
-        MeowSci.ZippoLib.LightController.WriteColor(lights, color);
-        MeowSci.ZippoLib.LightController.WriteIntensity(lights, intensity);
+        MeowSci.KsaLights.LightController.WriteColor(lights, color);
+        MeowSci.KsaLights.LightController.WriteIntensity(lights, intensity);
     }
 
     private static void SetPixel(ShinyGridState state, int row, int col, bool on)

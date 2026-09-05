@@ -1,22 +1,40 @@
-# free-fallin.lib
+# Free Fallin’
 
-Reusable core for [`../free-fallin`](../free-fallin) and the unscience umbrella mod.
+Customize parachute canopy materials. This feature is hosted by the single **Unscience** mod. Its separate
+`free-fallin.lib.csproj` remains the compilation and ownership boundary; there is no standalone entry project.
 
-| File | Responsibility |
-|---|---|
-| `FreeFallinSubmod.cs` | `ISubmod` lifecycle and ImGui appearance/PBR editor |
-| `FreeFallinPatches.cs` | Prefixes `ChuteRenderable.Draw`, substitutes material handle 0, and restores observed canopies |
-| `CanopyProjectionShaders.cs` | Injects the material-gated Full Canopy varying/albedo projection into KSA's model PBR shaders in memory |
-| `CanopyMaterialController.cs` | Transcodes the stock BC7 KTX2 to RGBA8 when compositing a decal, then builds GPU albedo/PBR textures and `MaterialData` objects |
-| `CanopyMaterialSettings.cs` / `CanopyTextureMode.cs` | Public settings model and Stock/Replace/FullCanopy/CenterDecal modes |
-| `ParachuteTextureLibrary.cs` | Persistent imported-PNG library under `.unscience/parachutes` |
-| `PngFileBrowser.cs` | ImGui filesystem picker modeled after Graffiti's importer |
+## Use
 
-The lib deliberately retains generated KSA texture/material asset registrations until renderer
-shutdown. This avoids invalidating handles referenced by frames in flight; one pair is allocated per
-press of Apply, not per UI change or frame.
+1. Open Unscience with **F11** (or its game-menu entry), show this feature in **Features**, and select it.
+2. Configure the authoring form. Target selectors retain exact identities; choose **Controlled vehicle** explicitly where offered.
+3. Use the feature’s Apply/Create/Arm action to affect the game.
+4. Open **Live State**, select an item, and use its feature-specific controls.
+5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
-Full Canopy stores projection scale, rotation, and a mode marker in `MaterialData.ExtraData`. The
-patched skinned vertex shader derives a second UV from the canopy's bind-pose X/Z coordinates. The
-patched PBR fragment shader uses that UV only for marked materials' albedo; the authored UV remains
-in use for the stock normal and AO/roughness/metallic maps. Shader files on disk are never modified.
+## Saved authoring state
+
+Texture mode/PNG, tint, brightness, decal size/rotation, PBR values and import-browser view. Disclosure and authoring scroll state are saved too.
+Feature presets retain settings and asset choices while leaving the current target selections intact.
+
+## Live state
+
+Global canopy material override, editable settings, copy and stock restore. These objects remain owned by this feature and are never serialized into workspace files.
+Hiding the feature, changing a preset, or loading a workspace does not dispose, re-apply, stop or recreate them.
+An explicit live control or a game lifecycle event can change them.
+
+## Implementation
+
+- `free-fallin.lib.csproj`: feature assembly and shared infrastructure references. Feature-to-feature project references are prohibited.
+- The `*Submod.Workspace.cs` participant explicitly binds authoring fields. `PrepareRestore` validates/decodes before returning setters.
+- The `*Submod.Live.cs` provider projects typed runtime records through `ILiveStateItem`; the host owns list layout, while the feature owns inspector behavior.
+- The existing controllers, renderer hooks and solver timing remain in this library. See the [game-integration map](../scope/FULL_SCOPE.md) for their KSA/Harmony dependencies.
+
+Authoring/runtime entry files: `FreeFallinSubmod.Live.cs`, `FreeFallinSubmod.Workspace.cs`, `FreeFallinSubmod.cs`.
+
+## Persistence and validation
+
+Workspace files and shared feature presets live below the KSA user-data directory’s `.unscience` folder.
+Legacy feature presets remain accessible where the feature has a legacy picker. See [workspace behavior](../docs/WORKSPACE.md)
+for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
+
+Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.

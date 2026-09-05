@@ -1,0 +1,47 @@
+using KSA;
+namespace MeowSci.KittenAnimationsLib;
+public sealed class KittenAnimationRecipe
+{
+    public string Clip = "";
+    public int Expression;
+    public int Variant = -1;
+    public bool OverrideActive ;
+    public float BlendTime = 0.15f;
+    public float PlaybackRateScale = 1f;
+    public bool Paused ;
+    public bool OverrideEarWeight ;
+    public float EarWeight = 1f;
+    public bool OverrideEyeLookAngle ;
+    public float EyeLookAngleDeg = 30f;
+    public bool OverrideEyePitch ;
+    public float EyePitchDeg ;
+    public bool OverridePersonalityWeight ;
+    public float PersonalityWeight = 1f;
+    public bool LimitReactiveExpression ;
+    public float ReactiveExpressionMax = 1f;
+    public float ExpressionEaseInDuration = 0.25f;
+    public float ExpressionHoldDuration = 1.5f;
+    public float ExpressionEaseOutDuration = 0.25f;
+    public float ExpressionPeakWeight = 1f;
+    public bool ExpressionLatch ;
+    public float AnimBlendTime = KittenLocomotionTuning.Default.AnimBlendTime;
+    public float IdleSpeedThreshold = KittenLocomotionTuning.Default.IdleSpeedThreshold;
+    public float PlaybackRateMin = KittenLocomotionTuning.Default.PlaybackRateMin;
+    public float PlaybackRateMax = KittenLocomotionTuning.Default.PlaybackRateMax;
+    public float WalkClipNominalSpeed = KittenLocomotionTuning.Default.WalkClipNominalSpeed;
+    public float RunClipNominalSpeed = KittenLocomotionTuning.Default.RunClipNominalSpeed;
+    public float LadderNominalSpeed = KittenLocomotionTuning.Default.LadderNominalSpeed;
+    public float TumbleNominalSpeed = KittenLocomotionTuning.Default.TumbleNominalSpeed;
+    public float MoonwalkWalkNominalSpeed = KittenLocomotionTuning.Default.MoonwalkWalkNominalSpeed;
+    public float MoonwalkRunNominalSpeed = KittenLocomotionTuning.Default.MoonwalkRunNominalSpeed;
+    public float MoonwalkStartGravity = KittenLocomotionTuning.Default.MoonwalkStartGravity;
+    public float MoonwalkFullGravity = KittenLocomotionTuning.Default.MoonwalkFullGravity;
+    public float MoonwalkPlaybackScale = KittenLocomotionTuning.Default.MoonwalkPlaybackScale;
+    public float NominalSwimAnimSpeed = KittenLocomotionTuning.Default.NominalSwimAnimSpeed;
+    public float SwimBlendFullSpeed = KittenLocomotionTuning.Default.SwimBlendFullSpeed;
+    public float SwimBlendHalfLife = KittenLocomotionTuning.Default.SwimBlendHalfLife;
+    public float SwimEyePitchFactor = KittenLocomotionTuning.Default.SwimEyePitchFactor;
+    public float JumpLandDuration = KittenLocomotionTuning.Default.JumpLandDuration;
+    public float JumpLandBounceIgnoreTime = KittenLocomotionTuning.Default.JumpLandBounceIgnoreTime;
+    public float LadderEyePitchDeg = KittenLocomotionTuning.Default.LadderEyePitchDeg;
+}

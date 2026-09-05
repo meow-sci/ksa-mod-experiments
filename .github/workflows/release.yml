@@ -1,6 +1,6 @@
 name: Build mod dist
 
-# Builds the whole unscience solution (every submod + the unscience umbrella
+# Builds the whole unscience solution (independent feature libraries + the unscience host
 # mod) and publishes ONLY the unscience mod folder as a GitHub release:
 #
 #   push to main        → prerelease  "unscience tip <UTC timestamp>"  (tag tip-<stamp>)
@@ -12,7 +12,7 @@ name: Build mod dist
 # repo meow-sci/ksa-game-assemblies (DLLs — KSA.dll, Brutal.*.dll, Planet.*.dll
 # — under current/dll/ at the repo root). Access needs the
 # KSA_GAME_ASSEMBLIES_PAT repo secret: a fine-grained PAT with read-only
-# Contents access to that repo (same pattern as purrtty / flexo).
+# Contents access to that repo .
 
 on:
   push:
@@ -110,11 +110,15 @@ jobs:
           sed -i -E "s/^version = \".*\"/version = \"$MODVERSION\"/" unscience/mod.toml
           grep '^version' unscience/mod.toml
 
-      # Builds every project in the solution (each mod's CopyCustomContent
-      # target deploys its folder under $UNSCIENCE_DIST_DIR); only the
-      # unscience umbrella folder is packaged below.
+      # Build the independent libraries and the single shipping host.
       - name: Build solution
         run: dotnet build ksa-mod-experiments.slnx -c Release --nologo -v quiet
+
+      - name: Verify workspace contracts and project boundaries
+        run: |
+          dotnet run --project unscience-contracts.tests -c Release --no-build
+          python3 scripts/check-workspace-boundaries.py
+          python3 scripts/check-docs.py
 
       - name: Package
         if: steps.meta.outputs.publish == 'true'

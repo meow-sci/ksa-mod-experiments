@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 namespace MeowSci.ItsSoShinyLib;
 
 public enum ShinyGridLayout

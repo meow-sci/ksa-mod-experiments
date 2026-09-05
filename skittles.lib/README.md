@@ -1,40 +1,40 @@
-# skittles.lib — Skittles Core Library
+# Skittles
 
-Headless core for the Skittles global ImGui theme manager. No UI, no StarMap, no Harmony — just theme data, I/O, and application logic.
+Configure ImGui colors and style. This feature is hosted by the single **Unscience** mod. Its separate
+`skittles.lib.csproj` remains the compilation and ownership boundary; there is no standalone entry project.
 
-## Public API
+## Use
 
-### `ThemeDefinition`
-POCO class representing a complete ImGui visual state snapshot.
-- Stores all 60 `ImGuiCol` color values as `float[][]` (RGBA 0–1)
-- Stores all style variables (float, float2, bool properties)
-- `static ThemeDefinition CaptureFromImGui()` — snapshot current global style
-- `void ApplyToImGui()` — write all values to global style
+1. Open Unscience with **F11** (or its game-menu entry), show this feature in **Features**, and select it.
+2. Configure the authoring form. Target selectors retain exact identities; choose **Controlled vehicle** explicitly where offered.
+3. Use the feature’s Apply/Create/Arm action to affect the game.
+4. Open **Live State**, select an item, and use its feature-specific controls.
+5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
-### `ThemeSerializer` (static)
-TOML serialization using Tomlyn 0.19.
-- `static string Serialize(ThemeDefinition)` — to TOML string
-- `static ThemeDefinition? Deserialize(string)` — from TOML string
-- `static void SaveToFile(ThemeDefinition, string path)` — serialize + write
-- `static ThemeDefinition? LoadFromFile(string path)` — read + deserialize
+## Saved authoring state
 
-### `ModConfig` / `ModConfigSerializer`
-Tiny config for persisting the active theme name.
-- `ModConfig.ActiveThemeName` — the last applied theme
-- `ModConfigSerializer.SaveToFile` / `LoadFromFile` — TOML I/O
+Named theme template or complete detached style/color definition. Disclosure and authoring scroll state are saved too.
+Feature presets retain settings and asset choices while leaving the current target selections intact.
 
-### `ThemeManager`
-Orchestrates all theme operations. Instantiate and call `Initialize()` once.
-- `void Initialize()` — capture default, ship presets, load config, apply startup theme
-- `string[] GetThemeNames()` — ordered list for a UI combobox (built-ins first, then custom)
-- `void ApplyTheme(string name)` — apply by name; handles built-in shortcuts (Dark/Light/Classic/Game Default)
-- `void SaveCurrentAsTheme(string name)` — capture + save current style as custom theme
-- `void RefreshThemeList()` — re-scan disk for custom themes
-- `void RestoreDefaults()` — restore the captured game default
-- `string? ActiveThemeName` — currently applied theme name
+## Live state
 
-### `ThemeEntry`
-Members of the `AvailableThemes` list: `Name`, `IsBuiltIn`, `FilePath?`.
+The global applied ImGui style with live editor, legacy export and default restore. These objects remain owned by this feature and are never serialized into workspace files.
+Hiding the feature, changing a preset, or loading a workspace does not dispose, re-apply, stop or recreate them.
+An explicit live control or a game lifecycle event can change them.
 
-### `BuiltInThemes` (static)
-- `static ThemeDefinition InanimateCarbonRod()` — radioactive terminal preset
+## Implementation
+
+- `skittles.lib.csproj`: feature assembly and shared infrastructure references. Feature-to-feature project references are prohibited.
+- The `*Submod.Workspace.cs` participant explicitly binds authoring fields. `PrepareRestore` validates/decodes before returning setters.
+- The `*Submod.Live.cs` provider projects typed runtime records through `ILiveStateItem`; the host owns list layout, while the feature owns inspector behavior.
+- The existing controllers, renderer hooks and solver timing remain in this library. See the [game-integration map](../scope/FULL_SCOPE.md) for their KSA/Harmony dependencies.
+
+Authoring/runtime entry files: `SkittlesSubmod.Workspace.cs`, `SkittlesSubmod.cs`, `SkittlesSubmod.Live.cs`.
+
+## Persistence and validation
+
+Workspace files and shared feature presets live below the KSA user-data directory’s `.unscience` folder.
+Legacy feature presets remain accessible where the feature has a legacy picker. See [workspace behavior](../docs/WORKSPACE.md)
+for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
+
+Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.

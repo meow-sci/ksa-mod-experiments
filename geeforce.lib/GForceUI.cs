@@ -4,42 +4,46 @@ using Brutal.ImGuiApi;
 
 namespace MeowSci.GeeForceLib;
 
-public static class GForceUI
+public sealed class GForceUI
 {
     // Time window (view width) options in seconds
-    private static readonly float[] WindowOptions = { 30f, 60f, 120f, 300f, 600f, 1800f, 3600f };
-    private static readonly string[] WindowLabels = { " 30s ", " 1m ", " 2m ", " 5m ", " 10m ", " 30m ", " 1h " };
-    private static int _selectedWindowIdx = 0; // default 30s
+    private readonly float[] WindowOptions = { 30f, 60f, 120f, 300f, 600f, 1800f, 3600f };
+    private readonly string[] WindowLabels = { " 30s ", " 1m ", " 2m ", " 5m ", " 10m ", " 30m ", " 1h " };
+    private int _selectedWindowIdx = 0; // default 30s
 
     // Scroll offset: fractional seconds from oldest recorded data to view start
-    private static float _scrollOffsetSec = 0f;
-    private static bool _isLive = true;
+    private float _scrollOffsetSec = 0f;
+    private bool _isLive = true;
 
     // Graph colors
-    private static readonly float4 ColorGreen   = new float4(0.0f, 1.0f, 0.0f, 1.0f);
-    private static readonly float4 ColorYellow  = new float4(1.0f, 1.0f, 0.0f, 1.0f);
-    private static readonly float4 ColorRed     = new float4(1.0f, 0.2f, 0.2f, 1.0f);
-    private static readonly float4 ColorWhite   = new float4(1.0f, 1.0f, 1.0f, 1.0f);
-    private static readonly float4 ColorGrey    = new float4(0.5f, 0.5f, 0.5f, 1.0f);
-    private static readonly float4 ColorDimGrey = new float4(0.3f, 0.3f, 0.3f, 1.0f);
-    private static readonly float4 ColorBg      = new float4(0.1f, 0.1f, 0.12f, 1.0f);
+    private readonly float4 ColorGreen   = new float4(0.0f, 1.0f, 0.0f, 1.0f);
+    private readonly float4 ColorYellow  = new float4(1.0f, 1.0f, 0.0f, 1.0f);
+    private readonly float4 ColorRed     = new float4(1.0f, 0.2f, 0.2f, 1.0f);
+    private readonly float4 ColorWhite   = new float4(1.0f, 1.0f, 1.0f, 1.0f);
+    private readonly float4 ColorGrey    = new float4(0.5f, 0.5f, 0.5f, 1.0f);
+    private readonly float4 ColorDimGrey = new float4(0.3f, 0.3f, 0.3f, 1.0f);
+    private readonly float4 ColorBg      = new float4(0.1f, 0.1f, 0.12f, 1.0f);
 
     // Axis line colors
-    private static readonly float4 ColorAxisX = new float4(1.0f, 0.4f, 0.4f, 0.8f);
-    private static readonly float4 ColorAxisY = new float4(0.4f, 1.0f, 0.4f, 0.8f);
-    private static readonly float4 ColorAxisZ = new float4(0.4f, 0.6f, 1.0f, 0.8f);
+    private readonly float4 ColorAxisX = new float4(1.0f, 0.4f, 0.4f, 0.8f);
+    private readonly float4 ColorAxisY = new float4(0.4f, 1.0f, 0.4f, 0.8f);
+    private readonly float4 ColorAxisZ = new float4(0.4f, 0.6f, 1.0f, 0.8f);
 
     // Jerk color
-    private static readonly float4 ColorJerk = new float4(1.0f, 0.6f, 0.0f, 0.7f);
+    private readonly float4 ColorJerk = new float4(1.0f, 0.6f, 0.0f, 0.7f);
 
     // Peak marker color
-    private static readonly float4 ColorPeakMarker = new float4(1.0f, 0.0f, 0.5f, 1.0f);
+    private readonly float4 ColorPeakMarker = new float4(1.0f, 0.0f, 0.5f, 1.0f);
 
-    private static bool _showAxes = false;
-    private static bool _showJerk = false;
-    private static float _killGeesThreshold = 9.0f;
+    private bool _showAxes = false;
+    private bool _showJerk = false;
+    private float _killGeesThreshold = 9.0f;
 
-    public static void RenderContent(GForceRecorder recorder, double sampleIntervalSec)
+    public float Threshold { get => _killGeesThreshold; set => _killGeesThreshold = value; }
+    public bool ShowAxes { get => _showAxes; set => _showAxes = value; }
+    public bool ShowJerk { get => _showJerk; set => _showJerk = value; }
+    public int WindowIndex { get => _selectedWindowIdx; set => _selectedWindowIdx = Math.Clamp(value, 0, WindowOptions.Length - 1); }
+    public void RenderContent(GForceRecorder recorder, double sampleIntervalSec)
     {
         // --- 2-column stats table ---
         DrawStatsTable(recorder);
@@ -48,8 +52,7 @@ public static class GForceUI
 
         // --- Graph ---
         DrawGraph(recorder);
-        recorder.CheckKillGeesBreaches((double)_killGeesThreshold);
-        recorder.CheckJerkBreaches((double)_killGeesThreshold);
+
 
         // --- Kill gees line (right after graph) ---
         DrawKillGeesLine();
@@ -63,7 +66,7 @@ public static class GForceUI
         DrawControls(recorder);
     }
 
-    private static void DrawStatsTable(GForceRecorder recorder)
+    private void DrawStatsTable(GForceRecorder recorder)
     {
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 3f));
         var flags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
@@ -89,7 +92,7 @@ public static class GForceUI
         ImGui.PopStyleVar(); // CellPadding
     }
 
-    private static void StatsRow(string label, string value, float4 valueColor)
+    private void StatsRow(string label, string value, float4 valueColor)
     {
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
@@ -98,7 +101,7 @@ public static class GForceUI
         ImGui.TextColored(valueColor, value);
     }
 
-    private static void DrawKillGeesLine()
+    private void DrawKillGeesLine()
     {
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
         var flags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
@@ -120,7 +123,7 @@ public static class GForceUI
         ImGui.PopStyleVar(); // CellPadding
     }
 
-    private static void DrawScrollSlider(GForceRecorder recorder)
+    private void DrawScrollSlider(GForceRecorder recorder)
     {
         int count = recorder.Count;
         float windowSec = WindowOptions[_selectedWindowIdx];
@@ -163,7 +166,7 @@ public static class GForceUI
         }
     }
 
-    private static (double viewStart, double viewEnd) GetViewWindow(GForceRecorder recorder)
+    private (double viewStart, double viewEnd) GetViewWindow(GForceRecorder recorder)
     {
         float windowSec = WindowOptions[_selectedWindowIdx];
         int count = recorder.Count;
@@ -177,7 +180,7 @@ public static class GForceUI
         return (viewStart, viewEnd);
     }
 
-    private static void DrawGraph(GForceRecorder recorder)
+    private void DrawGraph(GForceRecorder recorder)
     {
         float availWidth = ImGui.GetContentRegionAvail().X;
         float graphHeight = 300f;
@@ -391,7 +394,7 @@ public static class GForceUI
         drawList.PopClipRect();
     }
 
-    private static void DrawXAxisLabels(ImDrawListPtr drawList, float2 innerMin, float plotInnerWidth, float plotInnerHeight, double viewStart, double viewEnd, double viewSpan, double recordingStart, ImColor8 labelColor, ImColor8 gridColor)
+    private void DrawXAxisLabels(ImDrawListPtr drawList, float2 innerMin, float plotInnerWidth, float plotInnerHeight, double viewStart, double viewEnd, double viewSpan, double recordingStart, ImColor8 labelColor, ImColor8 gridColor)
     {
         double labelIntervalSec = ChooseTimeInterval(viewSpan);
         double firstLabel = Math.Ceiling(viewStart / labelIntervalSec) * labelIntervalSec;
@@ -416,7 +419,7 @@ public static class GForceUI
         }
     }
 
-    private static double ChooseTimeInterval(double viewSpan)
+    private double ChooseTimeInterval(double viewSpan)
     {
         double targetInterval = viewSpan / 6.0;
         double[] niceIntervals = { 1, 2, 5, 10, 15, 30, 60, 120, 300, 600 };
@@ -427,7 +430,7 @@ public static class GForceUI
         return 600;
     }
 
-    private static string FormatTimeLabel(double seconds)
+    private string FormatTimeLabel(double seconds)
     {
         if (seconds < 60)
             return $"{seconds:F0}s";
@@ -436,7 +439,7 @@ public static class GForceUI
         return secs == 0 ? $"{mins}m" : $"{mins}:{secs:D2}";
     }
 
-    private static void DrawControls(GForceRecorder recorder)
+    private void DrawControls(GForceRecorder recorder)
     {
         // Time window selector
         ImGui.Text("Window:");
@@ -487,7 +490,7 @@ public static class GForceUI
         ImGui.Checkbox("Jerk", ref _showJerk);
     }
 
-    private static void DrawThresholdLine(ImDrawListPtr drawList, float2 innerMin, float plotInnerWidth, float plotInnerHeight, double yMax, double threshold, float4 color, string label)
+    private void DrawThresholdLine(ImDrawListPtr drawList, float2 innerMin, float plotInnerWidth, float plotInnerHeight, double yMax, double threshold, float4 color, string label)
     {
         float yPx    = innerMin.Y + plotInnerHeight - (float)(threshold / yMax) * plotInnerHeight;
         ImColor8 col     = ImGui.GetColorU32(new float4(color.X, color.Y, color.Z, 0.4f));
@@ -499,14 +502,14 @@ public static class GForceUI
         drawList.AddText(in labelPos, textCol, label);
     }
 
-    private static float4 GetGForceColor(double g)
+    private float4 GetGForceColor(double g)
     {
         if (g < 3.0) return ColorGreen;
         if (g < 6.0) return ColorYellow;
         return ColorRed;
     }
 
-    private static double CeilToNice(double value)
+    private double CeilToNice(double value)
     {
         if (value <= 1.0) return 1.0;
         if (value <= 2.0) return 2.0;
@@ -519,7 +522,7 @@ public static class GForceUI
         return Math.Ceiling(value / 50.0) * 50.0;
     }
 
-    private static int CalculateGridLines(double yMax)
+    private int CalculateGridLines(double yMax)
     {
         if (yMax <= 2.0) return 4;
         if (yMax <= 5.0) return 5;

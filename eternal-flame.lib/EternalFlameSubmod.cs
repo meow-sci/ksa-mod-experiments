@@ -7,7 +7,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.EternalFlameLib;
 
-public sealed class EternalFlameSubmod : ISubmod
+public sealed partial class EternalFlameSubmod : IWorkspaceFeature
 {
     public string Name => "Eternal Flame - Infinite Fuel";
     public string Tooltip => "Automatically refills fuel tanks on the selected vehicle at regular intervals.";
@@ -18,6 +18,7 @@ public sealed class EternalFlameSubmod : ISubmod
     private readonly ImInputString _vehicleFilter = new ImInputString(128);
     private int _selectedVehicleIndex = -1;
     private int _refillIntervalMs = 100;
+    private bool _refillFuel = true, _refillElectricity = true;
 
     public void Initialize()
     {
@@ -35,9 +36,12 @@ public sealed class EternalFlameSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##ef_content");
 
-        RenderVehicleSelector();
+        ImGui.Checkbox("Refill fuel", ref _refillFuel);
+        ImGui.Checkbox("Refill electricity", ref _refillElectricity);
         RenderAddButton();
-        RenderMonitoredSection();
+        ImGui.SetNextItemWidth(-1f);
+        ImGui.DragInt("Refill interval (ms)", ref _refillIntervalMs, 1f, 0, 5000);
+        if (ImGui.Button(" Apply interval ")) _fuelManager.RefillIntervalMs = _refillIntervalMs;
 
         SubmodUI.EndContentArea();
     }
@@ -111,12 +115,13 @@ public sealed class EternalFlameSubmod : ISubmod
             && _selectedVehicleIndex < vehicles.Count;
 
         if (!canAdd) ImGui.BeginDisabled();
-        if (ImGui.Button(" Add ##ef"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Add ##ef"))
         {
             var v = vehicles![_selectedVehicleIndex];
             _fuelManager.AddVehicle(v.Id, v.Id);
-            _selectedVehicleIndex = -1;
-            _vehicleFilter.Clear();
+            var entry = _fuelManager.MonitoredVehicles.First(m => m.VehicleId == v.Id);
+            entry.RefillFuel = _refillFuel; entry.RefillElectricity = _refillElectricity;
+            _fuelManager.RefillIntervalMs = _refillIntervalMs;
         }
         if (!canAdd) ImGui.EndDisabled();
     }

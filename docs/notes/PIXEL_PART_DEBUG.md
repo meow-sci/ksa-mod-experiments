@@ -1,3 +1,7 @@
+# Historical pixel-part investigation
+
+This note concerns the retired Blinky implementation. It is retained as research evidence, not current feature instructions. For the retained light-grid feature see [Its So Shiny](../../its-so-shiny.lib/README.md).
+
 ```
 ═══════════ blinken DEBUG DUMP: pixel_0_0_a ═══════════
 part.GetType()          = KSA.Part

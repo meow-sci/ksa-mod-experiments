@@ -10,19 +10,27 @@ namespace MeowSci.CameraControllerOverrideLib.UI;
 /// ImGui panel for managing and visualizing keyframe sequences.
 /// Provides controls for playback, display of sequence state, and keyframe list management.
 /// </summary>
-public static class KeyframeSequencePanel
+public sealed class KeyframeSequencePanel
 {
     // Track selected keyframe for move operations
-    private static int _selectedKeyframeIndex = -1;
+    private int _selectedKeyframeIndex = -1;
     
     // Track selected return-to-start easing type for conditional UI
-    private static EasingType _returnToStartEasing = EasingType.Linear;
+    private EasingType _returnToStartEasing = EasingType.Linear;
     
     /// <summary>
     /// Render the keyframe sequence panel.
     /// </summary>
     /// <param name="player">The keyframe sequence player to display and control.</param>
-    public static void Render(KeyframeSequencePlayer player)
+    public int SelectedKeyframe { get => _selectedKeyframeIndex; set => _selectedKeyframeIndex = value; }
+    public void RenderDraft(KeyframeSequencePlayer player, Action apply)
+    {
+        RenderReturnToStartControls(player);
+        RenderKeyframesList(player);
+        if (ImGui.Button("Apply and play sequence", new float2(-1, 0))) apply();
+        if (ImGui.Button("Clear recipe", new float2(-1, 0))) player.Clear();
+    }
+    public void Render(KeyframeSequencePlayer player)
     {
         if (player == null)
         {
@@ -51,7 +59,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render the status display section showing current state, time, and progress.
     /// </summary>
-    private static void RenderStatusDisplay(KeyframeSequencePlayer player)
+    private void RenderStatusDisplay(KeyframeSequencePlayer player)
     {
         // State text with color coding
         string stateText;
@@ -112,7 +120,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render control buttons for playback management.
     /// </summary>
-    private static void RenderControlButtons(KeyframeSequencePlayer player)
+    private void RenderControlButtons(KeyframeSequencePlayer player)
     {
         bool hasKeyframes = player.Keyframes.Count > 0;
         bool isPlaying = player.State == PlaybackState.Playing;
@@ -155,7 +163,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render the list of keyframes with properties and controls.
     /// </summary>
-    private static void RenderKeyframesList(KeyframeSequencePlayer player)
+    private void RenderKeyframesList(KeyframeSequencePlayer player)
     {
         if (player.Keyframes.Count == 0)
         {
@@ -190,7 +198,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render a single keyframe item with properties and controls.
     /// </summary>
-    private static void RenderKeyframeItem(KeyframeSequencePlayer player, int index)
+    private void RenderKeyframeItem(KeyframeSequencePlayer player, int index)
     {
         var keyframe = player.Keyframes[index];
         var animation = keyframe.Animation;
@@ -249,7 +257,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render return-to-start configuration controls.
     /// </summary>
-    private static void RenderReturnToStartControls(KeyframeSequencePlayer player)
+    private void RenderReturnToStartControls(KeyframeSequencePlayer player)
     {
         var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
@@ -315,7 +323,7 @@ public static class KeyframeSequencePanel
     /// <summary>
     /// Render controls for moving the selected keyframe.
     /// </summary>
-    private static void RenderMoveControls(KeyframeSequencePlayer player)
+    private void RenderMoveControls(KeyframeSequencePlayer player)
     {
         ImGui.Text($"Selected: Keyframe {_selectedKeyframeIndex + 1}");
         

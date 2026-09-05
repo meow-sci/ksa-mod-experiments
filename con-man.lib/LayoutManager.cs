@@ -138,9 +138,14 @@ public sealed class LayoutManager
         var layout = LayoutSerializer.LoadLayout(GetLayoutPath(name));
         if (layout == null) return false;
 
+        return ApplyDefinition(layout);
+    }
+
+    public Dictionary<string, GaugeState>? ReadLayout(string name) => LayoutSerializer.LoadLayout(GetLayoutPath(name));
+    public bool ApplyDefinition(Dictionary<string, GaugeState> layout)
+    {
         var canvases = _accessor.GetCanvases();
         if (canvases == null) return false;
-
         int applied = 0;
         foreach (var canvas in canvases)
         {
@@ -173,7 +178,7 @@ public sealed class LayoutManager
             applied++;
         }
 
-        Console.WriteLine($"[con-man] Applied layout: {name} ({applied}/{canvases.Count} gauges matched)");
+        Console.WriteLine($"[con-man] Applied layout ({applied}/{canvases.Count} gauges matched)");
         return true;
     }
 

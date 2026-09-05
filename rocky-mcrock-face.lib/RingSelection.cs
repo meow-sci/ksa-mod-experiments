@@ -1,3 +1,4 @@
+using MeowSci.KsaRings;
 using System;
 using System.Linq;
 
@@ -13,7 +14,7 @@ public sealed class RingSelection
     public const int MaxLods = 5;
 
     /// <summary>Per-LOD replacement mesh id; "" keeps the game's mesh for that LOD.</summary>
-    public string[] LodMeshIds { get; } = { "", "", "", "", "" };
+    public string[] LodMeshIds { get; set; } = new[] { "", "", "", "", "" };
 
     public string DiffuseId = "";
     public string NormalId = "";

@@ -1,3 +1,4 @@
+using MeowSci.KsaRings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ namespace MeowSci.BloominOnionLib;
 /// texture, volumetric dust, instanced rock field and its material), definitions are saved as
 /// presets, and applying rebuilds the renderer so the ring appears immediately.
 /// </summary>
-public sealed partial class BloominOnionSubmod : ISubmod
+public sealed partial class BloominOnionSubmod : IWorkspaceFeature
 {
     public string Name => "Bloomin' Onion - Ring Builder";
 

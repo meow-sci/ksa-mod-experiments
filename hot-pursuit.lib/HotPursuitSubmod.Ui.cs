@@ -11,7 +11,7 @@ public sealed partial class HotPursuitSubmod
     {
         var id = $"##hp_camera_{entry.Id}_{index}";
         var title = $"Camera {entry.Id}: {entry.TargetDescription}##hp_header_{entry.Id}";
-        if (!ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header(title, ImGuiTreeNodeFlags.DefaultOpen))
             return false;
 
         ImGui.Text(entry.Status);

@@ -16,6 +16,8 @@ namespace MeowSci.GraffitiLib;
 internal sealed class FileBrowser
 {
     private bool _open;
+    private bool _restorePlacement;
+    private MeowSci.Unscience.Contracts.WindowPlacement _placement = new() { Width = 620, Height = 480 };
     private string _currentDir = "";
     private string? _selectedFile;
     private string? _error;
@@ -29,6 +31,23 @@ internal sealed class FileBrowser
     internal bool Visible => _open;
 
     /// <summary>Opens (or re-focuses) the browser at the last directory, or a sensible default.</summary>
+    internal void BindDraft(MeowSci.KsaAbstractions.DraftBindings state)
+    {
+        state.Value("BrowserOpen", () => _open, v => _open = v);
+        state.Value("BrowserDirectory", () => _currentDir, v => _currentDir = v);
+        state.Value("BrowserSelected", () => _selectedFile, v => _selectedFile = v);
+        state.Text("BrowserFilter", _filter);
+        state.Value("BrowserPlacement", () => _placement, v => { _placement = v; _restorePlacement = true; });
+    }
+    private void PlaceWindow()
+    {
+        if (!_restorePlacement) return;
+        _restorePlacement = false;
+        var display = ImGui.GetIO().DisplaySize;
+        var size = new float2(Math.Clamp(_placement.Width, 320, Math.Max(320, display.X)), Math.Clamp(_placement.Height, 240, Math.Max(240, display.Y)));
+        ImGui.SetNextWindowSize(size, ImGuiCond.Always);
+        ImGui.SetNextWindowPos(new float2(Math.Clamp(_placement.X, 0, Math.Max(0, display.X - size.X)), Math.Clamp(_placement.Y, 0, Math.Max(0, display.Y - size.Y))), ImGuiCond.Always);
+    }
     internal void Open()
     {
         _open = true;
@@ -50,6 +69,7 @@ internal sealed class FileBrowser
         RefreshListing();
 
         ImGui.SetNextWindowSize(new float2(620, 480), ImGuiCond.FirstUseEver);
+        PlaceWindow();
         if (ImGui.Begin("Import Decal PNG###graffiti_browser", ref _open))
         {
             RenderQuickLinks();
@@ -66,6 +86,8 @@ internal sealed class FileBrowser
 
             RenderFooter(onPick);
         }
+        var position = ImGui.GetWindowPos(); var size = ImGui.GetWindowSize();
+        _placement.X = position.X; _placement.Y = position.Y; _placement.Width = size.X; _placement.Height = size.Y;
         ImGui.End();
     }
 

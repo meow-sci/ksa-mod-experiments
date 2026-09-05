@@ -1,7 +1,7 @@
+using MeowSci.KsaRings;
 using System;
 using System.Collections.Generic;
 using KSA;
-using MeowSci.RockyMcRockFaceLib;
 
 namespace MeowSci.BloominOnionLib;
 
@@ -82,6 +82,7 @@ public sealed class RingDefinitionController : IDisposable
         var reference = Builder.Build(definition, celestial, out message);
         if (reference == null) return false;
 
+        RingOwnership.BeforeReplace(celestial);
         if (!_originals.ContainsKey(template)) _originals[template] = template.RingsReference;
         var previous = template.RingsReference;
         template.RingsReference = reference;
@@ -187,6 +188,7 @@ public sealed class RingDefinitionController : IDisposable
 
     private void RestoreTemplate(Celestial celestial)
     {
+        RingOwnership.BeforeReplace(celestial);
         var template = celestial.BodyTemplate;
         if (template != null && _originals.TryGetValue(template, out var original))
             template.RingsReference = original;

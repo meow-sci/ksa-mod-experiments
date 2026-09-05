@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 namespace MeowSci.ItsSoShinyLib;
 
 public static class ShinyPixelPatterns

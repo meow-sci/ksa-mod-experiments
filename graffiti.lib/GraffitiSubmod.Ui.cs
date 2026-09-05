@@ -26,6 +26,7 @@ public sealed partial class GraffitiSubmod
     private float _brightness = 1f;
     // Global render setting mirrored into DecalRenderer.MaxViewDistanceMetres on change.
     private float _maxDrawDistance = 50_000f;
+    private bool _draftDebugBox;
 
     // Placed-list multi-select state.
     private readonly HashSet<int> _selectedIds = new();
@@ -37,13 +38,6 @@ public sealed partial class GraffitiSubmod
 
         RenderPlaceSection();
 
-        if (_decals.Count > 0)
-        {
-            ImGui.Spacing();
-            ImGui.SeparatorText($"Placed Decals ( {_decals.Count} )");
-            RenderPlacedList();
-        }
-
         SubmodUI.EndContentArea();
     }
 
@@ -51,27 +45,9 @@ public sealed partial class GraffitiSubmod
 
     private void RenderPlaceSection()
     {
-        bool open = ImGui.CollapsingHeader("Place Decal (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Place Decal (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Pick a PNG from the decal library, press Place at Click...,\nthen click anywhere in the 3D world. The decal is projected onto\nthe vehicle, parachute, or terrain under the cursor.");
         if (!open) return;
-
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        if (ImGui.BeginTable("##graffiti_form", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
-        {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Decal");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noDecals = _libraryNames.Length == 0;
-            if (noDecals) ImGui.BeginDisabled();
-            GraffitiUi.FilteredCombo("##graffiti_decal", _libraryNames, ref _selectedLibraryIndex, _decalFilter);
-            if (noDecals) ImGui.EndDisabled();
-
-            ImGui.EndTable();
-        }
-        ImGui.PopStyleVar();
 
         if (ImGui.Button(" Import PNG... ##graffiti_import"))
             _fileBrowser.Open();
@@ -90,7 +66,7 @@ public sealed partial class GraffitiSubmod
         }
 
         ImGui.Spacing();
-        if (ImGui.TreeNodeEx("Placement settings##graffiti_settings", ImGuiTreeNodeFlags.SpanAvailWidth))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Tree("Placement settings##graffiti_settings", ImGuiTreeNodeFlags.SpanAvailWidth))
         {
             if (GraffitiUi.BeginParamGrid("##graffiti_settings_grid"))
             {
@@ -106,12 +82,12 @@ public sealed partial class GraffitiSubmod
                 GraffitiUi.GridDrag("Brightness", "##graffiti_bright", ref _brightness, 0.01f, 0.01f, 8f, "%.2f");
                 ImGui.TableNextRow();
                 GraffitiUi.GridDrag("Range (m)", "##graffiti_range", ref _range, 10f, 10f, 100000f, "%.0f");
-                if (GraffitiUi.GridDrag("Max draw dist (m)", "##graffiti_maxdraw", ref _maxDrawDistance,
-                        500f, 1000f, 10_000_000f, "%.0f"))
-                    DecalRenderer.MaxViewDistanceMetres = _maxDrawDistance;
+                GraffitiUi.GridDrag("Max draw dist (m)", "##graffiti_maxdraw", ref _maxDrawDistance,
+                        500f, 1000f, 10_000_000f, "%.0f");
                 GraffitiUi.EndParamGrid();
             }
-            ImGui.Checkbox("Debug box (magenta checker instead of the image)##graffiti_debug", ref DebugBox);
+            ImGui.Checkbox("Debug box (magenta checker instead of the image)##graffiti_debug", ref _draftDebugBox);
+            if (ImGui.Button("Apply rendering settings", new float2(-1, 0))) { DebugBox = _draftDebugBox; DecalRenderer.MaxViewDistanceMetres = _maxDrawDistance; }
             ImGui.TextDisabled("Depth is how far the image projects through the surface; 0 = auto (half the larger\nside). Raise it if a big decal on a curved hull looks cropped/zoomed; lower it if the\nimage bleeds through to the far side of thin parts. Max draw dist applies to ALL decals\n(default 50 km); terrain decals auto-deepen with camera distance to survive terrain LOD.");
             ImGui.TreePop();
         }
@@ -150,7 +126,7 @@ public sealed partial class GraffitiSubmod
         bool inEditor = Program.EditorFlag;
         bool canPlace = hasSelection && !inEditor && !_gpuFailed;
         if (!canPlace) ImGui.BeginDisabled();
-        if (ImGui.Button(" Place at Click... ##graffiti_place"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Place at Click... ##graffiti_place"))
             Arm(_libraryNames[_selectedLibraryIndex]);
         if (!canPlace) ImGui.EndDisabled();
 

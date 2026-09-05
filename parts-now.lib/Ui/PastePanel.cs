@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Collections.Generic;
@@ -61,7 +61,7 @@ public sealed partial class PastePanel
     {
         CaptureInstallResult();
 
-        bool open = ImGui.CollapsingHeader("Paste XML (?)##pn_paste", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Paste XML (?)##pn_paste", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip(
             "Writes the pasted documents into a brand new mod folder and loads it immediately. The "
             + "folder is a normal KSA mod, so the parts also load at the next launch.");

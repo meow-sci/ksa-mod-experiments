@@ -9,16 +9,15 @@ namespace MeowSci.KitchenSinkLib;
 /// <summary>
 /// Submod for kitchen-sink: a collection of one-off hacks and fixes for KSA.
 /// </summary>
-public sealed class KitchenSinkSubmod : ISubmod
+public sealed partial class KitchenSinkSubmod : IWorkspaceFeature
 {
     public string Name => "Kitchen Sink";
     public string Tooltip => "Random collection of one-off hacks and fixes for KSA.";
 
     public static KitchenSinkSubmod? Instance { get; private set; }
 
-    private readonly FlexoSubpartTest _flexoSubpartTest = new();
-    private readonly FlexoPartTest _flexoPartTest = new();
 
+    private bool _ivaEnabled;
     public void Initialize() { Instance = this; }
 
     public void Update(double dt) { }
@@ -31,8 +30,6 @@ public sealed class KitchenSinkSubmod : ISubmod
     /// </summary>
     public void UpdateBeforeVehicleSolvers(double dt)
     {
-        _flexoSubpartTest.UpdateBeforeVehicleSolvers(dt);
-        _flexoPartTest.UpdateBeforeVehicleSolvers(dt);
     }
 
     public void RenderContent()
@@ -40,8 +37,6 @@ public sealed class KitchenSinkSubmod : ISubmod
         SubmodUI.BeginContentArea("##ks_content");
         RenderIvaForceRender();
         RenderFixInvisibleSubparts();
-        _flexoSubpartTest.RenderContent();
-        _flexoPartTest.RenderContent();
         SubmodUI.EndContentArea();
     }
 
@@ -73,9 +68,8 @@ public sealed class KitchenSinkSubmod : ISubmod
         ImGui.TextWrapped("Force interior (IVA) parts to render even when not in IVA camera mode.");
         ImGui.Spacing();
 
-        var enabled = IvaForceRender.Enabled;
-        if (ImGui.Checkbox("Always Render IVA Interiors", ref enabled))
-            IvaForceRender.Enabled = enabled;
+        ImGui.Checkbox("Always Render IVA Interiors", ref _ivaEnabled);
+        if (ImGui.Button(" Apply IVA policy ")) IvaForceRender.Enabled = _ivaEnabled;
     }
 
     public void Dispose()

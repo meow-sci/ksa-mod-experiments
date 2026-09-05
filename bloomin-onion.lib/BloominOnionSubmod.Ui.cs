@@ -1,9 +1,9 @@
+using MeowSci.KsaRings;
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
 using MeowSci.KsaAbstractions;
-using MeowSci.RockyMcRockFaceLib;
 
 namespace MeowSci.BloominOnionLib;
 
@@ -32,7 +32,7 @@ public sealed partial class BloominOnionSubmod
         }
 
         RenderStatusHints();
-        _selectedBodyIndex = Math.Clamp(_selectedBodyIndex, 0, _bodies.Count - 1);
+        if (_selectedBodyIndex < 0 || _selectedBodyIndex >= _bodies.Count) { ImGui.TextDisabled("Select a body above to configure this action."); SubmodUI.EndContentArea(); return; }
         var body = _bodies[_selectedBodyIndex];
 
         RenderBodyAndPresetRows(body);
@@ -46,7 +46,6 @@ public sealed partial class BloominOnionSubmod
         RenderRockFieldSection();
         ImGui.Spacing();
         RenderActions(body);
-        RenderAppliedRings();
 
         SubmodUI.EndContentArea();
     }
@@ -62,36 +61,13 @@ public sealed partial class BloominOnionSubmod
         else if (!_controller.Stock.IsComplete)
             ImGui.TextColored(WarningColor, "Stock ring assets not found - fill every texture/mesh slot explicitly.");
         ImGui.TextDisabled($"{_controller.Catalog.MeshIds.Length} meshes, {_controller.Catalog.TextureIds.Length} textures, " +
-                           $"{_presets.Names.Length} presets, {_controller.Applied.Count} ring(s) applied");
+                           $"{_presets.Names.Length} presets");
         ImGui.Spacing();
     }
 
     private void RenderBodyAndPresetRows(Celestial body)
     {
         if (!RockyUi.BeginFormTable("##bloominonion_top")) return;
-
-        RockyUi.FormLabel("Body");
-        if (ImGui.BeginCombo("##bloominonion_body", BodyLabel(body)))
-        {
-            if (ImGui.IsWindowAppearing())
-            {
-                ImGui.SetKeyboardFocusHere();
-                _assetFilter.Clear();
-            }
-            ImGui.SetNextItemWidth(-1f);
-            ImGui.InputTextWithHint("##bloominonion_body_filter", "filter...", _assetFilter);
-            string filter = _assetFilter.ToString().Trim();
-            for (int i = 0; i < _bodies.Count; i++)
-            {
-                if (filter.Length > 0 && !_bodies[i].Id.Contains(filter, StringComparison.OrdinalIgnoreCase)) continue;
-                bool selected = i == _selectedBodyIndex;
-                ImGui.PushID(i);
-                if (ImGui.Selectable(BodyLabel(_bodies[i]), selected)) _selectedBodyIndex = i;
-                ImGui.PopID();
-                if (selected) ImGui.SetItemDefaultFocus();
-            }
-            ImGui.EndCombo();
-        }
 
         RockyUi.FormLabel("Preset");
         string preview = _selectedPreset.Length > 0 ? _selectedPreset : "(select a saved preset)";
@@ -175,23 +151,12 @@ public sealed partial class BloominOnionSubmod
             }
             ImGui.SetItemTooltip("Load this body's built-in ring definition into the editor as a starting point.");
         }
-        if (_controller.TryGetApplied(body, out var applied))
-        {
-            ImGui.SameLine(0, 8);
-            if (ImGui.Button(" Edit Applied ##bloominonion_edit_applied"))
-            {
-                _editor = applied.Definition.Clone();
-                _presetName.Value16 = _editor.Name;
-                SetStatus($"editor now holds the ring applied to {body.Id}", false);
-            }
-        }
     }
 
     private void RenderActions(Celestial body)
     {
-        bool applied = _controller.TryGetApplied(body, out _);
         if (!_catalogReady) ImGui.BeginDisabled();
-        if (ImGui.Button($" Apply to {body.Id} ##bloominonion_apply"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button($" Apply to {body.Id} ##bloominonion_apply"))
         {
             _editor.Name = _presetName.ToString().Trim().Length > 0 ? _presetName.ToString().Trim() : _editor.Name;
             bool ok = _controller.Apply(body, _editor, out var message);
@@ -202,29 +167,6 @@ public sealed partial class BloominOnionSubmod
             ? "This body has a built-in ring; applying replaces it until you Remove."
             : "Builds the ring reference and rebuilds the renderer.");
 
-        ImGui.SameLine(0, 8);
-        if (!applied) ImGui.BeginDisabled();
-        RockyUi.DangerButtonBegin();
-        if (ImGui.Button($" Remove from {body.Id} ##bloominonion_remove"))
-        {
-            bool ok = _controller.Remove(body, out var message);
-            SetStatus(message, !ok);
-        }
-        RockyUi.DangerButtonEnd();
-        if (!applied) ImGui.EndDisabled();
-
-        ImGui.SameLine(0, 8);
-        if (_controller.Applied.Count == 0) ImGui.BeginDisabled();
-        RockyUi.DangerButtonBegin();
-        if (ImGui.Button(" Remove All ##bloominonion_remove_all"))
-        {
-            bool ok = _controller.RemoveAll(out var message);
-            SetStatus(message, !ok);
-        }
-        RockyUi.DangerButtonEnd();
-        if (_controller.Applied.Count == 0) ImGui.EndDisabled();
-
-        ImGui.SameLine(0, 8);
         if (ImGui.Button(" Rescan Assets ##bloominonion_rescan"))
         {
             RescanAssets();

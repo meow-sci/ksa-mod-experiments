@@ -118,6 +118,7 @@ public static class VehiclePaint
     }
 
     /// <summary>Number of individually painted part instances.</summary>
+    public static IReadOnlyCollection<Part> PaintedParts => ByPart.Keys;
     public static int PaintedPartCount => ByPart.Count;
 
     // ---- Per-part-type paint ----

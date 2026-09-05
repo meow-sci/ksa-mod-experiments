@@ -1,7 +1,0 @@
-name = "bloomin-onion"
-description = "Define new planetary rings at runtime and apply them to any celestial body (painted or textured band, volumetric dust, rock field)."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.BloominOnion"

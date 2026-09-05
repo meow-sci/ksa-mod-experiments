@@ -1,7 +1,0 @@
-name = "its-so-shiny"
-description = "Builds controllable light-part pixel grids on vehicles."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.ItsSoShiny"

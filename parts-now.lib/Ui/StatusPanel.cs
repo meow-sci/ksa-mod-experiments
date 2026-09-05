@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Collections.Generic;
@@ -54,9 +54,8 @@ public sealed partial class StatusPanel
 
         RenderBlockedBanner(selfTestProblems);
         RenderDegradedNotice(selfTestProblems);
-        RenderMeshBudget();
-        RenderBindlessTextures();
-        RenderJob();
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Current == null)
+        { RenderMeshBudget(); RenderBindlessTextures(); RenderJob(); }
         RenderSettings();
         RenderLimitations();
     }

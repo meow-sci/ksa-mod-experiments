@@ -10,13 +10,16 @@ using MeowSci.CameraControllerOverrideLib.UI;
 
 namespace MeowSci.CameraControllerOverrideLib;
 
-public class CameraControllerOverrideSubmod : ISubmod
+public sealed partial class CameraControllerOverrideSubmod : IWorkspaceFeature
 {
     public string Name => "Camera Animations";
     public string Tooltip => "Animates the flight camera with zoom, orbit, shake, and spiral sequences.";
 
     private readonly KeyframeSequencePlayer _sequencePlayer = new();
-    public KeyframeSequencePlayer SequencePlayer => _sequencePlayer;
+    private readonly KeyframeSequencePlayer _liveSequencePlayer = new();
+    private readonly KeyframeSequencePanel _draftPanel = new();
+    private readonly KeyframeSequencePanel _livePanel = new();
+    public KeyframeSequencePlayer SequencePlayer => _liveSequencePlayer;
 
     /// <summary>
     /// Static accessor for RPC integration. Set when the submod initializes, cleared on dispose.
@@ -210,7 +213,7 @@ public class CameraControllerOverrideSubmod : ISubmod
 
         ImGui.SeparatorText("Zoom Animations");
 
-        if (ImGui.CollapsingHeader("Zoom Out"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Zoom Out"))
         {
             if (RenderZoomParamsTable("zoomout", ref _zoomOutSpeed, ref _zoomOutDuration, ref _zoomOutEasing, ref _zoomOutEasingPowerStart, ref _zoomOutEasingPowerEnd))
                 AddAnimation(new ZoomOutAnimation(
@@ -221,7 +224,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _zoomOutEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Zoom In"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Zoom In"))
         {
             if (RenderZoomParamsTable("zoomin", ref _zoomInSpeed, ref _zoomInDuration, ref _zoomInEasing, ref _zoomInEasingPowerStart, ref _zoomInEasingPowerEnd))
                 AddAnimation(new ZoomInAnimation(
@@ -232,7 +235,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _zoomInEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Zoom In To Offset"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Zoom In To Offset"))
         {
             if (RenderZoomInToOffsetSection("zoomoffset", ref _zoomInOffsetSpeed, ref _zoomInOffsetDuration, ref _zoomInOffsetEasing, ref _zoomInOffsetEasingPowerStart, ref _zoomInOffsetEasingPowerEnd, ref _zoomInOffsetX, ref _zoomInOffsetY, ref _zoomInOffsetZ))
                 AddAnimation(new ZoomInToOffsetAnimation(
@@ -246,7 +249,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _zoomInOffsetEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Spiral Zoom Out"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Spiral Zoom Out"))
         {
             if (RenderSpiralZoomParamsTable("spiralout", ref _spiralZoomOutSpeed, ref _spiralZoomOutDuration, ref _spiralZoomOutEasing, ref _spiralZoomOutEasingPowerStart, ref _spiralZoomOutEasingPowerEnd, ref _spiralZoomOutDegrees))
                 AddAnimation(new SpiralZoomOutAnimation(
@@ -258,7 +261,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _spiralZoomOutEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Spiral Zoom In"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Spiral Zoom In"))
         {
             if (RenderSpiralZoomParamsTable("spiralin", ref _spiralZoomInSpeed, ref _spiralZoomInDuration, ref _spiralZoomInEasing, ref _spiralZoomInEasingPowerStart, ref _spiralZoomInEasingPowerEnd, ref _spiralZoomInDegrees))
                 AddAnimation(new SpiralZoomInAnimation(
@@ -272,7 +275,7 @@ public class CameraControllerOverrideSubmod : ISubmod
 
         ImGui.SeparatorText("Orbit Animations");
 
-        if (ImGui.CollapsingHeader("Orbit"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Orbit"))
         {
             if (RenderOrbitParamsTable("orbit", ref _orbitDegrees, ref _orbitDuration, ref _orbitEasing, ref _orbitEasingPowerStart, ref _orbitEasingPowerEnd))
                 AddAnimation(new OrbitAnimation(
@@ -283,7 +286,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _orbitEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Loopy Orbit"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Loopy Orbit"))
         {
             if (RenderLoopyOrbitParamsTable("loopy", ref _loopyOrbitDegrees, ref _loopyLoopInterval, ref _loopyAmplitude, ref _loopyDuration, ref _loopyEasing, ref _loopyEasingPowerStart, ref _loopyEasingPowerEnd))
                 AddAnimation(new LoopyOrbitAnimation(
@@ -298,7 +301,7 @@ public class CameraControllerOverrideSubmod : ISubmod
 
         ImGui.SeparatorText("Effects");
 
-        if (ImGui.CollapsingHeader("Shake"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Shake"))
         {
             if (RenderShakeParamsTable("shake", ref _shakeDuration, ref _shakeCount, ref _shakeAmplitude, ref _shakeSpeed, ref _shakeEasing, ref _shakeEasingPowerStart, ref _shakeEasingPowerEnd))
                 AddAnimation(new ShakeAnimation(
@@ -313,7 +316,7 @@ public class CameraControllerOverrideSubmod : ISubmod
 
         ImGui.SeparatorText("Movement Animations");
 
-        if (ImGui.CollapsingHeader("Pan"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Pan"))
         {
             if (RenderPanParamsTable("pan", ref _panOffsetX, ref _panOffsetY, ref _panOffsetZ,
                 ref _panDuration, ref _panEasing, ref _panEasingPowerStart, ref _panEasingPowerEnd))
@@ -327,7 +330,7 @@ public class CameraControllerOverrideSubmod : ISubmod
                     easingPowerEnd: _panEasingPowerEnd));
         }
 
-        if (ImGui.CollapsingHeader("Rotate"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Rotate"))
         {
             if (RenderRotateParamsTable("rotate", ref _rotateYaw, ref _rotatePitch,
                 ref _rotateDuration, ref _rotateEasing, ref _rotateEasingPowerStart, ref _rotateEasingPowerEnd))
@@ -344,7 +347,7 @@ public class CameraControllerOverrideSubmod : ISubmod
         RenderGroupModeUI();
 
         ImGui.SeparatorText("Keyframe Sequence");
-        KeyframeSequencePanel.Render(_sequencePlayer);
+        _draftPanel.RenderDraft(_sequencePlayer, ApplySequence);
 
         SubmodUI.EndContentArea();
     }

@@ -7,7 +7,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.ConManLib;
 
-public sealed class ConManSubmod : ISubmod
+public sealed partial class ConManSubmod : IWorkspaceFeature
 {
   public string Name => "Con-Man - Console Layouts";
   public string Tooltip => "Saves and restores UI gauge layout configurations for different scenarios.";
@@ -54,7 +54,45 @@ public sealed class ConManSubmod : ISubmod
     }
   }
 
+  private Dictionary<string, GaugeState> _layoutDraft = new();
+  private string _layoutName = "";
   public void RenderContent()
+  {
+    SubmodUI.BeginContentArea("##layout-draft");
+    ImGui.SetNextItemWidth(-1);
+    if (ImGui.BeginCombo("Legacy layout", _layoutName.Length == 0 ? "Select…" : _layoutName))
+    {
+      foreach (var name in _layoutManager.GetLayoutNames())
+        if (ImGui.Selectable(name, name == _layoutName)) { _layoutName = name; _layoutDraft = _layoutManager.ReadLayout(name) ?? new(); }
+      ImGui.EndCombo();
+    }
+    if (ImGui.Button("Copy current gauges into editor", new float2(-1, 0))) CaptureLayout();
+    foreach (var (id, state) in _layoutDraft)
+    {
+      ImGui.PushID(id);
+      if (WorkspaceUi.Header(id))
+      {
+        bool enabled = state.Enabled; if (ImGui.Checkbox("Visible", ref enabled)) state.Enabled = enabled;
+        var position = new float2(state.OffsetX, state.OffsetY); ImGui.SetNextItemWidth(-1);
+        if (ImGui.DragFloat2("Offset", ref position)) { state.OffsetX = position.X; state.OffsetY = position.Y; }
+        var scale = new float2(state.ScaleX, state.ScaleY); ImGui.SetNextItemWidth(-1);
+        if (ImGui.DragFloat2("Scale", ref scale, .01f, .05f, 10f)) { state.ScaleX = scale.X; state.ScaleY = scale.Y; }
+      }
+      ImGui.PopID();
+    }
+    if (ImGui.Button("Apply gauge layout", new float2(-1, 0))) _layoutManager.ApplyDefinition(DraftJson.Clone(_layoutDraft));
+    SubmodUI.EndContentArea();
+  }
+  private void CaptureLayout()
+  {
+    var accessor = _layoutManager.Accessor; var canvases = accessor.GetCanvases(); if (canvases == null) return;
+    _layoutDraft = new();
+    foreach (var canvas in canvases)
+    { var pos = accessor.GetCustomOffset(canvas); var scale = accessor.GetCustomScale(canvas);
+      _layoutDraft[canvas.Id] = new GaugeState { Enabled = accessor.GetEnabled(canvas), OffsetX = pos.X, OffsetY = pos.Y, ScaleX = scale.X, ScaleY = scale.Y }; }
+  }
+
+  private void RenderLiveLayout()
   {
     if (!_layoutManager.Accessor.IsValid)
     {
@@ -286,7 +324,7 @@ public sealed class ConManSubmod : ISubmod
   // --- Debug (live gauge data) ---
   private void RenderGaugeSummary()
   {
-    if (!ImGui.CollapsingHeader("Gauge Data Debug##cm"))
+    if (!MeowSci.KsaAbstractions.WorkspaceUi.Header("Gauge Data Debug##cm"))
       return;
 
     var canvases = _layoutManager.Accessor.GetCanvases();

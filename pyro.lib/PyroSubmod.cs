@@ -13,7 +13,7 @@ namespace MeowSci.PyroLib;
 /// so it looks, animates (startup/shutdown transients) and reacts to atmosphere exactly like a real engine.
 /// This file holds state, lifecycle and the public API; the ImGui panels live in the partial files.
 /// </summary>
-public sealed partial class PyroSubmod : ISubmod
+public sealed partial class PyroSubmod : IWorkspaceFeature
 {
     public string Name => "Pyro - Engine Plumes";
     public string Tooltip => "Place standalone volumetric engine plumes welded to any vehicle part, no engine required.";
@@ -39,19 +39,6 @@ public sealed partial class PyroSubmod : ISubmod
         SubmodUI.BeginContentArea("##pyro_content");
 
         RenderCreateSection();
-
-        if (_plumes.Count > 0)
-        {
-            ImGui.Spacing();
-            ImGui.SeparatorText($"Active Plumes ( {_plumes.Count} )");
-            RenderBulkToggles();
-
-            PlumeEntry? toRemove = null;
-            for (int i = 0; i < _plumes.Count; i++)
-                RenderPlumeSection(_plumes[i], i, ref toRemove);
-            if (toRemove != null)
-                RemovePlume(toRemove);
-        }
 
         ImGui.Spacing();
         RenderTemplateEditorSection();

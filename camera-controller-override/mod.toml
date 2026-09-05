@@ -1,7 +1,0 @@
-name = "camera-controller-override"
-description = "camera-controller-override"
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.CameraControllerOverride"

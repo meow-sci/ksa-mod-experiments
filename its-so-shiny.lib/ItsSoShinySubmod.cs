@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.ItsSoShinyLib;
 
-public sealed class ItsSoShinySubmod : ISubmod
+public sealed partial class ItsSoShinySubmod : IWorkspaceFeature
 {
     public static ItsSoShinySubmod? Instance { get; private set; }
 
@@ -60,25 +61,9 @@ public sealed class ItsSoShinySubmod : ISubmod
 
     public void RenderContent()
     {
-        RenderMenuBar();
         SubmodUI.BeginContentArea("##iss_content");
 
         RenderCreateSection();
-
-        var grids = ShinyGridManager.Grids;
-        int vehicleCount = grids.Count > 0 ? grids.Values.Select(s => s.VehicleId).Distinct().Count() : 0;
-        ImGui.Spacing();
-        ImGui.SeparatorText($"shiny grids ( {vehicleCount} vehicle(s), {grids.Count} grid(s) )");
-
-        bool renderMeshes = ShinyPatchState.RenderShinyParts;
-        if (ImGui.Checkbox("Render light meshes", ref renderMeshes))
-            ShinyPatchState.RenderShinyParts = renderMeshes;
-        ImGui.SameLine(0, 4);
-        ImGui.TextDisabled("(?)");
-        ImGui.SetItemTooltip("When off (default): meshes render only while the light is active, so the emissive\nappears and disappears with the light. When on: meshes always render regardless of state.");
-
-        foreach (var state in grids.Values.ToList())
-            RenderGridSection(state);
 
         SubmodUI.EndContentArea();
     }
@@ -107,7 +92,7 @@ public sealed class ItsSoShinySubmod : ISubmod
 
     private void RenderCreateSection()
     {
-        if (!ImGui.CollapsingHeader("Create Shiny Grid (?)", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header("Create Shiny Grid (?)", ImGuiTreeNodeFlags.DefaultOpen))
             return;
         ImGui.SetItemTooltip("Build a dynamic grid of built-in LightPart parts on a vehicle. Each pixel is one light part, controlled through its light switch.");
 
@@ -149,10 +134,6 @@ public sealed class ItsSoShinySubmod : ISubmod
             ImGui.TableSetupColumn("##iss_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); RenderVehicleCombo();
-
-            ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Grid Name");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1); ImGui.InputText("##iss_gridname", _newGridName);
 
@@ -168,7 +149,7 @@ public sealed class ItsSoShinySubmod : ISubmod
         }
         ImGui.PopStyleVar();
 
-        if (ImGui.Button(" Create ##iss"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Create ##iss"))
             DoBuildGrid();
         ImGui.SameLine(0, 12);
         ImGui.AlignTextToFramePadding();
@@ -185,7 +166,7 @@ public sealed class ItsSoShinySubmod : ISubmod
     private void RenderGridSection(ShinyGridState state)
     {
         string gridId = $"{state.VehicleId}_{state.GridName}";
-        if (!ImGui.CollapsingHeader($"Shiny Grid: '{state.GridName}' on '{state.VehicleId}##iss_grid_{gridId}'"))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header($"Shiny Grid: '{state.GridName}' on '{state.VehicleId}##iss_grid_{gridId}'"))
             return;
 
         var wpadX = ImGui.GetStyle().WindowPadding.X;

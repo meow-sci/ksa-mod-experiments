@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><RequiresKSAAssemblies>false</RequiresKSAAssemblies></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../unscience-contracts.lib/unscience-contracts.lib.csproj" /></ItemGroup>
+</Project>

@@ -100,6 +100,7 @@ public sealed partial class GraffitiSubmod
 
         RefreshLibrary();
         _selectedLibraryIndex = Array.IndexOf(_libraryNames, name);
+        Draft.Select("Decal", name);
         _placeStatus = $"Imported '{name}'.";
         _placeStatusIsError = false;
     }

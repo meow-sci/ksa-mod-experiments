@@ -5,7 +5,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.FreeFallinLib;
 
-public sealed class FreeFallinSubmod : ISubmod
+public sealed partial class FreeFallinSubmod : IWorkspaceFeature
 {
     public string Name => "Free Fallin - Parachute Customizer";
     public string Tooltip => "Customize the texture, tint, roughness, metallicness, and AO of every parachute canopy.";
@@ -66,19 +66,6 @@ public sealed class FreeFallinSubmod : ISubmod
             ImGui.SameLine(0f, 10f);
             ImGui.RadioButton("Center decal##ff_decal", ref _textureMode, (int)CanopyTextureMode.CenterDecal);
 
-            Label("PNG library");
-            ImGui.SetNextItemWidth(-1f);
-            string preview = _selectedTexture >= 0 && _selectedTexture < _textures.Length ? _textures[_selectedTexture] : "Select a PNG...";
-            if (ImGui.BeginCombo("##ff_texture", preview))
-            {
-                for (int i = 0; i < _textures.Length; i++)
-                {
-                    bool selected = i == _selectedTexture;
-                    if (ImGui.Selectable($"{_textures[i]}##ff_tex_{i}", selected)) _selectedTexture = i;
-                    if (selected) ImGui.SetItemDefaultFocus();
-                }
-                ImGui.EndCombo();
-            }
             EndForm();
         }
 
@@ -147,14 +134,9 @@ public sealed class FreeFallinSubmod : ISubmod
 
     private void RenderActions()
     {
-        if (ImGui.Button(" Apply to All Parachutes ##ff_apply")) Apply();
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Apply to All Parachutes ##ff_apply")) Apply();
         ImGui.SameLine(0f, 8f);
-        if (ImGui.Button(" Restore Stock ##ff_restore"))
-        {
-            FreeFallinPatches.RestoreStock();
-            _message = "Stock parachute rendering restored.";
-            _messageIsError = false;
-        }
+
         ImGui.SameLine(0f, 8f);
         if (ImGui.Button(" Reset Controls ##ff_reset")) ResetControls();
 
@@ -198,6 +180,7 @@ public sealed class FreeFallinSubmod : ISubmod
         if (imported == null) throw new InvalidOperationException(error ?? "Import failed.");
         Rescan();
         _selectedTexture = Array.FindIndex(_textures, name => string.Equals(name, imported, StringComparison.OrdinalIgnoreCase));
+        Draft.Select("PNG", imported);
         _message = $"Imported {imported}.";
         _messageIsError = false;
     }

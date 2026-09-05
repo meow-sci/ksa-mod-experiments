@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Collections.Generic;
@@ -13,9 +13,9 @@ namespace MeowSci.PartsNowLib;
 
 /// <summary>
 /// parts-now entry point: runtime Part / SubPart loading from pasted XML or an existing mod folder.
-/// Hosted by the unscience supermod and by the standalone <c>parts-now</c> mod.
+/// Hosted by the single Unscience distribution; the feature remains an independent library.
 /// </summary>
-public sealed class PartsNowSubmod : ISubmod
+public sealed partial class PartsNowSubmod : IWorkspaceFeature
 {
     private readonly List<string> _selfTestProblems = new List<string>();
 
@@ -24,6 +24,7 @@ public sealed class PartsNowSubmod : ISubmod
     private readonly ModFolderPanel _modFolderPanel = new ModFolderPanel();
     private readonly ResultsPanel _resultsPanel = new ResultsPanel();
 
+    private readonly ModFolderPanel _liveModPanel = new();
     private bool _firstFrameDone;
 
     /// <inheritdoc />
@@ -76,6 +77,7 @@ public sealed class PartsNowSubmod : ISubmod
         // ImGui textures, and by the time the panels draw, the vehicle editor's part browser has
         // already emitted ImageButton draw commands holding those descriptor sets.
         _modFolderPanel.ProcessPendingActions();
+        _liveModPanel.ProcessPendingActions();
     }
 
     /// <inheritdoc />
@@ -98,7 +100,6 @@ public sealed class PartsNowSubmod : ISubmod
         _modFolderPanel.Render(_statusPanel.LoadingEnabled);
 
         ImGui.Spacing();
-        _resultsPanel.Render();
 
         SubmodUI.EndContentArea();
     }

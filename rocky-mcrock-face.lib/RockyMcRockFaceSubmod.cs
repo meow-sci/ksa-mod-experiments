@@ -1,3 +1,4 @@
+using MeowSci.KsaRings;
 using System;
 using System.Collections.Generic;
 using MeowSci.KsaAbstractions;
@@ -10,7 +11,7 @@ namespace MeowSci.RockyMcRockFaceLib;
 /// including part/subpart meshes — can be assigned per LOD, along with the rock
 /// PBR material textures and the 2D ring band texture.
 /// </summary>
-public sealed partial class RockyMcRockFaceSubmod : ISubmod
+public sealed partial class RockyMcRockFaceSubmod : IWorkspaceFeature
 {
     public string Name => "Rocky McRock Face - Planetary Ring Swapper";
 
@@ -22,13 +23,15 @@ public sealed partial class RockyMcRockFaceSubmod : ISubmod
         "restarting the game brings the stock ring back.";
 
     private readonly RingSwapController _controller = new();
-    private readonly Dictionary<string, RingSelection> _selections = new();
+    private RingSelection _selection = new();
 
+    private readonly Dictionary<string, RingSelection> _appliedSelections = new();
     private bool _catalogReady;
     private double _rescanTimer;
 
     public void Initialize()
     {
+        RingOwnership.Replacing += BeforeRingReplacement;
         Console.WriteLine("rocky-mcrock-face: initialized");
     }
 
@@ -54,6 +57,7 @@ public sealed partial class RockyMcRockFaceSubmod : ISubmod
 
     public void Dispose()
     {
+        RingOwnership.Replacing -= BeforeRingReplacement;
         try { _controller.Dispose(); }
         catch (Exception ex) { Console.WriteLine($"rocky-mcrock-face: dispose failed: {ex.Message}"); }
     }
@@ -63,10 +67,18 @@ public sealed partial class RockyMcRockFaceSubmod : ISubmod
     /// after a successful rebuild: the fresh ring data references exactly the clones that
     /// were resolved for it, so everything outside the current selections is unreferenced.
     /// </summary>
+    private void BeforeRingReplacement(KSA.Celestial celestial)
+    {
+        foreach (var body in _controller.Bodies)
+            if (ReferenceEquals(body.Celestial, celestial) && _appliedSelections.Remove(body.Id)) _controller.Restore(body);
+        // The replacement's renderer rebuild is responsible for releasing old frame references.
+        // Retain converted meshes until our next successful rebuild or disposal.
+    }
+
     private void PruneUnusedMeshClones()
     {
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var selection in _selections.Values)
+        foreach (var selection in _appliedSelections.Values)
         {
             foreach (var id in selection.LodMeshIds)
                 if (id.Length > 0) keep.Add(id);
@@ -74,13 +86,5 @@ public sealed partial class RockyMcRockFaceSubmod : ISubmod
         _controller.MeshFactory.PruneExcept(keep);
     }
 
-    private RingSelection GetOrCreateSelection(string bodyId)
-    {
-        if (!_selections.TryGetValue(bodyId, out var selection))
-        {
-            selection = new RingSelection();
-            _selections[bodyId] = selection;
-        }
-        return selection;
-    }
+    private RingSelection GetOrCreateSelection(string bodyId) => _selection;
 }

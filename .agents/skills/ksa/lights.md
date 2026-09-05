@@ -51,7 +51,7 @@ foreach (var lm in part.Modules.Get<LightModule>())   // Span<LightModule>
 }
 ```
 
-> **Field-name discrepancy to know:** the decomp field is `ColorRgb` (with `[XmlElement("Color")]`). `red-alert` addresses the live module's `ColorRgb`; `zippo` instead walks `PartTemplate.Components` filtering type `"KSA.LightModule+TemplateData"` and reads a field named `"Color"`. **Prefer the live-module `Template.ColorRgb` path** — it matches the decomp. Always call `OnDataLoad(null)` after editing channels.
+> **Current Unscience owner:** `ksa-lights.lib/LightController.cs` supplies shared light access for Zippo and Its So Shiny. It walks `PartTemplate.Components`, resolves `"KSA.LightModule+TemplateData"`, reads `"ColorRgb"` (the XML element name `"Color"` is not the field name), and calls `OnDataLoad(null)` after channel edits. Zippo deliberately exposes the shared-template scope in its live inspector. Red Alert and its cloning implementation are retired.
 
 ### Sharing gotcha — TemplateData is per-template, not per-instance
 
@@ -97,7 +97,7 @@ Use `Part.InstanceId` (uint, runtime-unique) as the lookup key, **not** `Part.Id
 
 ## Creating LightPart instances at runtime (its-so-shiny)
 
-Uses the stock `"LightPart"` template — real scene lights consuming `PowerConsumer` power (distinct from engine-part LCD pixels in blinky). The key pattern: create all parts, **wire `TreeParent`/`TreeChildren` manually**, then rebuild the tree **once**.
+Uses the stock `"LightPart"` template — real scene lights consuming `PowerConsumer` power (the former Blinky engine-pixel feature is retired). The key pattern: create all parts, **wire `TreeParent`/`TreeChildren` manually**, then rebuild the tree **once**.
 
 ```csharp
 var template = ModLibrary.Get<PartTemplate>("LightPart");   // throws if missing

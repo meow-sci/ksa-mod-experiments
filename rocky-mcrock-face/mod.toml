@@ -1,7 +1,0 @@
-name = "rocky-mcrock-face"
-description = "Swap the meshes and textures of KSA's planetary ring objects (Saturn's rock field) at runtime."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.RockyMcRockFace"

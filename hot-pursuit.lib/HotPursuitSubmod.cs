@@ -12,7 +12,7 @@ namespace MeowSci.HotPursuitLib;
 /// registry's finite pool is intentionally exposed to the user instead of being hidden behind a
 /// custom renderer.
 /// </summary>
-public sealed partial class HotPursuitSubmod : ISubmod
+public sealed partial class HotPursuitSubmod : IWorkspaceFeature
 {
     public string Name => "Hot Pursuit - Extra Cameras";
     public string Tooltip => "Place live, part-mounted cameras in KSA's stock secondary viewports.";
@@ -58,6 +58,9 @@ public sealed partial class HotPursuitSubmod : ISubmod
         }
     }
 
+    private float _nextFov = 60;
+    private int _nextWidth = 500, _nextHeight = 500;
+    private float3 _nextTranslation, _nextRotation;
     public void RenderContent()
     {
         SubmodUI.BeginContentArea("##hot_pursuit_content");
@@ -67,6 +70,11 @@ public sealed partial class HotPursuitSubmod : ISubmod
 
         ImGui.SetNextItemWidth(-1f);
         ImGui.DragFloat("Placement range (m)##hp_range", ref _placementRange, 10f, 10f, 100000f, "%.0f");
+        ImGui.SetNextItemWidth(-1); ImGui.DragFloat("Field of view", ref _nextFov, .25f, 1, 179);
+        ImGui.SetNextItemWidth(-1); ImGui.DragInt("Viewport width", ref _nextWidth, 1, 128, 2048);
+        ImGui.SetNextItemWidth(-1); ImGui.DragInt("Viewport height", ref _nextHeight, 1, 128, 2048);
+        ImGui.SetNextItemWidth(-1); ImGui.DragFloat3("Translation", ref _nextTranslation, .01f);
+        ImGui.SetNextItemWidth(-1); ImGui.DragFloat3("Rotation", ref _nextRotation, .25f);
         if (_armed)
         {
             ImGui.TextColored(new float4(1f, 0.85f, 0.2f, 1f),
@@ -84,21 +92,6 @@ public sealed partial class HotPursuitSubmod : ISubmod
                     ? new float4(1f, 0.3f, 0.3f, 1f)
                     : new float4(0.4f, 1f, 0.4f, 1f), _placeStatus);
 
-        ImGui.Spacing();
-        ImGui.SeparatorText($"Mounted cameras ( {_cameras.Count} )");
-        for (var i = 0; i < _cameras.Count; i++)
-        {
-            var entry = _cameras[i];
-            var remove = RenderCamera(entry, i);
-            if (remove)
-            {
-                RemoveCamera(entry);
-                i--;
-            }
-        }
-
-        if (_cameras.Count == 0)
-            ImGui.TextDisabled("No cameras placed yet.");
         SubmodUI.EndContentArea();
     }
 

@@ -6,7 +6,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GlassLib;
 
-public sealed class GlassSubmod : ISubmod
+public sealed partial class GlassSubmod : IWorkspaceFeature
 {
     public string Name => "Glass - Camera Lens";
     public string Tooltip => "Adjusts camera field of view with preset lens options from telephoto to fisheye.";
@@ -38,9 +38,6 @@ public sealed class GlassSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##glass_content");
 
-        float currentFovDeg = FovController.GetCurrentFovDegrees();
-        ImGui.Text($"Current FOV: {currentFovDeg:F1}\u00b0");
-
         ImGui.Spacing();
 
         var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
@@ -67,7 +64,7 @@ public sealed class GlassSubmod : ISubmod
                     {
                         _selectedPresetIndex = i;
                         _fov = Presets[i].Fov;
-                        FovController.SetFov(_fov);
+
                     }
                     if (selected) ImGui.SetItemDefaultFocus();
                 }
@@ -84,7 +81,7 @@ public sealed class GlassSubmod : ISubmod
             if (ImGui.DragInt("##glass_fov", ref _fov, 1f, 10, 200))
             {
                 _fov = Math.Clamp(_fov, 10, 200);
-                FovController.SetFov(_fov);
+
                 _selectedPresetIndex = FindPresetIndex(_fov);
             }
 
@@ -92,6 +89,7 @@ public sealed class GlassSubmod : ISubmod
         }
         ImGui.PopStyleVar(); // CellPadding
 
+        if (ImGui.Button(" Apply lens ", new float2(-1f, 0))) FovController.SetFov(_fov);
         SubmodUI.EndContentArea();
     }
 

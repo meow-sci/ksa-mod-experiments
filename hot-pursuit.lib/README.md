@@ -1,25 +1,40 @@
-# Hot Pursuit Library
+# Hot Pursuit
 
-Reusable implementation for the Hot Pursuit KSA mod. `HotPursuitSubmod` implements
-`MeowSci.KsaAbstractions.ISubmod`, so the same camera manager and ImGui panel can run in the
-standalone `hot-pursuit` StarMap host or inside the `unscience` umbrella mod.
+Mount secondary cameras on clicked vehicle parts. This feature is hosted by the single **Unscience** mod. Its separate
+`hot-pursuit.lib.csproj` remains the compilation and ownership boundary; there is no standalone entry project.
 
-The library owns camera entries and `IViewportOwner` lease tokens, performs mesh-precise vehicle
-part picking, re-resolves targets by vehicle ID and `Part.InstanceId`, and recomposes each camera's
-part-relative pose from `FixedController.OnFrame`. It uses KSA's stock secondary viewport renderer
-and window; it does not allocate Vulkan resources.
+## Use
 
-After writing each mounted ECL position, `HotPursuitCelestialState` mirrors KSA 5402's
-main-camera nearby-celestial selection and public distance/terrain/altitude fields. This
-prevents the nearby body from also being emitted by the distant-sphere pass (the source of
-the dark-grey secondary-view artifact) while retaining KSA's 80,000 km surface-distance
-cutoff.
+1. Open Unscience with **F11** (or its game-menu entry), show this feature in **Features**, and select it.
+2. Configure the authoring form. Target selectors retain exact identities; choose **Controlled vehicle** explicitly where offered.
+3. Use the feature’s Apply/Create/Arm action to affect the game.
+4. Open **Live State**, select an item, and use its feature-specific controls.
+5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
-The KSA 5402 secondary `Program.RenderViewport` path omits the `ParticleSystem`,
-`VolumetricExhaustRenderer`, main planet/ocean/cloud, part-glass, and overall-bloom passes.
-Engine plumes and generic particles are therefore not available in these feeds; the game-owned
-passes bind main-camera targets/resources and are intentionally not re-injected by this library.
+## Saved authoring state
 
-See [`../hot-pursuit/README.md`](../hot-pursuit/README.md) for features, user controls, limitations,
-and the four-slot shared-pool constraint. Game integration details and update risks are cataloged in
-[`../scope/camera.md`](../scope/camera.md).
+Placement range, FOV, viewport size and mount translation/rotation. Disclosure and authoring scroll state are saved too.
+Feature presets retain settings and asset choices while leaving the current target selections intact.
+
+## Live state
+
+Each camera with its own viewport lease, pose, visibility, copy, reopen and removal. These objects remain owned by this feature and are never serialized into workspace files.
+Hiding the feature, changing a preset, or loading a workspace does not dispose, re-apply, stop or recreate them.
+An explicit live control or a game lifecycle event can change them.
+
+## Implementation
+
+- `hot-pursuit.lib.csproj`: feature assembly and shared infrastructure references. Feature-to-feature project references are prohibited.
+- The `*Submod.Workspace.cs` participant explicitly binds authoring fields. `PrepareRestore` validates/decodes before returning setters.
+- The `*Submod.Live.cs` provider projects typed runtime records through `ILiveStateItem`; the host owns list layout, while the feature owns inspector behavior.
+- The existing controllers, renderer hooks and solver timing remain in this library. See the [game-integration map](../scope/FULL_SCOPE.md) for their KSA/Harmony dependencies.
+
+Authoring/runtime entry files: `HotPursuitSubmod.Live.cs`, `HotPursuitSubmod.cs`, `HotPursuitSubmod.Ui.cs`, `HotPursuitSubmod.Placement.cs`, `HotPursuitSubmod.Workspace.cs`.
+
+## Persistence and validation
+
+Workspace files and shared feature presets live below the KSA user-data directory’s `.unscience` folder.
+Legacy feature presets remain accessible where the feature has a legacy picker. See [workspace behavior](../docs/WORKSPACE.md)
+for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
+
+Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.

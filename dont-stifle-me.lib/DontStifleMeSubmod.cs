@@ -6,11 +6,18 @@ namespace MeowSci.DontStifleMeLib;
 /// <summary>
 /// ImGui surface for dont-stifle-me's scale and editor value-limit controls.
 /// </summary>
-public sealed class DontStifleMeSubmod : ISubmod
+public sealed partial class DontStifleMeSubmod : IWorkspaceFeature
 {
     public string Name => "Don't Stifle Me - Editor Limits";
     public string Tooltip => "Removes restrictive vehicle-editor scale and configurable-value limits.";
 
+    private bool _enabled = true, _snap = true, _expandedLimits;
+    private static void ApplyPolicy(bool enabled, bool snap, bool expanded)
+    {
+        EditorScaleSettings.Enabled = enabled; EditorScaleSettings.Snap = snap;
+        EditorLimitSettings.JplSaidNoClamps = expanded;
+        if (!expanded) EditorValueLimitPatches.RestoreTrackedBounds();
+    }
     public void Initialize() { }
     public void Update(double dt) { }
     public void Dispose() { }
@@ -19,20 +26,10 @@ public sealed class DontStifleMeSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##dsm_content");
 
-        ImGui.Checkbox("Enabled", ref EditorScaleSettings.Enabled);
-        ImGui.SetItemTooltip("Lift the 0.5x-2x part scale clamp and scale per axis (X/Y/Z) with the gizmo.\nOff = stock editor.");
-
-        ImGui.BeginDisabled(!EditorScaleSettings.Enabled);
-        ImGui.Checkbox("Snap scaling", ref EditorScaleSettings.Snap);
-        ImGui.SetItemTooltip("Snap scale drags to 0.25 m diameter increments (game default).\nOff = free, continuous scaling.");
-        ImGui.EndDisabled();
-
-        if (ImGui.Checkbox("jpl said no clamps", ref EditorLimitSettings.JplSaidNoClamps) &&
-            !EditorLimitSettings.JplSaidNoClamps)
-        {
-            EditorValueLimitPatches.RestoreTrackedBounds();
-        }
-        ImGui.SetItemTooltip("Expand selected vehicle-editor value ranges.\nCurrently: parachute diameter 2-1000 m.");
+        ImGui.Checkbox("Enabled", ref _enabled);
+        ImGui.Checkbox("Snap scaling", ref _snap);
+        ImGui.Checkbox("jpl said no clamps", ref _expandedLimits);
+        if (ImGui.Button(" Apply editor policy ")) ApplyPolicy(_enabled, _snap, _expandedLimits);
 
         if (!EditorScalePatches.IsApplied || !EditorValueLimitPatches.IsApplied)
         {

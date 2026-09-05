@@ -33,6 +33,8 @@ public static class EngineEmissive
 
     // ---- Public properties ----
 
+    public static IReadOnlyDictionary<PartModelDynamic, EmissiveSettings> Overrides => _engineSettings;
+
     public static bool GlobalEnabled
     {
         get => _globalEnabled;

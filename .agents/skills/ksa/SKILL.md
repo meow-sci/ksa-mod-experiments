@@ -7,7 +7,7 @@ description: detailed information about kitten space agency (KSA) game code, dec
 
 **StarMap is a mod loader only.** It is used to run the game and link mods in at runtime. The only interaction with StarMap is through the C# lifecycle attribute annotations on the mod class — there is no other StarMap API to use.
 
-Mods are C# 10 classes decorated with StarMap attributes:
+The repository targets .NET 10 and C# 13 (Directory.Build.props). Mod entries are classes decorated with StarMap attributes:
 
 ```csharp
 using StarMap.API;
@@ -42,7 +42,7 @@ These attributes are the **complete** StarMap interface. Do not attempt to call 
 | `[StarMapAfterGui]` (dt) | ImGui rendering, hotkey toggles (`ImGui.IsKeyPressed(ImGuiKey.F11)`). |
 | `[StarMapUnload]` | Unpatch Harmony, dispose GPU resources (reverse order), null static `Instance`. |
 
-**For the full scaffolding playbook** — the two-project `<name>` + `<name>.lib` split, `Patcher.cs`, `mod.toml`, `.csproj`/`Directory.Build.props`, the `ISubmod` interface, the dual standalone+submod static-`Instance` pattern, the `GameThread` off-thread scheduler, and solver-timing hooks (`Universe.ExecuteNextVehicleSolvers`) — see [lifecycle.md](lifecycle.md).
+**For current project ownership and lifecycle** — one shipping host, separate feature library projects, detached authoring state, live-item providers, GameThread scheduling and solver timing — see [lifecycle.md](lifecycle.md). Bundled features do not get standalone entry projects or RPC integration.
 
 ### Solver-timing hooks (cross-cutting)
 
@@ -69,7 +69,7 @@ State that must be visible to the **physics solvers each sim step** (battery cha
 ## Researching KSA Game APIs
 
 When you need to understand game types, APIs, or behavior:
-- **Prefer the decompiled sources** in `decomp/ksa/` — they contain all available information and are much easier to read
+- **Prefer the authoritative decompiled sources** in sibling `../ksa-game-assemblies/current/decomp/` (the in-repo `decomp/ksa/` is historical) — they contain all available information and are much easier to read
 - Do **not** attempt to inspect DLL files directly using shell commands or reflection tooling — use the decompiled sources instead
 
 > **Important:** The decompiled sources may be outdated. The running binary can have a completely different internal structure — field names that appear in decompiled code may not exist at runtime. When in doubt, use the runtime reflection dump strategy to discover the real structure. See [debug.md](debug.md).
@@ -85,7 +85,9 @@ When decompiled source field names don't match the actual binary (reflection ret
 
 See [debug.md](debug.md) for complete helper code, the `DumpPartsWithComponents` pattern, and a worked example of how `LightModule+TemplateData` was discovered inside `PartTemplate.Components`.
 
-## Cross-Mod Assembly Sharing
+## Cross-Mod Assembly Sharing (external mods only)
+
+Bundled Unscience features share one host and do not use cross-mod imports or independent installation. This section is a general StarMap reference for explicitly requested external mods; `example-feature` below is a placeholder, not a shipping project.
 
 StarMap loads each mod into its own `AssemblyLoadContext` (ALC). By default, two mods that both compile against the same `.lib` project will each get **independent copies** of that assembly with **separate static state**.
 
@@ -93,10 +95,10 @@ To share an assembly (and its static state) across mods, declare a dependency in
 
 ```toml
 [[StarMap.ModDependencies]]
-ModId = "blinky"
+ModId = "example-feature"
 Optional = true
 ImportedAssemblies = [
-    "MeowSci.BlinkyLib"
+    "MeowSci.ExampleFeatureLib"
 ]
 ```
 
@@ -107,7 +109,7 @@ The dependency mod can optionally declare which assemblies it exposes:
 ```toml
 # in the dependency mod's mod.toml
 [StarMap]
-ExportedAssemblies = ["MeowSci.BlinkyLib"]
+ExportedAssemblies = ["MeowSci.ExampleFeatureLib"]
 ```
 
 ### Resolution Matrix
@@ -121,10 +123,10 @@ ExportedAssemblies = ["MeowSci.BlinkyLib"]
 
 ### Architecture Rules
 
-1. **Shared state goes in `.lib` assemblies only** — the mod entry assembly (e.g. `MeowSci.Blinky`) is private and never imported by other mods.
-2. **`ImportedAssemblies` lists `.lib` assembly names** — e.g. `"MeowSci.BlinkyLib"`, not `"MeowSci.Blinky"`.
+1. **Shared state goes in `.lib` assemblies only** — the mod entry assembly (e.g. `MeowSci.ExampleFeature`) is private and never imported by other mods.
+2. **`ImportedAssemblies` lists `.lib` assembly names** — e.g. `"MeowSci.ExampleFeatureLib"`, not `"MeowSci.ExampleFeature"`.
 3. **Use `Optional = true`** so each mod remains independently installable. Guard code paths that depend on the other mod being present.
-4. **Transitive `.lib` deps may need importing too** — if `blinky.lib` → `ksa-abstractions.lib` and both mods need the same `GameThread` static state, import `MeowSci.KsaAbstractions` as well.
+4. **Transitive `.lib` deps may need importing too** — if `example-feature.lib` → `ksa-abstractions.lib` and both mods need the same `GameThread` static state, import `MeowSci.KsaAbstractions` as well.
 5. **Build-time references still needed** — the `.csproj` `<ProjectReference>` to the `.lib` project provides compile-time types. At runtime, `ImportedAssemblies` redirects the load to the dependency's ALC instead of loading the local copy.
 
 # Universe & Vehicles
@@ -132,7 +134,7 @@ ExportedAssemblies = ["MeowSci.BlinkyLib"]
 ```csharp
 var vehicles = Universe.CurrentSystem?.Vehicles.GetList(); // List<Vehicle>
 Vehicle? controlled = Program.ControlledVehicle;           // currently player-controlled vehicle
-double simTime = Universe.GetElapsedSimTime();
+double simTime = MeowSci.KsaAbstractions.SimTimeProvider.GetElapsedTime().Seconds();
 ```
 
 - `vehicle.Id` — string identifier

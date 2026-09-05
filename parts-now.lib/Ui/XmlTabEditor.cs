@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Text;
@@ -30,7 +30,7 @@ namespace MeowSci.PartsNowLib;
 /// into the buffer immediately and never cached.
 /// </para>
 /// </remarks>
-public sealed class XmlTabEditor
+public sealed partial class XmlTabEditor
 {
     /// <summary>Byte capacity of each XML buffer, including the null terminator.</summary>
     public const int Capacity = 262144;
@@ -41,6 +41,8 @@ public sealed class XmlTabEditor
     private readonly ImInputString _part = new ImInputString(Capacity);
     private readonly ImInputString _gameData = new ImInputString(Capacity);
 
+    private string _selectedTab = "assets";
+    private bool _restoreTab;
     private string _message = string.Empty;
     private bool _messageIsError;
 
@@ -69,6 +71,7 @@ public sealed class XmlTabEditor
             RenderTab("gamedata", "GameData", _gameData,
                 "<PartGameData> — masses, connectors, tanks and everything else merged onto the Part.");
             ImGui.EndTabBar();
+            _restoreTab = false;
         }
 
         if (_message.Length > 0)
@@ -97,11 +100,12 @@ public sealed class XmlTabEditor
 
     private void RenderTab(string id, string label, ImInputString buffer, string hint)
     {
-        if (!ImGui.BeginTabItem($"{label}##pn_tab_{id}"))
+        if (!ImGui.BeginTabItem($"{label}##pn_tab_{id}", _restoreTab && _selectedTab == id ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None))
         {
             return;
         }
 
+        _selectedTab = id;
         ImGui.TextDisabled(hint);
 
         if (ImGui.Button($" Paste from clipboard ##pn_paste_{id}"))

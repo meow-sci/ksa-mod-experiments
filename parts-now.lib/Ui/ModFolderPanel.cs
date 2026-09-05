@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using System;
 using System.Collections.Generic;
@@ -69,7 +69,7 @@ public sealed partial class ModFolderPanel
             Rescan();
         }
 
-        bool open = ImGui.CollapsingHeader("Mod folders (?)##pn_folders", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Mod folders (?)##pn_folders", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip(
             "Every folder under the game's mods directory that contains a mod.toml. Only content "
             + "mods that KSA did not already load at startup can be loaded from here.");
@@ -156,6 +156,7 @@ public sealed partial class ModFolderPanel
             for (int i = 0; i < _mods.Count; i++)
             {
                 ScannedMod mod = _mods[i];
+                if (MeowSci.KsaAbstractions.WorkspaceUi.Current != null && mod.State != ModFolderState.NotLoaded) continue;
                 if (filter.Length > 0
                     && !mod.ModId.Contains(filter, StringComparison.OrdinalIgnoreCase)
                     && !mod.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase))
@@ -250,6 +251,11 @@ public sealed partial class ModFolderPanel
             return;
         }
 
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Current != null && selected.State != ModFolderState.NotLoaded)
+        {
+            ImGui.TextDisabled("This mod is already loaded. Manage it from Live State.");
+            return;
+        }
         ImGui.Spacing();
         PanelStyle.BeginBorderedChild($"##pn_seldetail_{selected.ModId}", 0f);
 

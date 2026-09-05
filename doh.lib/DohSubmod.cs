@@ -15,7 +15,7 @@ namespace MeowSci.DohLib;
 /// Provides kitten spawning controls and management UI.
 /// Used by unscience supermod and standalone doh mod.
 /// </summary>
-public sealed class DohSubmod : ISubmod
+public sealed partial class DohSubmod : IWorkspaceFeature
 {
     public string Name => "DOH - Clone Kittens";
     public string Tooltip => "Programmatic kitten spawning with per-kitten material customization.";
@@ -65,10 +65,8 @@ public sealed class DohSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##doh_content");
 
-        RenderStatus();
         RenderSpawnControls();
-        ImGui.SeparatorText("Spawned Kittens");
-        RenderKittenList();
+        if (!string.IsNullOrEmpty(_statusMessage)) ImGui.TextWrapped(_statusMessage);
 
         SubmodUI.EndContentArea();
     }
@@ -124,9 +122,6 @@ public sealed class DohSubmod : ISubmod
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
-            RenderVehicleRow();
-            RenderCharacterRow();
-
             // Offset
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Offset");
@@ -181,14 +176,14 @@ public sealed class DohSubmod : ISubmod
         // Spawn button
         bool canSpawn = _selectedVehicleIndex >= 0 && _spawner != null;
         if (!canSpawn) ImGui.BeginDisabled();
-        if (ImGui.Button(" Spawn Kitten(s) ##doh"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Spawn Kitten(s) ##doh"))
             DoSpawn();
         ImGui.SameLine(0, 8);
         ImGui.PushStyleColor(ImGuiCol.Button, (float4)KSAColor.Xkcd.NeonPurple);
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, (float4)KSAColor.Xkcd.BrightMagenta);
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, (float4)KSAColor.Xkcd.HotPink);
         ImGui.PushStyleColor(ImGuiCol.Text, (float4)KSAColor.Xkcd.PaleYellow);
-        if (ImGui.Button(" I'm Feeling Lucky ##doh"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" I'm Feeling Lucky ##doh"))
             DoFeelingLucky();
         ImGui.PopStyleColor(4);
         if (!canSpawn) ImGui.EndDisabled();
@@ -328,7 +323,7 @@ public sealed class DohSubmod : ISubmod
             ? $"{entry.KittenId}  ({entry.CharacterId})##kit_{index}"
             : $"{entry.KittenId}  ({entry.CharacterId})  [no materials]##kit_{index}";
 
-        if (!ImGui.CollapsingHeader(header))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header(header))
             return;
 
         // Bordered child container (matches garrys-torch pattern)

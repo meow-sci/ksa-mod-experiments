@@ -1,37 +1,40 @@
-# graffiti.lib
+# Graffiti
 
-Core implementation for the standalone `graffiti` mod and the `unscience` umbrella mod. It places
-session-scoped projected PNG decals on vehicle art meshes, deployed parachute cloth, KittenEva
-avatars, and celestial terrain.
+Project PNG decals onto parts, terrain and canopy cloth. This feature is hosted by the single **Unscience** mod. Its separate
+`graffiti.lib.csproj` remains the compilation and ownership boundary; there is no standalone entry project.
 
-## Main components
+## Use
 
-- `GraffitiSubmod` owns lifecycle, public placement/removal APIs, anchor resolution, and UI state.
-- `DecalPicker` (plus `DecalPicker.Parachute`) casts the cursor ray against live parachute cloth triangles, vehicle part meshes,
-  KittenEva bounding spheres, and finally the nearby body's CPU terrain surface.
-- `DecalAnchors` recomposes part-local, cloth-barycentric, or geodetic anchors into ego-space
-  projection boxes every frame.
-- `DecalRenderer` and `DecalShaders` implement the post-resolve projected-decal Vulkan pass.
-- `DecalTextures`, `DecalLibrary`, and `FileBrowser` manage imported PNGs and GPU residency.
-- `GraffitiPatches` installs the `RenderTarget.ResolveAttachments` postfix used by both hosts.
+1. Open Unscience with **F11** (or its game-menu entry), show this feature in **Features**, and select it.
+2. Configure the authoring form. Target selectors retain exact identities; choose **Controlled vehicle** explicitly where offered.
+3. Use the feature’s Apply/Create/Arm action to affect the game.
+4. Open **Live State**, select an item, and use its feature-specific controls.
+5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
-## Parachute behavior
+## Saved authoring state
 
-KSA renders a canopy outside the normal `Part` view-mesh hierarchy. Graffiti therefore builds a
-240-triangle CPU pick proxy from `Parachute.ClothPositionsFront` using the stock 8-ring × 16-spoke
-topology. A hit stores its three cloth-node indices and barycentric coordinates. On later frames,
-the anchor point and normal are rebuilt from those live nodes so the projection follows reefing,
-inflation, and flutter. Canopy resolution uses the module runtime id with a parent-part id plus
-canopy-index fallback for scene reloads.
+Image, size/depth/roll, opacity, brightness, range, renderer policy and import-browser view. Disclosure and authoring scroll state are saved too.
+Feature presets retain settings and asset choices while leaving the current target selections intact.
 
-The visible canopy is a bone-skinned GLB driven by the cloth nodes, not the literal proxy mesh.
-Normal decal projection depth covers their small surface difference. See
-[`../scope/decals.md`](../scope/decals.md) for all game integration dependencies and live-test risks.
+## Live state
 
-## Build
+Each decal; visibility, transform/appearance and removal; bulk selection and render policy. These objects remain owned by this feature and are never serialized into workspace files.
+Hiding the feature, changing a preset, or loading a workspace does not dispose, re-apply, stop or recreate them.
+An explicit live control or a game lifecycle event can change them.
 
-Build the repository solution from the root:
+## Implementation
 
-```bash
-dotnet build ksa-mod-experiments.slnx
-```
+- `graffiti.lib.csproj`: feature assembly and shared infrastructure references. Feature-to-feature project references are prohibited.
+- The `*Submod.Workspace.cs` participant explicitly binds authoring fields. `PrepareRestore` validates/decodes before returning setters.
+- The `*Submod.Live.cs` provider projects typed runtime records through `ILiveStateItem`; the host owns list layout, while the feature owns inspector behavior.
+- The existing controllers, renderer hooks and solver timing remain in this library. See the [game-integration map](../scope/FULL_SCOPE.md) for their KSA/Harmony dependencies.
+
+Authoring/runtime entry files: `GraffitiSubmod.Live.cs`, `GraffitiSubmod.Workspace.cs`, `GraffitiSubmod.Placement.cs`, `GraffitiSubmod.cs`, `GraffitiSubmod.Ui.cs`.
+
+## Persistence and validation
+
+Workspace files and shared feature presets live below the KSA user-data directory’s `.unscience` folder.
+Legacy feature presets remain accessible where the feature has a legacy picker. See [workspace behavior](../docs/WORKSPACE.md)
+for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
+
+Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.

@@ -5,13 +5,17 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GeeForceLib;
 
-public sealed class GeeForceSubmod : ISubmod
+public sealed partial class GeeForceSubmod : IWorkspaceFeature
 {
     public string Name => "GeeForce";
     public string Tooltip => "Monitors vehicle G's in real-time with configurable sampling and peak tracking.";
 
     private const double SampleIntervalSec = 0.025; // 25ms → 40 Hz
     private double _accumulator;
+    private readonly GForceUI _liveView = new();
+    private float _threshold = 9f;
+    private bool _axes, _jerk;
+    private int _viewWindow;
     private GForceRecorder _recorder = null!;
 
     public void Initialize()
@@ -33,6 +37,8 @@ public sealed class GeeForceSubmod : ISubmod
             {
                 double simTime = SimTimeProvider.GetElapsedTime().Seconds();
                 _recorder.RecordSample(vehicle, simTime);
+                _recorder.CheckKillGeesBreaches(_liveView.Threshold);
+                _recorder.CheckJerkBreaches(_liveView.Threshold);
             }
         }
     }
@@ -40,7 +46,13 @@ public sealed class GeeForceSubmod : ISubmod
     public void RenderContent()
     {
         SubmodUI.BeginContentArea("##gf_content");
-        GForceUI.RenderContent(_recorder, SampleIntervalSec);
+        Brutal.ImGuiApi.ImGui.SetNextItemWidth(-1f);
+        Brutal.ImGuiApi.ImGui.DragFloat("Threshold (g)", ref _threshold, .1f, 1f, 250f);
+        Brutal.ImGuiApi.ImGui.Checkbox("Show axes", ref _axes);
+        Brutal.ImGuiApi.ImGui.Checkbox("Show jerk", ref _jerk);
+        Brutal.ImGuiApi.ImGui.Combo("History window", ref _viewWindow, new[] { "30s", "1m", "2m", "5m", "10m", "30m", "1h" });
+        if (Brutal.ImGuiApi.ImGui.Button(" Apply recorder settings "))
+        { _liveView.Threshold = _threshold; _liveView.ShowAxes = _axes; _liveView.ShowJerk = _jerk; _liveView.WindowIndex = _viewWindow; }
         SubmodUI.EndContentArea();
     }
 

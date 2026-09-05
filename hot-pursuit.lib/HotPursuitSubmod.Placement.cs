@@ -67,6 +67,9 @@ public sealed partial class HotPursuitSubmod
                         SurfaceNormal = pick.Normal,
                         MountTangent = tangent,
                         Visible = true,
+                        FieldOfView = _nextFov, Width = _nextWidth, Height = _nextHeight,
+                        Translation = new double3(_nextTranslation.X, _nextTranslation.Y, _nextTranslation.Z),
+                        RotationDeg = new double3(_nextRotation.X, _nextRotation.Y, _nextRotation.Z),
                     };
                     _cameras.Add(entry);
                     TryOpenViewport(entry);

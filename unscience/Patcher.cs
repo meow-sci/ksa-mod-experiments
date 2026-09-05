@@ -1,7 +1,6 @@
 using System;
 using HarmonyLib;
 using KSA;
-using MeowSci.BlinkyLib;
 using MeowSci.CameraControllerOverrideLib;
 using MeowSci.CameraControllerOverrideLib.Animation;
 using MeowSci.EternalFlameLib;
@@ -56,7 +55,6 @@ internal static class Patcher
             MenuBarPatch.ToggleWindow = MenuBarToggle;
             MenuBarPatch.Apply(_harmony!);
         });
-        TryApply("blinky", () => BlinkyPatches.Apply(_harmony!));
         TryApply("its-so-shiny", () => ShinyPatches.Apply(_harmony!));
         TryApply("camera-controller-override", () =>
         {
@@ -105,7 +103,6 @@ internal static class Patcher
                 TryRemove("hotkey-guard", () => HotkeyGuard.Unpatch(_harmony!));
                 TryRemove("hidden-ui-frame-hook", () => HiddenUiFrameHook.Unpatch(_harmony!));
                 TryRemove("menu-bar", () => MenuBarPatch.Remove(_harmony!));
-                TryRemove("blinky", () => BlinkyPatches.Remove(_harmony!));
                 TryRemove("its-so-shiny", () => ShinyPatches.Remove(_harmony!));
                 TryRemove("camera-controller-override", () => CameraControllerOverridePatches.Remove(_harmony!));
                 TryRemove("eternal-flame", () => EternalFlamePatches.Remove(_harmony!));

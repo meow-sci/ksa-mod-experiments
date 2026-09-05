@@ -15,6 +15,7 @@ internal static class CanopyMaterialController
     private const string StockMaterialId = "ParachuteCanopy_Material";
     private const string CanopyGlbId = "ParachuteCanopyGlb";
     private static int _revision;
+    internal static CanopyMaterialSettings? AppliedSettings { get; private set; }
 
     internal static int CurrentMaterialHandle { get; private set; } = -1;
     internal static bool Enabled => CurrentMaterialHandle >= 0;
@@ -64,6 +65,7 @@ internal static class CanopyMaterialController
         if (!renderSystem.MaterialSystem.CreateObject(materialName, material))
             throw new InvalidOperationException("Could not allocate a custom canopy material.");
         CurrentMaterialHandle = renderSystem.MaterialSystem.GetOrLoad(materialName).Handle;
+        AppliedSettings = MeowSci.KsaAbstractions.DraftJson.Clone(settings);
         Console.WriteLine($"free-fallin: applied global canopy material ({settings.TextureMode}, material {CurrentMaterialHandle})");
     }
 
@@ -76,6 +78,7 @@ internal static class CanopyMaterialController
     internal static void Disable()
     {
         CurrentMaterialHandle = -1;
+        AppliedSettings = null;
         Console.WriteLine("free-fallin: restored stock canopy material");
     }
 

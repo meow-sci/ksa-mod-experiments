@@ -23,6 +23,8 @@ namespace MeowSci.HumbleArteestLib;
 /// </summary>
 public static class KittenColor
 {
+    private static readonly Dictionary<int, float4> AppliedColors = new();
+    public static IReadOnlyDictionary<int, float4> Overrides => AppliedColors;
     private static bool _initialized;
     private static string? _lastError;
     private static string? _statusMessage;
@@ -163,7 +165,9 @@ public static class KittenColor
     /// </summary>
     public static bool ResetAll()
     {
-        return ApplyToAll(new float4(1f, 1f, 1f, 1f));
+        bool success = ApplyToAll(new float4(1f, 1f, 1f, 1f));
+        if (success) AppliedColors.Clear();
+        return success;
     }
 
     /// <summary>
@@ -181,7 +185,9 @@ public static class KittenColor
     /// </summary>
     public static bool ResetMaterial(int handle)
     {
-        return ApplyToMaterial(handle, new float4(1f, 1f, 1f, 1f));
+        bool success = ApplyToMaterial(handle, new float4(1f, 1f, 1f, 1f));
+        if (success) AppliedColors.Remove(handle);
+        return success;
     }
 
     /// <summary>
@@ -213,7 +219,7 @@ public static class KittenColor
             commandBuffer.Begin();
             VkUtils.StageAndUploadToBuffer(stagingPool, bigBuffer.VkBuffer, targetOffset, MemoryMarshal.AsBytes(span), commandBuffer);
             commandBuffer.End();
-
+            AppliedColors[handle] = color;
             return true;
         }
         catch (Exception ex)
@@ -227,6 +233,7 @@ public static class KittenColor
     /// <summary>Resets initialization state. Call on mod unload.</summary>
     public static void Cleanup()
     {
+        AppliedColors.Clear();
         _initialized = false;
         _materialSystem = null;
         _assetMap = null;

@@ -7,7 +7,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.KiwisMarblesLib;
 
-public sealed class KiwisMarblesSubmod : ISubmod
+public sealed partial class KiwisMarblesSubmod : IWorkspaceFeature
 {
     public string Name => "Kiwi's Marbles - Destroyer of Worlds";
     public string Tooltip => "Weld celestials onto one another.  For science.";
@@ -91,18 +91,6 @@ public sealed class KiwisMarblesSubmod : ISubmod
 
         RenderCreateSection();
 
-        if (_welds.Count > 0)
-        {
-            ImGui.Spacing();
-            ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
-
-            CelestialWeldEntry? toRemove = null;
-            for (int i = 0; i < _welds.Count; i++)
-                RenderWeldSection(_welds[i], i, ref toRemove);
-            if (toRemove != null)
-                RemoveWeld(toRemove);
-        }
-
         SubmodUI.EndContentArea();
     }
 
@@ -116,76 +104,8 @@ public sealed class KiwisMarblesSubmod : ISubmod
         if (celestials.Count == 0) { ImGui.TextDisabled("No celestial bodies available."); return; }
         if (orbiters.Count == 0) { ImGui.TextDisabled("No orbiters available."); return; }
 
-        // Source and Target combos in a 2-column SizingStretchProp table
-        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        if (ImGui.BeginTable("##km_selectors", 2, tableFlags))
-        {
-            ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
-
-            // Build arrays
-            var celestialIds = new string[celestials.Count];
-            for (int i = 0; i < celestials.Count; i++) celestialIds[i] = celestials[i].Id;
-            var orbiterIds = new string[orbiters.Count];
-            for (int i = 0; i < orbiters.Count; i++) orbiterIds[i] = orbiters[i].Id;
-
-            _pendingSourceIndex = Math.Clamp(_pendingSourceIndex, 0, celestials.Count - 1);
-            _pendingTargetIndex = Math.Clamp(_pendingTargetIndex, 0, orbiters.Count - 1);
-
-            // Source row
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Source");
-            ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.BeginCombo("##kmsrc", celestialIds[_pendingSourceIndex]))
-            {
-                if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _sourceFilter.Clear(); }
-                ImGui.SetNextItemWidth(-1f);
-                ImGui.InputTextWithHint("##kmsrcfilter", "filter..."u8, _sourceFilter);
-                string srcFilterText = _sourceFilter.ToString().Trim();
-                for (int i = 0; i < celestials.Count; i++)
-                {
-                    if (srcFilterText.Length == 0 || celestialIds[i].Contains(srcFilterText, StringComparison.OrdinalIgnoreCase))
-                    {
-                        bool sel = _pendingSourceIndex == i;
-                        if (ImGui.Selectable(celestialIds[i], sel)) _pendingSourceIndex = i;
-                        if (sel) ImGui.SetItemDefaultFocus();
-                    }
-                }
-                ImGui.EndCombo();
-            }
-            ImGui.SetItemTooltip("Source: the celestial body (planet or moon) that will be moved and locked\nto the target's position each frame.");
-
-            // Target row
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Target");
-            ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.BeginCombo("##kmtgt", orbiterIds[_pendingTargetIndex]))
-            {
-                if (ImGui.IsWindowAppearing()) { ImGui.SetKeyboardFocusHere(); _targetFilter.Clear(); }
-                ImGui.SetNextItemWidth(-1f);
-                ImGui.InputTextWithHint("##kmtgtfilter", "filter..."u8, _targetFilter);
-                string tgtFilterText = _targetFilter.ToString().Trim();
-                for (int i = 0; i < orbiters.Count; i++)
-                {
-                    if (tgtFilterText.Length == 0 || orbiterIds[i].Contains(tgtFilterText, StringComparison.OrdinalIgnoreCase))
-                    {
-                        bool sel = _pendingTargetIndex == i;
-                        if (ImGui.Selectable(orbiterIds[i], sel)) _pendingTargetIndex = i;
-                        if (sel) ImGui.SetItemDefaultFocus();
-                    }
-                }
-                ImGui.EndCombo();
-            }
-            ImGui.SetItemTooltip("Target: any orbiter (vehicle or another celestial) that the source will follow.");
-
-            ImGui.EndTable();
-        }
-        ImGui.PopStyleVar(); // CellPadding
+        if (_pendingSourceIndex < 0 || _pendingSourceIndex >= celestials.Count || _pendingTargetIndex < 0 || _pendingTargetIndex >= orbiters.Count)
+        { ImGui.TextDisabled("Select available source and target bodies above."); return; }
 
         var selectedSource = celestials[_pendingSourceIndex];
         var selectedTarget = orbiters[_pendingTargetIndex];
@@ -263,7 +183,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
             if (_weldError != null)
                 ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), _weldError);
 
-            if (ImGui.Button(" Create Weld ##kmweld"))
+            if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Create Weld ##kmweld"))
                 InitiateWeld(selectedSource, selectedTarget, computedOffset);
         }
     }
@@ -273,7 +193,7 @@ public sealed class KiwisMarblesSubmod : ISubmod
         ImGui.PushID(i);
 
         string header = $"Weld {i + 1}: {weld.Source.Id} \u2192 {weld.Target.Id}##km_weld_{i}";
-        if (!ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header(header, ImGuiTreeNodeFlags.DefaultOpen))
         {
             ImGui.PopID();
             return;

@@ -22,7 +22,7 @@ public sealed partial class PyroSubmod
     {
         string state = plume.Enabled ? "ON" : "off";
         string header = $"Plume #{plume.Id} [{state}]: {plume.Vehicle.Id} / {plume.Part.Id}  ({plume.TemplateId})##pyro_plume_{plume.Id}";
-        if (!ImGui.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header(header, ImGuiTreeNodeFlags.DefaultOpen))
             return;
 
         var wpadX = ImGui.GetStyle().WindowPadding.X;
@@ -52,12 +52,12 @@ public sealed partial class PyroSubmod
         PyroUi.OffsetFields(id, ref plume.Position, ref plume.Rotation);
 
         ImGui.Spacing();
-        if (ImGui.TreeNodeEx($"Nozzle physics{id}_nozzle", ImGuiTreeNodeFlags.SpanAvailWidth))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Tree($"Nozzle physics{id}_nozzle", ImGuiTreeNodeFlags.SpanAvailWidth))
         {
             RenderNozzleFields(plume.Nozzle, id);
             ImGui.TreePop();
         }
-        if (ImGui.TreeNodeEx($"Look{id}_look", ImGuiTreeNodeFlags.SpanAvailWidth))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Tree($"Look{id}_look", ImGuiTreeNodeFlags.SpanAvailWidth))
         {
             RenderLookFields(plume, id);
             ImGui.TreePop();

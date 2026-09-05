@@ -1,7 +1,0 @@
-name = "eternal-flame"
-description = "Infinite fuel hack - refills consumables on selected vehicles at configurable intervals"
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.EternalFlame"

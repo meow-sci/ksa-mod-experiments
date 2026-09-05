@@ -1,8 +1,8 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// GPU load/purge operations use RuntimeModLoader.Step at the host BeforeGui boundary,
+// before this frame emits any ImGui texture draw commands.
 
 using Brutal.ImGuiApi;
 
@@ -40,9 +40,15 @@ public sealed partial class StatusPanel
     private int _indexHeadroomMiB = PartsNowSettings.DefaultIndexHeadroomMiB;
     private string _settingsMessage = string.Empty;
 
+    internal void BindDraft(MeowSci.KsaAbstractions.DraftBindings state)
+    {
+        _vertexHeadroomMiB = PartsNowSettings.VertexHeadroomMiB; _indexHeadroomMiB = PartsNowSettings.IndexHeadroomMiB; _settingsLoaded = true;
+        state.Value("VertexHeadroomMiB", () => _vertexHeadroomMiB, v => _vertexHeadroomMiB = v);
+        state.Value("IndexHeadroomMiB", () => _indexHeadroomMiB, v => _indexHeadroomMiB = v);
+    }
     private void RenderSettings()
     {
-        bool open = ImGui.CollapsingHeader("Settings (?)##pn_settings");
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Settings (?)##pn_settings");
         ImGui.SetItemTooltip(
             "How much room parts-now reserves inside KSA's single shared vertex / index buffer pair "
             + "during startup. Everything it ever loads has to fit in there.");
@@ -112,7 +118,7 @@ public sealed partial class StatusPanel
 
     private static void RenderLimitations()
     {
-        bool open = ImGui.CollapsingHeader("Limitations (?)##pn_limits");
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Limitations (?)##pn_limits");
         ImGui.SetItemTooltip("What parts-now deliberately cannot do, and why.");
 
         if (!open)

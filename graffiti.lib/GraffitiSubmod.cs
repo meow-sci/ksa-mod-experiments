@@ -13,7 +13,7 @@ namespace MeowSci.GraffitiLib;
 /// cursor. This file holds state, lifecycle, the per-frame driver and the public API; the ImGui
 /// panels live in the partial files.
 /// </summary>
-public sealed partial class GraffitiSubmod : ISubmod
+public sealed partial class GraffitiSubmod : IWorkspaceFeature
 {
     public string Name => "Graffiti - PNG Decals";
     public string Tooltip => "Paint PNG decals onto vehicles, deployed parachutes, and terrain with a click.";

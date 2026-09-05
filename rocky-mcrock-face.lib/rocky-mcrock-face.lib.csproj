@@ -93,4 +93,5 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../ksa-rings.lib/ksa-rings.lib.csproj" /></ItemGroup>
 </Project>

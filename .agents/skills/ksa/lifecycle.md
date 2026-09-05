@@ -1,15 +1,16 @@
-# Mod Scaffolding, Lifecycle & Threading
+# Workspace ownership, lifecycle and threading
 
-The structural conventions every mod in this repo follows. Replicate these when creating a new mod.
+The current distribution has one `unscience` host and separate feature `.lib.csproj` files. Follow [AGENTS.md](../../../AGENTS.md) and [workspace architecture](../../../docs/WORKSPACE.md). Separate standalone distribution is retired for bundled features.
 
-## Two-project split: `<name>` + `<name>.lib`
+## Feature boundary
 
-Every mod is **two** projects:
+A bundled feature owns its game integration, authoring UI, detached recipe data and live runtime records in its `.lib` project. It implements `IWorkspaceFeature`, including explicit draft capture/preparation and typed live-item enumeration. Register it with the existing host. Do not create another Mod.cs, Patcher.cs entry assembly or mod.toml for the feature. Feature libraries do not reference one another; shared infrastructure lives in the designated contracts, abstractions, lights and rings projects.
 
-- `<name>/` — assembly `MeowSci.<Name>`. A thin StarMap host. Contains `Mod.cs` (lifecycle attributes), `Patcher.cs` (Harmony), `mod.toml`.
-- `<name>.lib/` — assembly `MeowSci.<Name>Lib`. **All logic** lives here as an `ISubmod` plus a shared static Harmony-patch class.
+The host renders authoring forms and a separate Live State window. Saving/restoring a draft never calls game mutators, disposes effects or restarts playback. All features update independently of visibility. Keep GPU purge before GUI and Garry’s Torch’s solver-safe work after GUI, with the hidden-HUD fallback.
 
-This split is what lets a mod be **both** standalone AND consumed by the `unscience` supermod. Shared state must live in `.lib` assemblies (see ALC sharing in SKILL.md).
+## Standalone scaffold examples (nonshipping only)
+
+The examples below explain StarMap/Harmony mechanics for a deliberately separate mod or the retained template projects. They are not instructions to create per-feature entry projects for Unscience. Any mention of HTTP/RPC describes the retired historical server; the host now owns `GameThread.DrainOnGameThread()`.
 
 ## StarMap host (`Mod.cs`)
 

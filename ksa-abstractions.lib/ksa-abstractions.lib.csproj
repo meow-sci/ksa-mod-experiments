@@ -40,4 +40,5 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../unscience-contracts.lib/unscience-contracts.lib.csproj" /></ItemGroup>
 </Project>

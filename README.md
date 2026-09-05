@@ -1,59 +1,51 @@
-# ksa-mod-experiments
+# Unscience
 
-Silly Kitten Space Agency mods, available as standalone projects and through the `unscience`
-umbrella mod. Start with [`REPOSITORY_INDEX.md`](REPOSITORY_INDEX.md) for the complete catalog and
-[`scope/FULL_SCOPE.md`](scope/FULL_SCOPE.md) for the game-integration map.
+A configurable workspace for Kitten Space Agency experiments. Unscience ships as one mod;
+25 separate feature library projects keep the code and runtime ownership boundaries clear.
 
-The current camera experiments include `hot-pursuit`: click a vehicle part to mount a live feed in
-one of KSA's stock secondary viewports, then tune its part-local pose, FOV, and resolution.
+Open with **F11** or the game-menu entry. Use **Features** to show or hide tools, then configure
+and apply their settings. **Save** names a complete authoring workspace; its existing-save dropdown
+selects an overwrite. **Load** opens a saved-state browser: double-click a state or select it and
+press **Load selected**. Loading replaces all authoring settings, selections and feature visibility.
+Applied effects continue unchanged.
 
-The parachute experiments include `free-fallin`: globally tint the stock canopy, tile a PNG through
-its panel UVs or project one cohesive image across the full canopy, composite a centered decal, and
-tune its PBR response. `graffiti` can also raycast deployed canopy cloth and attach projected decals
-that follow its inflation and motion.
+**Live State** opens an independent window containing managed effects. Select a weld, plume, ring,
+light, camera, decal, loaded mod or other record to edit or remove it using feature-specific controls.
+Feature forms also offer **Save settings as preset** for reusable recipes.
 
-To install dependencies:
+- [User behavior and architecture](docs/WORKSPACE.md)
+- [Every project and its purpose](REPOSITORY_INDEX.md)
+- [KSA integration and game-update workflow](scope/FULL_SCOPE.md)
+- [Contributor instructions](AGENTS.md)
+- [Current issues and validation](ISSUES.md)
+- [Original redesign plan](plans/UNSCIENCE_WORKSPACE_REDESIGN.md)
 
-```bash
-bun install
-```
+## Build and verify
 
-To run:
+Requires .NET 10 and licensed KSA reference assemblies. `Directory.Build.props` resolves them from
+`KSA_DLL_DIR`, a sibling `ksa-game-assemblies/current/dll` checkout, or the configured OS default.
 
-```bash
-bun run 
-```
-
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
-
-## building
-
-Every project compiles against the proprietary KSA game assemblies, which are
-never committed here. `Directory.Build.props` resolves them (first match wins):
-
-1. `KSA_DLL_DIR` env var (or `-p:KSA_DLL_DIR=...`) — what CI uses.
-2. A `ksa-game-assemblies` checkout cloned next to this repo (`../ksa-game-assemblies/current/dll/`).
-3. Per-OS defaults (game install dir on Windows, `~/repos/meow-sci/ksa-game-assemblies/current/dll/` elsewhere).
-
-If none resolve, the build fails with a single actionable error instead of a
-wall of missing-type errors.
-
-```bash
+```sh
 dotnet build ksa-mod-experiments.slnx
+dotnet run --project unscience-contracts.tests --no-build
+python3 scripts/check-workspace-boundaries.py
+python3 scripts/check-docs.py
 ```
 
-Each mod deploys its folder to the KSA user mods dir; set `UNSCIENCE_DIST_DIR`
-to redirect all of them (CI does this and zips `<dir>/unscience`).
+The host copies its distribution to the configured KSA mod directory. For an isolated build:
 
-## releases (GitHub Actions)
+```sh
+dotnet build ksa-mod-experiments.slnx -p:UNSCIENCE_DIST_DIR=/tmp/unscience-dist
+```
 
-`.github/workflows/release.yml` builds the whole solution and publishes ONLY the
-`unscience` umbrella mod (which bundles every submod `.lib`) as a zip:
+Install the resulting `unscience` folder as one mod. Delete the previous installed `unscience` folder before copying the new distribution so retired DLLs are not left behind. Remove previously installed standalone copies
+of the same features to avoid duplicate lifecycle hooks. Named workspace JSON files live in
+`<KSA user data>/.unscience/workspaces`; feature recipes live in `.unscience/feature-presets`.
+Legacy feature preset files are preserved.
 
-- push to `main` → prerelease `tip-<UTC stamp>`; the 5 newest tip builds are kept, older ones pruned
-- push to `release/<version>` → release `v<version>` (re-pushing the branch rebuilds/moves it)
-- `feature/**`, `fix/**`, `chore/**` branches and PRs into `main` → build only
+## Releases
 
-The private assemblies come from `meow-sci/ksa-game-assemblies` via the
-`KSA_GAME_ASSEMBLIES_PAT` repo secret (fine-grained PAT, read-only Contents on
-that repo).
+The existing GitHub Actions workflow builds the solution and packages only the `unscience` folder.
+Main-branch pushes produce tip prereleases; `release/<version>` pushes produce versioned releases.
+PRs and configured development branches build without publishing. Proprietary game assemblies
+come from the private `ksa-game-assemblies` checkout configured in CI.

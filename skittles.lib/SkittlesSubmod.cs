@@ -7,7 +7,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.SkittlesLib;
 
-public sealed class SkittlesSubmod : ISubmod
+public sealed partial class SkittlesSubmod : IWorkspaceFeature
 {
     public string Name => "Skittles - UI Themes";
     public string Tooltip => "Manages and applies ImGui theme configurations for UI customization.";
@@ -18,7 +18,6 @@ public sealed class SkittlesSubmod : ISubmod
     private readonly ImInputString _themeNameInput = new(128);
     private bool _showSaveInput;
     private bool _editorVisible;
-    private bool _pendingOpenDelete;
 
     public void Initialize()
     {
@@ -29,98 +28,27 @@ public sealed class SkittlesSubmod : ISubmod
 
     public void Update(double dt) { }
 
+    private ThemeDefinition? _themeDraft;
+    private string _templateName = "Game Default";
     public void RenderContent()
     {
-        SubmodUI.BeginContentArea("##sk_content");
-
-        string active = _themeManager.ActiveThemeName ?? "Game Default";
-        string[] themeNames = _themeManager.GetThemeNames();
-        string preview = (_selectedThemeIndex >= 0 && _selectedThemeIndex < themeNames.Length)
-            ? themeNames[_selectedThemeIndex]
-            : "Select Theme...";
-        bool canDelete = _selectedThemeIndex >= 0
-            && _selectedThemeIndex < themeNames.Length
-            && !_themeManager.AvailableThemes[_selectedThemeIndex].IsBuiltIn;
-
-        var tableFlags = ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX;
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        if (ImGui.BeginTable("##sk_selector", 2, tableFlags))
+        SubmodUI.BeginContentArea("##sk-content");
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("Theme template", _templateName))
         {
-            ImGui.TableSetupColumn("##sk_lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##sk_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
-
-            // Active theme status row
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Active");
-            ImGui.TableNextColumn();
-            ImGui.TextColored(new float4(0.3f, 1.0f, 0.3f, 1.0f), active);
-
-            // Theme selector row
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding(); ImGui.Text("Theme");
-            ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.BeginCombo("##sk_themedropdown", preview))
-            {
-                if (ImGui.IsWindowAppearing())
-                    _filterInput.Clear();
-
-                ImGui.SetNextItemWidth(-1);
-                ImGui.InputTextWithHint("##sk_filter", "filter..."u8, _filterInput);
-                ImGui.Separator();
-
-                string filterText = _filterInput.ToString();
-                for (int i = 0; i < themeNames.Length; i++)
-                {
-                    if (!string.IsNullOrEmpty(filterText) &&
-                        !themeNames[i].Contains(filterText, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    bool selected = _selectedThemeIndex == i;
-                    if (ImGui.Selectable(themeNames[i], selected))
-                    {
-                        _selectedThemeIndex = i;
-                        _themeManager.ApplyTheme(themeNames[i]);
-                    }
-                }
-                ImGui.EndCombo();
-            }
-
-            ImGui.EndTable();
+            foreach (var entry in _themeManager.AvailableThemes)
+                if (ImGui.Selectable(entry.Name, entry.Name == _templateName))
+                { _templateName = entry.Name; _themeDraft = entry.FilePath == null ? null : ThemeSerializer.LoadFromFile(entry.FilePath); }
+            ImGui.EndCombo();
         }
-        ImGui.PopStyleVar(); // CellPadding
-
-        // Deferred popup open at content area scope (outside table ID stack)
-        if (_pendingOpenDelete)
-        {
-            ImGui.OpenPopup("##sk_confirm_delete");
-            _pendingOpenDelete = false;
-        }
-        RenderDeleteConfirmPopup();
-
-        ImGui.Spacing();
-        if (ImGui.Button(" Open Theme Editor ##sk"))
-            _editorVisible = true;
-        ImGui.SameLine(0, 8);
-        if (!canDelete) ImGui.BeginDisabled();
-        ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(KSAColor.Xkcd.Scarlet));
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(KSAColor.Xkcd.PaleGrey));
-        if (ImGui.Button(" Delete ##sk"))
-            _pendingOpenDelete = true;
-        ImGui.PopStyleColor();
-        ImGui.PopStyleColor();
-        if (!canDelete) ImGui.EndDisabled();
-
+        if (ImGui.Button("Copy current style into editor", new float2(-1, 0))) _themeDraft = ThemeDefinition.CaptureFromImGui();
+        if (_themeDraft != null) ThemeDraftEditor.Render(_themeDraft);
+        if (ImGui.Button("Apply theme", new float2(-1, 0)))
+        { if (_themeDraft != null) _themeDraft.ApplyToImGui(); else _themeManager.ApplyTheme(_templateName); }
         SubmodUI.EndContentArea();
     }
 
-    public void RenderFloatingWindows()
-    {
-        if (_editorVisible)
-            RenderEditorWindow();
-    }
+    public void RenderFloatingWindows() { }
 
     private void RenderDeleteConfirmPopup()
     {

@@ -1,3 +1,7 @@
+# Historical navball research
+
+Reference notes; verify game symbols against the current sibling game-assemblies checkout before using them. See [current integration baseline](scope/FULL_SCOPE.md).
+
 # NavBall — Decompiled Code Analysis
 
 > Research summary of KSA's NavBall system, intended to inform any KROC feature that reads attitude data or adds custom overlays.

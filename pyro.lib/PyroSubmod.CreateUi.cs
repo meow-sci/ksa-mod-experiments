@@ -32,7 +32,7 @@ public sealed partial class PyroSubmod
 
     private void RenderCreateSection()
     {
-        bool open = ImGui.CollapsingHeader("Create Plume (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Create Plume (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Weld a standalone engine plume to a vehicle part.\nThe plume fires along the part's -X axis (the same convention the\ngame's engines use); use the rotation offset to aim it.");
         if (!open) return;
 
@@ -59,24 +59,6 @@ public sealed partial class PyroSubmod
             ImGui.TableSetupColumn("##lbl", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
-            FormRow("Vehicle");
-            PyroUi.FilteredCombo("##pyro_vehicle", vehicleIds, ref _pendingVehicleIndex, _vehicleFilter);
-
-            FormRow("Part");
-            bool noVehicle = _pendingVehicleIndex < 0 || _topParts.Count == 0;
-            if (noVehicle) ImGui.BeginDisabled();
-            PyroUi.FilteredCombo("##pyro_part", _topPartLabels, ref _pendingPartIndex, _partFilter);
-            if (noVehicle) ImGui.EndDisabled();
-
-            FormRow("Sub-part");
-            bool noPart = _pendingPartIndex < 0;
-            if (noPart) ImGui.BeginDisabled();
-            PyroUi.FilteredCombo("##pyro_subpart", _subPartLabels, ref _pendingSubPartIndex, _subPartFilter);
-            if (noPart) ImGui.EndDisabled();
-
-            FormRow("Template");
-            PyroUi.FilteredCombo("##pyro_template", templateIds, ref _pendingTemplateIndex, _templateFilter);
-
             RenderPresetFormRow(templateIds);
 
             ImGui.EndTable();
@@ -86,10 +68,18 @@ public sealed partial class PyroSubmod
         ImGui.Spacing();
         PyroUi.OffsetFields("##pyro_create", ref _pendingPosition, ref _pendingRotation);
 
+        _pendingPreset ??= new PlumePreset();
+        if (WorkspaceUi.Header("Plume settings", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.SliderFloat(FormField.Label("Throttle"), ref _pendingPreset.Throttle, 0, 1);
+            ImGui.DragFloat(FormField.Label("Absorption density scale"), ref _pendingPreset.AbsorptionDensityScale, .01f, 0, 100);
+            ImGui.DragFloat(FormField.Label("Refraction intensity"), ref _pendingPreset.RefractionIntensity, .01f, 0, 100);
+            RenderNozzleFields(_pendingPreset.Nozzle, "##pyro-nozzle-draft");
+        }
         ImGui.Spacing();
         bool canCreate = _pendingVehicleIndex >= 0 && _pendingPartIndex >= 0 && _pendingTemplateIndex >= 0;
         if (!canCreate) ImGui.BeginDisabled();
-        if (ImGui.Button(" Create Plume ##pyro_create_btn"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Create Plume ##pyro_create_btn"))
         {
             var anchor = _pendingSubPartIndex > 0 && _pendingSubPartIndex - 1 < _subParts.Count
                 ? _subParts[_pendingSubPartIndex - 1]

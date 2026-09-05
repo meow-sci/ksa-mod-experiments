@@ -11,7 +11,7 @@ namespace MeowSci.ThugLifeLib;
 /// ImGui surface for the thug-life mod: create new anchored sunglasses entries on a
 /// selected vehicle/part/subpart and tune position, rotation, and size per entry.
 /// </summary>
-public sealed class ThugLifeSubmod : ISubmod
+public sealed partial class ThugLifeSubmod : IWorkspaceFeature
 {
     public string Name => "Thug Life - Sunglasses Anchor";
     public string Tooltip => "Apply the thug-life sunglasses meme as a 2D quad anchored to any part/subpart on a vehicle.";
@@ -78,17 +78,6 @@ public sealed class ThugLifeSubmod : ISubmod
         RenderCreateSection();
 
         var entries = _manager.Entries;
-        if (entries.Count > 0)
-        {
-            ImGui.Spacing();
-            ImGui.SeparatorText($"Active Sunglasses ( {entries.Count} )");
-
-            ThugLifeEntry? toRemove = null;
-            for (int i = 0; i < entries.Count; i++)
-                RenderEntrySection(entries[i], i, ref toRemove);
-            if (toRemove != null)
-                _manager.Remove(toRemove);
-        }
 
         SubmodUI.EndContentArea();
     }
@@ -97,7 +86,7 @@ public sealed class ThugLifeSubmod : ISubmod
 
     private void RenderCreateSection()
     {
-        bool open = ImGui.CollapsingHeader("Anchor New Sunglasses (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Anchor New Sunglasses (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Pick a vehicle, then a part, then optionally a subpart to anchor to.\nThe quad is positioned in that part's local frame using\nthe offset and rotation below.");
         if (!open) return;
 
@@ -147,41 +136,6 @@ public sealed class ThugLifeSubmod : ISubmod
         if (_pendingSubPartIndex < 0) _pendingSubPartIndex = 0;
         if (_pendingSubPartIndex >= subPartLabels.Length) _pendingSubPartIndex = 0;
 
-        var style = ImGui.GetStyle();
-        float labelW = ImGui.CalcTextSize("SubPart").X + style.ItemSpacing.X + 8f;
-
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6f, 6f));
-        var formFlags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
-        if (ImGui.BeginTable("##tl_form", 2, formFlags))
-        {
-            ImGui.TableSetupColumn("##tl_lbl", ImGuiTableColumnFlags.WidthFixed, labelW);
-            ImGui.TableSetupColumn("##tl_widget", ImGuiTableColumnFlags.WidthStretch);
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Vehicle");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            RenderFilteredCombo("##tl_veh", vehicleIds, ref _pendingVehicleIndex, _vehicleFilter);
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Part");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noVehicle = _pendingVehicleIndex < 0 || _topLevelParts.Count == 0;
-            if (noVehicle) ImGui.BeginDisabled();
-            RenderFilteredCombo("##tl_part", partLabels, ref _pendingPartIndex, _partFilter);
-            if (noVehicle) ImGui.EndDisabled();
-
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("SubPart");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noPart = _pendingPartIndex < 0;
-            if (noPart) ImGui.BeginDisabled();
-            RenderFilteredCombo("##tl_sp", subPartLabels, ref _pendingSubPartIndex, _subPartFilter);
-            if (noPart) ImGui.EndDisabled();
-
-            ImGui.EndTable();
-        }
-        ImGui.PopStyleVar();
-
         RenderTransformFields("##tl_create",
             ref _pendingPosition, ref _pendingRotation,
             ref _pendingWidth, ref _pendingHeight);
@@ -189,7 +143,7 @@ public sealed class ThugLifeSubmod : ISubmod
         ImGui.Spacing();
         bool canCreate = _pendingVehicleIndex >= 0 && _pendingPartIndex >= 0;
         if (!canCreate) ImGui.BeginDisabled();
-        if (ImGui.Button(" Add Sunglasses ##tl_add"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Add Sunglasses ##tl_add"))
         {
             CreateEntry(vehicles[_pendingVehicleIndex]);
         }
@@ -201,7 +155,7 @@ public sealed class ThugLifeSubmod : ISubmod
         if (KittenGlassesPreset.IsKitten(selected))
         {
             ImGui.SameLine();
-            if (ImGui.Button(" animate thug ##tl_anim"))
+            if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" animate thug ##tl_anim"))
                 AnimateKittenGlasses(selected!);
             ImGui.SetItemTooltip(
                 "Drop the tuned sunglasses onto this kitten's face.\n"
@@ -315,7 +269,7 @@ public sealed class ThugLifeSubmod : ISubmod
     private void RenderEntrySection(ThugLifeEntry entry, int index, ref ThugLifeEntry? toRemove)
     {
         string label = $"Sunglasses: {entry.Vehicle.Id} / {entry.Part.Id}##tl_e{index}";
-        if (!ImGui.CollapsingHeader(label, ImGuiTreeNodeFlags.DefaultOpen))
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header(label, ImGuiTreeNodeFlags.DefaultOpen))
             return;
 
         var wpadX = ImGui.GetStyle().WindowPadding.X;

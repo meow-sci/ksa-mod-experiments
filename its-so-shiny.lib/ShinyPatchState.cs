@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 namespace MeowSci.ItsSoShinyLib;
 
 /// <summary>Shared state for its-so-shiny Harmony patches (render-skip toggle).</summary>

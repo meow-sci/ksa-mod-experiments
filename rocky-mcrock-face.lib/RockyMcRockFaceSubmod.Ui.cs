@@ -1,3 +1,4 @@
+using MeowSci.KsaRings;
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
@@ -31,14 +32,9 @@ public sealed partial class RockyMcRockFaceSubmod
         }
 
         RenderStatusHints();
-        _selectedBodyIndex = Math.Clamp(_selectedBodyIndex, 0, _controller.Bodies.Count - 1);
+        if (_selectedBodyIndex < 0 || _selectedBodyIndex >= _controller.Bodies.Count) { ImGui.TextDisabled("Select a body above to configure this action."); SubmodUI.EndContentArea(); return; }
         var body = _controller.Bodies[_selectedBodyIndex];
         var selection = GetOrCreateSelection(body.Id);
-
-        if (_controller.Bodies.Count > 1)
-            RenderBodySelector();
-        else
-            ImGui.TextDisabled($"Ringed body: {body.Id}");
 
         ImGui.Spacing();
         RenderMeshSection(body, selection);
@@ -81,7 +77,7 @@ public sealed partial class RockyMcRockFaceSubmod
 
     private void RenderMeshSection(RingedBody body, RingSelection selection)
     {
-        bool open = ImGui.CollapsingHeader("Ring Object Meshes (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Ring Object Meshes (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("The instanced rock meshes, one per LOD (LOD 0 = closest / most detailed).\n" +
                              "Any built-in mesh works, including part subpart meshes - they are converted\n" +
                              "on first use. Off-center meshes will orbit around their own origin.");
@@ -140,7 +136,7 @@ public sealed partial class RockyMcRockFaceSubmod
 
     private void RenderTextureSection(RingSelection selection)
     {
-        bool open = ImGui.CollapsingHeader("Ring Textures (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Ring Textures (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Diffuse / Normal / AoRoughMetal texture the rock material samples,\n" +
                              "plus the 2D band texture (also drives the ring's shadow on the planet).");
         if (!open) return;
@@ -162,7 +158,7 @@ public sealed partial class RockyMcRockFaceSubmod
 
     private void RenderFieldSection(RingSelection selection)
     {
-        bool open = ImGui.CollapsingHeader("Rock Field Settings (?)");
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Rock Field Settings (?)");
         ImGui.SetItemTooltip("Size, density and draw distance of the instanced rock field.\n" +
                              "High density x large render distance costs VRAM and GPU time.");
         if (!open) return;
@@ -184,14 +180,8 @@ public sealed partial class RockyMcRockFaceSubmod
 
     private void RenderActions(RingedBody body, RingSelection selection)
     {
-        if (ImGui.Button(" Apply ##rockymcrockface_apply"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Apply ##rockymcrockface_apply"))
             ApplySelection(body, selection);
-        ImGui.SameLine(0, 8);
-        RockyUi.DangerButtonBegin();
-        if (ImGui.Button(" Restore Defaults ##rockymcrockface_restore"))
-            RestoreDefaults(body, selection);
-        RockyUi.DangerButtonEnd();
-        ImGui.SameLine(0, 8);
         if (ImGui.Button(" Rescan Assets ##rockymcrockface_rescan"))
         {
             _controller.Catalog.Refresh();
@@ -215,6 +205,7 @@ public sealed partial class RockyMcRockFaceSubmod
             SetStatus(message, true);
             return;
         }
+        _appliedSelections[body.Id] = DraftJson.Clone(selection);
         bool rebuilt = _controller.RebuildRenderer(out var rebuildMessage);
         if (rebuilt) PruneUnusedMeshClones();
         SetStatus($"{message}; {rebuildMessage}", !rebuilt);
@@ -224,6 +215,7 @@ public sealed partial class RockyMcRockFaceSubmod
     {
         selection.Clear();
         _controller.Restore(body);
+        _appliedSelections.Remove(body.Id);
         bool rebuilt = _controller.RebuildRenderer(out var rebuildMessage);
         if (rebuilt) PruneUnusedMeshClones();
         SetStatus(rebuilt ? $"restored game defaults for {body.Id}" : rebuildMessage, !rebuilt);

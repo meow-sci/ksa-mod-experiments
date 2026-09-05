@@ -1,1 +1,2 @@
+using MeowSci.KsaLights;
 // its-so-shiny.lib - reusable light-part pixel grid builder and controller.

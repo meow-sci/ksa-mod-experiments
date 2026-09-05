@@ -10,6 +10,8 @@ internal sealed class PngFileBrowser
 {
     private readonly ImInputString _filter = new(128);
     private bool _open;
+    private bool _restorePlacement;
+    private MeowSci.Unscience.Contracts.WindowPlacement _placement = new() { Width = 620, Height = 480 };
     private string _directory = "";
     private string? _selected;
     private string? _error;
@@ -17,6 +19,23 @@ internal sealed class PngFileBrowser
     private string[] _directories = Array.Empty<string>();
     private string[] _files = Array.Empty<string>();
 
+    internal void BindDraft(MeowSci.KsaAbstractions.DraftBindings state)
+    {
+        state.Value("BrowserOpen", () => _open, v => _open = v);
+        state.Value("BrowserDirectory", () => _directory, v => _directory = v);
+        state.Value("BrowserSelected", () => _selected, v => _selected = v);
+        state.Text("BrowserFilter", _filter);
+        state.Value("BrowserPlacement", () => _placement, v => { _placement = v; _restorePlacement = true; });
+    }
+    private void PlaceWindow()
+    {
+        if (!_restorePlacement) return;
+        _restorePlacement = false;
+        var display = ImGui.GetIO().DisplaySize;
+        var size = new float2(Math.Clamp(_placement.Width, 320, Math.Max(320, display.X)), Math.Clamp(_placement.Height, 240, Math.Max(240, display.Y)));
+        ImGui.SetNextWindowSize(size, ImGuiCond.Always);
+        ImGui.SetNextWindowPos(new float2(Math.Clamp(_placement.X, 0, Math.Max(0, display.X - size.X)), Math.Clamp(_placement.Y, 0, Math.Max(0, display.Y - size.Y))), ImGuiCond.Always);
+    }
     internal void Open()
     {
         _open = true;
@@ -32,6 +51,7 @@ internal sealed class PngFileBrowser
         if (!_open) return;
         Refresh();
         ImGui.SetNextWindowSize(new float2(620f, 480f), ImGuiCond.FirstUseEver);
+        PlaceWindow();
         if (ImGui.Begin("Import Parachute PNG###free_fallin_browser", ref _open))
         {
             bool first = true;
@@ -81,6 +101,8 @@ internal sealed class PngFileBrowser
             if (_error != null) ImGui.TextColored(new float4(1f, .3f, .3f, 1f), _error);
             else ImGui.TextDisabled(_selected ?? "Select a .png file");
         }
+        var position = ImGui.GetWindowPos(); var size = ImGui.GetWindowSize();
+        _placement.X = position.X; _placement.Y = position.Y; _placement.Width = size.X; _placement.Height = size.Y;
         ImGui.End();
     }
 

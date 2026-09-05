@@ -1,7 +1,0 @@
-name = "hot-pursuit"
-description = "Place live, part-mounted cameras in KSA's stock secondary viewports."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.HotPursuit"

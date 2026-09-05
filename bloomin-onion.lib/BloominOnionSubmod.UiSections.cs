@@ -1,8 +1,8 @@
+using MeowSci.KsaRings;
 using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
-using MeowSci.RockyMcRockFaceLib;
 
 namespace MeowSci.BloominOnionLib;
 
@@ -13,7 +13,7 @@ public sealed partial class BloominOnionSubmod
 
     private void RenderGeometrySection(Celestial body)
     {
-        bool open = ImGui.CollapsingHeader("Geometry (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Geometry (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Ring plane and radii. Equatorial = tilted relative to the body's spin axis\n" +
                              "(0 deg = around the equator); Ecliptic = relative to the parent's frame.");
         if (!open) return;
@@ -60,7 +60,7 @@ public sealed partial class BloominOnionSubmod
 
     private void RenderBandSection()
     {
-        bool open = ImGui.CollapsingHeader("Ring Band (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Ring Band (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("The flat color/alpha strip seen from afar (it also casts the ring's shadow on the planet).\n" +
                              "Painted: built from stripes here. Texture: any game texture, plus a control strip\n" +
                              "(R = rocks allowed, G = dust thickness) that must be uncompressed RGBA.");
@@ -185,7 +185,7 @@ public sealed partial class BloominOnionSubmod
 
     private void RenderVolumetricsSection()
     {
-        bool open = ImGui.CollapsingHeader("Volumetric Dust (?)");
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Volumetric Dust (?)");
         ImGui.SetItemTooltip("The raymarched dust seen up close. Thickness, render distance and step size are\n" +
                              "interpolated between min/max by the control strip's G channel.");
         if (!open) return;
@@ -211,7 +211,7 @@ public sealed partial class BloominOnionSubmod
 
     private void RenderRockFieldSection()
     {
-        bool open = ImGui.CollapsingHeader("Rock Field (?)");
+        bool open = MeowSci.KsaAbstractions.WorkspaceUi.Header("Rock Field (?)");
         ImGui.SetItemTooltip("The instanced rock meshes drawn within draw distance of the ring plane.\n" +
                              "High density x large draw distance costs VRAM and GPU time.");
         if (!open) return;

@@ -9,6 +9,7 @@ namespace MeowSci.ThugLifeLib;
 /// </summary>
 public sealed class ThugLifeEntry
 {
+    public string Id { get; } = System.Guid.NewGuid().ToString("N");
     public Vehicle Vehicle = null!;
     public Part Part = null!;
 

@@ -1,0 +1,93 @@
+using System.Linq;
+using MeowSci.CameraControllerOverrideLib.Animation;
+using System;
+using System.Collections.Generic;
+using MeowSci.KsaAbstractions;
+using MeowSci.Unscience.Contracts;
+
+namespace MeowSci.CameraControllerOverrideLib;
+
+public sealed partial class CameraControllerOverrideSubmod
+{
+    public string FeatureId => "camera-controller-override";
+    private DraftBindings? _draft;
+    public DraftBindings Draft => _draft ??= CreateDraftBindings();
+    public DraftState CaptureDraft() => Draft.Capture();
+    public Action PrepareRestore(DraftState state) => Draft.Prepare(state);
+    private DraftBindings CreateDraftBindings()
+    {
+        var state = new DraftBindings();
+        state.Value("zoomOutSpeed", () => _zoomOutSpeed, value => _zoomOutSpeed = value);
+        state.Value("zoomOutDuration", () => _zoomOutDuration, value => _zoomOutDuration = value);
+        state.Value("zoomOutEasing", () => _zoomOutEasing, value => _zoomOutEasing = value);
+        state.Value("zoomOutEasingPowerStart", () => _zoomOutEasingPowerStart, value => _zoomOutEasingPowerStart = value);
+        state.Value("zoomOutEasingPowerEnd", () => _zoomOutEasingPowerEnd, value => _zoomOutEasingPowerEnd = value);
+        state.Value("zoomInSpeed", () => _zoomInSpeed, value => _zoomInSpeed = value);
+        state.Value("zoomInDuration", () => _zoomInDuration, value => _zoomInDuration = value);
+        state.Value("zoomInEasing", () => _zoomInEasing, value => _zoomInEasing = value);
+        state.Value("zoomInEasingPowerStart", () => _zoomInEasingPowerStart, value => _zoomInEasingPowerStart = value);
+        state.Value("zoomInEasingPowerEnd", () => _zoomInEasingPowerEnd, value => _zoomInEasingPowerEnd = value);
+        state.Value("zoomInOffsetSpeed", () => _zoomInOffsetSpeed, value => _zoomInOffsetSpeed = value);
+        state.Value("zoomInOffsetDuration", () => _zoomInOffsetDuration, value => _zoomInOffsetDuration = value);
+        state.Value("zoomInOffsetEasing", () => _zoomInOffsetEasing, value => _zoomInOffsetEasing = value);
+        state.Value("zoomInOffsetEasingPowerStart", () => _zoomInOffsetEasingPowerStart, value => _zoomInOffsetEasingPowerStart = value);
+        state.Value("zoomInOffsetEasingPowerEnd", () => _zoomInOffsetEasingPowerEnd, value => _zoomInOffsetEasingPowerEnd = value);
+        state.Value("zoomInOffsetX", () => _zoomInOffsetX, value => _zoomInOffsetX = value);
+        state.Value("zoomInOffsetY", () => _zoomInOffsetY, value => _zoomInOffsetY = value);
+        state.Value("zoomInOffsetZ", () => _zoomInOffsetZ, value => _zoomInOffsetZ = value);
+        state.Value("spiralZoomInSpeed", () => _spiralZoomInSpeed, value => _spiralZoomInSpeed = value);
+        state.Value("spiralZoomInDuration", () => _spiralZoomInDuration, value => _spiralZoomInDuration = value);
+        state.Value("spiralZoomInEasing", () => _spiralZoomInEasing, value => _spiralZoomInEasing = value);
+        state.Value("spiralZoomInEasingPowerStart", () => _spiralZoomInEasingPowerStart, value => _spiralZoomInEasingPowerStart = value);
+        state.Value("spiralZoomInEasingPowerEnd", () => _spiralZoomInEasingPowerEnd, value => _spiralZoomInEasingPowerEnd = value);
+        state.Value("spiralZoomInDegrees", () => _spiralZoomInDegrees, value => _spiralZoomInDegrees = value);
+        state.Value("orbitDegrees", () => _orbitDegrees, value => _orbitDegrees = value);
+        state.Value("orbitDuration", () => _orbitDuration, value => _orbitDuration = value);
+        state.Value("orbitEasing", () => _orbitEasing, value => _orbitEasing = value);
+        state.Value("orbitEasingPowerStart", () => _orbitEasingPowerStart, value => _orbitEasingPowerStart = value);
+        state.Value("orbitEasingPowerEnd", () => _orbitEasingPowerEnd, value => _orbitEasingPowerEnd = value);
+        state.Value("loopyOrbitDegrees", () => _loopyOrbitDegrees, value => _loopyOrbitDegrees = value);
+        state.Value("loopyLoopInterval", () => _loopyLoopInterval, value => _loopyLoopInterval = value);
+        state.Value("loopyAmplitude", () => _loopyAmplitude, value => _loopyAmplitude = value);
+        state.Value("loopyDuration", () => _loopyDuration, value => _loopyDuration = value);
+        state.Value("loopyEasing", () => _loopyEasing, value => _loopyEasing = value);
+        state.Value("loopyEasingPowerStart", () => _loopyEasingPowerStart, value => _loopyEasingPowerStart = value);
+        state.Value("loopyEasingPowerEnd", () => _loopyEasingPowerEnd, value => _loopyEasingPowerEnd = value);
+        state.Value("shakeDuration", () => _shakeDuration, value => _shakeDuration = value);
+        state.Value("shakeCount", () => _shakeCount, value => _shakeCount = value);
+        state.Value("shakeAmplitude", () => _shakeAmplitude, value => _shakeAmplitude = value);
+        state.Value("shakeSpeed", () => _shakeSpeed, value => _shakeSpeed = value);
+        state.Value("shakeEasing", () => _shakeEasing, value => _shakeEasing = value);
+        state.Value("shakeEasingPowerStart", () => _shakeEasingPowerStart, value => _shakeEasingPowerStart = value);
+        state.Value("shakeEasingPowerEnd", () => _shakeEasingPowerEnd, value => _shakeEasingPowerEnd = value);
+        state.Value("spiralZoomOutSpeed", () => _spiralZoomOutSpeed, value => _spiralZoomOutSpeed = value);
+        state.Value("spiralZoomOutDuration", () => _spiralZoomOutDuration, value => _spiralZoomOutDuration = value);
+        state.Value("spiralZoomOutEasing", () => _spiralZoomOutEasing, value => _spiralZoomOutEasing = value);
+        state.Value("spiralZoomOutEasingPowerStart", () => _spiralZoomOutEasingPowerStart, value => _spiralZoomOutEasingPowerStart = value);
+        state.Value("spiralZoomOutEasingPowerEnd", () => _spiralZoomOutEasingPowerEnd, value => _spiralZoomOutEasingPowerEnd = value);
+        state.Value("spiralZoomOutDegrees", () => _spiralZoomOutDegrees, value => _spiralZoomOutDegrees = value);
+        state.Value("panOffsetX", () => _panOffsetX, value => _panOffsetX = value);
+        state.Value("panOffsetY", () => _panOffsetY, value => _panOffsetY = value);
+        state.Value("panOffsetZ", () => _panOffsetZ, value => _panOffsetZ = value);
+        state.Value("panDuration", () => _panDuration, value => _panDuration = value);
+        state.Value("panEasing", () => _panEasing, value => _panEasing = value);
+        state.Value("panEasingPowerStart", () => _panEasingPowerStart, value => _panEasingPowerStart = value);
+        state.Value("panEasingPowerEnd", () => _panEasingPowerEnd, value => _panEasingPowerEnd = value);
+        state.Value("rotateYaw", () => _rotateYaw, value => _rotateYaw = value);
+        state.Value("rotatePitch", () => _rotatePitch, value => _rotatePitch = value);
+        state.Value("rotateDuration", () => _rotateDuration, value => _rotateDuration = value);
+        state.Value("rotateEasing", () => _rotateEasing, value => _rotateEasing = value);
+        state.Value("rotateEasingPowerStart", () => _rotateEasingPowerStart, value => _rotateEasingPowerStart = value);
+        state.Value("rotateEasingPowerEnd", () => _rotateEasingPowerEnd, value => _rotateEasingPowerEnd = value);
+        state.Value("groupMode", () => _groupMode, value => _groupMode = value);
+        state.Value("Sequence", () => _sequencePlayer.Keyframes.Select(k => AnimationRecipe.Capture(k.Animation)).ToList(), v => { _sequencePlayer.Clear(); foreach (var recipe in v) _sequencePlayer.AddKeyframe(recipe.Create()); }, validate: ValidateRecipes);
+        state.Value("PendingGroup", () => _pendingGroupAnimations.Select(AnimationRecipe.Capture).ToList(), v => { _pendingGroupAnimations.Clear(); foreach (var recipe in v) _pendingGroupAnimations.Add(recipe.Create()); }, validate: ValidateRecipes);
+        state.Value("SelectedKeyframe", () => _draftPanel.SelectedKeyframe, v => _draftPanel.SelectedKeyframe = v);
+        state.Value("ReturnToStartEnabled", () => _sequencePlayer.ReturnToStartEnabled, v => _sequencePlayer.ReturnToStartEnabled = v);
+        state.Value("ReturnToStartDuration", () => _sequencePlayer.ReturnToStartDuration, v => _sequencePlayer.ReturnToStartDuration = v);
+        state.Value("ReturnToStartEasing", () => _sequencePlayer.ReturnToStartEasing, v => _sequencePlayer.ReturnToStartEasing = v);
+        state.Value("ReturnToStartEasingPowerStart", () => _sequencePlayer.ReturnToStartEasingPowerStart, v => _sequencePlayer.ReturnToStartEasingPowerStart = v);
+        state.Value("ReturnToStartEasingPowerEnd", () => _sequencePlayer.ReturnToStartEasingPowerEnd, v => _sequencePlayer.ReturnToStartEasingPowerEnd = v);
+        return state;
+    }
+}

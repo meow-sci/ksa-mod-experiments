@@ -41,4 +41,5 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../ksa-lights.lib/ksa-lights.lib.csproj" /></ItemGroup>
 </Project>

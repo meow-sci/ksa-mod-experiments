@@ -9,7 +9,7 @@ using WeldEasingType = MeowSci.KsaAbstractions.EasingType;
 
 namespace MeowSci.GarrysTorchLib;
 
-public sealed class GarrysTorchSubmod : ISubmod
+public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
 {
     public string Name => "Garry's Torch - Vehicle Welding";
     public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
@@ -118,18 +118,6 @@ public sealed class GarrysTorchSubmod : ISubmod
 
         RenderCreateSection();
 
-        if (_welds.Count > 0)
-        {
-            ImGui.Spacing();
-            ImGui.SeparatorText($"Active Welds ( {_welds.Count} )");
-
-            WeldEntry? toRemove = null;
-            for (int i = 0; i < _welds.Count; i++)
-                RenderWeldSection(_welds[i], i, ref toRemove);
-            if (toRemove != null)
-                RemoveWeld(toRemove);
-        }
-
         // Deferred popup opens at content area scope
         if (_openDeleteModal)
         {
@@ -160,7 +148,7 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     private void RenderCreateSection()
     {
-        bool headerOpen = ImGui.CollapsingHeader("Create Weld (?)", ImGuiTreeNodeFlags.DefaultOpen);
+        bool headerOpen = MeowSci.KsaAbstractions.WorkspaceUi.Header("Create Weld (?)", ImGuiTreeNodeFlags.DefaultOpen);
         ImGui.SetItemTooltip("Weld two vehicles together.\nThe source vehicle is positioned relative to\nthe target at the specified offset, rotation, and scale.");
         if (!headerOpen)
             return;
@@ -212,30 +200,6 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGui.TableSetupColumn("##gt_widget", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableSetupColumn("##gt_btns", ImGuiTableColumnFlags.WidthFixed, delW);
 
-            // Source
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Source");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            RenderFilteredCombo("##gt_src", vehicleIds, ref _pendingSourceIndex, _sourceFilter);
-            ImGui.TableNextColumn();
-
-            // Target
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Target");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            RenderFilteredCombo("##gt_tgt", vehicleIds, ref _pendingTargetIndex, _targetFilter);
-            ImGui.TableNextColumn();
-
-            // Target Part
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Target Part");
-            ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            bool noTarget = _pendingTargetIndex < 0 || _targetParts.Count == 0;
-            if (noTarget) ImGui.BeginDisabled();
-            RenderFilteredCombo("##gt_tpart", targetPartLabels, ref _targetPartIndex, _targetPartFilter);
-            if (noTarget) ImGui.EndDisabled();
-            ImGui.TableNextColumn();
-
             // Preset
             ImGui.TableNextRow();
             ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Preset");
@@ -265,7 +229,7 @@ public sealed class GarrysTorchSubmod : ISubmod
             && _pendingSourceIndex != _pendingTargetIndex
             && _targetPartIndex >= 0;
         if (!canCreate) ImGui.BeginDisabled();
-        if (ImGui.Button(" Create Weld ##gt_addweld"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Create Weld ##gt_addweld"))
         {
             InitiateWeld(vehicles[_pendingSourceIndex], vehicles[_pendingTargetIndex],
                 _targetParts[_targetPartIndex],
@@ -297,7 +261,7 @@ public sealed class GarrysTorchSubmod : ISubmod
     private void RenderWeldSection(WeldEntry weld, int index, ref WeldEntry? toRemove)
     {
         string partSuffix = weld.TargetPart != null ? $"/{weld.TargetPart.Id}" : "";
-        if (!ImGui.CollapsingHeader($"Weld: {weld.Source.Id} -> {weld.Target.Id}{partSuffix}##gt_weld_{index}",
+        if (!MeowSci.KsaAbstractions.WorkspaceUi.Header($"Weld: {weld.Source.Id} -> {weld.Target.Id}{partSuffix}##gt_weld_{index}",
             ImGuiTreeNodeFlags.DefaultOpen))
             return;
 

@@ -5,7 +5,7 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.AverageTwrLib;
 
-public sealed class AverageTwrSubmod : ISubmod
+public sealed partial class AverageTwrSubmod : IWorkspaceFeature
 {
     public string Name => "Average TWR";
     public string Tooltip => "Records and analyzes thrust-to-weight ratio and acceleration statistics.";
@@ -39,6 +39,14 @@ public sealed class AverageTwrSubmod : ISubmod
     }
 
     public void RenderContent()
+    {
+        SubmodUI.BeginContentArea("twr-authoring");
+        ImGui.TextWrapped("Record thrust-to-weight and acceleration for the controlled vehicle. Manage recording and statistics in Live State.");
+        if (ImGui.Button(" Start / resume recording ", new float2(-1f, 0))) _isCollecting = true;
+        SubmodUI.EndContentArea();
+    }
+
+    private void RenderRecorder()
     {
         int n = _accumulator.SampleCount;
 
@@ -74,7 +82,7 @@ public sealed class AverageTwrSubmod : ISubmod
         ImGui.PopStyleVar(); // CellPadding
 
         // TWR section
-        if (ImGui.CollapsingHeader("TWR##atwr", ImGuiTreeNodeFlags.DefaultOpen))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("TWR##atwr", ImGuiTreeNodeFlags.DefaultOpen))
         {
             if (n == 0)
             {
@@ -92,7 +100,7 @@ public sealed class AverageTwrSubmod : ISubmod
         }
 
         // Max Acceleration section
-        if (ImGui.CollapsingHeader("Max Acceleration (m/s²)##atwr", ImGuiTreeNodeFlags.DefaultOpen))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Header("Max Acceleration (m/s²)##atwr", ImGuiTreeNodeFlags.DefaultOpen))
         {
             if (n == 0)
             {

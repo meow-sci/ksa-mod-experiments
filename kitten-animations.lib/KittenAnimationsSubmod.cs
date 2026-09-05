@@ -11,7 +11,7 @@ namespace MeowSci.KittenAnimationsLib;
 /// expressions, and exposes the blend weights and locomotion tuning that decide how hard each
 /// animation lands.
 /// </summary>
-public sealed class KittenAnimationsSubmod : ISubmod
+public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
 {
     public string Name => "Kitten Animations";
     public string Tooltip => "Play any kitten animation, trigger expressions, and tune animation strength.";
@@ -57,7 +57,7 @@ public sealed class KittenAnimationsSubmod : ISubmod
         }
     }
 
-    public void RenderContent()
+    private void RenderRuntimeControls()
     {
         SubmodUI.BeginContentArea("##ka_content");
 

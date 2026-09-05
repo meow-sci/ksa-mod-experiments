@@ -11,7 +11,7 @@ namespace MeowSci.KittenAnimationsLib.Ui;
 /// </summary>
 public static class TuningSection
 {
-    public static void Render(AnimationUiContext ctx)
+    public static void Render(AnimationUiContext? ctx = null)
     {
         bool open = ImGui.CollapsingHeader("Locomotion Anim Tuning (?)##ka_tuning");
         ImGui.SetItemTooltip("Live edits to KittenLocomotionTuning.Current. These change the game's own\n"
@@ -32,7 +32,7 @@ public static class TuningSection
         RenderJumpAndLadder();
 
         ImGui.Spacing();
-        RenderLiveBlendWeights(ctx);
+        if (ctx != null) RenderLiveBlendWeights(ctx);
     }
 
     private static void RenderBlending()

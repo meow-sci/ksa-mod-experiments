@@ -1,3 +1,4 @@
+using MeowSci.KsaLights;
 using System;
 using System.Collections.Generic;
 using KSA;
@@ -13,7 +14,7 @@ public class LightAnimationManager
 {
     public const int MaxQueueDepth = 25;
 
-    // Key = Part.Id string (not Part reference, which can go stale across frames)
+    // Key = host-owned identity of the exact managed part instance.
     private readonly Dictionary<string, LightAnimation> _active = new();
     private readonly Dictionary<string, Queue<LightAnimation>> _queues = new();
 
