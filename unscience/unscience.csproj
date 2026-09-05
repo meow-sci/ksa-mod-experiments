@@ -36,6 +36,7 @@
     <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
     <ProjectReference Include="..\thug-life.lib\thug-life.lib.csproj" />
     <ProjectReference Include="..\parts-now.lib\parts-now.lib.csproj" />
+    <ProjectReference Include="..\pebbles.lib\pebbles.lib.csproj" />
     <ProjectReference Include="..\dont-stifle-me.lib\dont-stifle-me.lib.csproj" />
     <ProjectReference Include="..\rocky-mcrock-face.lib\rocky-mcrock-face.lib.csproj" />
     <ProjectReference Include="..\bloomin-onion.lib\bloomin-onion.lib.csproj" />

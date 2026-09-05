@@ -28,6 +28,7 @@
     <Project Path="kitchen-sink.lib/kitchen-sink.lib.csproj" />
     <Project Path="thug-life.lib/thug-life.lib.csproj" />
     <Project Path="parts-now.lib/parts-now.lib.csproj" />
+  <Project Path="pebbles.lib/pebbles.lib.csproj" />
     <Project Path="dont-stifle-me.lib/dont-stifle-me.lib.csproj" />
     <Project Path="rocky-mcrock-face.lib/rocky-mcrock-face.lib.csproj" />
     <Project Path="bloomin-onion.lib/bloomin-onion.lib.csproj" />

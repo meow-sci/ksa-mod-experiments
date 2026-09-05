@@ -13,3 +13,5 @@ Build with `dotnet build ksa-mod-experiments.slnx`. Run persistence checks with
 ## Runtime ownership
 
 Runtime checks now exercise partial activation rollback, retry suppression, failed-release retention, shared baseline ownership, out-of-order mesh-tail reclamation, external-allocation protection and detached malformed-value rejection. They execute no KSA/Harmony/native UI/GPU APIs.
+
+Pebbles source-links its pure recipe validation, Workshop state and camera/manipulator math. Checks cover finite values, five-LOD structure, collision-compatible placement, compound primitive dimensions, detached snapshots, transform persistence, projection/unprojection, Euler conventions, mirroring and undo/redo. They do not exercise native resource transactions or GPU pipelines.

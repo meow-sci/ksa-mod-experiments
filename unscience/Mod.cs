@@ -22,6 +22,7 @@ using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
 using MeowSci.KitchenSinkLib;
 using MeowSci.PartsNowLib;
+using MeowSci.PebblesLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
@@ -69,6 +70,7 @@ public sealed class Mod
             AddFeature("kitten-animations", () => new KittenAnimationsSubmod());
             AddFeature("kiwis-marbles", () => new KiwisMarblesSubmod());
             AddFeature("parts-now", () => new PartsNowSubmod());
+            AddFeature("pebbles", () => new PebblesSubmod());
             AddFeature("pyro", () => new PyroSubmod());
             AddFeature("rocky-mcrock-face", () => new RockyMcRockFaceSubmod());
             AddFeature("skittles", () => new SkittlesSubmod());

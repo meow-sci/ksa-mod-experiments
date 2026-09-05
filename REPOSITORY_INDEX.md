@@ -1,6 +1,6 @@
 # Unscience repository index
 
-Unscience is one shipping mod with 25 feature libraries. Each library retains its own `.csproj` and source folder.
+Unscience is one shipping mod with 26 feature libraries. Each library retains its own `.csproj` and source folder.
 Contributor rules are in [AGENTS.md](AGENTS.md). Documentation inventory/link checks run through `python3 scripts/check-docs.py`.
 Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](scope/FULL_SCOPE.md).
 
@@ -39,6 +39,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [kitten-animations.lib](kitten-animations.lib/README.md) | Author kitten body animation, expressions and locomotion tuning. | The explicitly applied kitten identity/mode and captured locomotion tuning. |
 | [kiwis-marbles.lib](kiwis-marbles.lib/README.md) | Weld celestial bodies to orbiters. | Each celestial weld with Cartesian/surface controls and solver-safe unweld. |
 | [parts-now.lib](parts-now.lib/README.md) | Load new part definitions during play. | Each runtime-loaded mod plus loader progress, results and GPU budget; gated reload/unload. |
+| [pebbles.lib](pebbles.lib/README.md) | Per-celestial ground clutter recipes, meshes/materials, placement and a detached collider Workshop. | Per-body applied override and original-state restoration. |
 | [pyro.lib](pyro.lib/README.md) | Attach independent engine plumes to vehicle parts. | Each plume, bulk toggles and each applied shared exhaust-template override. |
 | [rocky-mcrock-face.lib](rocky-mcrock-face.lib/README.md) | Replace planetary ring meshes and textures. | One applied swap per body with edit/copy/restore; resources retained independently of the form. |
 | [skittles.lib](skittles.lib/README.md) | Configure ImGui colors and style. | The global applied ImGui style with live editor, legacy export and default restore. |
@@ -66,4 +67,4 @@ Historical implementation details remain in Git history.
 
 ## Runtime ownership
 
-All 25 libraries implement explicit release of applied state. The shared lifecycle coordinator manages feature-defined Harmony demand, rollback and retries; it never infers lifecycle from visibility or live-row count. `ksa-lights.lib` coordinates light baseline leases; `ksa-abstractions.lib` tracks explicitly owned GPU assets and isolates native UI scopes. Parts Now uses on-demand raster buffer growth with a ray-tracing relocation guard. See [workspace lifecycle](docs/WORKSPACE.md#runtime-release-and-failure-handling).
+All 26 libraries implement explicit release of applied state. The shared lifecycle coordinator manages feature-defined Harmony demand, rollback and retries; it never infers lifecycle from visibility or live-row count. `ksa-lights.lib` coordinates light baseline leases; `ksa-abstractions.lib` tracks explicitly owned GPU assets and isolates native UI scopes. Parts Now uses on-demand raster buffer growth with a ray-tracing relocation guard. See [workspace lifecycle](docs/WORKSPACE.md#runtime-release-and-failure-handling).

@@ -1,5 +1,7 @@
 # Pebbles: ground-clutter investigation and proposed implementation
 
+> Historical approved proposal, retained as design evidence. Implementation is now authorized and present in `pebbles.lib`. See [implementation status](PEBBLES_IMPLEMENTATION.md) and the [current feature README](../pebbles.lib/README.md). Statements below about awaiting approval describe the original planning turn.
+
 **Status: proposal awaiting review; no implementation authorized or added.**
 Investigation date: 2026-09-05. Reference: **KSA 2026.9.7.5402**, the current baseline in [FULL_SCOPE](../scope/FULL_SCOPE.md). This is a source-level reverse engineering report and implementation plan, not a claim of in-game verification. The repository still ships 25 features.
 

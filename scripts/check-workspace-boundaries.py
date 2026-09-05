@@ -6,7 +6,7 @@ root = Path(__file__).resolve().parents[1]
 shared = {'ksa-abstractions.lib', 'ksa-rings.lib', 'ksa-lights.lib', 'unscience-contracts.lib'}
 projects = [root / item.attrib['Path'] for item in ET.parse(root / 'ksa-mod-experiments.slnx').getroot().iter('Project')]
 features = {p.parent.name for p in projects if p.parent.name.endswith('.lib')} - shared
-assert len(features) == 25, f'Expected 25 retained feature libraries, found {len(features)}'
+assert len(features) == 26, f'Expected 26 retained feature libraries, found {len(features)}'
 for project in projects:
     assert project.is_file(), f'Missing project {project}'
     if project.parent.name not in features:
@@ -22,4 +22,4 @@ print(f'PASS: {len(features)} independent feature projects; shared dependencies 
 for feature in features:
     source = "\n".join(p.read_text() for p in (root / feature).glob("*.cs"))
     assert "public void ReleaseLiveState()" in source, f"{feature} lacks explicit runtime release"
-print("PASS: all 25 features own an explicit runtime release path.")
+print("PASS: all 26 features own an explicit runtime release path.")

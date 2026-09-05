@@ -4,5 +4,8 @@
   <ItemGroup>
     <Compile Include="../zippo.lib/DiscoTiming.cs" Link="FeatureAlgorithms/DiscoTiming.cs" />
     <Compile Include="../graffiti.lib/SprayCadence.cs" Link="FeatureAlgorithms/SprayCadence.cs" />
+    <Compile Include="../pebbles.lib/Models/*.cs" Link="Pebbles/%(Filename)%(Extension)" />
+    <Compile Include="../pebbles.lib/Workshop/WorkshopMath.cs" Link="Pebbles/WorkshopMath.cs" />
+    <Compile Include="../pebbles.lib/Workshop/WorkshopState.cs" Link="Pebbles/WorkshopState.cs" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 # Unscience workspaces
 
-Unscience ships as one StarMap mod. Its 25 features remain separate C# library projects. Open the workspace with F11 or the game's Unscience menu. Features → show/hide controls which authoring forms appear; hidden features continue updating their applied effects.
+Unscience ships as one StarMap mod. Its 26 features remain separate C# library projects. Open the workspace with F11 or the game's Unscience menu. Features → show/hide controls which authoring forms appear; hidden features continue updating their applied effects.
 
 ## Save, load, and reusable settings
 
@@ -91,3 +91,9 @@ The workspace offers **Release all applied state for this feature**. Each librar
 The native feature-render boundary captures ImGui recovery state and restores unbalanced scopes before displaying an exception. This depends on the current game’s internal ImGui recovery bindings and requires native acceptance. Detached bindings reject non-finite values, malformed required shapes and oversized payloads; feature validators enforce indices, dimensions and recipe constraints before setters are returned.
 
 Restoration acceptance: launch without Apply and compare hooks, templates, shaders and allocations; apply/replace/release each feature and compare captured baselines; repeat material spawn/remove cycles and inspect asset maps; unweld nonuniformly scaled craft; switch control away from an exact kitten target; remove grids discovered by scan; inject restore/rebuild failures; repeat hidden-HUD and unload cases. Parts Now should allocate no startup headroom, grow before mesh upload, reclaim out-of-order freed tails, and refuse relocation while ray tracing holds device addresses. These native checks have not been executed by the managed tests.
+
+## Pebbles authoring and acceptance
+
+Pebbles is the 26th bundled library. Its main form captures and edits per-body ground clutter recipes. Workshop Done updates only the draft; Apply queues native replacement. Live State owns per-body restoration. Saved meshes, textures, biome aliases and body identities remain exact; unavailable targets/assets block Apply. Loading does not refresh or destroy the preview, rebuild clutter, or change colliders. See [Pebbles](../pebbles.lib/README.md).
+
+Native acceptance: capture Earth and Luna; replace one variant and then all five LODs; verify texture/shadow routing; build offset/rotated compound primitives in the Workshop; test stationary and moving physics bubbles; preserve destroyed-clutter exclusions through Apply/Restore; confirm Mars remains unchanged when Luna's shared stock rocks are overridden; replace and restore repeatedly; load a different draft while applied; hide all authoring/HUD; release while preview and live clutter are present; change systems/unload. Confirm no camera/editor/control changes and no stale GPU descriptors or Bepu shapes.

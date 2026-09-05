@@ -10,7 +10,7 @@ All new configuration is authoring-only persistence; pending gestures are cancel
 
 ## Workspace redesign — current ownership
 
-The shipping host now has **25 independent feature libraries**, one StarMap/Harmony host, shared contracts/lights/rings infrastructure and a pure contract-check project. See [architecture](00-architecture-and-abstractions.md), [project index](../REPOSITORY_INDEX.md) and the per-area **Workspace integration (current)** sections. `IWorkspaceFeature` extends the lifecycle with explicit detached draft capture/preparation and typed `ILiveStateItem` collection. Every retained feature is adapted; standalone feature entry projects and the RPC service are retired.
+The shipping host now has **26 independent feature libraries**, one StarMap/Harmony host, shared contracts/lights/rings infrastructure and a pure contract-check project. See [architecture](00-architecture-and-abstractions.md), [project index](../REPOSITORY_INDEX.md) and the per-area **Workspace integration (current)** sections. `IWorkspaceFeature` extends the lifecycle with explicit detached draft capture/preparation and typed `ILiveStateItem` collection. Every retained feature is adapted; standalone feature entry projects and the RPC service are retired.
 
 New shared target surface: `PartIdentity` reads `Vehicle.Id`, `Vehicle.Parts.Parts`, `Part.Id`, `Part.Template.Id`, `Part.SubParts`, `Part.InstanceId` and `ImGui.GetFrameCount`. `Part.InstanceId` is regenerated and `PartInstance.GlobalInstanceId` is XmlIgnore; persisted selections use verified topology/path and reject changed topology. `DraftChoice` retains exact missing IDs or an explicit controlled-vehicle selector. `LiveIdentity` is process-only. See the architecture page for persistence limitations.
 
@@ -1044,3 +1044,25 @@ See [dated integration and upgrade reference](history/game-integration-surface.m
 - Parts Now `SharedMeshBuffers`: `DeviceMeshInterleaved.Shared.VertexAllocation/IndexAllocation`, `BufferEx`, `IBufferAllocator`, `RaytraceAllocator`, `CreateStagingPool`, `CommandBuffer.CopyBuffer`, submission/fence wait and `Program.RaytracingRenderer`. The latter blocks relocation because its BLAS and SubPartRefs cache addresses beyond renderer Rebuild.
 
 These integrations compile against 5402; no native UI/gameplay/GPU acceptance is inferred from compilation.
+
+## Pebbles ground-clutter integration (5402)
+
+Owner: `pebbles.lib`, registered as the 26th independent bundled feature. Detailed runtime and source dependencies are in [ground clutter](ground-clutter.md); the independent offscreen renderer has its own [preview integration](ground-clutter-preview.md). Managed build/tests do not verify native acceptance.
+
+| Surface | Mechanism / owner | Reason |
+|---|---|---|
+| `Universe.ExecuteNextClothSolvers` | Feature-owned Harmony prefix, `Runtime/ClutterHooks.cs` | Commit queued per-body Apply/Restore after prior solver outputs and before scheduling new cloth/vehicle work. |
+| `GroundClutterRenderer.RebuildFrameResources` | Harmony postfix | Rebuild retained original pipelines alongside active overrides after graphics changes. |
+| `GroundClutterRenderer.Dispose` | Harmony prefix | Restore borrowed arrays/templates before renderer teardown; suspend override for recreation. |
+| `ClutterEcotypeRenderData.SortMaterialIds`, `CreateColorRenderer`, `CreateDepthPrePassRenderer`, `CreateShadowDepthRenderer` | Validated Harmony transpilers | Redirect material index/buffer calls only inside an owned construction/rebuild context; avoid inlined global getters and shared material-table mutation. |
+| `ClutterEcotypeRenderData.RebuildFrameResources` | Prefix/finalizer context | Rebind owned material buffer through native render resource rebuilds. |
+| `ShaderReference.CompileVariantWithCustomOptions` | Scoped prefix | Compile the source-color variant only for owned `ClutterSolidFrag` material contexts, validating the native source marker. |
+| Public constructors of placement/render/physical clutter data, `ClutterCubeCellGrid`, `ClutterViewResources`, `SimpleVkMeshAtlas` | Scoped Harmony prefixes | Retain reachable partial objects for once-only failure cleanup; native constructor-local allocations remain a documented limitation. |
+| `ModLibrary.AllMeshes`, `AllFiles`, `AllGltfs`; `MeshReference.HostPrimitives`, `PrimitiveMaterialIds` | Reflection / private CPU assets | Exact asset discovery and private normalized/transformed mesh streams. |
+| `GroundClutterLodReference.BuildMaterialIndirection`; `Celestial.<BodyTemplate>k__BackingField`; `Astronomical.bodyTemplate` | Reflection | Build private LOD material routing and install/restore per-body template clones. |
+| `GroundClutterRenderer._renderPassInfo`, `_planetClutterMaxBoundingRadius`; `GroundClutterPlacementData._exclusionCache`; `Universe._vehicleUpdateTask`; `PlanetRenderer._groundClutterRendererCreated`; `StagingPool._submitted`, `_commandBufferIndex` | Reflection | Owned resource construction, bounds, compatible-grid exclusion transfer and idle bubble access. |
+| Ecotype placement/render/physical dictionaries; `BubbleClutterStatics`, `PhysicsBubble`, `ConstraintSim`, `JobSystems` | Direct game/physics APIs | Swap complete per-body arrays, drain exclusions, clear statics and retire native shapes after solver/GPU completion. |
+| `GameSettings.GenerateGroundClutter`, `GetGroundClutterCollisions`, `GetGroundClutterShadowCasting` | Read-only availability indicators | Report effective global gates without changing them. |
+| Private Workshop shaders, Vulkan images/descriptors/pipelines, ImGui texture registration | `Preview/` | No global viewport, vehicle editor, camera slots, registered gizmos or temporary Bepu shapes. |
+
+Clutter's five LOD slots, material sorting, candidate-grid dimensions, 16 scale bins, material buffer layout and shader source conventions are version-sensitive. Source-color handling reserves material flag bits 31 (source colors) and 30 (sRGB sampling) only in private buffers. Both shape and GPU retirement need actual native exercise; see the [acceptance checklist](../docs/WORKSPACE.md#pebbles-authoring-and-acceptance).

@@ -6,7 +6,7 @@ When adding, removing or changing a feature or shared library, update its README
 
 # Workspace architecture (required)
 
-- Unscience is **one shipping StarMap mod** with **25 feature libraries**. Retain separate `.lib.csproj` files for code demarcation. Do not create standalone entry projects for bundled features or restore independent distribution as a goal.
+- Unscience is **one shipping StarMap mod** with **26 feature libraries**. Retain separate `.lib.csproj` files for code demarcation. Do not create standalone entry projects for bundled features or restore independent distribution as a goal.
 - Feature libraries must not reference one another. Use `unscience-contracts.lib` for game-independent data contracts; `ksa-abstractions.lib` for shared game/UI infrastructure; `ksa-lights.lib` and `ksa-rings.lib` for their shared domains. Keep feature-specific game access in its owning library.
 - Each feature implements `IWorkspaceFeature`: explicit `DraftBindings`, `CaptureDraft`, `PrepareRestore`, and typed `GetLiveItems`. The host owns navigation/save/load/live-list layout; features own their recipes, runtime records and inspectors.
 - Every authoring setting, target/asset choice and durable UI selection must be bound explicitly. Whole-workspace loads replace all drafts and visibility, resetting absent features to defaults. Feature presets preserve the destination's targets while replacing recipe/settings data.

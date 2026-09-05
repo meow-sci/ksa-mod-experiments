@@ -1,5 +1,7 @@
 # Pebbles Workshop: visual mesh and collider authoring
 
+> Historical approved proposal, retained as design evidence. Implementation is now authorized and present in `pebbles.lib`. See [implementation status](PEBBLES_IMPLEMENTATION.md) and the [current feature README](../pebbles.lib/README.md). Statements below about awaiting approval describe the original planning turn.
+
 **Proposal awaiting review; no implementation.** This extends [the Pebbles plan](PEBBLES_PLAN.md) in response to the request for a friendly in-game mesh/collision editor. Source baseline remains KSA 2026.9.7.5402. `D/` means the sibling `ksa-game-assemblies/current/decomp/` tree.
 
 ## Recommended experience

@@ -1,6 +1,6 @@
 # Unscience host
 
-The only shipping StarMap entry project. It references 25 independent feature libraries and shared infrastructure.
+The only shipping StarMap entry project. It references 26 independent feature libraries and shared infrastructure.
 `Mod.cs` owns lifecycle and the feature catalog; `Patcher.cs` applies Harmony features independently and includes
 HotkeyGuard and the hidden-HUD frame hook. `WorkspaceWindow.cs` owns authoring navigation and persistence;
 `WorkspaceDialogs.cs` implements named workspace/feature saves and loading; `LiveStateWindow.cs` collects

@@ -1,6 +1,6 @@
 # Plans and design history
 
-[Pebbles](PEBBLES_PLAN.md) is a proposed ground-clutter feature awaiting review, with a [5402 source investigation](PEBBLES_SOURCE_MAP.md) and a [mini mesh/collider Workshop design](PEBBLES_WORKSHOP_PLAN.md). No feature implementation has been added.
+[Pebbles](PEBBLES_PLAN.md) records the approved ground-clutter proposal, with a [5402 source investigation](PEBBLES_SOURCE_MAP.md) and [mini mesh/collider Workshop design](PEBBLES_WORKSHOP_PLAN.md). The implemented feature is documented in [its README](../pebbles.lib/README.md); [implementation status](PEBBLES_IMPLEMENTATION.md) distinguishes delivered behavior from native acceptance and optional extensions.
 
 [Unscience workspace redesign](UNSCIENCE_WORKSPACE_REDESIGN.md) records the implemented redesign and its original analysis. The current contract is [docs/WORKSPACE.md](../docs/WORKSPACE.md), with native acceptance still outstanding.
 

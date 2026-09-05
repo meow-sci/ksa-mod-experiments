@@ -1,7 +1,7 @@
 # Unscience
 
 A configurable workspace for Kitten Space Agency experiments. Unscience ships as one mod;
-25 separate feature library projects keep the code and runtime ownership boundaries clear.
+26 separate feature library projects keep the code and runtime ownership boundaries clear.
 
 Open with **F11** or the game-menu entry. Use **Features** to show or hide tools, then configure
 and apply their settings. **Save** names a complete authoring workspace; its existing-save dropdown
@@ -65,3 +65,5 @@ Cleanup is serialized per channel while feature builds run concurrently. Retenti
 ## Runtime restoration
 
 Each feature now owns an explicit release path shared by Live State management and unload. Applied patches activate on demand and disappear after their final active consumer or pending cleanup. Restorable game fields use captured originals, and owned GPU assets are released after consumers and GPU work are drained. Authoring loads remain detached from runtime lifecycle. See [runtime lifecycle and acceptance](docs/WORKSPACE.md#runtime-release-and-failure-handling). Parts Now allocates raster mesh capacity on demand; mesh-buffer relocation requires launching without ray tracing. Its existing cross-feature asset-unload policy is unchanged.
+
+[Pebbles](pebbles.lib/README.md) adds per-celestial ground clutter mesh/material replacement, placement controls and a detached mesh/collider Workshop. Apply and original-state restoration use per-body live ownership; saving and loading only affect authoring recipes.
