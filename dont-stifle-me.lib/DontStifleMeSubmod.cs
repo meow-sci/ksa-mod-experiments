@@ -20,7 +20,10 @@ public sealed partial class DontStifleMeSubmod : IWorkspaceFeature
     }
     public void Initialize() { }
     public void Update(double dt) { }
-    public void Dispose() { }
+    public void Dispose()
+    {
+        ReleaseLiveState();
+    }
 
     public void RenderContent()
     {
@@ -31,7 +34,7 @@ public sealed partial class DontStifleMeSubmod : IWorkspaceFeature
         ImGui.Checkbox("jpl said no clamps", ref _expandedLimits);
         if (ImGui.Button(" Apply editor policy ")) ApplyPolicy(_enabled, _snap, _expandedLimits);
 
-        if (!EditorScalePatches.IsApplied || !EditorValueLimitPatches.IsApplied)
+        if (EditorScaleSettings.Enabled && !EditorScalePatches.IsApplied || EditorLimitSettings.JplSaidNoClamps && !EditorValueLimitPatches.IsApplied)
         {
             ImGui.Spacing();
             ImGui.TextColored(new Brutal.Numerics.float4(1f, 0.3f, 0.3f, 1f), "Editor patches are not applied - check the log.");

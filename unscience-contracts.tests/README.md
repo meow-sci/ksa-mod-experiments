@@ -9,3 +9,7 @@ See [workspace architecture](../docs/WORKSPACE.md), [repository index](../REPOSI
 Build with `dotnet build ksa-mod-experiments.slnx`. Run persistence checks with
 `dotnet run --project unscience-contracts.tests --no-build`; run dependency checks with
 `python3 scripts/check-workspace-boundaries.py`.
+
+## Runtime ownership
+
+Runtime checks now exercise partial activation rollback, retry suppression, failed-release retention, shared baseline ownership, out-of-order mesh-tail reclamation, external-allocation protection and detached malformed-value rejection. They execute no KSA/Harmony/native UI/GPU APIs.

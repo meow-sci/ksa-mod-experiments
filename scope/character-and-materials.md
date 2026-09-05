@@ -23,7 +23,7 @@ game-facing member, Harmony target, reflection string, GPU/Vulkan API, per-insta
 byte-offset, and shader these mods touch is enumerated and verified against the decompiled
 sources **and** the Content shader tree, in both game builds.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 **Key C# layout facts verified (load-bearing for the patches)**
 
@@ -213,3 +213,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/character-and-materials.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+The applied target is separate from the authoring target. Exact kitten effects stay on that identity; following control requires an explicit controlled-target Apply. Persistent processor fields restore on disable/unbind. Expressions attach a processor only while playing and detach on completion. Shared locomotion fields restore their captured baseline on release/unload. Cloned materials are tracked by exact GPU asset reference. Despawn releases a material set after its last kitten; unused allocations from unsuccessful creation are swept. Stock materials are never owned. Cleanup waits for the GPU after consumers are detached. Persistent CatEarAnim.ExpressionWeight, CatEyeAnim.MaxLookAtAngle and CatPersonalityAnim.ExpressionWeight are restored independently of fields the game recomputes every frame. AnimProcessors.Remove releases custom expressions.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

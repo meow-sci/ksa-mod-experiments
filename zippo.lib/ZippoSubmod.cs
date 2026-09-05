@@ -72,7 +72,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
         StopDisco(part);
-        _managedLights[Key(part)] = part;
+        ManageLight(part);
         if (color.HasValue) LightController.ApplyColor(part, color.Value);
         if (intensity.HasValue) LightController.ApplyIntensity(part, intensity.Value);
         if (enabled.HasValue)
@@ -93,7 +93,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
         StopDisco(part);
-        _managedLights[Key(part)] = part;
+        ManageLight(part);
         if (!_animationManager.Enqueue(Key(part), animation))
             return $"Animation queue is full for part '{partId}' (max {LightAnimationManager.MaxQueueDepth}).";
         return null;
@@ -120,7 +120,12 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         return matches.Length == 1 ? matches[0] : null;
     }
 
-    public void Dispose() { foreach (var live in _discoLights.Values) live.Dispose(); _discoLights.Clear(); _animationManager.Clear(); _managedLights.Clear(); Instance = null; }
+    public void Dispose()
+    {
+        ReleaseLiveState();
+        _animationManager.Clear();
+        Instance = null;
+    }
 
     private static bool MatchesFilter(ImInputString filter, string value)
     {

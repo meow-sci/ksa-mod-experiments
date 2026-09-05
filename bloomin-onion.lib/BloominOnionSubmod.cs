@@ -69,8 +69,8 @@ public sealed partial class BloominOnionSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        try { _controller.Dispose(); }
-        catch (Exception ex) { Console.WriteLine($"bloomin-onion: dispose failed: {ex.Message}"); }
+        ReleaseLiveState();
+        _controller.Dispose();
     }
 
     /// <summary>Full asset rescan (catalog, stock fallbacks, control-texture candidates).</summary>

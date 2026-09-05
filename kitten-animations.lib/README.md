@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+The applied target is separate from the authoring target. Exact kitten effects stay on that identity; following control requires an explicit controlled-target Apply. Persistent processor fields restore on disable/unbind. Expressions attach a processor only while playing and detach on completion. Shared locomotion fields restore their captured baseline on release/unload.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

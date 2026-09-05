@@ -31,7 +31,7 @@ public sealed partial class StatusPanel
 {
     /// <summary>
     /// True when parts-now may load anything at all: the reflection self-test passed and the shared
-    /// mesh headroom really was reserved during startup. Recomputed at the top of every
+    /// game mesh buffers have completed startup. Recomputed at the top of every
     /// <see cref="Render" />, so read it after calling that.
     /// </summary>
     public bool LoadingEnabled { get; private set; }
@@ -56,6 +56,7 @@ public sealed partial class StatusPanel
         RenderDegradedNotice(selfTestProblems);
         if (MeowSci.KsaAbstractions.WorkspaceUi.Current == null)
         { RenderMeshBudget(); RenderBindlessTextures(); RenderJob(); }
+        if (MeshBudget.FailureReason != null) ImGui.TextWrapped(MeshBudget.FailureReason);
         RenderSettings();
         RenderLimitations();
     }
@@ -98,8 +99,7 @@ public sealed partial class StatusPanel
         {
             ImGui.TextColored(
                 PanelStyle.Error,
-                "  - no mesh headroom was reserved at startup, so a runtime mesh would be written past "
-                + "the end of KSA's shared vertex buffer.");
+                "  - the game mesh buffers have not completed startup.");
         }
 
         if (MeshBudget.FailureReason is { } reason)
@@ -140,15 +140,15 @@ public sealed partial class StatusPanel
         ulong leakedIndex = MeshBudget.LeakedIndexBytes;
 
         ImGui.TextDisabled(
-            $"Orphaned by unload / reload: {PanelStyle.Mib(leakedVertex)} MiB vtx / "
+            $"Released gaps: {PanelStyle.Mib(leakedVertex)} MiB vtx / "
             + $"{PanelStyle.Mib(leakedIndex)} MiB idx — KSA's shared allocator is a bump pointer, so "
-            + "these bytes stay spent until the game restarts.");
+            + "these gaps are reclaimed when the allocations after them are released.");
 
         if (MeshBudget.LeakWarningTripped)
         {
             ImGui.TextColored(
                 PanelStyle.Warning,
-                "More than half of the reserved headroom has been orphaned by reloads. Restart the "
+                "More than half of the mesh budget is in released gaps. Remove later-loaded packs or restart the "
                 + "game before loading much more.");
         }
 

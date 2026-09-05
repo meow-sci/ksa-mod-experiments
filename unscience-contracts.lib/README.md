@@ -7,3 +7,7 @@ See [workspace architecture](../docs/WORKSPACE.md), [repository index](../REPOSI
 Build with `dotnet build ksa-mod-experiments.slnx`. Run persistence checks with
 `dotnet run --project unscience-contracts.tests --no-build`; run dependency checks with
 `python3 scripts/check-workspace-boundaries.py`.
+
+## Runtime ownership
+
+`RuntimeActivation`, `SharedRestoration` and `ReleasedRanges` provide game-independent lifetime/rollback and tail-reclamation algorithms. `DraftValueValidation` validates detached JSON, required shapes and explicit numeric domains.

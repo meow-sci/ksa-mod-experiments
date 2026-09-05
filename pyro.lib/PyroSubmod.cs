@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
@@ -50,7 +51,7 @@ public sealed partial class PyroSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _plumes.Clear();
+        ReleaseLiveState();
         if (ReferenceEquals(Instance, this)) Instance = null;
     }
 

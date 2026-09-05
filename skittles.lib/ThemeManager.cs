@@ -60,15 +60,7 @@ public sealed class ThemeManager
         // 5. Discover themes
         RefreshThemeList();
 
-        // 6. Apply startup theme
-        if (!string.IsNullOrEmpty(Config.ActiveThemeName))
-        {
-            bool found = AvailableThemes.Any(t => t.Name == Config.ActiveThemeName);
-            if (found)
-            {
-                ApplyTheme(Config.ActiveThemeName);
-            }
-        }
+        // Persisted choices are authoring preferences; only Apply changes the game style.
     }
 
     public string[] GetThemeNames()
@@ -82,20 +74,23 @@ public sealed class ThemeManager
         {
             if (themeName == "Game Default")
             {
-                DefaultTheme?.ApplyToImGui();
+                if (DefaultTheme != null) ApplyDefinition(DefaultTheme);
             }
             else if (themeName == "Dark")
             {
+                CaptureOriginal();
                 ImGui.StyleColorsDark();
                 ApplyDefaultStyleVars();
             }
             else if (themeName == "Light")
             {
+                CaptureOriginal();
                 ImGui.StyleColorsLight();
                 ApplyDefaultStyleVars();
             }
             else if (themeName == "Classic")
             {
+                CaptureOriginal();
                 ImGui.StyleColorsClassic();
                 ApplyDefaultStyleVars();
             }
@@ -105,7 +100,7 @@ public sealed class ThemeManager
                 if (entry?.FilePath != null)
                 {
                     var theme = ThemeSerializer.LoadFromFile(entry.FilePath);
-                    theme?.ApplyToImGui();
+                    if (theme != null) ApplyDefinition(theme);
                 }
                 else
                 {
@@ -204,11 +199,17 @@ public sealed class ThemeManager
         AvailableThemes.AddRange(customThemes);
     }
 
+    private ThemeDefinition? _originalStyle;
+    public bool HasLiveStyle => _originalStyle != null;
+    public void CaptureOriginal() => _originalStyle ??= ThemeDefinition.CaptureFromImGui();
+    public void ApplyDefinition(ThemeDefinition theme) { CaptureOriginal(); theme.ApplyToImGui(); }
     public void RestoreDefaults()
     {
         try
         {
-            DefaultTheme?.ApplyToImGui();
+            if (_originalStyle == null) return;
+            _originalStyle.ApplyToImGui();
+            _originalStyle = null;
             Console.WriteLine("skittles: Restored game default style");
         }
         catch (Exception ex)

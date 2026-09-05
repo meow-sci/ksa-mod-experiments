@@ -7,6 +7,7 @@ namespace MeowSci.GarrysTorchLib;
 public class WeldEntry
 {
     public Vehicle Source = null!;
+    internal WeldScaleState? ScaleState;
     public Vehicle Target = null!;
     /// <summary>
     /// Specific part on the target vehicle to use as the weld anchor.

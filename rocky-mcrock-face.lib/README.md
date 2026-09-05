@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+Release restores original ring fields, rebuilds the renderer and then prunes unused converted meshes. Failed restoration keeps the live selection available for retry.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

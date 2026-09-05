@@ -24,13 +24,13 @@ public sealed partial class PyroSubmod
         state.Text("subPartFilter", _subPartFilter);
         state.Text("templateFilter", _templateFilter);
         state.Text("presetFilter", _presetFilter);
-        state.Value("plumeSettings", () => _pendingPreset, value => _pendingPreset = value, validate: value => { if (value != null && value.Nozzle == null) throw new InvalidOperationException("Missing nozzle settings."); });
+        state.Value("plumeSettings", () => _pendingPreset, value => _pendingPreset = value, validate: value => value?.Validate());
         state.Choice("Vehicle", DraftOptions.Vehicles, () => _pendingVehicleIndex, v => _pendingVehicleIndex = v, target: true, vehicle: true);
         state.Choice("Template", () => DraftOptions.Strings(PlumeTemplates.GetTemplateIds()), () => _pendingTemplateIndex, v => _pendingTemplateIndex = v, target: false);
         state.Choice("Part", DraftPartOptions, () => _pendingPartIndex, v => _pendingPartIndex = v, target: true);
         state.Choice("Sub-part", DraftSubPartOptions, () => _pendingSubPartIndex, v => _pendingSubPartIndex = v, target: true);
         state.Value("SharedTemplateId", () => _templateDraftId, v => _templateDraftId = v);
-        state.Value("SharedTemplate", () => _templateDraft, v => _templateDraft = v);
+        state.Value("SharedTemplate", () => _templateDraft, v => _templateDraft = v, validate: v => v?.Validate());
         state.Value("LegacyPreset", () => { var names = _presetManager.GetPresetNames(); return _selectedPresetIndex >= 0 && _selectedPresetIndex < names.Length ? names[_selectedPresetIndex] : ""; }, value => _selectedPresetIndex = Array.IndexOf(_presetManager.GetPresetNames(), value));
         return state;
     }

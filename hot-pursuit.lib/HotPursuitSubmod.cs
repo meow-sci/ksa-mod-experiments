@@ -97,12 +97,8 @@ public sealed partial class HotPursuitSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        foreach (var entry in _cameras)
-            ReleaseLease(entry);
-        _cameras.Clear();
-        if (ReferenceEquals(Instance, this))
-            Instance = null;
-        Console.WriteLine("hot-pursuit: disposed");
+        ReleaseLiveState();
+        if (ReferenceEquals(Instance, this)) Instance = null;
     }
 
     /// <summary>

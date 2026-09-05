@@ -45,4 +45,5 @@
   </ItemGroup>
 
   <ItemGroup><ProjectReference Include="../ksa-lights.lib/ksa-lights.lib.csproj" /></ItemGroup>
+  <ItemGroup><Reference Include="Brutal.Concurrency"><HintPath>$(KSAFolder)Brutal.Concurrency.dll</HintPath><Private>false</Private></Reference></ItemGroup>
 </Project>

@@ -7,3 +7,7 @@ See [workspace architecture](../docs/WORKSPACE.md), [repository index](../REPOSI
 Build with `dotnet build ksa-mod-experiments.slnx`. Run persistence checks with
 `dotnet run --project unscience-contracts.tests --no-build`; run dependency checks with
 `python3 scripts/check-workspace-boundaries.py`.
+
+## Runtime ownership
+
+`FeatureRuntime` coordinates explicitly registered patch groups with isolated Harmony owners and transactional activation. `OwnedGpuAssets` removes exact caller-owned references from `AssetManager<T>.AssetMap` and disposes after a device wait. `FeatureUi` uses the game’s ImGui error recovery bindings. Force IVA moved to its sole owning feature, Kitchen Sink.

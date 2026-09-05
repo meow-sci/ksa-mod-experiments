@@ -90,12 +90,7 @@ public sealed partial class GraffitiSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _renderActive = false;
-        _decals.Clear();
-        _published = Array.Empty<DecalEntry>();
-        FreeGpu();
-        WaitIdle();
-        _textures.DisposeAll();
+        ReleaseLiveState();
         if (ReferenceEquals(Instance, this)) Instance = null;
     }
 

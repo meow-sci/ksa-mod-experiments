@@ -17,6 +17,8 @@ public sealed class LayoutManager
 
     private string[] _cachedLayoutNames = Array.Empty<string>();
     private bool _cacheValid;
+    private readonly Dictionary<GaugeCanvas, GaugeState> _originals = new();
+    public bool HasLiveLayout => _originals.Count > 0;
     private string _startupDefault = string.Empty;
 
     public string StartupDefault => _startupDefault;
@@ -151,6 +153,33 @@ public sealed class LayoutManager
         {
             if (!layout.TryGetValue(canvas.Id, out var state)) continue;
 
+            CaptureOriginal(canvas);
+            ApplyGauge(canvas, state);
+            applied++;
+        }
+        Console.WriteLine($"[con-man] Applied layout ({applied}/{canvases.Count} gauges matched)");
+        return true;
+    }
+
+    public void CaptureOriginal(GaugeCanvas canvas)
+    {
+        if (_originals.ContainsKey(canvas)) return;
+        var offset = _accessor.GetCustomOffset(canvas);
+        var scale = _accessor.GetCustomScale(canvas);
+        _originals.Add(canvas, new GaugeState { Enabled = _accessor.GetEnabled(canvas), OffsetX = offset.X, OffsetY = offset.Y, ScaleX = scale.X, ScaleY = scale.Y });
+    }
+
+    public void RestoreOriginal()
+    {
+        foreach (var (canvas, state) in _originals.ToArray())
+        {
+            ApplyGauge(canvas, state);
+            _originals.Remove(canvas);
+        }
+    }
+
+    private void ApplyGauge(GaugeCanvas canvas, GaugeState state)
+    {
             // Read the current base position/size BEFORE setting new offsets.
             // These represent the game's resolution-aware base values:
             //   _windowPosition = ImGui.GetWindowPos() - _customOffset
@@ -175,11 +204,6 @@ public sealed class LayoutManager
                 ImGui.SetWindowSize(windowTitle, in targetSize, ImGuiCond.Always);
             }
 
-            applied++;
-        }
-
-        Console.WriteLine($"[con-man] Applied layout ({applied}/{canvases.Count} gauges matched)");
-        return true;
     }
 
     /// <summary>Delete a named layout.</summary>

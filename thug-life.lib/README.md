@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+Removing the last attachment disables render dispatch, waits for prior GPU work and releases its texture and quad resources. A later attachment can allocate them again.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

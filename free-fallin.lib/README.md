@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+Apply transactionally replaces an owned GPU material/texture bundle; prior bundles are freed after observed canopy handles are switched and GPU work drains. Restore uses each canopy’s original handle. Full-canopy projection shaders activate only for an explicit projection Apply and are removed on stock restore or replacement with another mode.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

@@ -19,11 +19,10 @@ public static class FreeFallinPatches
         ?? throw new MissingMethodException(typeof(ChuteRenderable).FullName, nameof(ChuteRenderable.Draw));
     private static readonly MethodInfo Prefix = AccessTools.Method(typeof(FreeFallinPatches), nameof(BeforeDraw))!;
 
-    private sealed class SeenMarker { }
+    private sealed class SeenMarker(int handle) { public int Original = handle; }
 
     public static void Apply(Harmony harmony)
     {
-        CanopyProjectionShaders.Apply(harmony);
         harmony.Patch(Target, prefix: new HarmonyMethod(Prefix));
     }
 
@@ -31,7 +30,6 @@ public static class FreeFallinPatches
     {
         RestoreObserved();
         harmony.Unpatch(Target, Prefix);
-        CanopyProjectionShaders.Remove(harmony);
     }
 
     public static void RestoreStock()
@@ -51,19 +49,25 @@ public static class FreeFallinPatches
     private static void Track(AnimatedRenderable renderable)
     {
         if (Seen.TryGetValue(renderable, out _)) return;
-        Seen.Add(renderable, new SeenMarker());
+        Seen.Add(renderable, new SeenMarker(MaterialIndicesField.GetValue(renderable) is int[] values && values.Length > 0 ? values[0] : CanopyMaterialController.ResolveStockHandle()));
         Observed.Add(new WeakReference<AnimatedRenderable>(renderable));
     }
 
-    private static void RestoreObserved()
+    internal static void RestoreObserved()
     {
-        int stock = CanopyMaterialController.ResolveStockHandle();
-        if (stock < 0) return;
         for (int i = Observed.Count - 1; i >= 0; i--)
         {
             if (!Observed[i].TryGetTarget(out AnimatedRenderable? renderable)) { Observed.RemoveAt(i); continue; }
-            SetHandle(renderable, stock);
+            if (Seen.TryGetValue(renderable, out var seen) && seen.Original >= 0) SetHandle(renderable, seen.Original);
+            Seen.Remove(renderable);
+            Observed.RemoveAt(i);
         }
+    }
+
+    internal static void ReplaceObserved(int handle)
+    {
+        foreach (var reference in Observed)
+            if (reference.TryGetTarget(out var renderable)) SetHandle(renderable, handle);
     }
 
     private static void SetHandle(AnimatedRenderable renderable, int handle)

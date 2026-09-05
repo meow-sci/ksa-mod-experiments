@@ -64,6 +64,12 @@ public sealed class ExhaustTemplateRecipe
         EmissionColorGradientColor2 = t.Emission.ColorGradient.Color2.Value.AsFloat3,
         EmissionColorGradientColor3 = t.Emission.ColorGradient.Color3.Value.AsFloat3,
     };
+    public void Validate()
+    {
+        MeowSci.Unscience.Contracts.DraftValueValidation.Range(QualitySampleCount, 0, 64, "Sample count");
+        MeowSci.Unscience.Contracts.DraftValueValidation.Range(QualitySelfShadowSampleCount, 0, 64, "Shadow sample count");
+        MeowSci.Unscience.Contracts.DraftValueValidation.Range(AbsorptionScatteringPhaseEccentricity, -.999, .999, "Scattering eccentricity");
+    }
     public void Apply(VolumetricExhaustTemplate t)
     {
         t.Absorption.Density.Value = AbsorptionDensity;

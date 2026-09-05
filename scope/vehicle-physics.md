@@ -13,7 +13,7 @@ Permanent reference for detecting when KSA game updates break the vehicle-manipu
 physics mods (`eternal-flame`, `garrys-torch`, `i-feel-seen`). Every game-facing member
 these mods touch is enumerated and verified against decompiled sources.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ## eternal-flame (`eternal-flame` / `eternal-flame.lib`)
 
@@ -159,3 +159,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/vehicle-physics.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Scaling captures each part’s original scale vector and the kitten avatar scale. Factors multiply that baseline without compounding. Disable restores scale while retaining the paused weld; unweld/unload restores and releases it. Solver-safe weld updates remain after GUI. The solver hook belongs to this library and is installed only while electricity refill is requested. Release removes monitors; it does not rewind fuel consumption or the simulation’s history. Visibility hooks exist only while at least one tracked vehicle requests the override. Release clears tracking. WeldScaleState owns reference-keyed Part.Scale vectors and the reflected CharacterAvatar.Core.Scale baseline.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

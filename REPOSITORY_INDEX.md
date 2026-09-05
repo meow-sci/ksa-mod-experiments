@@ -22,7 +22,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [average-twr.lib](average-twr.lib/README.md) | Record and inspect thrust-to-weight statistics. | A recorder with pause, reset and measurements. |
 | [bloomin-onion.lib](bloomin-onion.lib/README.md) | Create custom planetary rings. | One applied custom ring per body; copy recipe, remove or remove all. |
 | [camera-controller-override.lib](camera-controller-override.lib/README.md) | Compose cinematic camera motion. | A separate camera sequence player; play, pause, resume, stop and copy recipe. |
-| [con-man.lib](con-man.lib/README.md) | Configure the game gauge layout. | The live console layout, legacy saving and startup layout controls. |
+| [con-man.lib](con-man.lib/README.md) | Configure the game gauge layout. | The live console layout, original-value restoration and legacy saving controls. |
 | [doh.lib](doh.lib/README.md) | Spawn kitten characters with customized materials. | Each spawned kitten with its material controls. |
 | [dont-stifle-me.lib](dont-stifle-me.lib/README.md) | Relax editor scale and value limits. | The applied editor policy and restore controls. |
 | [eternal-flame.lib](eternal-flame.lib/README.md) | Continuously refill selected vehicles. | Each monitored vehicle with refill toggles and removal; shared interval. |
@@ -36,7 +36,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [i-feel-seen.lib](i-feel-seen.lib/README.md) | Keep vehicles visible through visibility overrides. | Each tracked vehicle with visibility toggle and removal. |
 | [its-so-shiny.lib](its-so-shiny.lib/README.md) | Build and control grids of light parts. | Each light grid, patterns/appearance/destruction and global mesh policy. |
 | [kitchen-sink.lib](kitchen-sink.lib/README.md) | Control the retained IVA rendering experiment. | The global IVA override and restore control. Flexo experiments are retired. |
-| [kitten-animations.lib](kitten-animations.lib/README.md) | Author kitten body animation, expressions and locomotion tuning. | The currently bound kitten animation and shared locomotion tuning. |
+| [kitten-animations.lib](kitten-animations.lib/README.md) | Author kitten body animation, expressions and locomotion tuning. | The explicitly applied kitten identity/mode and captured locomotion tuning. |
 | [kiwis-marbles.lib](kiwis-marbles.lib/README.md) | Weld celestial bodies to orbiters. | Each celestial weld with Cartesian/surface controls and solver-safe unweld. |
 | [parts-now.lib](parts-now.lib/README.md) | Load new part definitions during play. | Each runtime-loaded mod plus loader progress, results and GPU budget; gated reload/unload. |
 | [pyro.lib](pyro.lib/README.md) | Attach independent engine plumes to vehicle parts. | Each plume, bulk toggles and each applied shared exhaust-template override. |
@@ -63,3 +63,7 @@ Historical implementation details remain in Git history.
 ## Reference material
 
 `decomp/` contains vendored historical decompilation projects, not maintained Unscience projects. Use the sibling `ksa-game-assemblies/current` tree for the current game. Dated plans, issue triage and scope snapshots are labeled as history; current behavior is defined by the guides above.
+
+## Runtime ownership
+
+All 25 libraries implement explicit release of applied state. The shared lifecycle coordinator manages feature-defined Harmony demand, rollback and retries; it never infers lifecycle from visibility or live-row count. `ksa-lights.lib` coordinates light baseline leases; `ksa-abstractions.lib` tracks explicitly owned GPU assets and isolates native UI scopes. Parts Now uses on-demand raster buffer growth with a ray-tracing relocation guard. See [workspace lifecycle](docs/WORKSPACE.md#runtime-release-and-failure-handling).

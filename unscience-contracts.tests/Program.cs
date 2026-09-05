@@ -6,6 +6,7 @@ using System.Text.Json;
 using MeowSci.Unscience.Contracts;
 
 FeatureAlgorithmChecks.Run();
+RuntimeOwnershipChecks.Run();
 
 var directory = Path.Combine(Path.GetTempPath(), "unscience-tests-" + Guid.NewGuid().ToString("N"));
 try

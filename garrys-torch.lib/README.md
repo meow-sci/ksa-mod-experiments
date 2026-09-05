@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+Scaling captures each part’s original scale vector and the kitten avatar scale. Factors multiply that baseline without compounding. Disable restores scale while retaining the paused weld; unweld/unload restores and releases it. Solver-safe weld updates remain after GUI.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

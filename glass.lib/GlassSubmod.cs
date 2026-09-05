@@ -48,7 +48,7 @@ public sealed partial class GlassSubmod : IWorkspaceFeature
             ImGui.TableSetupColumn("##glass_widget", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             // Lens preset row
-            string preview = _selectedPresetIndex >= 0 ? Presets[_selectedPresetIndex].Name : "Custom";
+            string preview = _selectedPresetIndex >= 0 && _selectedPresetIndex < Presets.Length ? Presets[_selectedPresetIndex].Name : "Custom";
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
@@ -102,6 +102,6 @@ public sealed partial class GlassSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        FovController.DisableOverride();
+        ReleaseLiveState();
     }
 }

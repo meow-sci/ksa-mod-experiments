@@ -14,7 +14,7 @@ custom-render mods (`its-so-shiny`, `thug-life`). Every game-facing member,
 Harmony target, GPU/render API, shader, and part template these mods touch is
 enumerated and verified against decompiled sources **and** the Content asset tree.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ## its-so-shiny
 
@@ -115,3 +115,9 @@ external texture asset dependency.
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/pixel-grids-and-render.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Grids acquire shared light-baseline leases. Release/unload destroys and disposes owned created parts after waiting for vehicle solvers, while scanned parts are retained and their appearance/switch state restored. Rescanning does not replace an existing ownership record. Removing the last attachment disables render dispatch, waits for prior GPU work and releases its texture and quad resources. A later attachment can allocate them again. Shiny destruction now calls Part.Dispose after detaching owned parts and rebuilding the vehicle tree; JobSystems.VehicleSolver.Wait protects the mutation.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

@@ -58,7 +58,7 @@ public class WeldAnimation
             if (weld.Scale != TargetScale)
             {
                 weld.Scale = TargetScale;
-                WeldEngine.ApplyVehicleScale(weld.Source, TargetScale);
+                WeldEngine.ApplyVehicleScale(weld, TargetScale);
             }
             return false;
         }
@@ -73,7 +73,7 @@ public class WeldAnimation
         if (weld.Scale != newScale)
         {
             weld.Scale = newScale;
-            WeldEngine.ApplyVehicleScale(weld.Source, newScale);
+            WeldEngine.ApplyVehicleScale(weld, newScale);
         }
 
         return true;

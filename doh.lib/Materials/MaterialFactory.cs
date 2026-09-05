@@ -108,10 +108,23 @@ public sealed class MaterialFactory
     }
 
     /// <summary>Disposes all material sets created by this factory.</summary>
+    public void ReleaseUnused(IEnumerable<KittenMaterialSet?> referenced)
+    {
+        var retained = referenced.Where(s => s != null).Select(s => s!.Id).ToHashSet(StringComparer.Ordinal);
+        MaterialSystemAccessor.ReleaseUnreferenced(retained);
+        _createdSets.RemoveAll(s => !retained.Contains(s.Id));
+    }
+
+    public void Release(KittenMaterialSet set)
+    {
+        MaterialSystemAccessor.ReleaseOwned(set.Id);
+        _createdSets.Remove(set);
+    }
+
     public void Cleanup()
     {
+        MaterialSystemAccessor.ReleaseAllOwned();
         _createdSets.Clear();
-        _nextMaterialId = 0;
     }
 
     /// <summary>

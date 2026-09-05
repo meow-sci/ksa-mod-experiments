@@ -40,6 +40,7 @@ public static partial class RuntimeModLoader
         LogLine("this load wants " + Mib(vertexNeeded) + " MiB of vertex data and " + Mib(indexNeeded)
             + " MiB of index data.");
 
+        MeshBudget.EnsureCapacity();
         if (MeshBudget.WithinBudget)
         {
             Transition(LoadJobState.Bind);

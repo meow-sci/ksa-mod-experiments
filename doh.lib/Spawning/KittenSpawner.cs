@@ -58,8 +58,7 @@ public sealed class KittenSpawner
 
             // Find the kitten in the system
             Astronomical? astro;
-            if (!system.All.TryGet(kittenId, out astro))
-                return false;
+            system.All.TryGet(kittenId, out astro);
 
             if (astro is Vehicle vehicle)
             {
@@ -71,6 +70,8 @@ public sealed class KittenSpawner
                 vehicle.Dispose();
             }
 
+            if (entry.MaterialSet != null && !_registry.GetAll().Any(other => other.KittenId != kittenId && ReferenceEquals(other.MaterialSet, entry.MaterialSet)))
+                _materialFactory.Release(entry.MaterialSet);
             _registry.Unregister(kittenId);
             Console.WriteLine($"doh: Despawned '{kittenId}'");
             return true;
@@ -408,6 +409,7 @@ public sealed class KittenSpawner
     /// </summary>
     private KittenMaterialSet? ApplyClonedMaterials(KittenEva kittenEva, float4 tintColor, string characterId)
     {
+        var originalSlots = new List<(int[] Slots, int[] Original)>();
         try
         {
             // Navigate to CharacterAvatar
@@ -497,6 +499,7 @@ public sealed class KittenSpawner
             int totalReplacements = 0;
             foreach (var (name, indices) in renderables)
             {
+                originalSlots.Add((indices, (int[])indices.Clone()));
                 int replaced = 0;
                 for (int i = 0; i < indices.Length; i++)
                 {
@@ -532,6 +535,7 @@ public sealed class KittenSpawner
         }
         catch (Exception ex)
         {
+            foreach (var (slots, original) in originalSlots) original.CopyTo(slots, 0);
             Console.WriteLine($"doh: ApplyClonedMaterials error: {ex.Message}");
             return null;
         }

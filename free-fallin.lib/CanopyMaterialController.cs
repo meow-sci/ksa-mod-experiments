@@ -1,4 +1,5 @@
 using System;
+using MeowSci.KsaAbstractions;
 using System.IO;
 using Brutal.Numerics;
 using Brutal.TextureApi;
@@ -15,6 +16,8 @@ internal static class CanopyMaterialController
     private const string StockMaterialId = "ParachuteCanopy_Material";
     private const string CanopyGlbId = "ParachuteCanopyGlb";
     private static int _revision;
+    private static OwnedGpuAssets? _owned;
+    private static readonly RuntimePatchLease ProjectionLease = new("free-fallin/projection", CanopyProjectionShaders.Apply, CanopyProjectionShaders.Remove);
     internal static CanopyMaterialSettings? AppliedSettings { get; private set; }
 
     internal static int CurrentMaterialHandle { get; private set; } = -1;
@@ -22,13 +25,33 @@ internal static class CanopyMaterialController
 
     internal static void Apply(CanopyMaterialSettings settings)
     {
+        try { ApplyCore(DraftJson.Clone(settings)); }
+        catch
+        {
+            if (AppliedSettings?.TextureMode != CanopyTextureMode.FullCanopy) ProjectionLease.Sync(false);
+            throw;
+        }
+    }
+
+    private static void ApplyCore(CanopyMaterialSettings settings)
+    {
+        bool projection = settings.TextureMode == CanopyTextureMode.FullCanopy;
+        if (projection && !ProjectionLease.Active)
+        {
+            ProjectionLease.Retry();
+            ProjectionLease.Sync(true);
+            try { Program.Instance!.RebuildRenderer(); CanopyProjectionShaders.RequireAvailable(); }
+            catch { ProjectionLease.Sync(false); throw; }
+        }
+        using var transaction = new CanopyAllocation();
+        var owned = transaction.Assets;
         SuperMeshRenderSystem renderSystem = Program.Instance?.SuperMeshRenderSystem
             ?? throw new InvalidOperationException("The KSA render system is not ready yet.");
         PbrMaterialReference stock = ModLibrary.Get<PbrMaterialReference>(StockMaterialId).Get();
         GpuTextureSystem textures = renderSystem.TextureSystem;
 
         float4 projectionData = ProjectionData(settings, renderSystem);
-        TextureBinding albedo = ResolveAlbedo(settings, stock, textures);
+        TextureBinding albedo = ResolveAlbedo(settings, stock, textures, owned);
         int pbrHandle;
         float4 pbrScale;
         if (settings.UseStockPbrMap)
@@ -38,7 +61,7 @@ internal static class CanopyMaterialController
         }
         else
         {
-            pbrHandle = UploadSolidPbr(textures, settings.AmbientOcclusion, settings.Roughness, settings.Metallic).BindlessHandle;
+            pbrHandle = UploadSolidPbr(textures, settings.AmbientOcclusion, settings.Roughness, settings.Metallic, owned).BindlessHandle;
             pbrScale = float4.One;
         }
 
@@ -64,8 +87,14 @@ internal static class CanopyMaterialController
         AssetName materialName = $"free-fallin/material/{++_revision}";
         if (!renderSystem.MaterialSystem.CreateObject(materialName, material))
             throw new InvalidOperationException("Could not allocate a custom canopy material.");
-        CurrentMaterialHandle = renderSystem.MaterialSystem.GetOrLoad(materialName).Handle;
-        AppliedSettings = MeowSci.KsaAbstractions.DraftJson.Clone(settings);
+        int nextHandle = owned.Own(renderSystem.MaterialSystem, renderSystem.MaterialSystem.GetOrLoad(materialName)).Handle;
+        var previous = _owned;
+        FreeFallinPatches.ReplaceObserved(nextHandle);
+        CurrentMaterialHandle = nextHandle;
+        _owned = transaction.Commit();
+        previous?.Dispose();
+        AppliedSettings = settings;
+        if (!projection) ProjectionLease.Sync(false);
         Console.WriteLine($"free-fallin: applied global canopy material ({settings.TextureMode}, material {CurrentMaterialHandle})");
     }
 
@@ -77,15 +106,27 @@ internal static class CanopyMaterialController
 
     internal static void Disable()
     {
+        FreeFallinPatches.RestoreObserved();
         CurrentMaterialHandle = -1;
+        _owned?.Dispose();
+        _owned = null;
         AppliedSettings = null;
+        ProjectionLease.Sync(false);
         Console.WriteLine("free-fallin: restored stock canopy material");
+    }
+
+    private sealed class CanopyAllocation : IDisposable
+    {
+        internal OwnedGpuAssets Assets { get; } = new();
+        private bool _committed;
+        internal OwnedGpuAssets Commit() { _committed = true; return Assets; }
+        public void Dispose() { if (!_committed) Assets.Dispose(); }
     }
 
     private readonly record struct TextureBinding(int Handle, int Sampler);
 
     private static TextureBinding ResolveAlbedo(CanopyMaterialSettings settings,
-        PbrMaterialReference stock, GpuTextureSystem textures)
+        PbrMaterialReference stock, GpuTextureSystem textures, OwnedGpuAssets owned)
     {
         if (settings.TextureMode == CanopyTextureMode.Stock)
         {
@@ -103,7 +144,7 @@ internal static class CanopyMaterialController
             : ComposeCenteredDecal(stock, path, settings.DecalScale);
         try
         {
-            GpuTextureAssetRef uploaded = Upload(textures, generated, "albedo");
+            GpuTextureAssetRef uploaded = Upload(textures, generated, "albedo", owned);
             return new TextureBinding(uploaded.BindlessHandle, uploaded.SamplerHandle);
         }
         finally { generated.Destroy(); }
@@ -124,21 +165,21 @@ internal static class CanopyMaterialController
             CanopyProjectionShaders.MaterialMarker);
     }
 
-    private static GpuTextureAssetRef UploadSolidPbr(GpuTextureSystem textures, float ao, float roughness, float metallic)
+    private static GpuTextureAssetRef UploadSolidPbr(GpuTextureSystem textures, float ao, float roughness, float metallic, OwnedGpuAssets owned)
     {
         GenericTexture texture = GenericTexture.Defaults.RGBA8UNorm(new int2(1, 1));
         Span<byte> data = texture.Data;
         data[0] = ToByte(ao); data[1] = ToByte(roughness); data[2] = ToByte(metallic); data[3] = 255;
-        try { return Upload(textures, texture, "pbr"); }
+        try { return Upload(textures, texture, "pbr", owned); }
         finally { texture.Destroy(); }
     }
 
-    private static GpuTextureAssetRef Upload(GpuTextureSystem textures, GenericTexture cpuTexture, string kind)
+    private static GpuTextureAssetRef Upload(GpuTextureSystem textures, GenericTexture cpuTexture, string kind, OwnedGpuAssets owned)
     {
         AssetName name = $"free-fallin/{kind}/{++_revision}";
         using var asset = new TextureAsset(cpuTexture, name.ToString());
         if (!textures.TryAddTexture(name, asset)) throw new InvalidOperationException($"Could not upload the canopy {kind} texture.");
-        return textures.GetOrLoad(name);
+        return owned.Own(textures, textures.GetOrLoad(name));
     }
 
     private static GenericTexture LoadReplacement(string path)

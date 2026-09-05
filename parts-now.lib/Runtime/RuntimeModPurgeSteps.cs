@@ -204,10 +204,7 @@ internal static class RuntimeModPurgeSteps
         foreach (MeshReference mesh in record.NewMeshes)
         {
             MeshBudget.MeasureMesh(mesh, out ulong vertexBytes, out ulong indexBytes);
-            if (recordLeak)
-            {
-                MeshBudget.RecordLeak(vertexBytes, indexBytes);
-            }
+            Action release = recordLeak ? MeshBudget.CaptureMeshRelease(mesh) : () => { };
 
             leakedVertexBytes += vertexBytes;
             leakedIndexBytes += indexBytes;
@@ -215,6 +212,7 @@ internal static class RuntimeModPurgeSteps
             try
             {
                 mesh.Dispose();
+                release();
             }
             catch (Exception ex)
             {

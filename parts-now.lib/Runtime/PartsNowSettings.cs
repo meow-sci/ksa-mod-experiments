@@ -18,8 +18,7 @@ namespace MeowSci.PartsNowLib;
 /// discovered KSA mods directory (<c>&lt;mods&gt;/parts-now/parts-now.toml</c>).
 /// </summary>
 /// <remarks>
-/// The mesh headroom values are consumed by <see cref="MeshBudget.Reserve" />, which runs once
-/// during startup, so <b>changes to the headroom take effect on the NEXT launch of the game</b>.
+/// The mesh limits are checked before each runtime Bind. They do not reserve GPU memory at startup.
 /// The UI must say so. Loading is lazy and idempotent; nothing here ever throws.
 /// </remarks>
 public static class PartsNowSettings

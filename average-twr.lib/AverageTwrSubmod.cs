@@ -164,5 +164,8 @@ public sealed partial class AverageTwrSubmod : IWorkspaceFeature
         ImGui.Text(value);
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        ReleaseLiveState();
+    }
 }

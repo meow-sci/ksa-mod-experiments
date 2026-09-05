@@ -26,6 +26,8 @@ public sealed partial class PartsNowSubmod : IWorkspaceFeature
 
     private readonly ModFolderPanel _liveModPanel = new();
     private bool _firstFrameDone;
+    private bool _releaseRequested;
+    private string? _releaseError;
 
     /// <inheritdoc />
     public string Name => "Parts Now";
@@ -44,18 +46,13 @@ public sealed partial class PartsNowSubmod : IWorkspaceFeature
     /// <summary>True when parts-now is able to load mods at all.</summary>
     public bool CanLoad => GameRegistry.IsHealthy && MeshBudget.IsUsable;
 
-    /// <summary>
-    /// Called from <c>[StarMapAllModsLoaded]</c>, which StarMap fires as a Harmony postfix on
-    /// <c>ModLibrary.LoadAll()</c> — i.e. BEFORE <c>ModLibrary.Bind()</c> allocates the shared
-    /// interleaved mesh buffers. That ordering is what makes <see cref="MeshBudget.Reserve" /> work,
-    /// so this must never be moved to a later hook.
-    /// </summary>
+    /// <summary>Validates the game integration without reserving GPU buffers.</summary>
     public void Initialize()
     {
         _selfTestProblems.Clear();
         _selfTestProblems.AddRange(GameRegistry.SelfTest());
 
-        MeshBudget.Reserve();
+        // Mesh buffers are allocated by the game at stock size.
     }
 
     /// <inheritdoc />
@@ -63,8 +60,7 @@ public sealed partial class PartsNowSubmod : IWorkspaceFeature
     {
         if (!_firstFrameDone)
         {
-            // By the first real UI frame ModLibrary.Bind() has run and the enlarged shared buffers
-            // are allocated, so the bump cursors can be rewound to the startup watermark.
+            // Capture the stock allocation baseline after ModLibrary.Bind().
             MeshBudget.OnFirstFrame();
             _firstFrameDone = true;
         }
@@ -72,12 +68,20 @@ public sealed partial class PartsNowSubmod : IWorkspaceFeature
         // Exactly once per frame, and only from here: the loader's Bind and Thumbnails states submit
         // command buffers and block on fences, which is only safe inside Program.OnDrawUiFrame.
         RuntimeModLoader.Step();
+        if (_releaseRequested && !RuntimeModLoader.IsBusy)
+        {
+            _releaseRequested = false;
+            _releaseError = null;
+            foreach (var record in RuntimeModRegistry.All())
+                if (!RuntimeModLoader.Unload(record.ModId, out var refusal)) _releaseError = refusal;
+        }
 
         // An unload confirmed in the UI is deferred to here for the same reason a purge is: it frees
         // ImGui textures, and by the time the panels draw, the vehicle editor's part browser has
         // already emitted ImageButton draw commands holding those descriptor sets.
         _modFolderPanel.ProcessPendingActions();
         _liveModPanel.ProcessPendingActions();
+        if (!RuntimeModLoader.IsBusy) MeshBudget.TrimReleased();
     }
 
     /// <inheritdoc />
@@ -118,5 +122,9 @@ public sealed partial class PartsNowSubmod : IWorkspaceFeature
     public void Dispose()
     {
         RuntimeModLoader.AbandonForShutdown();
+        foreach (var record in RuntimeModRegistry.All())
+            if (!RuntimeModLoader.Unload(record.ModId, out var refusal))
+                Console.WriteLine($"parts-now: retained {record.ModId}: {refusal}");
+        MeshBudget.TrimReleased();
     }
 }

@@ -54,6 +54,7 @@ public sealed partial class ThugLifeSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
+        ReleaseLiveState();
         _manager?.Dispose();
         _manager = null;
         Instance = null;

@@ -70,9 +70,7 @@ public sealed partial class ItsSoShinySubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        ShinyGridManager.Clear();
-        _pendingDestroy.Clear();
-        _deferredActions.Clear();
+        ReleaseLiveState();
         Instance = null;
     }
 

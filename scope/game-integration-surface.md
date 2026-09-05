@@ -53,13 +53,7 @@ Per-row detail and the exact 5261↔5348 diff live in the linked area scope file
   no compile can check, and each one fails silently:
   - `PerInstanceData.StateBitFlag` bits **11..31** are still unused by KSA (humble-arteest Vehicle
     Paint) — see `KSA.PartModel` below and [`character-and-materials.md`](character-and-materials.md).
-  - **`[StarMapAllModsLoaded]` still fires before `ModLibrary.Bind()`** (parts-now). StarMap
-    implements it as a Harmony postfix on `ModLibrary.LoadAll()` (`KSA/Program.cs`), and
-    `ModLibrary.Bind(_renderer)` at `KSA/Program.cs` (was `:985` at 5261) is where the shared interleaved mesh buffers
-    are allocated **once**. parts-now reserves headroom in between. If that order ever changes, every
-    runtime-loaded mesh writes past the end of the shared vertex buffer, with no error anywhere. See
-    `KSA.DeviceMeshInterleaved` below and [`part-editor-and-robotics.md`](part-editor-and-robotics.md)
-    → parts-now **U1**. Six further parts-now invariants (**U2**–**U7**) live in that same section.
+  - **Parts Now buffer relocation remains at the pre-GUI boundary.** New offsets must fit the allocations before Bind. Vertex/index offsets remain stable when raster buffers relocate; an active RaytracingRenderer caches addresses and blocks relocation. Released ranges may only rewind a contiguous unowned tail. See [part/editor integration](part-editor-and-robotics.md).
 - **Watch the Harmony keystones** that fan out to many mods: `Universe.ExecuteNextVehicleSolvers`,
   `GameSettings.OnKeyAll` (HotkeyGuard), the three `*Module.UpdateRenderData` render prefixes,
   `PartModel.AddInstance`, `PartModelRenderer.UpdateRenderData`, and the `VehicleProvider` enumeration
@@ -73,7 +67,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ## 3. Master table — by game type
 
 > "Used by" lists every consuming mod (merged). Members reached through `ksa-abstractions.lib` helpers
-> (`VehicleProvider`/`CelestialProvider`/`SimTimeProvider`/`PartHelpers`/`HotkeyGuard`/`IvaForceRender`)
+> (`VehicleProvider`/`CelestialProvider`/`SimTimeProvider`/`PartHelpers`/`HotkeyGuard`)
 > note the helper. Nested types are rows under their owner's subheader.
 
 ### KSA.AnimatedRenderable
@@ -142,7 +136,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.CameraMode
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `CameraMode.IVA` (enum) | enum | `KSA/CameraMode.cs` | IvaForceRender (kitchen-sink) | `ksa-abstractions.lib/IvaForceRender.cs` | OK | compared vs `Viewport.Mode` |
+| `CameraMode.IVA` (enum) | enum | `KSA/CameraMode.cs` | IvaForceRender (kitchen-sink) | `kitchen-sink.lib/IvaForceRender.cs` | OK | compared vs `Viewport.Mode` |
 
 ### KSA.CatExpressionAnim
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -240,7 +234,7 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 ### KSA.DeviceMeshInterleaved (+ nested static Shared)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Shared.{RunningVertexBufferSize, RunningIndexBufferSize} : public static uint` | direct API (**write**) | `KSA/DeviceMeshInterleaved.cs` | parts-now | `parts-now.lib/Runtime/MeshBudget.cs` | OK | 🔶 the headroom trick: inflated at `[StarMapAllModsLoaded]`, rewound on the first UI frame. Must stay **public static settable `uint`** |
+| `Shared.{RunningVertexBufferSize, RunningIndexBufferSize} : public static uint` | direct API (**write**) | `KSA/DeviceMeshInterleaved.cs` | parts-now | `parts-now.lib/Runtime/MeshBudget.cs` | OK | On-demand growth after loader completion; released contiguous tails rewind the counters. Must remain public static settable uint. |
 | `Shared.{VertexAllocation, IndexAllocation} : public static BufferEx` → `.BufferSize` | direct API | `KSA/DeviceMeshInterleaved.cs`; `Brutal.VulkanApi.Abstractions/BufferEx.cs` | parts-now | `MeshBudget.cs` | OK | authoritative allocated size vs the running bump cursor |
 | `Shared.IsBuilt : public static bool` | direct API (tripwire) | `KSA/DeviceMeshInterleaved.cs` | parts-now | `MeshBudget.cs` | OK | must be false at reserve time, true on the first frame; a mismatch only WARNs |
 | `Shared.Build() : static void` (one-shot) / `Shared.Rebuild()` | behavior dependency (no patch) | `KSA/DeviceMeshInterleaved.cs`; called from `DeviceMeshInterleaved.Bind() :195` ← `ModLibrary.Bind` (`KSA/ModLibrary.cs`) ← `KSA/Program.cs` | parts-now | — | OK | 🔶 **standing invariant U1/U2.** `Build()` sizes both buffers from the running counters, exactly once. `Rebuild()` copies `VertexAllocation.BufferSize` bytes out of the **old** buffer (`:82-83`) so it can never grow anything |
@@ -1039,3 +1033,14 @@ on every game update FIRST.
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/game-integration-surface.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Runtime ownership additions
+
+- `IWorkspaceFeature.ConfigureRuntime(FeatureRuntime)`, `ReleaseLiveState()` and `UpdateAfterGui(double)` are the shared lifecycle interface. Feature groups own separate Harmony IDs; the host retains HotkeyGuard/menu/hidden-HUD only. EternalFlamePatches moved into eternal-flame.lib; IvaForceRender moved into kitchen-sink.lib.
+- `OwnedGpuAssets`: protected `AssetManager<T>.AssetMap`, exact `ConcurrentDictionary<AssetName,T>` removal, `LoadedAssetRef.Dispose`, `GpuObjectAssetRef.Handle`, `GpuTextureAssetRef`, `Device.WaitIdle`. Used by Free Fallin and DOH for allocations they create.
+- `FeatureUi`: `ImGui.Internal.ErrorRecoveryStoreState`, `ErrorRecoveryTryToRecoverState`, native `ImGuiErrorRecoveryState`, and temporary `ImGuiIO.ConfigErrorRecoveryEnableAssert` suppression during recovery.
+- `LightStateLease`: `LightModule.TemplateData.ColorRgb.R/G/B/IndexedColor`, `ColorRgbReference.OnDataLoad`, `Intensity.Value`, `PowerConsumer.LightIsActive`. Ownership coordination is in ksa-lights; its generic reference-counted restoration algorithm is in contracts.
+- Garry captures/restores `Part.Scale` and reflected `CharacterAvatar.Core.Scale`; Glass captures `Camera.GetFieldOfView` before writing/restoring through `SetFieldOfView`; kitten animation captures persistent ear/eye/personality fields and detaches its `AnimProcessors` entry; Con Man captures live gauge enabled/offset/scale fields before applying.
+- Parts Now `SharedMeshBuffers`: `DeviceMeshInterleaved.Shared.VertexAllocation/IndexAllocation`, `BufferEx`, `IBufferAllocator`, `RaytraceAllocator`, `CreateStagingPool`, `CommandBuffer.CopyBuffer`, submission/fence wait and `Program.RaytracingRenderer`. The latter blocks relocation because its BLAS and SubPartRefs cache addresses beyond renderer Rebuild.
+
+These integrations compile against 5402; no native UI/gameplay/GPU acceptance is inferred from compilation.

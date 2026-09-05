@@ -48,9 +48,8 @@ public sealed partial class EternalFlameSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        Console.WriteLine("eternal-flame: submod Dispose");
-        if (ReferenceEquals(Instance, this))
-            Instance = null;
+        ReleaseLiveState();
+        if (ReferenceEquals(Instance, this)) Instance = null;
     }
 
     private void RenderVehicleSelector()

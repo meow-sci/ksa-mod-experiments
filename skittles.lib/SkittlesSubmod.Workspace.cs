@@ -15,11 +15,7 @@ public sealed partial class SkittlesSubmod
     private DraftBindings CreateDraftBindings()
     {
         var state = new DraftBindings();
-        state.Value("Theme", () => _themeDraft, v => _themeDraft = v, validate: v =>
-        {
-            if (v != null && (v.Colors == null || v.Colors.Length > 256 || System.Array.Exists(v.Colors, c => c != null && c.Length != 4)))
-                throw new InvalidOperationException("Invalid theme colors.");
-        });
+        state.Value("Theme", () => _themeDraft, v => _themeDraft = v, validate: v => v?.Validate());
         state.Value("Template", () => _templateName, v => _templateName = v);
         return state;
     }

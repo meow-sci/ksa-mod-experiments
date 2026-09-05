@@ -18,3 +18,8 @@ for project in projects:
     assert 'CaptureDraft' in source and 'PrepareRestore' in source, f'{project.parent.name} lacks workspace contract'
     assert (project.parent / 'README.md').exists(), f'{project.parent.name} lacks README'
 print(f'PASS: {len(features)} independent feature projects; shared dependencies only.')
+
+for feature in features:
+    source = "\n".join(p.read_text() for p in (root / feature).glob("*.cs"))
+    assert "public void ReleaseLiveState()" in source, f"{feature} lacks explicit runtime release"
+print("PASS: all 25 features own an explicit runtime release path.")

@@ -22,7 +22,33 @@ public sealed class KittenAnimationDriver
     public AnimatedRenderable? TargetModel { get; set; }
 
     /// <summary>The game's own animation processors on that model.</summary>
-    public KittenAnimProcessors? Processors { get; set; }
+    private KittenAnimProcessors? _processors;
+    private float? _earOriginal, _eyeOriginal, _personalityOriginal;
+    public KittenAnimProcessors? Processors
+    {
+        get => _processors;
+        set { if (!ReferenceEquals(_processors, value)) RestoreProcessors(); _processors = value; }
+    }
+    public bool HasOverrides => OverrideActive || OverrideEarWeight || OverrideEyeLookAngle ||
+        OverrideEyePitch || OverridePersonalityWeight || LimitReactiveExpression;
+
+    public void RestoreProcessors()
+    {
+        if (_earOriginal.HasValue && _processors?.Ear != null) _processors.Ear.ExpressionWeight = _earOriginal.Value;
+        if (_eyeOriginal.HasValue && _processors?.Eye != null) _processors.Eye.MaxLookAtAngle = _eyeOriginal.Value;
+        if (_personalityOriginal.HasValue && _processors?.Personality != null) _processors.Personality.ExpressionWeight = _personalityOriginal.Value;
+        _earOriginal = _eyeOriginal = _personalityOriginal = null;
+    }
+
+    public void RestoreDisabledProcessors()
+    {
+        if (!OverrideEarWeight && _earOriginal.HasValue && _processors?.Ear != null)
+        { _processors.Ear.ExpressionWeight = _earOriginal.Value; _earOriginal = null; }
+        if (!OverrideEyeLookAngle && _eyeOriginal.HasValue && _processors?.Eye != null)
+        { _processors.Eye.MaxLookAtAngle = _eyeOriginal.Value; _eyeOriginal = null; }
+        if (!OverridePersonalityWeight && _personalityOriginal.HasValue && _processors?.Personality != null)
+        { _processors.Personality.ExpressionWeight = _personalityOriginal.Value; _personalityOriginal = null; }
+    }
 
     // --- clip override ---
 
@@ -123,16 +149,17 @@ public sealed class KittenAnimationDriver
 
     private void ApplyProcessorOverrides()
     {
+        RestoreDisabledProcessors();
         var processors = Processors;
         if (processors == null) return;
 
         if (OverrideEarWeight && processors.Ear != null)
-            processors.Ear.ExpressionWeight = EarWeight;
+            { _earOriginal ??= processors.Ear.ExpressionWeight; processors.Ear.ExpressionWeight = EarWeight; }
 
         if (processors.Eye != null)
         {
             if (OverrideEyeLookAngle)
-                processors.Eye.MaxLookAtAngle = EyeLookAngleDeg;
+                { _eyeOriginal ??= processors.Eye.MaxLookAtAngle; processors.Eye.MaxLookAtAngle = EyeLookAngleDeg; }
 
             // The game rewrites LookPitchOffsetDeg every frame (0 unless on a ladder or swimming).
             if (OverrideEyePitch)
@@ -140,7 +167,7 @@ public sealed class KittenAnimationDriver
         }
 
         if (OverridePersonalityWeight && processors.Personality != null)
-            processors.Personality.ExpressionWeight = PersonalityWeight;
+            { _personalityOriginal ??= processors.Personality.ExpressionWeight; processors.Personality.ExpressionWeight = PersonalityWeight; }
 
         // The reactive face is driven from vehicle acceleration; we can only cap it after the fact.
         if (LimitReactiveExpression && processors.Reactive != null)

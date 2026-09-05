@@ -13,7 +13,7 @@ Permanent reference for detecting when KSA game updates break the telemetry mods
 (`average-twr`, `geeforce`). Every game-facing member these mods touch is enumerated
 and verified against decompiled sources.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ## average-twr
 
@@ -98,3 +98,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/telemetry.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Paused recording performs no vehicle sampling. Live State reports Recording or Paused accurately. Release pauses and clears measurements. Release stops collection and clears the recorder without changing the draft.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

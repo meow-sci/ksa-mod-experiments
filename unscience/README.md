@@ -13,3 +13,7 @@ though the RPC feature was retired. Parts Now retains its dedicated loader/purge
 
 Use **F11**, **Features**, **Save**, **Load**, and **Live State** as described in the [workspace guide](../docs/WORKSPACE.md).
 Build from the root with `dotnet build ksa-mod-experiments.slnx`; see [root build instructions](../README.md).
+
+## Runtime ownership
+
+The host initializes feature factories independently and shows unavailable entries without aborting healthy features. It coordinates `ConfigureRuntime`, `UpdateAfterGui` and `ReleaseLiveState`; feature hooks and cleanup remain in their libraries. Patcher.cs retains only menu, input guard and hidden-HUD services.

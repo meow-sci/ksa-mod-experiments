@@ -57,9 +57,9 @@ public sealed partial class RockyMcRockFaceSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
+        ReleaseLiveState();
         RingOwnership.Replacing -= BeforeRingReplacement;
-        try { _controller.Dispose(); }
-        catch (Exception ex) { Console.WriteLine($"rocky-mcrock-face: dispose failed: {ex.Message}"); }
+        _controller.Dispose();
     }
 
     /// <summary>

@@ -17,7 +17,7 @@ public sealed partial class KiwisMarblesSubmod
     {
         var state = new DraftBindings();
         state.Value("pendingOffset", () => _pendingOffset, value => _pendingOffset = value);
-        state.Value("pendingOffsetScaleIndex", () => _pendingOffsetScaleIndex, value => _pendingOffsetScaleIndex = value);
+        state.Value("pendingOffsetScaleIndex", () => _pendingOffsetScaleIndex, value => _pendingOffsetScaleIndex = value, validate: v => DraftValueValidation.Range(v, 0, OffsetScaleFactors.Length - 1, "pendingOffsetScaleIndex"));
         state.Text("sourceFilter", _sourceFilter);
         state.Text("targetFilter", _targetFilter);
         state.Choice("Source body", () => DraftOptions.Strings(CelestialProvider.GetAllCelestials().Select(b => b.Id)), () => _pendingSourceIndex, v => _pendingSourceIndex = v, target: true);

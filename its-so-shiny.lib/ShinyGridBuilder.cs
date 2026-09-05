@@ -120,9 +120,10 @@ public static class ShinyGridBuilder
         if (grid.IsOwned)
             partsToRemove.AddRange(grid.OwnedParts);
         else
-            partsToRemove.AddRange(grid.Grid.Cells.Values.Select(c => c.HostPart));
+            return;
 
         if (partsToRemove.Count == 0) return;
+        JobSystems.VehicleSolver?.Wait();
 
         foreach (var cell in grid.Grid.Cells.Values)
             cell.SetEnabled(false, 0f);
@@ -147,6 +148,7 @@ public static class ShinyGridBuilder
         var root = vehicle.Parts.Root;
         vehicle.Parts = PartTree.CreateFromNewPartTree(root);
         vehicle.UpdateVehicleConfiguration();
+        foreach (var part in partsToRemove) part.Dispose();
         Console.WriteLine($"its-so-shiny: destroyed grid parts ({partsToRemove.Count} removed)");
     }
 

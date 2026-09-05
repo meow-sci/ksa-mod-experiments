@@ -44,7 +44,7 @@ public sealed partial class SkittlesSubmod : IWorkspaceFeature
         if (ImGui.Button("Copy current style into editor", new float2(-1, 0))) _themeDraft = ThemeDefinition.CaptureFromImGui();
         if (_themeDraft != null) ThemeDraftEditor.Render(_themeDraft);
         if (ImGui.Button("Apply theme", new float2(-1, 0)))
-        { if (_themeDraft != null) _themeDraft.ApplyToImGui(); else _themeManager.ApplyTheme(_templateName); }
+        { if (_themeDraft != null) _themeManager.ApplyDefinition(_themeDraft); else _themeManager.ApplyTheme(_templateName); }
         SubmodUI.EndContentArea();
     }
 
@@ -156,7 +156,7 @@ public sealed partial class SkittlesSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _themeManager?.RestoreDefaults();
+        ReleaseLiveState();
     }
 
     private void UpdateSelectedIndex()

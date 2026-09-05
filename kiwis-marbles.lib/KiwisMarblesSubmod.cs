@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
@@ -53,9 +54,8 @@ public sealed partial class KiwisMarblesSubmod : IWorkspaceFeature
     {
         if (_pendingRestores.Count > 0)
         {
-            foreach (var entry in _pendingRestores)
-                TryRestoreOrbit(entry);
-            _pendingRestores.Clear();
+            foreach (var entry in _pendingRestores.ToArray())
+                if (TryRestoreOrbit(entry)) _pendingRestores.Remove(entry);
         }
 
         if (_welds.Count == 0) return;
@@ -72,16 +72,18 @@ public sealed partial class KiwisMarblesSubmod : IWorkspaceFeature
             RemoveWeld(weld);
     }
 
-    private static void TryRestoreOrbit(CelestialWeldEntry entry)
+    private static bool TryRestoreOrbit(CelestialWeldEntry entry)
     {
         try
         {
             CelestialWeldEngine.RestoreOrbit(entry);
             Console.WriteLine($"unscience/kiwis-marbles: Restored original orbit for {entry.Source.Id}");
+            return true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"unscience/kiwis-marbles: Failed to restore orbit for {entry.Source.Id}: {ex.Message}");
+            return false;
         }
     }
 
@@ -375,17 +377,13 @@ public sealed partial class KiwisMarblesSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        // Best-effort restore on unload: the solver prefix is being removed, so there is no later safe
-        // window. Hosts call this from [StarMapUnload] on the main thread.
-        foreach (var weld in _welds)
-            if (weld.OriginalOrbit != null) TryRestoreOrbit(weld);
-        foreach (var entry in _pendingRestores)
-            TryRestoreOrbit(entry);
-        _welds.Clear();
-        _pendingRestores.Clear();
-
-        if (ReferenceEquals(Instance, this))
-            Instance = null;
+        ReleaseLiveState();
+        JobSystems.OrbitSolvers?.Wait();
+        JobSystems.VehicleSolver?.Wait();
+        foreach (var entry in _pendingRestores.ToArray())
+            if (TryRestoreOrbit(entry)) _pendingRestores.Remove(entry);
+        if (_pendingRestores.Count > 0) throw new InvalidOperationException("Orbit restoration is still pending.");
+        if (ReferenceEquals(Instance, this)) Instance = null;
     }
 
     private void InitiateWeld(Celestial source, IOrbiter target, double3 offset)

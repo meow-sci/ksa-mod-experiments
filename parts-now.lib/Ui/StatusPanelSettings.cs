@@ -20,9 +20,8 @@ public sealed partial class StatusPanel
     /// </summary>
     private static readonly string[] Limitations =
     {
-        "Mesh memory is never reclaimed. Every reload permanently spends part of the reserved "
-            + "headroom in KSA's shared interleaved buffer until the game restarts.",
-        "Headroom is fixed at launch. Changing it below requires a restart to take effect.",
+        "Mesh memory is allocated on demand. Released trailing ranges are reclaimed without moving live mesh offsets.",
+        "Mesh limits apply to future loads. Buffer growth requires launching without ray tracing.",
         "New EditorTags, Substances, Reactions and GrainGeometry are rejected by validation. Parts "
             + "must reference ids that already exist in the game.",
         "Mods KSA loaded at boot cannot be reloaded or unloaded — only mods parts-now itself loaded "
@@ -100,7 +99,7 @@ public sealed partial class StatusPanel
             // Read back: the setters clamp, so this shows the user what was actually stored.
             _vertexHeadroomMiB = PartsNowSettings.VertexHeadroomMiB;
             _indexHeadroomMiB = PartsNowSettings.IndexHeadroomMiB;
-            _settingsMessage = "Saved. Restart the game for the new headroom to take effect.";
+            _settingsMessage = "Saved. The mesh budget applies to future loads.";
         }
 
         ImGui.SameLine(0, 12);

@@ -13,7 +13,7 @@ Permanent reference for detecting when KSA game updates break the camera/view mo
 (`camera-controller-override`, `glass`, `hot-pursuit`). Every game-facing member these mods touch is
 enumerated and verified against decompiled sources.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ## camera-controller-override
 
@@ -145,3 +145,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/camera.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+FOV activation captures the actual camera’s prior lens, including stock zoom. Disable/unload restores it; changing main cameras restores the outgoing camera before capturing the new one. FOV and preset-index inputs are validated before draft restoration. Camera hooks exist only during playback. Stop releases camera control; teardown removes only this feature’s hooks. Release cancels placement and releases every secondary viewport lease. Camera hooks are present only while live cameras exist.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

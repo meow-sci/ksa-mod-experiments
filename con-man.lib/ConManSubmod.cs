@@ -13,7 +13,6 @@ public sealed partial class ConManSubmod : IWorkspaceFeature
   public string Tooltip => "Saves and restores UI gauge layout configurations for different scenarios.";
 
   private LayoutManager _layoutManager = null!;
-  private bool _startupApplied;
 
   // Layout selector state
   private int _selectedLayoutIndex = -1;
@@ -40,19 +39,7 @@ public sealed partial class ConManSubmod : IWorkspaceFeature
       Console.WriteLine("[con-man] WARNING: GaugeStateAccessor failed to resolve fields — mod may not function correctly");
   }
 
-  public void Update(double dt)
-  {
-    // Apply startup default once gauges become available (they may not exist at Initialize time)
-    if (!_startupApplied)
-    {
-      var canvases = _layoutManager.Accessor.GetCanvases();
-      if (canvases != null && canvases.Count > 0)
-      {
-        _layoutManager.ApplyStartupDefault();
-        _startupApplied = true;
-      }
-    }
-  }
+  public void Update(double dt) { }
 
   private Dictionary<string, GaugeState> _layoutDraft = new();
   private string _layoutName = "";
@@ -289,7 +276,10 @@ public sealed partial class ConManSubmod : IWorkspaceFeature
     SubmodUI.EndContentArea();
   }
 
-  public void Dispose() { }
+    public void Dispose()
+    {
+        ReleaseLiveState();
+    }
 
   // --- Delete confirmation popup ---
   private void RenderDeleteConfirmPopup()

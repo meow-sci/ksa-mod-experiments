@@ -137,9 +137,15 @@ internal sealed partial class WorkspaceWindow
             RenderMenu();
             ImGui.Text($"{_name}{(_modified ? " *" : "")}");
             ImGui.Spacing();
-            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6, 6));
             bool wide = ImGui.GetContentRegionAvail().X >= 700;
-            if (wide && ImGui.BeginTable("workspace-columns", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+            bool tableOpen = false;
+            if (wide)
+            {
+                ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6, 6));
+                tableOpen = ImGui.BeginTable("workspace-columns", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
+                ImGui.PopStyleVar();
+            }
+            if (tableOpen)
             {
                 ImGui.TableSetupColumn("Features", ImGuiTableColumnFlags.WidthStretch, 1f);
                 ImGui.TableSetupColumn("Authoring", ImGuiTableColumnFlags.WidthStretch, 3f);
@@ -155,7 +161,6 @@ internal sealed partial class WorkspaceWindow
                 { foreach (var feature in _features.Where(f => _visible[f.FeatureId])) if (ImGui.Selectable(feature.Name, _selectedFeature == feature.FeatureId)) _selectedFeature = feature.FeatureId; ImGui.EndCombo(); }
                 RenderFeature();
             }
-            ImGui.PopStyleVar();
             if (_message.Length > 0) ImGui.TextWrapped(_message);
             RenderSaveDialog();
         }
@@ -212,10 +217,25 @@ internal sealed partial class WorkspaceWindow
         if (feature.Draft.RestoreScroll || _displayedFeature != feature.FeatureId) { _displayedFeature = feature.FeatureId; ImGui.SetScrollY(feature.Draft.ScrollY); feature.Draft.RestoreScroll = false; }
         ImGui.PushID(feature.FeatureId);
         ImGui.SeparatorText(feature.Name);
+        if (ImGui.Button("Release all applied state for this feature"))
+        {
+            try { feature.ReleaseLiveState(); FeatureRuntime.For(feature).Retry(); FeatureRuntime.For(feature).Sync(); }
+            catch (Exception ex) { FeatureRuntime.For(feature).ReportError(ex); WorkspaceUi.Error(ex); }
+        }
         RenderFeaturePresets(feature);
         feature.Draft.RenderChoices();
         WorkspaceUi.Current = feature.Draft;
-        try { feature.RenderContent(); }
+        try
+        {
+            var runtime = FeatureRuntime.For(feature);
+            if (runtime.Error != null)
+            {
+                ImGui.TextWrapped(runtime.Error);
+                if (ImGui.Button("Retry runtime activation")) runtime.Retry();
+                ImGui.TextWrapped("Live State remains available for cleanup.");
+            }
+            else FeatureUi.Render(feature.RenderContent);
+        }
         catch (Exception ex) { WorkspaceUi.Error(ex); }
         finally { feature.Draft.ReadChoices(); WorkspaceUi.Current = null; feature.Draft.ScrollY = ImGui.GetScrollY(); ImGui.PopID(); ImGui.EndChild(); }
     }

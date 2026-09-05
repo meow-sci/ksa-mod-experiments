@@ -1,4 +1,6 @@
 using KSA;
+using System;
+using MeowSci.Unscience.Contracts;
 namespace MeowSci.KittenAnimationsLib;
 public sealed class KittenAnimationRecipe
 {
@@ -44,4 +46,43 @@ public sealed class KittenAnimationRecipe
     public float JumpLandDuration = KittenLocomotionTuning.Default.JumpLandDuration;
     public float JumpLandBounceIgnoreTime = KittenLocomotionTuning.Default.JumpLandBounceIgnoreTime;
     public float LadderEyePitchDeg = KittenLocomotionTuning.Default.LadderEyePitchDeg;
+    public void Validate()
+    {
+        if (Clip == null) throw new InvalidOperationException("Missing kitten clip identity.");
+        DraftValueValidation.Range(Expression, 0, 5, nameof(Expression));
+        DraftValueValidation.Range(Variant, -1, 10000, nameof(Variant));
+        DraftValueValidation.Range(BlendTime, 0, 10000, nameof(BlendTime));
+        DraftValueValidation.Range(PlaybackRateScale, 0, 10000, nameof(PlaybackRateScale));
+        DraftValueValidation.Range(EarWeight, 0, 1, nameof(EarWeight));
+        DraftValueValidation.Range(EyeLookAngleDeg, 0, 180, nameof(EyeLookAngleDeg));
+        DraftValueValidation.Range(EyePitchDeg, -180, 180, nameof(EyePitchDeg));
+        DraftValueValidation.Range(PersonalityWeight, 0, 1, nameof(PersonalityWeight));
+        DraftValueValidation.Range(ReactiveExpressionMax, 0, 1, nameof(ReactiveExpressionMax));
+        DraftValueValidation.Range(ExpressionEaseInDuration, 0, 10000, nameof(ExpressionEaseInDuration));
+        DraftValueValidation.Range(ExpressionHoldDuration, 0, 10000, nameof(ExpressionHoldDuration));
+        DraftValueValidation.Range(ExpressionEaseOutDuration, 0, 10000, nameof(ExpressionEaseOutDuration));
+        DraftValueValidation.Range(ExpressionPeakWeight, 0, 1, nameof(ExpressionPeakWeight));
+        DraftValueValidation.Range(AnimBlendTime, 0, 10000, nameof(AnimBlendTime));
+        DraftValueValidation.Range(IdleSpeedThreshold, 0, 10000, nameof(IdleSpeedThreshold));
+        DraftValueValidation.Range(PlaybackRateMin, 0, 10000, nameof(PlaybackRateMin));
+        DraftValueValidation.Range(PlaybackRateMax, 0, 10000, nameof(PlaybackRateMax));
+        DraftValueValidation.Range(WalkClipNominalSpeed, 0.0001, 10000, nameof(WalkClipNominalSpeed));
+        DraftValueValidation.Range(RunClipNominalSpeed, 0.0001, 10000, nameof(RunClipNominalSpeed));
+        DraftValueValidation.Range(LadderNominalSpeed, 0.0001, 10000, nameof(LadderNominalSpeed));
+        DraftValueValidation.Range(TumbleNominalSpeed, 0.0001, 10000, nameof(TumbleNominalSpeed));
+        DraftValueValidation.Range(MoonwalkWalkNominalSpeed, 0.0001, 10000, nameof(MoonwalkWalkNominalSpeed));
+        DraftValueValidation.Range(MoonwalkRunNominalSpeed, 0.0001, 10000, nameof(MoonwalkRunNominalSpeed));
+        DraftValueValidation.Range(MoonwalkStartGravity, 0, 10000, nameof(MoonwalkStartGravity));
+        DraftValueValidation.Range(MoonwalkFullGravity, 0, 10000, nameof(MoonwalkFullGravity));
+        DraftValueValidation.Range(MoonwalkPlaybackScale, 0, 10000, nameof(MoonwalkPlaybackScale));
+        DraftValueValidation.Range(NominalSwimAnimSpeed, 0.0001, 10000, nameof(NominalSwimAnimSpeed));
+        DraftValueValidation.Range(SwimBlendFullSpeed, 0.0001, 10000, nameof(SwimBlendFullSpeed));
+        DraftValueValidation.Range(SwimBlendHalfLife, 0, 10000, nameof(SwimBlendHalfLife));
+        DraftValueValidation.Range(SwimEyePitchFactor, -180, 180, nameof(SwimEyePitchFactor));
+        DraftValueValidation.Range(JumpLandDuration, 0, 10000, nameof(JumpLandDuration));
+        DraftValueValidation.Range(JumpLandBounceIgnoreTime, 0, 10000, nameof(JumpLandBounceIgnoreTime));
+        DraftValueValidation.Range(LadderEyePitchDeg, -180, 180, nameof(LadderEyePitchDeg));
+        if (PlaybackRateMin > PlaybackRateMax) throw new InvalidOperationException("Playback minimum exceeds maximum.");
+        if (MoonwalkFullGravity >= MoonwalkStartGravity) throw new InvalidOperationException("Full moonwalk gravity must be below its start gravity.");
+    }
 }

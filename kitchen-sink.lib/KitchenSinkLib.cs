@@ -74,6 +74,7 @@ public sealed partial class KitchenSinkSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
+        ReleaseLiveState();
         if (Instance == this) Instance = null;
     }
 }

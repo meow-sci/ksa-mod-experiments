@@ -10,6 +10,9 @@ public sealed partial class KiwisMarblesSubmod
 {
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
+        foreach (var entry in _pendingRestores.ToArray())
+            yield return new LiveStateItem<CelestialWeldEntry>("restore/" + entry.Source.Id, "Orbit restoration", entry.Source.Id,
+                entry, _ => ImGui.TextWrapped("Restoration is pending at the next safe solver phase. Failures remain here for retry."), "Cleanup pending");
         foreach (var entry in _welds.ToArray())
             yield return new LiveStateItem<CelestialWeldEntry>(entry.Source.Id, "Celestial weld", entry.Source.Id + " → " + entry.Target.Id, entry, RenderLiveItem);
     }

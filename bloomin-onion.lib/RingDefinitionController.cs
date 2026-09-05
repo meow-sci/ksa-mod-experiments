@@ -104,7 +104,7 @@ public sealed class RingDefinitionController : IDisposable
     /// <summary>Restores the body's original ring reference (usually none) and rebuilds.</summary>
     public bool Remove(Celestial celestial, out string message)
     {
-        if (!_applied.Remove(celestial.Id))
+        if (!_applied.ContainsKey(celestial.Id))
         {
             message = $"{celestial.Id} has no custom ring";
             return false;
@@ -112,7 +112,7 @@ public sealed class RingDefinitionController : IDisposable
         RestoreTemplate(celestial);
         bool rebuilt = RingRendererRebuilder.Rebuild(out var rebuildMessage);
         RingRendererRebuilder.SyncDistantSphereShadow(celestial);
-        if (rebuilt) PruneUnusedAssets();
+        if (rebuilt) { _applied.Remove(celestial.Id); PruneUnusedAssets(); }
         message = rebuilt ? $"custom ring removed from {celestial.Id}" : rebuildMessage;
         return rebuilt;
     }
@@ -127,12 +127,11 @@ public sealed class RingDefinitionController : IDisposable
         }
         var bodies = new List<Celestial>();
         foreach (var applied in _applied.Values) bodies.Add(applied.Celestial);
-        _applied.Clear();
         foreach (var celestial in bodies) RestoreTemplate(celestial);
 
         bool rebuilt = RingRendererRebuilder.Rebuild(out var rebuildMessage);
         foreach (var celestial in bodies) RingRendererRebuilder.SyncDistantSphereShadow(celestial);
-        if (rebuilt) PruneUnusedAssets();
+        if (rebuilt) { _applied.Clear(); PruneUnusedAssets(); }
         message = rebuilt ? $"removed {bodies.Count} custom ring(s)" : rebuildMessage;
         return rebuilt;
     }

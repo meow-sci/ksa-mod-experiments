@@ -59,7 +59,7 @@ public sealed partial class DohSubmod : IWorkspaceFeature
         Console.WriteLine("doh: DohSubmod initialized");
     }
 
-    public void Update(double dt) { }
+    public void Update(double dt) { if (_registry != null) _materialFactory?.ReleaseUnused(_registry.GetAll().Select(e => e.MaterialSet)); }
 
     public void RenderContent()
     {
@@ -73,10 +73,8 @@ public sealed partial class DohSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _spawner?.DespawnAll();
-        _materialFactory?.Cleanup();
+        ReleaseLiveState();
         MaterialSystemAccessor.Cleanup();
-        Console.WriteLine("doh: DohSubmod disposed");
     }
 
     // ---- Status ----

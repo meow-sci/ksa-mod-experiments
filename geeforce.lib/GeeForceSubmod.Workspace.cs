@@ -16,10 +16,10 @@ public sealed partial class GeeForceSubmod
     {
         var state = new DraftBindings();
 
-        state.Value("threshold", () => _threshold, v => _threshold = v);
+        state.Value("threshold", () => _threshold, v => _threshold = v, validate: v => DraftValueValidation.Range(v, 1, 250, "threshold"));
         state.Value("axes", () => _axes, v => _axes = v);
         state.Value("jerk", () => _jerk, v => _jerk = v);
-        state.Value("window", () => _viewWindow, v => _viewWindow = v);
+        state.Value("window", () => _viewWindow, v => _viewWindow = v, validate: v => DraftValueValidation.Range(v, 0, 6, "window"));
         return state;
     }
 }

@@ -16,7 +16,7 @@ touch is enumerated and verified against decompiled sources.
 **@5402** unless a cell says otherwise. **Mod code** paths are relative to the repo root
 `~/repos/meow-sci/unscience`.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 **Distinction — ImGui is third-party, not KSA.** skittles and parts of con-man drive
 `Brutal.ImGuiApi` (the bundled Dear ImGui wrapper), which is shipped with the game but
@@ -121,7 +121,7 @@ Feature presets retain settings and asset choices while leaving the current targ
 | 3 | 3 | `KitchenSinkLib.cs` | `VehicleEditingSpace.Parts : PartTree?` (field) | `KSA/VehicleEditingSpace.cs` | Yes | None (OLD:16; file diff is 3 `Viewport`→`IViewport` draw signatures) | null-guarded |
 | 4 | 3 | `KitchenSinkLib.cs` | `PartTree.States : ModuleStateList` (field) | `KSA/PartTree.cs` | Yes | None (OLD:39) | passed as `oldStates` |
 | 5 | 3 | `KitchenSinkLib.cs` | `PartTree.ReinitializeDerivedValues(ModuleStateList oldStates) : void` | `KSA/PartTree.cs` | Yes | None (OLD:308; 0-arg overload `:302`) | `ModuleStateList.cs` byte-identical |
-| 6 | 1 | `ksa-abstractions.lib/IvaForceRender.cs` | `PartModel..ctor(PartModelModule.Template)` **protected** (Harmony postfix via `AccessTools.Constructor`) | `KSA/PartModel.cs` | Yes | None (OLD:383; body identical, only ctor) | catches parts built after toggle |
+| 6 | 1 | `kitchen-sink.lib/IvaForceRender.cs` | `PartModel..ctor(PartModelModule.Template)` **protected** (Harmony postfix via `AccessTools.Constructor`) | `KSA/PartModel.cs` | Yes | None (OLD:383; body identical, only ctor) | catches parts built after toggle |
 | 7 | 1 | `IvaForceRender.cs` (lookup), `:98` (postfix sig) | `PartModel.AddInstance(PerInstanceData, IViewport, int frameIndex) : void` (Harmony postfix; captures `__0`,`__1` only) | `KSA/PartModel.cs` | Yes | **RETYPED @5402** `Viewport`→`IViewport` (OLD:407) — postfix `__1` updated; **NEW GATE @5402** `:410-413` early-returns unless `viewport.HasAny(ViewportOptionFlags.RenderPartModels)`; IVA/raytracing gate `:415` now per-viewport | method is **3-arg**; postfix ignores `frameIndex` (`__2`). Postfix mirrors the RenderPartModels and per-viewport IVA gates. |
 | 8 | 3 | `IvaForceRender.cs` | `PartModel.PerInstanceData` (struct) | `KSA/PartModel.cs` | Yes | None (OLD:331) | postfix param `__0` |
 | 9 | 3 | `IvaForceRender.cs` | `PartModel.ViewportData.Get(PartModel, IViewport) : ViewportData` → `.InstanceList : List<PerInstanceData>` `.Add` | `KSA/PartModel.cs` | Yes | **RETYPED @5402** param `Viewport`→`IViewport` (OLD:313/309); lookup keyed by `viewport.Id : ViewportId` | nested class `ViewportData`:308 |
@@ -140,3 +140,9 @@ instances; no `Content/` paths).
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/ui-customization.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Applying a layout captures the affected gauge objects’ original enabled flags, offsets and scales. Release/unload restores those fields and window geometry. A saved preferred layout is not applied at startup. Startup does not apply the saved theme. The first actual style mutation captures a baseline; release/unload restores that baseline. The native style editor is available only while style ownership exists. IVA integration is owned here, not in ksa-abstractions. Both render hooks are gated by the applied policy. Disable/unload restores mutated Internal flags before releasing hooks.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

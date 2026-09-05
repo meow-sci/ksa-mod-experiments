@@ -42,4 +42,5 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup><Reference Include="Brutal.Concurrency"><HintPath>$(KSAFolder)Brutal.Concurrency.dll</HintPath><Private>false</Private></Reference></ItemGroup>
 </Project>

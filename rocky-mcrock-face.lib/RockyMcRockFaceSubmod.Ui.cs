@@ -215,9 +215,8 @@ public sealed partial class RockyMcRockFaceSubmod
     {
         selection.Clear();
         _controller.Restore(body);
-        _appliedSelections.Remove(body.Id);
         bool rebuilt = _controller.RebuildRenderer(out var rebuildMessage);
-        if (rebuilt) PruneUnusedMeshClones();
+        if (rebuilt) { _appliedSelections.Remove(body.Id); PruneUnusedMeshClones(); }
         SetStatus(rebuilt ? $"restored game defaults for {body.Id}" : rebuildMessage, !rebuilt);
     }
 

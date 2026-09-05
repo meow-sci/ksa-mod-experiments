@@ -9,6 +9,9 @@ public interface IWorkspaceFeature : ISubmod, IWorkspaceParticipant
     DraftBindings Draft { get; }
     IEnumerable<ILiveStateItem> GetLiveItems();
     void CancelAuthoringGesture() { }
+    void ReleaseLiveState();
+    void ConfigureRuntime(FeatureRuntime runtime) { }
+    void UpdateAfterGui(double dt) { }
 }
 
 public interface ILiveStateItem

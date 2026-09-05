@@ -15,8 +15,8 @@ public sealed partial class GlassSubmod
     private DraftBindings CreateDraftBindings()
     {
         var state = new DraftBindings();
-        state.Value("fov", () => _fov, value => _fov = value);
-        state.Value("selectedPresetIndex", () => _selectedPresetIndex, value => _selectedPresetIndex = value);
+        state.Value("fov", () => _fov, value => _fov = value, validate: v => DraftValueValidation.Range(v, 1, 179, "fov"));
+        state.Value("selectedPresetIndex", () => _selectedPresetIndex, value => _selectedPresetIndex = value, validate: v => DraftValueValidation.Range(v, -1, Presets.Length - 1, "selectedPresetIndex"));
         return state;
     }
 }

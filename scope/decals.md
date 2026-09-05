@@ -17,7 +17,7 @@ Permanent reference for detecting when KSA game updates break **graffiti** (clic
 projected PNG decals on vehicles, deployed parachute canopies, and terrain). Every game-facing member the mod touches is
 enumerated with its decompiled-source path.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 **No string reflection anywhere** — every game API used is public, so a rename/reshape is a
 **compile** break (loud), never a silent runtime miss.
@@ -113,3 +113,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/decals.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Release cancels placement, stops submissions and frees decal GPU resources. Render hooks are installed only while decals are owned. Draft loading still only cancels an uncommitted gesture.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

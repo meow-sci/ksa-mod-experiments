@@ -1,5 +1,6 @@
 using MeowSci.KsaLights;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Brutal.Numerics;
 using KSA;
@@ -17,6 +18,7 @@ public sealed class ShinyGridState
     public HashSet<(int row, int col)> ActivePixels { get; } = new();
     public float3 Color { get; set; }
     public float Intensity { get; set; }
+    internal List<LightStateLease> Leases { get; } = new();
 
     public ShinyGridState(string vehicleId, string gridName, Vehicle vehicle, ShinyBuiltGrid grid, float3 color, float intensity)
     {
@@ -38,7 +40,9 @@ public static class ShinyGridManager
     public static ShinyGridState Register(Vehicle vehicle, string gridName, ShinyBuiltGrid grid, float3 color, float intensity)
     {
         var key = (vehicle.Id, gridName);
+        if (_grids.TryGetValue(key, out var existing)) return existing;
         var state = new ShinyGridState(vehicle.Id, gridName, vehicle, grid, color, intensity);
+        foreach (var cell in grid.Grid.Cells.Values) state.Leases.Add(new LightStateLease(cell.LightPart));
         _grids[key] = state;
         ApplyAppearance(state, color, intensity);
         Console.WriteLine($"its-so-shiny: registered grid '{gridName}' for vehicle '{vehicle.Id}' ({grid.Grid.Cols}x{grid.Grid.Rows})");
@@ -48,7 +52,10 @@ public static class ShinyGridManager
     public static void Unregister(string vehicleId, string gridName)
     {
         if (_grids.TryGetValue((vehicleId, gridName), out var state))
+            {
             state.Scroll.Stop();
+            foreach (var lease in state.Leases) lease.Dispose();
+        }
         _grids.Remove((vehicleId, gridName));
     }
 
@@ -60,9 +67,14 @@ public static class ShinyGridManager
 
     public static void Clear()
     {
-        foreach (var state in _grids.Values)
+        if (_grids.Count == 0) return;
+        JobSystems.VehicleSolver?.Wait();
+        foreach (var state in _grids.Values.ToArray())
+        {
             state.Scroll.Stop();
-        _grids.Clear();
+            if (state.ShinyGrid.IsOwned) ShinyGridBuilder.DestroyGrid(state.Vehicle, state.ShinyGrid);
+            Unregister(state.VehicleId, state.GridName);
+        }
     }
 
     public static bool SetAppearance(string vehicleId, string gridName, float3 color, float intensity)

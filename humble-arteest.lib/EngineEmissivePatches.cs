@@ -50,8 +50,7 @@ public static class EngineEmissivePatches
 
         if (_addInstanceOriginal == null)
         {
-            Console.WriteLine("humble-arteest: WARNING — PartModelDynamic.AddInstance not found");
-            return;
+            throw new MissingMethodException(typeof(PartModelDynamic).FullName, nameof(PartModelDynamic.AddInstance));
         }
 
         harmony.Patch(_addInstanceOriginal, prefix: new HarmonyMethod(_addInstancePrefix));

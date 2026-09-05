@@ -11,7 +11,7 @@ public sealed partial class GeeForceSubmod
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
         yield return new LiveStateItem<GForceRecorder>("recorder", "G-force recording", "Controlled vehicle", _recorder,
-            recorder => _liveView.RenderContent(recorder, SampleIntervalSec), "Recording");
+            recorder => _liveView.RenderContent(recorder, SampleIntervalSec), _recorder.IsRecording ? "Recording" : "Paused");
     }
 
 }

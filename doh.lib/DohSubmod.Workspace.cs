@@ -19,7 +19,7 @@ public sealed partial class DohSubmod
         state.Text("vehicleFilter", _vehicleFilter);
         state.Text("characterFilter", _characterFilter);
         state.Value("offset", () => _offset, value => _offset = value);
-        state.Value("spawnCount", () => _spawnCount, value => _spawnCount = value);
+        state.Value("spawnCount", () => _spawnCount, value => _spawnCount = value, validate: v => DraftValueValidation.Range(v, 1, 100, "spawnCount"));
         state.Value("useCustomColor", () => _useCustomColor, value => _useCustomColor = value);
         state.Value("tintColor", () => _tintColor, value => _tintColor = value);
         state.Value("uniquePerKitten", () => _uniquePerKitten, value => _uniquePerKitten = value);

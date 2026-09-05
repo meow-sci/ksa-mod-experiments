@@ -96,8 +96,6 @@ public sealed class KittenExpressionController
     /// <summary>Starts an expression. <paramref name="variantIndex"/> below zero picks a random variant.</summary>
     public void Trigger(CharacterAvatar avatar, ExpressionType type, int variantIndex, Random random)
     {
-        Attach(avatar);
-        if (_processor == null) return;
 
         var variants = GetVariants(avatar, type);
         if (variants == null || variants.Count == 0)
@@ -110,7 +108,8 @@ public sealed class KittenExpressionController
         var animation = variants[index];
         if (animation == null) return;
 
-        _processor.ExpressionAnim = animation;
+        Attach(avatar);
+        _processor!.ExpressionAnim = animation;
         ClearPoseCache(_processor);
         _processor.ExpressionWeight = 0f;
 
@@ -120,15 +119,7 @@ public sealed class KittenExpressionController
     }
 
     /// <summary>Ends the current expression immediately.</summary>
-    public void Clear()
-    {
-        Current = ExpressionType.None;
-        CurrentVariant = string.Empty;
-        _elapsed = 0f;
-
-        if (_processor != null)
-            _processor.ExpressionWeight = 0f;
-    }
+    public void Clear() => Detach();
 
     /// <summary>Advances the expression envelope. Call once per frame.</summary>
     public void Update(double dt)

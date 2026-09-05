@@ -162,55 +162,18 @@ public static class WeldEngine
         return doubleQuat.Concatenate(doubleQuat.Concatenate(qYaw, qPitch), qRoll);
     }
 
-    /// <summary>Applies a uniform scale to all parts of a vehicle, with special handling for KittenEva.</summary>
-    public static void ApplyVehicleScale(Vehicle vehicle, float factor)
+    public static void ApplyVehicleScale(WeldEntry entry, float factor)
     {
-        foreach (var part in vehicle.Parts.Parts)
-            SetPartScaleRecursive(part, factor);
-
-        // KittenEva renders via CharacterAvatar.Core.Scale (Core.Scale 0.01 = 1:1)
-        if (vehicle.GetType().Name == "KittenEva")
-        {
-            try
-            {
-                var renderable = ReflectionHelpers.GetFieldValue(vehicle, "_renderable");
-                if (renderable == null) return;
-
-                var avatar = ReflectionHelpers.GetFieldValue(renderable, "_characterAvatar");
-                if (avatar == null) return;
-
-                var allFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                var coreField = avatar.GetType().GetField("Core", allFlags);
-                var core = coreField?.GetValue(avatar);
-                if (core == null) return;
-
-                var scaleField = core.GetType().GetField("Scale", allFlags);
-                var scaleProp  = core.GetType().GetProperty("Scale", allFlags);
-
-                if (scaleField != null && scaleField.FieldType == typeof(float))
-                {
-                    scaleField.SetValue(core, factor * 0.01f);
-                    coreField!.SetValue(avatar, core);
-                }
-                else if (scaleProp != null && scaleProp.PropertyType == typeof(float))
-                {
-                    scaleProp.SetValue(core, factor * 0.01f);
-                    coreField!.SetValue(avatar, core);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"garrys-torch: KittenEva scale error: {ex.Message}");
-            }
-        }
+        JobSystems.VehicleSolver?.Wait();
+        entry.ScaleState ??= new WeldScaleState(entry.Source);
+        entry.ScaleState.Apply(entry.WeldEnabled ? factor : 1f);
     }
 
-    /// <summary>Recursively sets uniform scale on a part and all its sub-parts.</summary>
-    public static void SetPartScaleRecursive(Part part, float factor)
+    public static void RestoreVehicleScale(WeldEntry entry)
     {
-        part.Scale = new double3(factor, factor, factor);
-        foreach (var sub in part.SubParts)
-            SetPartScaleRecursive(sub, factor);
+        if (entry.ScaleState == null) return;
+        JobSystems.VehicleSolver?.Wait();
+        entry.ScaleState.Restore();
     }
 
     /// <summary>

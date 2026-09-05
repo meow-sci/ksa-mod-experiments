@@ -25,14 +25,10 @@ Verification baseline:
 - **Workspace feature aggregation.** The single host initializes 25 `IWorkspaceFeature` implementations from separate feature libraries. `Update` and floating windows continue regardless of visibility. The main window renders one selected authoring form; a separate Live State window collects typed items and invokes their inspectors. Standalone feature entry projects and RPC are retired. The host drains `GameThread` before feature updates.
 - **Pure authoring restore.** `unscience-contracts.lib` owns versioned documents, atomic named-save storage and prepared/rollback restoration. `ksa-abstractions.lib/Workspace` binds explicit values/choices/sections. Apply methods and live record registries stay in each feature. Restoring a workspace calls no feature lifecycle or game mutation method.
 - **Shared domain infrastructure.** `ksa-lights.lib` owns LightController; `ksa-rings.lib` owns ring assets and outgoing-reference replacement coordination. Feature libraries do not reference other feature libraries.
-- **Single consolidated Harmony instance.** `unscience/Patcher.cs` owns exactly one
-  `new Harmony("MeowSci.Unscience")`. Each feature lib exposes a static `Apply(Harmony)`/`Remove(Harmony)`
-  patch class; the supermod applies them all onto
-  its one instance instead of each mod owning its own. `HotkeyGuard` (from the seam lib) is applied
-  first, exactly once.
+- **Isolated feature Harmony owners.** `unscience/Patcher.cs` retains one host instance for HotkeyGuard, menu and hidden-HUD services. `FeatureRuntime` gives every feature-defined patch group a separate owner and activates it only while requested. Partial activation is rolled back; final release removes that owner’s hooks. Lifecycle columns in the target table describe first demand / last release for feature rows and startup / unload for host rows.
 - **`ksa-abstractions.lib` is the game-facing seam.** All cross-cutting game access is funnelled
   through small static helpers here (`VehicleProvider`, `CelestialProvider`, `SimTimeProvider`,
-  `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `HiddenUiFrameHook`, `IvaForceRender`, `KsaPaths`) plus pure-C#
+  `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `HiddenUiFrameHook`, `KsaPaths`) plus pure-C#
   utilities (`ISubmod`, `EasingHelper`, `Directions`, `GameThread`/`GameStateQueue`/
   `IGameStateScheduler`, `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a
   game update's blast radius is mostly this one library.
@@ -78,12 +74,9 @@ drawn later), so a frame never runs both StarMap's hooks and the fallback.
 
 ## Consolidated Harmony patches (cross-reference)
 
-`unscience/Patcher.cs` applies/removes the following on its single `Harmony("MeowSci.Unscience")`
-instance. Targets are listed at cross-reference granularity (type+member); per-class decomp deltas
-live in each feature's own `scope/` file. **Two entries are owned by this area** (in **bold**) and
-are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
+The host retains its own menu, HotkeyGuard and hidden-HUD hooks. Feature-owned groups below activate on first demand and release when demand ends, using isolated Harmony IDs. Target details remain in their area pages. EternalFlamePatches is now owned by eternal-flame.lib; IvaForceRender is owned by kitchen-sink.lib.
 
-| Patch class | Owning project | Apply (Patcher.cs) | Remove (Patcher.cs) | Primary game target(s) | Kind | Risk note |
+| Patch class | Owning project | Apply entry | Release entry | Primary game target(s) | Kind | Risk note |
 |---|---|---|---|---|---|---|
 | `HotkeyGuard` | **ksa-abstractions.lib** | Patch | Unload | `GameSettings.OnKeyAll(GlfwKeyEvent)` | prefix | verified ↓ (no delta; `GameSettings.cs` byte-identical @5402) |
 | `HiddenUiFrameHook` | **ksa-abstractions.lib** | Patch | Unload | `Program.OnDrawUiConsole(double)` (**string** "OnDrawUiConsole") | prefix (no-op while `Program.DrawUI`) | string-named — verified ↓ @5402 |
@@ -91,13 +84,13 @@ are fully verified below: the inlined `EternalFlamePatches` and `MenuBarPatch`.
 | **`MenuBarPatch`** | **unscience/ (self)** | Patch | Unload | `Program.DrawProgramMenusHook()` | postfix | verified ↓ (no delta) |
 | `ShinyPatches` | its-so-shiny.lib | Patch | Unload | `PartModelModule` / `PartModelDynamicModule` / `PartModelGlassModule`.`UpdateRenderData` | prefix ×3 | render — see its-so-shiny scope |
 | `CameraControllerOverridePatches` | camera-controller-override.lib | Patch | Unload | `OrbitController.OnFrame` / `FlyController.OnFrame` (**string** "OnFrame") | prefix | string-named — see camera scope |
-| **`EternalFlamePatches`** | **unscience/ (INLINE)** | Patch | Unload | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | verified ↓ (no delta) |
+| **`EternalFlamePatches`** | **eternal-flame.lib** | Patch | Unload | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | verified ↓ (no delta) |
 | `KiwisMarblesPatches` | kiwis-marbles.lib | Patch | Unload | `Universe.ExecuteNextVehicleSolvers` | prefix `Priority.First` | sim-step timing — see celestial-and-lights scope |
 | `GlassPatches` | glass.lib | Patch | Unload | `Camera.ChangeFieldOfView` / `Camera.UpdateProjection` (**string**) + field `Camera._fovRadians` (**string**) | prefix | string-named — see glass scope |
 | `IFeelSeenPatches` | i-feel-seen.lib | Patch | Unload | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` (**string**) | prefix | string-named — see i-feel-seen scope |
 | `VehiclePaintPatches` | humble-arteest.lib | Patch | Unload | `PartModel.AddInstance` | prefix | render — see humble-arteest scope (`IViewport` param + new `RenderPartModels` gate @5402) |
 | `EngineEmissivePatches` | humble-arteest.lib | Patch | Unload | `PartModelDynamic.AddInstance` | prefix | render — see humble-arteest scope |
-| `IvaForceRender` | **ksa-abstractions.lib** | Patch | Unload | `PartModel..ctor` + `PartModel.AddInstance` (see IvaForceRender ↓) | postfix ×2 | wired 2026-08-23; `IViewport` retype @5402 |
+| `IvaForceRender` | **kitchen-sink.lib** | Patch | Unload | `PartModel..ctor` + `PartModel.AddInstance` (see IvaForceRender ↓) | postfix ×2 | wired 2026-08-23; `IViewport` retype @5402 |
 | `EditorScalePatches` | dont-stifle-me.lib | Patch | Unload | `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale` | postfix/prefix | see part-editor-and-robotics scope |
 | `KittenAnimationPatches` | kitten-animations.lib | Patch | Unload | `AnimatedRenderable.UpdateAnimation(double)` (**string** via `AccessTools.Method`) | prefix `(AnimatedRenderable __instance, ref double dt)` | ⚠️ **hot path** — runs for every animated renderable every frame; must stay a reference compare + early return. See character-and-materials scope |
 | `PyroPatches` | pyro.lib | Patch | Unload | `Vehicle.AddVolumetricExhaustInstances` (`nameof`) | postfix | see exhaust-plumes scope |
@@ -124,7 +117,7 @@ Notes:
 |---|---|---|---|---|---|---|---|
 | 1 | Harmony postfix | `MenuBarPatch.cs` (`[HarmonyPatch]`), applied `:15`, removed `:21-24` | `Program.DrawProgramMenusHook()` — `public void DrawProgramMenusHook()` (empty hook) | `KSA/Program.cs` (called from `DrawMenuBar` at `:3863`) | Yes | None — identical empty instance method (OLD `:3736`) | Game ships this as a deliberate no-op modding hook. Postfix appends an "Unscience" `ImGui.MenuItem`. Low risk. |
 
-### `EternalFlamePatches` (inlined in unscience/Patcher.cs) — owned by this area
+### `EternalFlamePatches` (eternal-flame.lib/EternalFlamePatches.cs) — owned by this area
 
 | # | Kind | Mod code (file) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|---|
@@ -148,7 +141,7 @@ Decomp paths relative to NEW decomp root. All confirmed present in NEW; OLD line
 | 5b | Direct API (prop) | `:24` | `Vehicle.IsDebris` — `public bool IsDebris { get; private set; }` | `KSA/Vehicle.cs` | Yes | **NEW @5402** (absent in OLD) | Set by `Vehicle.MarkAsDebris()` from `PartFailure` (`KSA/PartFailure.cs`). `GetAllVehicles(bool includeDebris = false)` filters on it so shed fragments stay out of every mod's picker; `FindVehicle` and the two callers that must see everything pass `true`. |
 | 6 | Direct API (prop) | `:22` | `Vehicle.Id` (inherited `Astronomical.Id` via `IObjectId`) — `public virtual string Id { get; protected set; }` | `KSA/Astronomical.cs` | Yes | None (OLD `:104`) | `Id` is not declared on `Vehicle`; resolved through base `Astronomical`/`IObjectId`. |
 
-`unscience/Patcher.cs` applies/removes IvaForceRender. The policy inspector manages the active override, including existing and newly created PartModel instances. Kitchen Sink Flexo panels and solver patch are removed.
+`KitchenSinkSubmod.ConfigureRuntime` applies/removes the feature-local IvaForceRender hooks while its policy is enabled. The policy inspector manages the active override, including existing and newly created PartModel instances. Kitchen Sink Flexo panels and solver patch are removed.
 
 ### KsaPaths.cs
 
@@ -181,3 +174,9 @@ All 25 features implement `CaptureDraft`, `PrepareRestore`, `Draft`, and `GetLiv
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/00-architecture-and-abstractions.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Runtime ownership and recovery surface
+
+`IWorkspaceFeature` now includes `ConfigureRuntime`, `ReleaseLiveState` and `UpdateAfterGui`. Shared managed algorithms own no game objects. `OwnedGpuAssets` reads the protected `AssetManager<T>.AssetMap` (`ConcurrentDictionary<AssetName,T>`), removes exact key/reference pairs, waits through `Program.GetRenderer().Device.WaitIdle()` and calls `LoadedAssetRef.Dispose()`. Do not use KSA 5402’s destructive `AssetManager.TryGet` for lookup/removal.
+
+`FeatureUi` uses `ImGui.Internal.ErrorRecoveryStoreState`, `ErrorRecoveryTryToRecoverState`, `ImGuiErrorRecoveryState` and `ImGuiIO.ConfigErrorRecoveryEnableAssert`. The wrapper’s current native structure layout is an explicit version dependency. Initialization and native UI failures are isolated per feature; these mechanisms require in-game fault testing.

@@ -18,7 +18,7 @@ public sealed partial class GarrysTorchSubmod
         var state = new DraftBindings();
         state.Value("pendingPosition", () => _pendingPosition, value => _pendingPosition = value);
         state.Value("pendingRotation", () => _pendingRotation, value => _pendingRotation = value);
-        state.Value("pendingScale", () => _pendingScale, value => _pendingScale = value);
+        state.Value("pendingScale", () => _pendingScale, value => _pendingScale = value, validate: v => DraftValueValidation.Range(v, 0.001, 1000, "pendingScale"));
         state.Value("pendingLockRotation", () => _pendingLockRotation, value => _pendingLockRotation = value);
         state.Text("sourceFilter", _sourceFilter);
         state.Text("targetFilter", _targetFilter);

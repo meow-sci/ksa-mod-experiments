@@ -22,6 +22,11 @@ public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
 
     private AnimationUiContext? _context;
     private CharacterAvatar? _boundAvatar;
+    private string? _liveKittenTarget;
+    private KittenLocomotionTuning? _originalTuning;
+
+    private static KittenEva? ResolveKitten(string? target) => target == "$controlled"
+        ? KittenAvatarAccessor.GetKitten() : target == null ? null : VehicleProvider.FindVehicle(target) as KittenEva;
 
     public void Initialize()
     {
@@ -32,7 +37,8 @@ public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
     {
         try
         {
-            var kitten = KittenAvatarAccessor.GetKitten();
+            _driver.RestoreDisabledProcessors();
+            var kitten = ResolveKitten(_liveKittenTarget);
             var renderable = kitten?.Renderable;
             var avatar = KittenAvatarAccessor.GetAvatar(renderable);
 
@@ -43,7 +49,10 @@ public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
             }
 
             if (!ReferenceEquals(avatar, _boundAvatar))
+            {
+                Unbind();
                 Bind(kitten, renderable, avatar);
+            }
 
             // Refreshed every frame: the model is what the Harmony prefix matches against.
             _driver.TargetModel = avatar.Core.CharacterModel;
@@ -78,15 +87,14 @@ public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
         ImGui.Spacing();
         StrengthSection.Render(context);
         ImGui.Spacing();
-        TuningSection.Render(context);
+        if (_originalTuning.HasValue) TuningSection.Render(context);
 
         SubmodUI.EndContentArea();
     }
 
     public void Dispose()
     {
-        Unbind();
-        _driver.Reset();
+        ReleaseLiveState();
         KittenAnimationPatches.Driver = null;
     }
 
@@ -96,7 +104,7 @@ public sealed partial class KittenAnimationsSubmod : IWorkspaceFeature
         var processors = KittenAnimProcessors.Read(renderable);
 
         _expressions.Detach();
-        _expressions.Attach(avatar);
+
 
         _driver.ClearClip();
         _driver.Processors = processors;

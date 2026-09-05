@@ -62,6 +62,7 @@ public static class GlassPatches
         // explicitly own their per-camera FOV.
         if (!IsMainCamera(__instance)) return;
         if (_fovRadiansField == null) return;
+        FovController.CaptureCamera(__instance);
         float targetRadians = (float)(FovController.OverrideFovDegrees * (Math.PI / 180.0));
         _fovRadiansField.SetValue(__instance, targetRadians);
     }

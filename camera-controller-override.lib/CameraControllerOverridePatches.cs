@@ -25,17 +25,21 @@ public static class CameraControllerOverridePatches
         var orbitOnFrame = AccessTools.Method(typeof(OrbitController), "OnFrame");
         var flyOnFrame = AccessTools.Method(typeof(FlyController), "OnFrame");
 
-        if (orbitOnFrame != null)
-            harmony.Patch(orbitOnFrame, prefix: prefix);
-        if (flyOnFrame != null)
-            harmony.Patch(flyOnFrame, prefix: prefix);
+        if (orbitOnFrame == null || flyOnFrame == null) throw new MissingMethodException("Camera controller OnFrame target is unavailable.");
+        harmony.Patch(orbitOnFrame, prefix: prefix);
+        harmony.Patch(flyOnFrame, prefix: prefix);
 
         Console.WriteLine("camera-controller-override.lib: patches applied");
     }
 
     public static void Remove(Harmony harmony)
     {
-        harmony.UnpatchAll(harmony.Id);
+        var prefix = AccessTools.Method(typeof(CameraControllerOverridePatches), nameof(OnFramePrefix));
+        foreach (var type in new[] { typeof(OrbitController), typeof(FlyController) })
+        {
+            var target = AccessTools.Method(type, "OnFrame");
+            if (target != null) harmony.Unpatch(target, prefix);
+        }
         Console.WriteLine("camera-controller-override.lib: patches removed");
     }
 

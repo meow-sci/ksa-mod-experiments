@@ -96,3 +96,9 @@ stock material handle.
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/parachutes.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Apply transactionally replaces an owned GPU material/texture bundle; prior bundles are freed after observed canopy handles are switched and GPU work drains. Restore uses each canopy’s original handle. Full-canopy projection shaders activate only for an explicit projection Apply and are removed on stock restore or replacement with another mode. MaterialIndices baselines are captured per AnimatedRenderable. Owned allocations use the shared exact-reference AssetMap release helper; no stock texture/material is disposed.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

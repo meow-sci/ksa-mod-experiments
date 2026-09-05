@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using MeowSci.KsaAbstractions;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -20,6 +22,25 @@ namespace MeowSci.DohLib.Materials;
 /// </summary>
 public static class MaterialSystemAccessor
 {
+    private static readonly Dictionary<int, (string Name, OwnedGpuAssets Assets)> OwnedMaterials = new();
+    public static void ReleaseOwned(string prefix)
+    {
+        foreach (var pair in OwnedMaterials.ToArray())
+            if (pair.Value.Name.StartsWith(prefix + "_", StringComparison.Ordinal))
+            { pair.Value.Assets.Dispose(); OwnedMaterials.Remove(pair.Key); }
+    }
+    public static void ReleaseUnreferenced(IReadOnlyCollection<string> retainedPrefixes)
+    {
+        foreach (var pair in OwnedMaterials.ToArray())
+            if (!retainedPrefixes.Any(prefix => pair.Value.Name.StartsWith(prefix + "_", StringComparison.Ordinal)))
+            { pair.Value.Assets.Dispose(); OwnedMaterials.Remove(pair.Key); }
+    }
+    public static void ReleaseAllOwned()
+    {
+        foreach (var pair in OwnedMaterials.ToArray())
+        { pair.Value.Assets.Dispose(); OwnedMaterials.Remove(pair.Key); }
+    }
+
     private static bool _initialized;
     private static string? _lastError;
 
@@ -124,6 +145,14 @@ public static class MaterialSystemAccessor
             bool success = result is bool b && b;
             if (!success)
                 _lastError = $"CreateObject returned false for '{assetName}' — name may already exist.";
+            if (success)
+            {
+                var manager = Program.Instance!.SuperMeshRenderSystem.MaterialSystem;
+                var asset = manager.GetOrLoad((AssetName)assetName);
+                var owned = new OwnedGpuAssets();
+                owned.Own(manager, asset);
+                OwnedMaterials.Add(asset.Handle, (assetName, owned));
+            }
             return success;
         }
         catch (Exception ex)

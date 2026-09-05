@@ -16,11 +16,18 @@ public sealed partial class PyroSubmod
                 item.Editor.Render();
                 if (ImGui.Button("Apply live edits")) ApplyTemplateRecipe(id, item.Editor);
                 if (ImGui.Button("Copy settings to workspace")) { _templateDraftId = id; _templateDraft = DraftJson.Clone(item.Editor); }
-                if (ImGui.Button("Restore original template")) { item.Original.Apply(item.Template); TemplateRefresher.NotifyTemplateChanged(item.Template, this); _templateOverrides.Remove(id); }
+                if (ImGui.Button("Restore original template")) { RestoreTemplate(id); }
             });
         if (_plumes.Count > 0) yield return new LiveStateItem<PyroSubmod>("all", "All plumes", "Bulk controls", this, _ => RenderBulkToggles());
         foreach (var entry in _plumes.ToArray())
             yield return new LiveStateItem<PlumeEntry>(entry.Id.ToString(), "Plume " + entry.Id, entry.Vehicle.Id + "/" + entry.Part.Id, entry, RenderLiveItem);
+    }
+    private void RestoreTemplate(string id)
+    {
+        var item = _templateOverrides[id];
+        item.Original.Apply(item.Template);
+        TemplateRefresher.NotifyTemplateChanged(item.Template, this);
+        _templateOverrides.Remove(id);
     }
     private void RenderLiveItem(PlumeEntry entry)
     {

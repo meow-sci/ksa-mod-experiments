@@ -65,7 +65,12 @@ public sealed class ThugLifeRenderManager : IDisposable
         return true;
     }
 
-    public bool Remove(ThugLifeEntry entry) => _entries.Remove(entry);
+    public bool Remove(ThugLifeEntry entry)
+    {
+        if (!_entries.Contains(entry)) return false;
+        if (_entries.Count == 1) { Active = false; DisposeGpuResources(); }
+        return _entries.Remove(entry);
+    }
 
     /// <summary>
     /// Per-frame game-thread driver: advances any entry that is still sliding into place.
@@ -153,8 +158,9 @@ public sealed class ThugLifeRenderManager : IDisposable
 
     private void DisposeGpuResources()
     {
-        try { _quad?.Dispose(); } catch { }
-        try { _texture?.Dispose(); } catch { }
+        if (_quad != null || _texture != null) Program.GetRenderer().Device.WaitIdle();
+        _quad?.Dispose();
+        _texture?.Dispose();
         _quad = null;
         _texture = null;
     }

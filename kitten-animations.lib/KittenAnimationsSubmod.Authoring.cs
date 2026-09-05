@@ -15,12 +15,16 @@ public sealed partial class KittenAnimationsSubmod
         if (ImGui.BeginCombo(MeowSci.KsaAbstractions.FormField.Label("Kitten target"), _kittenTarget.Length == 0 ? "Select…" : _kittenTarget))
         {
             if (ImGui.Selectable("Controlled kitten", _kittenTarget == "$controlled")) _kittenTarget = "$controlled";
-            if (_context != null && ImGui.Selectable(_context.Kitten.Id, _kittenTarget == _context.Kitten.Id)) _kittenTarget = _context.Kitten.Id;
+            foreach (var kitten in VehicleProvider.GetAllVehicles().OfType<KittenEva>())
+                if (ImGui.Selectable(kitten.Id, _kittenTarget == kitten.Id)) _kittenTarget = kitten.Id;
             ImGui.EndCombo();
         }
+        var draftKitten = ResolveKitten(_kittenTarget);
+        var draftAvatar = KittenAvatarAccessor.GetAvatar(draftKitten?.Renderable);
+        var draftCatalog = draftAvatar == null ? null : KittenAnimationCatalog.Build(draftAvatar, draftKitten!.Renderable!);
         if (ImGui.BeginCombo(MeowSci.KsaAbstractions.FormField.Label("Clip"), _recipe.Clip.Length == 0 ? "Select…" : _recipe.Clip))
         {
-            if (_context != null) foreach (var group in _context.Catalog.Groups)
+            if (draftCatalog != null) foreach (var group in draftCatalog.Groups)
                 foreach (var entry in group.Entries)
                 { string id = group.Name + "/" + entry.Source + "/" + entry.Label;
                   if (ImGui.Selectable(id, id == _recipe.Clip)) _recipe.Clip = id; }
@@ -73,7 +77,7 @@ public sealed partial class KittenAnimationsSubmod
             ImGui.DragFloat(MeowSci.KsaAbstractions.FormField.Label("JumpLandBounceIgnoreTime"), ref _recipe.JumpLandBounceIgnoreTime, .01f);
             ImGui.DragFloat(MeowSci.KsaAbstractions.FormField.Label("LadderEyePitchDeg"), ref _recipe.LadderEyePitchDeg, .01f);
         }
-        bool resolved = _context != null && (_kittenTarget == "$controlled" || _kittenTarget == _context.Kitten.Id);
+        bool resolved = draftAvatar != null;
         if (!resolved) ImGui.TextDisabled("Take control of the selected kitten, or choose an available target.");
         ImGui.BeginDisabled(!resolved);
         if (ImGui.Button("Apply animation settings", new float2(-1, 0))) ApplyRecipe(false);
@@ -83,12 +87,20 @@ public sealed partial class KittenAnimationsSubmod
     }
     private void ApplyRecipe(bool play)
     {
-        if (_context == null) return;
+        _recipe.Validate();
+        var kitten = ResolveKitten(_kittenTarget);
+        var avatar = KittenAvatarAccessor.GetAvatar(kitten?.Renderable);
+        if (kitten?.Renderable == null || avatar == null) return;
+        var catalog = KittenAnimationCatalog.Build(avatar, kitten.Renderable);
         AnimationEntry? selected = null;
-        foreach (var group in _context.Catalog.Groups)
+        foreach (var group in catalog.Groups)
             foreach (var entry in group.Entries)
                 if (group.Name + "/" + entry.Source + "/" + entry.Label == _recipe.Clip) selected = entry;
         if (play && _recipe.Clip.Length > 0 && selected == null) { Console.WriteLine("kitten-animations: selected clip unresolved"); return; }
+        if (!ReferenceEquals(avatar, _boundAvatar)) { Unbind(); Bind(kitten, kitten.Renderable, avatar); }
+        _liveKittenTarget = _kittenTarget;
+        _driver.TargetModel = avatar.Core.CharacterModel;
+        _originalTuning ??= KittenLocomotionTuning.Current;
         _driver.OverrideActive = _recipe.OverrideActive;
         _driver.BlendTime = _recipe.BlendTime;
         _driver.PlaybackRateScale = _recipe.PlaybackRateScale;
@@ -130,6 +142,6 @@ public sealed partial class KittenAnimationsSubmod
         KittenLocomotionTuning.Current.LadderEyePitchDeg = _recipe.LadderEyePitchDeg;
         if (!play) return;
         if (selected != null) _driver.Play(selected);
-        if (_recipe.Expression != 0) _expressions.Trigger(_context.Avatar, (KittenExpressionController.ExpressionType)_recipe.Expression, _recipe.Variant, _random);
+        if (_recipe.Expression != 0) _expressions.Trigger(avatar, (KittenExpressionController.ExpressionType)_recipe.Expression, _recipe.Variant, _random);
     }
 }

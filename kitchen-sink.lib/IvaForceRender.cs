@@ -4,7 +4,7 @@ using System.Reflection;
 using HarmonyLib;
 using KSA;
 
-namespace MeowSci.KsaAbstractions;
+namespace MeowSci.KitchenSinkLib;
 
 /// <summary>
 /// Forces IVA (interior) parts to render even when not in IVA camera mode
@@ -55,6 +55,7 @@ public static class IvaForceRender
     /// </summary>
     public static void Unpatch(Harmony harmony)
     {
+        Enabled = false;
         if (_ctorOriginal != null && _ctorPostfix != null)
             harmony.Unpatch(_ctorOriginal, _ctorPostfix);
         if (_addInstanceOriginal != null && _addInstancePostfix != null)
@@ -110,7 +111,7 @@ public static class IvaForceRender
     /// </remarks>
     private static void AddInstancePostfix(PartModel __instance, PartModel.PerInstanceData __0, IViewport __1)
     {
-        if (Program.Editor == null) return;
+        if (!_enabled || Program.Editor == null) return;
         if (!__1.HasAny(ViewportOptionFlags.RenderPartModels)) return;
         if (!__instance.Template.Internal) return;
         if (__1.Mode == CameraMode.IVA) return;

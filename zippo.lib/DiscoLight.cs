@@ -18,6 +18,7 @@ internal sealed class DiscoLight : IDisposable
     private readonly Dictionary<KeyframeAnimationModule, (float Original, float Written)> _goals = new();
     private readonly List<(LightModule Module, LightModule.TemplateData Original, LightModule.TemplateData Owned)> _lights = new();
     private readonly uint _seed;
+    private readonly MeowSci.KsaLights.LightStateLease _switchLease;
     public int SpotCount => _lights.Count(l => l.Owned.Type == LightModule.TemplateData.LightType.Spot);
     public bool OwnsTemplates => _lights.All(l => ReferenceEquals(l.Module.Template, l.Owned));
 
@@ -27,6 +28,7 @@ internal sealed class DiscoLight : IDisposable
         Recipe = DraftJson.Clone(recipe);
         Recipe.Validate();
         _seed = (uint)Random.Shared.Next();
+        _switchLease = new MeowSci.KsaLights.LightStateLease(part, appearance: false);
         foreach (var module in part.Modules.Get<LightModule>())
         {
             var original = module.Template;
@@ -116,6 +118,7 @@ internal sealed class DiscoLight : IDisposable
             if (ReferenceEquals(module.Template, owned)) module.Template = original;
         foreach (var (module, goal) in _goals)
             if (module.TimeGoal == goal.Written) module.TimeGoal = goal.Original;
+        _switchLease.Dispose();
         _lights.Clear(); Actuators.Clear(); _goals.Clear();
     }
 }

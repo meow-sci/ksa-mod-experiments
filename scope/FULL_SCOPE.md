@@ -10,14 +10,16 @@ The workspace redesign retains **25 feature library projects**, adds game-indepe
 
 The solution compiles against 5402. Automated contract checks cover save/overwrite/recovery, transactional draft restoration and live-state isolation; project checks enforce independent feature references. Native ImGui, game simulation and GPU behavior still require an in-game acceptance pass. See [workspace verification](../docs/WORKSPACE.md#verification).
 
-Outstanding game-specific checks carried forward: Hot Pursuit secondary viewport omissions/lease contention; Pyro refraction (game-side `_hasRefractionInstances` is not set in 5402); Garry's Torch collision/debris behavior; Graffiti terrain/deployed-canopy picking; Parts Now loader/thumbnail/headroom invariants; Free Fallin projection/PBR/restore; editor scale/parachute limits and symmetry; Kiwi near deployed chutes; Force IVA viewport gating; Thug/Shiny rendering; Humble Arteest paint/material paths; Kitten animation driver and Con Man HUD scaling. Prior compile success never cleared these behavioral risks.
+Outstanding game-specific checks carried forward: Hot Pursuit secondary viewport omissions/lease contention; Pyro refraction (game-side `_hasRefractionInstances` is not set in 5402); Garry's Torch collision/debris behavior; Graffiti terrain/deployed-canopy picking; Parts Now loader/thumbnail/on-demand mesh relocation invariants; Free Fallin projection/PBR/restore; editor scale/parachute limits and symmetry; Kiwi near deployed chutes; Force IVA viewport gating; Thug/Shiny rendering; Humble Arteest paint/material paths; Kitten animation driver and Con Man HUD scaling. Prior compile success never cleared these behavioral risks.
+
+Current runtime changes: all 25 features expose explicit release; initialization failures are isolated; original-value restoration and owned GPU cleanup are implemented; detached validation and native ImGui recovery are strengthened. Managed ownership tests cover rollback, shared baselines and tail reclamation. Parts Now now grows raster mesh buffers on demand, refusing relocation with a live ray-tracing renderer. The requested cross-feature asset-unload lease mechanism remains excluded. Native acceptance is pending.
 
 Current creative-tool additions: Zippo Disco uses per-instance LightModule templates and shared assembly actuator ownership; Humble Arteest adds rendered-mesh cursor picking and mesh paint scopes; Graffiti adds held-input spray cadence. See the area pages and master surface for exact members. No new Harmony targets or GPU layouts; managed checks do not establish native acceptance.
 
 ## Integration model
 
 - `unscience/Mod.cs` is the StarMap entry and owns the 25 feature lifecycles. Visibility affects authoring navigation only. `IWorkspaceFeature` extends `ISubmod`; each feature owns its recipes and live records.
-- `unscience/Patcher.cs` owns one Harmony instance, including HotkeyGuard. Existing feature patch targets remain except removed features. Garry's Torch uses a solver-safe after-GUI phase, not an added solver prefix.
+- `unscience/Patcher.cs` retains host-only menu/input/HUD hooks. Feature-defined groups use independent Harmony owners with first-demand activation and final-release teardown. Garry's Torch uses a solver-safe after-GUI phase, not an added solver prefix.
 - `HiddenUiFrameHook` replays non-UI updates while the game's HUD is hidden. Parts Now keeps GPU load/purge before GUI. The host drains GameThread independently of RPC.
 - `unscience-contracts.lib` has no game references. `ksa-abstractions.lib` owns draft bindings, exact target identity, common UI/live contracts and cross-cutting game helpers. `ksa-lights.lib` and `ksa-rings.lib` own shared domain integration; feature libraries never reference one another.
 - Saving/loading only replaces detached authoring state. Explicit Apply invokes the existing game operations. Renderer handles, welds, players, samples, jobs and live item data are never serialized as workspace state.
@@ -34,7 +36,7 @@ Current creative-tool additions: Zippo Disco uses per-instance LightModule templ
 | [Telemetry](telemetry.md) | average-twr, geeforce; live recorders and monitoring policy |
 | [Pixel grids and render](pixel-grids-and-render.md) | its-so-shiny, thug-life; grid state and custom pass |
 | [Characters and materials](character-and-materials.md) | doh, humble-arteest, kitten-animations; EVA, material/paint/engine overrides, mesh-instance cursor paint, animation driver |
-| [Part editor](part-editor-and-robotics.md) | parts-now, dont-stifle-me; loading jobs, mesh headroom, editor policy |
+| [Part editor](part-editor-and-robotics.md) | parts-now, dont-stifle-me; loading jobs, on-demand mesh storage, editor policy |
 | [Exhaust](exhaust-plumes.md) | pyro; plume instances and explicit shared-template recipes |
 | [Decals](decals.md) | graffiti; DecalEntry, picking, custom pass and global policy |
 | [Parachutes](parachutes.md) | free-fallin; detached recipe and applied material resources |

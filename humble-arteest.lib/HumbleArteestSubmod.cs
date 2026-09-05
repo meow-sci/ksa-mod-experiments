@@ -75,8 +75,7 @@ public sealed partial class HumbleArteestSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _vehiclePaint.Dispose();
+        ReleaseLiveState();
         _kittenColor.Dispose();
-        _engineEmissive.Dispose();
     }
 }

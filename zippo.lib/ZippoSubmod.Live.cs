@@ -28,7 +28,7 @@ public sealed partial class ZippoSubmod
                 if (animation != null) ImGui.ProgressBar((float)(animation.ElapsedSeconds / animation.DurationSeconds), new float2(-1, 0));
                 ImGui.Text($"Queued: {_animationManager.GetQueueCount(id)}");
                 if (ImGui.Button("Stop and clear animation queue", new float2(-1, 0))) _animationManager.CancelAll(id);
-                if (ImGui.Button("Stop managing this light", new float2(-1, 0))) { _animationManager.CancelAll(id); _managedLights.Remove(id); }
+                if (ImGui.Button("Stop managing this light", new float2(-1, 0))) { ReleaseLight(id); }
             }, ResolveManagedPart(id) == null ? "Target missing" : _animationManager.IsAnimating(id) ? "Animating" : "Applied");
     }
 

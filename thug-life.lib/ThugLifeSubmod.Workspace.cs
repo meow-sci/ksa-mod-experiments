@@ -18,8 +18,8 @@ public sealed partial class ThugLifeSubmod
         var state = new DraftBindings();
         state.Value("pendingPosition", () => _pendingPosition, value => _pendingPosition = value);
         state.Value("pendingRotation", () => _pendingRotation, value => _pendingRotation = value);
-        state.Value("pendingWidth", () => _pendingWidth, value => _pendingWidth = value);
-        state.Value("pendingHeight", () => _pendingHeight, value => _pendingHeight = value);
+        state.Value("pendingWidth", () => _pendingWidth, value => _pendingWidth = value, validate: v => DraftValueValidation.Range(v, 0.001, 10000, "pendingWidth"));
+        state.Value("pendingHeight", () => _pendingHeight, value => _pendingHeight = value, validate: v => DraftValueValidation.Range(v, 0.001, 10000, "pendingHeight"));
         state.Text("vehicleFilter", _vehicleFilter);
         state.Text("partFilter", _partFilter);
         state.Text("subPartFilter", _subPartFilter);

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>MeowSci.KsaAbstractions</AssemblyName>
     <RootNamespace>MeowSci.KsaAbstractions</RootNamespace>
     <Description>KSA Abstractions Library</Description>
@@ -38,6 +39,38 @@
       <HintPath>$(KSAFolder)KSA.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Texture" Condition="Exists('$(KSAFolder)Brutal.Texture.dll')"><HintPath>$(KSAFolder)Brutal.Texture.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Texture.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Texture.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Texture.Abstractions.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Ktx" Condition="Exists('$(KSAFolder)Brutal.Ktx.dll')"><HintPath>$(KSAFolder)Brutal.Ktx.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.ShaderC" Condition="Exists('$(KSAFolder)Brutal.ShaderC.dll')"><HintPath>$(KSAFolder)Brutal.ShaderC.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Vulkan" Condition="Exists('$(KSAFolder)Brutal.Vulkan.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Brutal.Vulkan.Abstractions" Condition="Exists('$(KSAFolder)Brutal.Vulkan.Abstractions.dll')"><HintPath>$(KSAFolder)Brutal.Vulkan.Abstractions.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Planet.Core" Condition="Exists('$(KSAFolder)Planet.Core.dll')"><HintPath>$(KSAFolder)Planet.Core.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Planet.Render.Core" Condition="Exists('$(KSAFolder)Planet.Render.Core.dll')"><HintPath>$(KSAFolder)Planet.Render.Core.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
   <ItemGroup><ProjectReference Include="../unscience-contracts.lib/unscience-contracts.lib.csproj" /></ItemGroup>

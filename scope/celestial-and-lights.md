@@ -26,7 +26,7 @@ The tables below describe retained game touchpoints. Dated upgrade investigation
 Permanent reference cataloging how two Unscience features integrate with the KSA game,
 for detecting when a game update breaks them.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ---
 
@@ -121,3 +121,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/celestial-and-lights.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Ordinary light/animation entries now acquire shared-template and switch-baseline leases. Removing the last owner restores original color, indexed-color identity, intensity and switch state. Transitioning to Disco releases ordinary ownership first. Disco also restores inspector switch edits; pause retains ownership, while stop releases it. Orbit restores stay in Live State until a solver-safe retry succeeds. The solver hook remains installed while either welds or pending restores exist. Unload waits for orbit and vehicle solvers before restoring. LightStateLease accesses LightModule.TemplateData.ColorRgb (R/G/B/IndexedColor/OnDataLoad), Intensity.Value and PowerConsumer.LightIsActive; these are shared across Zippo and Shiny through ksa-lights.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

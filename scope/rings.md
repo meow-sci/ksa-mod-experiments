@@ -112,3 +112,9 @@ TOML under `.unscience/bloomin-onion-rings.toml`; body assignments deliberately 
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/rings.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Release restores original ring references and rebuilds the renderer before pruning owned assets. A failed rebuild retains the live records for retry. Release restores original ring fields, rebuilds the renderer and then prunes unused converted meshes. Failed restoration keeps the live selection available for retry.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

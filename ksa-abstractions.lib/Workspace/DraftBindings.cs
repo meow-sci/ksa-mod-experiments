@@ -22,7 +22,12 @@ public sealed class DraftBindings
         public JsonElement Capture() => DraftJson.Encode(get());
         public Action Prepare(JsonElement? data)
         {
-            T value = DraftJson.Decode<T>(data ?? _initial);
+            var encoded = data ?? _initial;
+            DraftValueValidation.Json(encoded);
+            DraftValueValidation.RequiredShape(encoded, _initial);
+            T value = DraftJson.Decode<T>(encoded);
+            if (value is float f && !float.IsFinite(f) || value is double d && !double.IsFinite(d)) throw new JsonException("Non-finite authoring value.");
+            if (typeof(T).IsEnum && value != null && !Enum.IsDefined(typeof(T), value)) throw new JsonException("Invalid authoring enum.");
             if (value == null && _initial.ValueKind != JsonValueKind.Null) throw new JsonException("Required authoring field cannot be null.");
             validate?.Invoke(value);
             return () => set(value);

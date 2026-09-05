@@ -135,12 +135,12 @@ public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
         SubmodUI.EndContentArea();
     }
 
+    public void UpdateAfterGui(double dt) => UpdateWelds(dt);
+
     public void Dispose()
     {
+        ReleaseLiveState();
         _animationManager.Clear();
-        foreach (var weld in _welds)
-            WeldEngine.ApplyVehicleScale(weld.Source, 1.0f);
-        _welds.Clear();
         Instance = null;
     }
 
@@ -284,10 +284,11 @@ public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
         RenderDataFields($"##gt_w{index}", ref weld.Position, ref weld.Rotation,
             ref weld.Scale, ref weld.LockRotation);
         if (weld.Scale != prevScale)
-            WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
+            WeldEngine.ApplyVehicleScale(weld, weld.Scale);
 
         ImGui.Spacing();
-        ImGui.Checkbox($"Weld Enabled##gt_w{index}_enabled", ref weld.WeldEnabled);
+        if (ImGui.Checkbox($"Weld Enabled##gt_w{index}_enabled", ref weld.WeldEnabled))
+            WeldEngine.ApplyVehicleScale(weld, weld.Scale);
 
         ImGui.Spacing();
         if (ImGui.Button($" Save settings as preset... ##gt_save_{index}"))
@@ -526,7 +527,7 @@ public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
         _welds.Add(entry);
 
         if (scale != 1f)
-            WeldEngine.ApplyVehicleScale(source, scale);
+            WeldEngine.ApplyVehicleScale(entry, scale);
 
         SortWelds();
         Console.WriteLine($"garrys-torch: Welded {source.Id} to {target.Id}");
@@ -557,7 +558,7 @@ public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
         if (scale.HasValue && scale.Value != weld.Scale)
         {
             weld.Scale = scale.Value;
-            WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
+            WeldEngine.ApplyVehicleScale(weld, weld.Scale);
         }
 
         return (weld, null);
@@ -625,7 +626,7 @@ public sealed partial class GarrysTorchSubmod : IWorkspaceFeature
     private void RemoveWeld(WeldEntry entry)
     {
         _animationManager.CancelAll(entry);
-        WeldEngine.ApplyVehicleScale(entry.Source, 1.0f);
+        WeldEngine.RestoreVehicleScale(entry);
         Console.WriteLine($"garrys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
         _welds.Remove(entry);
     }

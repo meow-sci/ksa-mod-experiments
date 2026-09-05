@@ -203,7 +203,7 @@ public sealed partial class CameraControllerOverrideSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        Console.WriteLine("camera-controller-override.lib: CameraControllerOverrideSubmod disposed");
+        ReleaseLiveState();
         Instance = null;
     }
 

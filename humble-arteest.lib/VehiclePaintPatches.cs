@@ -74,25 +74,11 @@ public static class VehiclePaintPatches
 
     private static void Patch(Harmony harmony, MethodBase? original, string prefixName, string label)
     {
-        try
-        {
-            if (original == null)
-            {
-                Console.WriteLine($"humble-arteest: WARNING — {label} not found; paint will be incomplete");
-                return;
-            }
-
-            var prefix = typeof(VehiclePaintPatches).GetMethod(prefixName,
-                BindingFlags.NonPublic | BindingFlags.Static)
-                ?? throw new MissingMethodException(nameof(VehiclePaintPatches), prefixName);
-
-            harmony.Patch(original, prefix: new HarmonyMethod(prefix));
-            Records[_recordCount++] = new PatchRecord(original, prefix, label);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"humble-arteest: WARNING — could not patch {label}: {ex.Message}");
-        }
+        if (original == null) throw new MissingMethodException($"Paint target {label} is unavailable.");
+        var prefix = typeof(VehiclePaintPatches).GetMethod(prefixName, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new MissingMethodException(nameof(VehiclePaintPatches), prefixName);
+        harmony.Patch(original, prefix: new HarmonyMethod(prefix));
+        Records[_recordCount++] = new PatchRecord(original, prefix, label);
     }
 
     /// <summary>

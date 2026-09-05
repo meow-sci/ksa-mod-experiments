@@ -40,6 +40,6 @@ public sealed partial class IFeelSeenSubmod : IWorkspaceFeature
 
     public void Dispose()
     {
-        _tracker.Clear();
+        ReleaseLiveState();
     }
 }

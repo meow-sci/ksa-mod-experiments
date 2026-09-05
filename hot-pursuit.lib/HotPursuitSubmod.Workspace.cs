@@ -15,10 +15,10 @@ public sealed partial class HotPursuitSubmod
     private DraftBindings CreateDraftBindings()
     {
         var state = new DraftBindings();
-        state.Value("placementRange", () => _placementRange, value => _placementRange = value);
-        state.Value("nextFov", () => _nextFov, v => _nextFov = v);
-        state.Value("nextWidth", () => _nextWidth, v => _nextWidth = v);
-        state.Value("nextHeight", () => _nextHeight, v => _nextHeight = v);
+        state.Value("placementRange", () => _placementRange, value => _placementRange = value, validate: v => DraftValueValidation.Range(v, 0.01, 100000000.0, "placementRange"));
+        state.Value("nextFov", () => _nextFov, v => _nextFov = v, validate: v => DraftValueValidation.Range(v, 1, 179, "nextFov"));
+        state.Value("nextWidth", () => _nextWidth, v => _nextWidth = v, validate: v => DraftValueValidation.Range(v, 64, 8192, "nextWidth"));
+        state.Value("nextHeight", () => _nextHeight, v => _nextHeight = v, validate: v => DraftValueValidation.Range(v, 64, 8192, "nextHeight"));
         state.Value("nextTranslation", () => _nextTranslation, v => _nextTranslation = v);
         state.Value("nextRotation", () => _nextRotation, v => _nextRotation = v);
         return state;

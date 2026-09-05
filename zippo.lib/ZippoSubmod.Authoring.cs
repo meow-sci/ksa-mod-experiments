@@ -36,7 +36,7 @@ public sealed partial class ZippoSubmod
         if (ImGui.Button("Apply light settings", new float2(-1, 0)) && part != null)
         {
             StopDisco(part);
-            _managedLights[Key(part)] = part;
+            ManageLight(part);
             LightController.ApplyColor(part, new float3(_currentColor.X, _currentColor.Y, _currentColor.Z));
             LightController.ApplyIntensity(part, _intensity);
             var lightSwitch = part.LightSwitch ?? part.FullPart.LightSwitch;
@@ -58,7 +58,7 @@ public sealed partial class ZippoSubmod
             if (ImGui.Button("Queue animation", new float2(-1, 0)) && part != null)
             {
                 StopDisco(part);
-                _managedLights[Key(part)] = part;
+                ManageLight(part);
                 var animation = new LightAnimation(new float3(_animStartColor4.X, _animStartColor4.Y, _animStartColor4.Z),
                     new float3(_animEndColor4.X, _animEndColor4.Y, _animEndColor4.Z), _animStartIntensity, _animEndIntensity,
                     Math.Max(.1f, _animDuration), (EasingType)_animEasingIdx, _animPowerStart, _animPowerEnd);

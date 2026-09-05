@@ -11,8 +11,8 @@ public sealed partial class ConManSubmod
 {
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
-yield return new LiveStateItem<LayoutManager>("gauges", "Console layout", "Game gauges", "Live", _layoutManager, manager =>
-        { if (ImGui.Button("Copy layout to workspace", new float2(-1, 0))) CaptureLayout(); RenderLiveLayout(); });
+if (_layoutManager.HasLiveLayout) yield return new LiveStateItem<LayoutManager>("gauges", "Console layout", "Game gauges", "Live", _layoutManager, manager =>
+        { if (ImGui.Button("Copy layout to workspace", new float2(-1, 0))) CaptureLayout(); RenderLiveLayout(); if (ImGui.Button("Restore original layout", new float2(-1, 0))) manager.RestoreOriginal(); });
     }
 
 }

@@ -12,7 +12,7 @@ The tables below describe retained game touchpoints. Dated upgrade investigation
 Permanent reference for detecting when KSA game updates break **pyro** (independent volumetric engine
 plumes). Every game-facing member the mod touches is enumerated with its decompiled-source path.
 
-**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard and feature Harmony patches are wired through `unscience/Patcher.cs`. See [architecture](00-architecture-and-abstractions.md).
+**Host lifecycle** — The single Unscience host initializes and updates these feature libraries, independently of authoring visibility. HotkeyGuard remains in `unscience/Patcher.cs`; feature Harmony groups are registered by their owning libraries through `ConfigureRuntime`. See [architecture](00-architecture-and-abstractions.md).
 
 ---
 
@@ -78,3 +78,9 @@ Feature presets retain settings and asset choices while leaving the current targ
 ## Historical evidence
 
 See [dated integration and upgrade reference](history/exhaust-plumes.md) for prior build comparisons and retired integrations. That archive does not define current ownership or verification status.
+
+## Current runtime release behavior
+
+Release/unload restores applied shared exhaust-template snapshots and refreshes their consumers before forgetting records. Independent plume render hooks exist only while plumes are owned.
+
+Feature hook targets retain their existing signatures; patch ownership now follows explicit demand through the shared runtime coordinator. Native acceptance remains outstanding.

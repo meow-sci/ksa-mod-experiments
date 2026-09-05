@@ -38,3 +38,9 @@ Legacy feature presets remain accessible where the feature has a legacy picker. 
 for target resolution, schema/overwrite handling, migration and the in-game smoke checklist.
 
 Build from the repository root with `dotnet build ksa-mod-experiments.slnx`.
+
+## Runtime release
+
+Startup no longer reserves 48/12 MiB of GPU headroom. Shared raster buffers grow on demand before Bind, within the configured budget, and freed contiguous tails are reclaimed. Releasing the last pack shrinks storage while preserving external allocations. Buffer relocation is refused while a ray-tracing renderer owns cached GPU addresses: launch without ray tracing for runtime mesh growth. Texture-only loads can use the existing buffers. Release runs before GUI and uses the existing unload gate; it does not add cross-feature asset leases.
+
+`ReleaseLiveState` is feature-owned and is used by the host’s explicit release control and unload. Hiding or loading authoring settings never calls it. Feature patch groups are registered through `ConfigureRuntime` with independent Harmony owners; host menu/input/HUD hooks remain resident.

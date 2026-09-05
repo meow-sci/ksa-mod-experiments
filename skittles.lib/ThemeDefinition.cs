@@ -1,3 +1,5 @@
+using System;
+using MeowSci.Unscience.Contracts;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 
@@ -70,6 +72,63 @@ public class ThemeDefinition
     public bool AntiAliasedLines { get; set; } = true;
     public bool AntiAliasedLinesUseTex { get; set; } = true;
     public bool AntiAliasedFill { get; set; } = true;
+
+    public void Validate()
+    {
+        if (Colors == null || Colors.Length > (int)ImGuiCol.COUNT) throw new InvalidOperationException("Invalid theme color count.");
+        foreach (var color in Colors)
+            if (color != null) { if (color.Length != 4) throw new InvalidOperationException("Invalid theme color."); foreach (float c in color) DraftValueValidation.Range(c, 0, 1, "Color"); }
+        DraftValueValidation.Range(Alpha, 0, 1, nameof(Alpha));
+        DraftValueValidation.Range(DisabledAlpha, 0, 1, nameof(DisabledAlpha));
+        DraftValueValidation.Range(WindowRounding, 0, float.MaxValue, nameof(WindowRounding));
+        DraftValueValidation.Range(WindowBorderSize, 0, float.MaxValue, nameof(WindowBorderSize));
+        DraftValueValidation.Range(WindowBorderHoverPadding, 0, float.MaxValue, nameof(WindowBorderHoverPadding));
+        DraftValueValidation.Range(ChildRounding, 0, float.MaxValue, nameof(ChildRounding));
+        DraftValueValidation.Range(ChildBorderSize, 0, float.MaxValue, nameof(ChildBorderSize));
+        DraftValueValidation.Range(PopupRounding, 0, float.MaxValue, nameof(PopupRounding));
+        DraftValueValidation.Range(PopupBorderSize, 0, float.MaxValue, nameof(PopupBorderSize));
+        DraftValueValidation.Range(FrameRounding, 0, float.MaxValue, nameof(FrameRounding));
+        DraftValueValidation.Range(FrameBorderSize, 0, float.MaxValue, nameof(FrameBorderSize));
+        DraftValueValidation.Range(IndentSpacing, 0, float.MaxValue, nameof(IndentSpacing));
+        DraftValueValidation.Range(ColumnsMinSpacing, 0, float.MaxValue, nameof(ColumnsMinSpacing));
+        DraftValueValidation.Range(ScrollbarSize, 0, float.MaxValue, nameof(ScrollbarSize));
+        DraftValueValidation.Range(ScrollbarRounding, 0, float.MaxValue, nameof(ScrollbarRounding));
+        DraftValueValidation.Range(GrabMinSize, 0, float.MaxValue, nameof(GrabMinSize));
+        DraftValueValidation.Range(GrabRounding, 0, float.MaxValue, nameof(GrabRounding));
+        DraftValueValidation.Range(LogSliderDeadzone, 0, float.MaxValue, nameof(LogSliderDeadzone));
+        DraftValueValidation.Range(ImageBorderSize, 0, float.MaxValue, nameof(ImageBorderSize));
+        DraftValueValidation.Range(TabRounding, 0, float.MaxValue, nameof(TabRounding));
+        DraftValueValidation.Range(TabBorderSize, 0, float.MaxValue, nameof(TabBorderSize));
+        DraftValueValidation.Range(TabMinWidthBase, 0, float.MaxValue, nameof(TabMinWidthBase));
+        DraftValueValidation.Range(TabMinWidthShrink, 0, float.MaxValue, nameof(TabMinWidthShrink));
+        DraftValueValidation.Range(TabCloseButtonMinWidthSelected, 0, float.MaxValue, nameof(TabCloseButtonMinWidthSelected));
+        DraftValueValidation.Range(TabCloseButtonMinWidthUnselected, 0, float.MaxValue, nameof(TabCloseButtonMinWidthUnselected));
+        DraftValueValidation.Range(TabBarBorderSize, 0, float.MaxValue, nameof(TabBarBorderSize));
+        DraftValueValidation.Range(TabBarOverlineSize, 0, float.MaxValue, nameof(TabBarOverlineSize));
+        DraftValueValidation.Range(TableAngledHeadersAngle, -1.56, 1.56, nameof(TableAngledHeadersAngle));
+        DraftValueValidation.Range(TreeLinesSize, 0, float.MaxValue, nameof(TreeLinesSize));
+        DraftValueValidation.Range(TreeLinesRounding, 0, float.MaxValue, nameof(TreeLinesRounding));
+        DraftValueValidation.Range(SeparatorTextBorderSize, 0, float.MaxValue, nameof(SeparatorTextBorderSize));
+        DraftValueValidation.Range(DockingSeparatorSize, 0, float.MaxValue, nameof(DockingSeparatorSize));
+        DraftValueValidation.Range(MouseCursorScale, 0.0001, float.MaxValue, nameof(MouseCursorScale));
+        DraftValueValidation.Range(CurveTessellationTol, 0.0001, float.MaxValue, nameof(CurveTessellationTol));
+        DraftValueValidation.Range(CircleTessellationMaxError, 0.0001, float.MaxValue, nameof(CircleTessellationMaxError));
+        if (WindowPadding == null || WindowPadding.Length != 2) throw new InvalidOperationException("Invalid WindowPadding.");
+        if (WindowMinSize == null || WindowMinSize.Length != 2) throw new InvalidOperationException("Invalid WindowMinSize.");
+        if (WindowTitleAlign == null || WindowTitleAlign.Length != 2) throw new InvalidOperationException("Invalid WindowTitleAlign.");
+        if (FramePadding == null || FramePadding.Length != 2) throw new InvalidOperationException("Invalid FramePadding.");
+        if (ItemSpacing == null || ItemSpacing.Length != 2) throw new InvalidOperationException("Invalid ItemSpacing.");
+        if (ItemInnerSpacing == null || ItemInnerSpacing.Length != 2) throw new InvalidOperationException("Invalid ItemInnerSpacing.");
+        if (CellPadding == null || CellPadding.Length != 2) throw new InvalidOperationException("Invalid CellPadding.");
+        if (TouchExtraPadding == null || TouchExtraPadding.Length != 2) throw new InvalidOperationException("Invalid TouchExtraPadding.");
+        if (ButtonTextAlign == null || ButtonTextAlign.Length != 2) throw new InvalidOperationException("Invalid ButtonTextAlign.");
+        if (SelectableTextAlign == null || SelectableTextAlign.Length != 2) throw new InvalidOperationException("Invalid SelectableTextAlign.");
+        if (SeparatorTextAlign == null || SeparatorTextAlign.Length != 2) throw new InvalidOperationException("Invalid SeparatorTextAlign.");
+        if (SeparatorTextPadding == null || SeparatorTextPadding.Length != 2) throw new InvalidOperationException("Invalid SeparatorTextPadding.");
+        if (DisplayWindowPadding == null || DisplayWindowPadding.Length != 2) throw new InvalidOperationException("Invalid DisplayWindowPadding.");
+        if (DisplaySafeAreaPadding == null || DisplaySafeAreaPadding.Length != 2) throw new InvalidOperationException("Invalid DisplaySafeAreaPadding.");
+        if (TableAngledHeadersTextAlign == null || TableAngledHeadersTextAlign.Length != 2) throw new InvalidOperationException("Invalid TableAngledHeadersTextAlign.");
+    }
 
     public ThemeDefinition()
     {

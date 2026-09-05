@@ -50,7 +50,10 @@ public sealed partial class FreeFallinSubmod : IWorkspaceFeature
 
     public void RenderFloatingWindows() => _browser.Render(Import);
 
-    public void Dispose() => FreeFallinPatches.RestoreStock();
+    public void Dispose()
+    {
+        ReleaseLiveState();
+    }
 
     private void RenderTextureSection()
     {

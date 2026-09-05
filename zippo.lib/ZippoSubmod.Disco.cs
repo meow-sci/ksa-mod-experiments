@@ -96,7 +96,7 @@ public sealed partial class ZippoSubmod
         {
             StopDisco(part);
             _animationManager.CancelAll(Key(part));
-            _managedLights.Remove(Key(part));
+            ReleaseLight(Key(part));
             var live = new DiscoLight(part, _disco);
             _discoLights[part] = live;
             if (_disco.Actuation)

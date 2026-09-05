@@ -16,7 +16,7 @@ public sealed partial class EternalFlameSubmod
     {
         var state = new DraftBindings();
         state.Text("vehicleFilter", _vehicleFilter);
-        state.Value("refillIntervalMs", () => _refillIntervalMs, value => _refillIntervalMs = value);
+        state.Value("refillIntervalMs", () => _refillIntervalMs, value => _refillIntervalMs = value, validate: v => DraftValueValidation.Range(v, 0, 5000, "refillIntervalMs"));
         state.Choice("Vehicle", DraftOptions.Vehicles, () => _selectedVehicleIndex, v => _selectedVehicleIndex = v, target: true, vehicle: true);
         state.Value("Fuel", () => _refillFuel, v => _refillFuel = v);
         state.Value("Electricity", () => _refillElectricity, v => _refillElectricity = v);

@@ -16,7 +16,7 @@ public sealed partial class KittenAnimationsSubmod
     {
         var state = new DraftBindings();
 
-        state.Value("Recipe", () => _recipe, v => _recipe = v);
+        state.Value("Recipe", () => _recipe, v => _recipe = v, validate: v => v.Validate());
         state.Value("Kitten", () => _kittenTarget, v => _kittenTarget = v, target: true);
         return state;
     }

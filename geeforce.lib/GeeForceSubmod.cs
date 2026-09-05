@@ -28,6 +28,7 @@ public sealed partial class GeeForceSubmod : IWorkspaceFeature
 
     public void Update(double dt)
     {
+        if (!_recorder.IsRecording) { _accumulator = 0; return; }
         _accumulator += dt;
         while (_accumulator >= SampleIntervalSec)
         {
@@ -56,5 +57,8 @@ public sealed partial class GeeForceSubmod : IWorkspaceFeature
         SubmodUI.EndContentArea();
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        ReleaseLiveState();
+    }
 }

@@ -27,9 +27,15 @@ internal sealed partial class WorkspaceWindow
             ImGui.Text($"{rows.Count} managed items");
             ImGui.SetNextItemWidth(-1f); ImGui.InputTextWithHint("##live-filter", "Filter by feature, target, type or status…", _liveFilter);
             ImGui.Spacing();
-            ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6, 6));
             bool wide = ImGui.GetContentRegionAvail().X >= 750;
-            if (wide && ImGui.BeginTable("live-columns", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+            bool tableOpen = false;
+            if (wide)
+            {
+                ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new float2(6, 6));
+                tableOpen = ImGui.BeginTable("live-columns", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
+                ImGui.PopStyleVar();
+            }
+            if (tableOpen)
             {
                 ImGui.TableSetupColumn("Items", ImGuiTableColumnFlags.WidthStretch, 1f);
                 ImGui.TableSetupColumn("Inspector", ImGuiTableColumnFlags.WidthStretch, 2f);
@@ -38,7 +44,6 @@ internal sealed partial class WorkspaceWindow
                 ImGui.EndTable();
             }
             else if (!wide) { RenderLiveList(rows, 180); RenderLiveInspector(rows); }
-            ImGui.PopStyleVar();
         }
         ImGui.End();
     }
@@ -70,7 +75,8 @@ internal sealed partial class WorkspaceWindow
         {
             ImGui.SeparatorText(row.Item.Label);
             ImGui.TextDisabled(row.Item.Target);
-            row.Item.RenderInspector();
+            if (FeatureRuntime.For(row.Feature).Error is { } error) ImGui.TextWrapped(error);
+            FeatureUi.Render(row.Item.RenderInspector);
         }
         catch (Exception ex) { WorkspaceUi.Error(ex); }
         finally { SubmodUI.EndContentArea(); ImGui.EndChild(); ImGui.PopID(); }

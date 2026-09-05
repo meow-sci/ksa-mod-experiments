@@ -10,7 +10,7 @@ public static class EditorScaleSettings
     /// Master switch. When true the 0.5x–2.0x top-level part scale clamp is lifted and scale-gizmo
     /// drags act on the dragged axis only. When false every patch is a no-op (stock editor).
     /// </summary>
-    public static bool Enabled = true;
+    public static bool Enabled = false;
 
     /// <summary>
     /// Keep the game's scale snapping (0.25 m diameter increments). True is the stock behavior.

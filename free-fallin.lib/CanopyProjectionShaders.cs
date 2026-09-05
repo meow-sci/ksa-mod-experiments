@@ -52,7 +52,7 @@ internal static class CanopyProjectionShaders
         if (!Available)
         {
             Console.WriteLine($"free-fallin: full-canopy projection unavailable: {LastError}");
-            return;
+            throw new InvalidOperationException(LastError);
         }
 
         harmony.Patch(FromFile, prefix: new HarmonyMethod(FromFilePatch));
