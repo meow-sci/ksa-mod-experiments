@@ -16,6 +16,9 @@ public sealed partial class GraffitiSubmod
     private DraftBindings CreateDraftBindings()
     {
         var state = new DraftBindings();
+        state.Value("SprayMode", () => _sprayMode, v => _sprayMode = v);
+        state.Value("SprayIntervalMs", () => _sprayIntervalMs, v => _sprayIntervalMs = v,
+            validate: v => { if (v < 10 || v > 60_000) throw new InvalidOperationException("Spray interval must be 10–60000 ms."); });
         state.Text("decalFilter", _decalFilter);
         state.Value("width", () => _width, value => _width = value);
         state.Value("height", () => _height, value => _height = value);

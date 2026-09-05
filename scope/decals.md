@@ -1,5 +1,9 @@
 # Decals (graffiti) — Game Integration Scope
 
+## Creative tools — current integration
+
+Graffiti's `RenderFloatingWindows` additionally reads `ImGui.IsMouseDown(Left)` alongside `IsMouseClicked`, `GetIO().WantCaptureMouse` and Escape. `SprayCadence` uses monotonic Stopwatch seconds for 10–60000 ms authoring intervals, emits at most once per GUI frame, and rejects UI-originated drags. Capture/release resets the stroke; a fresh world press is required. Arm copies the complete placement recipe; load cancels only this gesture. Each successful tick calls the existing `PlaceAtCursor` path and creates an ordinary DecalEntry. No new KSA picking API, Harmony patch, texture ownership or GPU layout is introduced. Native held-input/GUI capture and projection require live verification.
+
 ## Workspace integration (current)
 
 Active bundled features: **graffiti**. Each implements `IWorkspaceFeature` with explicit draft bindings and typed `ILiveStateItem` providers; its old standalone entry project is retired. See [workspace contract](../docs/WORKSPACE.md).

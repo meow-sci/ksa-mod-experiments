@@ -1,6 +1,8 @@
 # Unscience persistence checks
 
-Dependency-free executable tests for normalized-name collisions, stable overwrite IDs, backups, malformed/newer saves, unknown features, full resets, failed-restore rollback and live-state isolation using independent participant state.
+Managed executable tests for normalized-name collisions, stable overwrite IDs, backups, malformed/newer saves, unknown features, full resets, failed-restore rollback and live-state isolation using independent participant state.
+
+The executable also source-links the game-independent `DiscoTiming` and `SprayCadence` implementations from their owning features. It checks independent channel timing, easing, serialization, immediate spray presses, interval pacing, UI capture, release/cancellation and dropped-frame behavior. It does not reference feature assemblies or call native/game APIs.
 
 See [workspace architecture](../docs/WORKSPACE.md), [repository index](../REPOSITORY_INDEX.md), and [integration scope](../scope/FULL_SCOPE.md).
 

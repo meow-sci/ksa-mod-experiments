@@ -1,5 +1,13 @@
 # Game Integration Surface — master index (unscience KSA mod suite)
 
+## Creative tool additions — current
+
+- [Zippo Disco](celestial-and-lights.md): direct instance-local `LightModule.Template` copies with owned ColorRgb/FloatReference channels; `KeyframeAnimationModule.Shared.{Duration,PartLookup}` and `TimeGoal` drive matching light assemblies. Restore is ownership-checked; no new Harmony or shader target.
+- [Humble Arteest cursor paint](character-and-materials.md): `Cursor.GetEgoRay`, all render `MeshReference.PositionsCompare` primitives, `Ray.RaycastWatertight` and exact static/dynamic (including gimbal) part matrices. Existing paint Harmony handoffs add mesh ID and submitting-model identity; per-instance/shared-mesh records retain the existing StateBitFlag layout.
+- [Graffiti spray](decals.md): held mouse/UI capture gating and monotonic cadence call the existing placement path. No added game render dependency.
+
+All new configuration is authoring-only persistence; pending gestures are cancellable and applied effects remain live. Managed timing/input checks are in `unscience-contracts.tests`; native acceptance remains required.
+
 ## Workspace redesign — current ownership
 
 The shipping host now has **25 independent feature libraries**, one StarMap/Harmony host, shared contracts/lights/rings infrastructure and a pure contract-check project. See [architecture](00-architecture-and-abstractions.md), [project index](../REPOSITORY_INDEX.md) and the per-area **Workspace integration (current)** sections. `IWorkspaceFeature` extends the lifecycle with explicit detached draft capture/preparation and typed `ILiveStateItem` collection. Every retained feature is adapted; standalone feature entry projects and the RPC service are retired.

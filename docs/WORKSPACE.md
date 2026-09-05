@@ -49,6 +49,20 @@ Feature libraries may reference contracts and shared KSA infrastructure, not one
 
 `Mod` initializes and updates every retained feature. Visibility only controls authoring navigation. Keep parts-now's GPU load/purge work before GUI and Garry's Torch's solver-safe weld phase after GUI, including the hidden-HUD fallback. HotkeyGuard remains installed on the single host Harmony instance.
 
+## Creative recipes and runtime ownership
+
+Disco lives in Zippo's existing feature library. Its saved recipe includes craft/light scope, palette and independently timed color/actuation/spread channels. Each running light owns detached settings and a module-local template. Shared assembly actuators have one owning Disco item; native motion can lag the requested cycle. Pause freezes recipe time; stop restores owned templates/goals. See [Zippo](../zippo.lib/README.md).
+
+[Graffiti](../graffiti.lib/README.md) saves spray mode/interval with placement settings. Arming copies these settings; each successful tick creates a normal decal. [Humble Arteest](../humble-arteest.lib/README.md) saves click scope/range with its brush; the clicked target becomes a mesh-instance, part-instance or shared-mesh live override. Both gestures are ephemeral and cancelled by workspace/preset loads, while existing effects remain untouched.
+
+Creative-tool acceptance (requires the game):
+
+- Run three-channel Disco on identical lights on two craft; confirm instance isolation, all-craft behavior, skipped non-actuated/point-light channels, shared actuator ownership, pause, replace, stop, despawn and unload restoration. Save/load/hide while running and confirm effects continue.
+- Spray onto vehicle/terrain/canopy, drag through UI, release/repress, stall a frame and load another workspace. Confirm no catch-up burst, no UI-originated stroke and preservation of placed decals.
+- Click identical meshes under all three paint scopes; test overlap precedence/removal, gimballed engines and multi-primitive meshes. Load a workspace and verify existing paint stays. Confirm pending gestures are cancelled and unresolved light/vehicle selectors block dependent actions.
+
+These native checks are separate from managed tests and are not implied by compilation.
+
 ## Verification
 
 Run:

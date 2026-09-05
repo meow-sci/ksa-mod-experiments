@@ -35,6 +35,7 @@ public sealed partial class ZippoSubmod
         ImGui.BeginDisabled(part == null || !Draft.SelectionsResolved);
         if (ImGui.Button("Apply light settings", new float2(-1, 0)) && part != null)
         {
+            StopDisco(part);
             _managedLights[Key(part)] = part;
             LightController.ApplyColor(part, new float3(_currentColor.X, _currentColor.Y, _currentColor.Z));
             LightController.ApplyIntensity(part, _intensity);
@@ -56,6 +57,7 @@ public sealed partial class ZippoSubmod
             ImGui.BeginDisabled(part == null || !Draft.SelectionsResolved);
             if (ImGui.Button("Queue animation", new float2(-1, 0)) && part != null)
             {
+                StopDisco(part);
                 _managedLights[Key(part)] = part;
                 var animation = new LightAnimation(new float3(_animStartColor4.X, _animStartColor4.Y, _animStartColor4.Z),
                     new float3(_animEndColor4.X, _animEndColor4.Y, _animEndColor4.Z), _animStartIntensity, _animEndIntensity,
@@ -65,6 +67,7 @@ public sealed partial class ZippoSubmod
             ImGui.EndDisabled();
             if (_animQueueError != null) ImGui.TextDisabled(_animQueueError);
         }
+        RenderDisco(part);
         SubmodUI.EndContentArea();
     }
     private static string Key(Part part) => LiveIdentity.Get(part);

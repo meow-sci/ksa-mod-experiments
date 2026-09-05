@@ -1,5 +1,19 @@
 # Scope: Celestial Welding & Lights/Actions (kiwis-marbles, zippo)
 
+## Creative tools — current integration
+
+Zippo additionally owns Disco via `DiscoRecipe`, `DiscoTiming`, `DiscoLight` and `ZippoSubmod.Disco`. Each live record clones its recipe; save/load touches only authoring fields. All-craft Apply resolves exact live lights once; new craft lights are not auto-enrolled. Ordinary Zippo color/intensity retains its legacy shared-template scope.
+
+| Touchpoint (KSA 2026.9.7.5402) | Owner and behavior |
+|---|---|
+| `Part.Modules.Get<LightModule>()`; `LightModule.Template`, `TemplateData.{Id,Type,Transform,Range,Intensity,ColorRgb,InnerAngle,OuterAngle,RayTracing,DisableInIva}` | `DiscoLight` manually copies all template fields. Own ColorRgb/angle references only for enabled channels; restore original template only if module still points to the owned copy. Point lights skip cone angles. UpdateRenderData consumes these exact fields. |
+| `ColorRgbReference(float3)`, `R/G/B`, `OnDataLoad(null)`; `FloatReference(float)`, `Value` | Instance-local color refresh and degree-to-radian half-angle interpolation. No shared color-template mutation or new GPU resource. |
+| `Part.FullPart.Modules.Get<KeyframeAnimationModule>()`; `Shared.{Duration,PartLookup}`; `TimeGoal` | Select drivers whose animation targets the light subpart ID; set normalized goal × Duration, as the native Actuate slider does. Game solver controls actual movement. A shared driver has one owner; later Apply releases old ownership and captures the original goal. Restore only if the last written goal remains current. |
+| `Part.LightSwitch`, `FullPart.LightSwitch`, `LightIsActive` | Explicit live assembly switch control; Disco start leaves switches unchanged. |
+| `VehicleProvider.GetAllVehicles(includeDebris:true)`, `PartHelpers.GetAllParts` | Check exact runtime references each update; disappeared lights restore/release their owned state. No retargeting. |
+
+No Harmony target or shader layout is added. Pausing holds recipe time, not solver motion already targeting a goal. Native actuation, isolation, external-template replacement and unload behavior require live verification.
+
 ## Workspace integration (current)
 
 Active bundled features: **kiwis-marbles, zippo**. Each implements `IWorkspaceFeature` with explicit draft bindings and typed `ILiveStateItem` providers; its old standalone entry project is retired. See [workspace contract](../docs/WORKSPACE.md).

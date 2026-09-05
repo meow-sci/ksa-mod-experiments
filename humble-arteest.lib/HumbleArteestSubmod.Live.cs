@@ -10,6 +10,7 @@ public sealed partial class HumbleArteestSubmod
 {
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
+        foreach (var item in GetMeshPaintItems()) yield return item;
         if (VehiclePaint.Active || VehiclePaint.HasAnyPaint)
             yield return new LiveStateItem<VehiclePaintSubmod>("paint-policy", "Paint shader and global color", "Global policy", _vehiclePaint, _ => RenderPaintPolicy());
         foreach (var part in VehiclePaint.PaintedParts.ToArray())

@@ -1,5 +1,13 @@
 # Character / Material / GPU-Customization Mods — Game Integration Scope
 
+## Creative tools — current integration
+
+Humble Arteest cursor painting now records `(Part reference, render MeshReference.Id)` for individual mesh instances (default), or a part override / shared mesh-ID override for the other scopes. Color precedence is mesh instance → part → shared mesh → template → global. The blend policy remains global. Live State owns editing/removal; workspace load cancels the uncommitted click but never changes these dictionaries.
+
+`PaintPicker` uses `Program.{EditorFlag,GetMainCamera,MainViewport}`, `Cursor.GetEgoRay`, `Camera.GetPositionEgo`, `Vehicle.{BoundingSphereRadiusBody,GetMatrixAsmb2Ego}`, `PartHelpers.GetAllParts`, `Part.MatrixAsmb2Ego`, and static/dynamic module `PartModel[Dynamic].Template.Mesh`. It tests every `MeshReference.PositionsCompare` primitive with `Ray.RaycastWatertight`. Dynamic transforms reproduce `PartModelDynamicModule.UpdateRenderData` using `Part.GimbalAsmb`, `Modules.Get<Gimbal>()`, `Tree.Gimbals.GetState(...).Gimbal2Asmb` and gimbal `PositionAsmb/Gimbal2Asmb`. Skinned characters, canopy cloth and terrain are outside this picker.
+
+The existing `PartModelModule/PartModelDynamicModule.UpdateRenderData` prefixes now hand off Part + resolved mesh ID + model reference. Existing `PartModel/PartModelDynamic.AddInstance` prefixes bind Harmony `__instance`, consume the handoff only for that exact model and resolve the extended paint precedence. No added patch target, material allocation, shader source change or bit/byte layout change. `VehiclePaint.PruneParts` also prunes removed mesh-instance targets; shared mesh policies persist for future instances. UI uses a one-shot uncaptured left click / Escape in RenderFloatingWindows. Native mesh picking, transparency/occlusion, gimbals and paint rendering require live verification.
+
 ## Workspace integration (current)
 
 Active bundled features: **doh, humble-arteest, kitten-animations**. Each implements `IWorkspaceFeature` with explicit draft bindings and typed `ILiveStateItem` providers; its old standalone entry project is retired. See [workspace contract](../docs/WORKSPACE.md).

@@ -29,6 +29,8 @@ public static class VehiclePaintPatches
 {
     /// <summary>Part whose instance data is about to be submitted; set by (2), consumed by (3).</summary>
     [ThreadStatic] private static Part? _pendingPart;
+    [ThreadStatic] private static string? _pendingMesh;
+    [ThreadStatic] private static object? _pendingModel;
 
     /// <summary>Number of seams this feature needs; anything less means paint is degraded.</summary>
     public const int RequiredPatchCount = 5;
@@ -66,7 +68,7 @@ public static class VehiclePaintPatches
             catch (Exception ex) { Console.WriteLine($"humble-arteest: unpatch failed for {Records[i].Label}: {ex.Message}"); }
         }
         _recordCount = 0;
-        _pendingPart = null;
+        _pendingPart = null; _pendingMesh = null; _pendingModel = null;
         Console.WriteLine("humble-arteest: VehiclePaint patches removed");
     }
 
@@ -159,27 +161,29 @@ public static class VehiclePaintPatches
 
     private static void PartModelModulePrefix(PartModelModule __instance)
     {
-        if (!VehiclePaintShaders.Installed) return;
-        _pendingPart = __instance.Parent;
+        _pendingPart = VehiclePaintShaders.Installed ? __instance.Parent : null;
+        _pendingMesh = __instance.PartModel.Template.Mesh?.Id;
+        _pendingModel = __instance.PartModel;
     }
 
     private static void PartModelDynamicModulePrefix(PartModelDynamicModule __instance)
     {
-        if (!VehiclePaintShaders.Installed) return;
-        _pendingPart = __instance.Parent;
+        _pendingPart = VehiclePaintShaders.Installed ? __instance.Parent : null;
+        _pendingMesh = __instance.PartModelDynamic.Template.Mesh?.Id;
+        _pendingModel = __instance.PartModelDynamic;
     }
 
     // ---- (3) Per-instance paint ----
 
-    private static void AddInstancePrefix(ref PartModel.PerInstanceData instanceData)
+    private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerInstanceData instanceData)
     {
-        if (!TryTakePaintBits(out int bits)) return;
+        if (!TryTakePaintBits(__instance, out int bits)) return;
         instanceData.StateBitFlag |= bits;
     }
 
-    private static void AddInstanceDynamicPrefix(ref PartModelDynamic.PerInstanceData inInstanceData)
+    private static void AddInstanceDynamicPrefix(PartModelDynamic __instance, ref PartModelDynamic.PerInstanceData inInstanceData)
     {
-        if (!TryTakePaintBits(out int bits)) return;
+        if (!TryTakePaintBits(__instance, out int bits)) return;
         inInstanceData.StateBitFlag |= bits;
     }
 
@@ -187,9 +191,11 @@ public static class VehiclePaintPatches
     /// Consumes the pending part and resolves its paint. Clearing the slot here keeps a part from
     /// leaking into an unrelated submission if the game ever gains another AddInstance caller.
     /// </summary>
-    private static bool TryTakePaintBits(out int bits)
+    private static bool TryTakePaintBits(object model, out int bits)
     {
-        var part = _pendingPart;
+        var part = ReferenceEquals(model, _pendingModel) ? _pendingPart : null;
+        var meshId = _pendingMesh;
+        _pendingModel = null; _pendingMesh = null;
         _pendingPart = null;
 
         if (part == null)
@@ -198,7 +204,7 @@ public static class VehiclePaintPatches
             return false;
         }
 
-        return VehiclePaint.TryGetPaintBits(part, out bits);
+        return VehiclePaint.TryGetPaintBits(part, meshId, out bits);
     }
 
     private readonly struct PatchRecord

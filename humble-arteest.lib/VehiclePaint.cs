@@ -32,10 +32,9 @@ public enum PaintBlendMode
 /// part fragment shader already receives — after a small snippet injected by
 /// <see cref="VehiclePaintShaders"/>.
 ///
-/// Resolution order for a part: explicit per-part color, then per-part-type (template id) color,
-/// then the global "paint everything" color.
+/// Resolution order: mesh instance, part instance, shared mesh asset, part template, global color.
 /// </summary>
-public static class VehiclePaint
+public static partial class VehiclePaint
 {
     /// <summary>First state-flag bit used to carry paint. The game uses bits 0..10.</summary>
     public const int PaintBitShift = 11;
@@ -150,16 +149,18 @@ public static class VehiclePaint
 
     // ---- Bulk operations ----
 
-    /// <summary>Clears every per-part and per-part-type override and disables global paint.</summary>
+    /// <summary>Clears every mesh/part override and disables global paint.</summary>
     public static void ClearAllPaint()
     {
+        ByMeshInstance.Clear();
+        ByMesh.Clear();
         ByPart.Clear();
         ByTemplate.Clear();
         _globalEnabled = false;
     }
 
     /// <summary>True when at least one paint source could apply.</summary>
-    public static bool HasAnyPaint => _globalEnabled || ByPart.Count > 0 || ByTemplate.Count > 0;
+    public static bool HasAnyPaint => _globalEnabled || ByPart.Count > 0 || ByTemplate.Count > 0 || ByMesh.Count > 0 || ByMeshInstance.Count > 0;
 
     /// <summary>
     /// Drops paint entries whose parts no longer exist, so the registry does not keep dead part
@@ -168,6 +169,7 @@ public static class VehiclePaint
     /// </summary>
     public static void PruneParts(ICollection<Part> livingParts)
     {
+        PruneMeshInstances(livingParts);
         if (ByPart.Count == 0 || livingParts.Count == 0) return;
         List<Part>? dead = null;
         foreach (var part in ByPart.Keys)
@@ -193,17 +195,22 @@ public static class VehiclePaint
     /// Resolves the state-flag bits to OR into a part instance's <c>StateBitFlag</c>.
     /// Returns false when the part is unpainted.
     /// </summary>
-    internal static bool TryGetPaintBits(Part part, out int bits)
+    internal static bool TryGetPaintBits(Part part, string? meshId, out int bits)
     {
         bits = 0;
         if (!VehiclePaintShaders.Installed) return false;
 
-        if (ByPart.Count > 0 && ByPart.TryGetValue(part, out var entry))
+        PaintEntry entry;
+        if (meshId != null && ByMeshInstance.TryGetValue(new MeshInstance(part, meshId), out entry))
+        { bits = entry.Bits; return true; }
+        if (ByPart.Count > 0 && ByPart.TryGetValue(part, out entry))
         {
             bits = entry.Bits;
             return true;
         }
 
+        if (meshId != null && ByMesh.TryGetValue(meshId, out entry))
+        { bits = entry.Bits; return true; }
         if (ByTemplate.Count > 0 && ByTemplate.TryGetValue(part.Id, out entry))
         {
             bits = entry.Bits;

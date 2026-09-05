@@ -93,6 +93,13 @@ public sealed partial class GraffitiSubmod
         }
 
         ImGui.Spacing();
+        ImGui.Checkbox("Spray while holding mouse", ref _sprayMode);
+        if (_sprayMode)
+        {
+            ImGui.InputInt(FormField.Label("Spray interval (ms)"), ref _sprayIntervalMs);
+            _sprayIntervalMs = Math.Clamp(_sprayIntervalMs, 10, 60_000);
+            ImGui.TextWrapped("Hold the left mouse button in the world to spray. Release to pause; Esc ends placement. At most one decal per frame.");
+        }
         RenderArmControls();
 
         if (!string.IsNullOrEmpty(_placeStatus))
@@ -116,7 +123,7 @@ public sealed partial class GraffitiSubmod
         {
             ImGui.AlignTextToFramePadding();
             ImGui.TextColored(new float4(1f, 0.85f, 0.2f, 1f),
-                $"Waiting for a click in the world with '{_armedDecalName}'...  (Esc cancels)");
+                $"{(_armedSpray ? "Hold to spray in the world" : "Waiting for a click in the world")} with '{_armedDecalName}'...  (Esc cancels)");
             if (ImGui.Button(" Cancel placement ##graffiti_cancel"))
                 Disarm("Placement cancelled.");
             return;
@@ -126,7 +133,7 @@ public sealed partial class GraffitiSubmod
         bool inEditor = Program.EditorFlag;
         bool canPlace = hasSelection && !inEditor && !_gpuFailed;
         if (!canPlace) ImGui.BeginDisabled();
-        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(" Place at Click... ##graffiti_place"))
+        if (MeowSci.KsaAbstractions.WorkspaceUi.Button(_sprayMode ? "Spray at cursor...##graffiti_place" : "Place at Click...##graffiti_place", new float2(-1, 0)))
             Arm(_libraryNames[_selectedLibraryIndex]);
         if (!canPlace) ImGui.EndDisabled();
 

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text.Json;
 using MeowSci.Unscience.Contracts;
 
+FeatureAlgorithmChecks.Run();
+
 var directory = Path.Combine(Path.GetTempPath(), "unscience-tests-" + Guid.NewGuid().ToString("N"));
 try
 {

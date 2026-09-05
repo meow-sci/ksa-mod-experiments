@@ -12,7 +12,8 @@ public sealed partial class ZippoSubmod
 {
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
-foreach (var (id, part) in _managedLights.ToArray())
+        foreach (var item in GetDiscoItems()) yield return item;
+        foreach (var (id, part) in _managedLights.ToArray())
             yield return new LiveStateItem<Part>(id, part.DisplayName, part.Id + " (color/intensity shared by template)", part, p =>
             {
                 bool alive = ResolveManagedPart(id) != null;

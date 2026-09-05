@@ -20,6 +20,10 @@ Feature forms also offer **Save settings as preset** for reusable recipes.
 - [Current issues and validation](ISSUES.md)
 - [Original redesign plan](plans/UNSCIENCE_WORKSPACE_REDESIGN.md)
 
+## Creative tools
+
+[Zippo](zippo.lib/README.md) includes **Disco** with independent color, actuation and beam-spread cycles for one light or a whole craft. [Graffiti](graffiti.lib/README.md) supports timed hold-to-spray decals. [Humble Arteest](humble-arteest.lib/README.md) paints by world click, targeting an individual mesh instance, a whole subpart or every instance of a mesh. Their recipes are saved with the workspace; applied effects are managed in Live State.
+
 ## Build and verify
 
 Requires .NET 10 and licensed KSA reference assemblies. `Directory.Build.props` resolves them from

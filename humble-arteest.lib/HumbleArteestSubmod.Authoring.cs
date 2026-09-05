@@ -45,6 +45,7 @@ public sealed partial class HumbleArteestSubmod
             else if (ImGui.Button("Apply global paint", new float2(-1, 0)))
             { VehiclePaint.Enable(); VehiclePaint.BlendMode = (PaintBlendMode)_settings.Blend; VehiclePaint.GlobalColor = _settings.Color; VehiclePaint.GlobalEnabled = true; }
         }
+        RenderClickPaint();
         if (WorkspaceUi.Header("Kitten materials", ImGuiTreeNodeFlags.DefaultOpen))
         {
             ImGui.ColorEdit4(MeowSci.KsaAbstractions.FormField.Label("Color"), ref _settings.KittenColor);

@@ -13,7 +13,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [ksa-lights.lib](ksa-lights.lib/README.md) | Owns LightController: discover light parts and read/write the game’s light templates. Used independently by Zippo and It’s So Shiny. It contains no feature preset, workspace view or feature lifecycle policy. |
 | [ksa-rings.lib](ksa-rings.lib/README.md) | Owns RingAssetCatalog, RingMeshFactory, RockyUi and RingOwnership. Bloomin’ Onion and Rocky McRock Face use these without referencing one another. BeforeReplace notifies overlays to restore/release the outgoing ring reference before replacement; converted meshes remain alive until a successful rebuild or disposal. |
 | [unscience-contracts.lib](unscience-contracts.lib/README.md) | Data-only workspace/feature snapshots, participant interface, schema validation, atomic named stores and transactional workspace restore. No KSA, ImGui or Harmony reference. Restoring invokes prepared authoring setters only. Unknown feature payloads round-trip through the host. |
-| [unscience-contracts.tests](unscience-contracts.tests/README.md) | Dependency-free executable tests for normalized-name collisions, stable overwrite IDs, backups, malformed/newer saves, unknown features, full resets, failed-restore rollback and live-state isolation using independent participant state. |
+| [unscience-contracts.tests](unscience-contracts.tests/README.md) | Managed feature timing/spray checks plus persistence tests for normalized-name collisions, stable overwrite IDs, backups, malformed/newer saves, unknown features, full resets, failed-restore rollback and live-state isolation using independent participant state. |
 
 ## Feature libraries
 
@@ -30,9 +30,9 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [garrys-torch.lib](garrys-torch.lib/README.md) | Weld vehicles onto a target part. | Each vehicle weld with transform, animation queue, preset export and unweld. |
 | [geeforce.lib](geeforce.lib/README.md) | Record acceleration and jerk. | The recorder, breach state and measurements. |
 | [glass.lib](glass.lib/README.md) | Set the main camera field of view. | The global FOV override with copy and disable controls. |
-| [graffiti.lib](graffiti.lib/README.md) | Project PNG decals onto parts, terrain and canopy cloth. | Each decal; visibility, transform/appearance and removal; bulk selection and render policy. |
+| [graffiti.lib](graffiti.lib/README.md) | Click or hold-to-spray PNG decals onto parts, terrain and canopy cloth. | Each decal; visibility, transform/appearance and removal; bulk selection and render policy. |
 | [hot-pursuit.lib](hot-pursuit.lib/README.md) | Mount secondary cameras on clicked vehicle parts. | Each camera with its own viewport lease, pose, visibility, copy, reopen and removal. |
-| [humble-arteest.lib](humble-arteest.lib/README.md) | Paint parts, kitten materials and engine glow. | Per-part/type paint, shared material colors, engine overrides and global policies. |
+| [humble-arteest.lib](humble-arteest.lib/README.md) | Paint by list or cursor: mesh instances/shared meshes, parts, kitten materials and engine glow. | Mesh-instance/shared-mesh and per-part/type paint, shared material colors, engine overrides and global policies. |
 | [i-feel-seen.lib](i-feel-seen.lib/README.md) | Keep vehicles visible through visibility overrides. | Each tracked vehicle with visibility toggle and removal. |
 | [its-so-shiny.lib](its-so-shiny.lib/README.md) | Build and control grids of light parts. | Each light grid, patterns/appearance/destruction and global mesh policy. |
 | [kitchen-sink.lib](kitchen-sink.lib/README.md) | Control the retained IVA rendering experiment. | The global IVA override and restore control. Flexo experiments are retired. |
@@ -43,7 +43,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [rocky-mcrock-face.lib](rocky-mcrock-face.lib/README.md) | Replace planetary ring meshes and textures. | One applied swap per body with edit/copy/restore; resources retained independently of the form. |
 | [skittles.lib](skittles.lib/README.md) | Configure ImGui colors and style. | The global applied ImGui style with live editor, legacy export and default restore. |
 | [thug-life.lib](thug-life.lib/README.md) | Attach and animate sunglasses. | Each sunglasses attachment and its transform/removal controls. |
-| [zippo.lib](zippo.lib/README.md) | Apply light appearance and queued animations. | Each managed light and queue; appearance uses the game’s shared template scope. |
+| [zippo.lib](zippo.lib/README.md) | Apply light appearance, queued animations and Disco party-light recipes. | Per-light Disco with independent channels and restore; each ordinary light/queue; ordinary appearance uses the game’s shared template scope. |
 
 ## Templates and experiments outside the shipping solution
 

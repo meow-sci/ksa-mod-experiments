@@ -11,9 +11,17 @@ Project PNG decals onto parts, terrain and canopy cloth. This feature is hosted 
 4. Open **Live State**, select an item, and use its feature-specific controls.
 5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
+## Hold-to-spray
+
+Select a PNG, configure placement dimensions and appearance, enable **Spray while holding mouse**, and set **Spray interval (ms)** (10–60000). Press **Spray at cursor...**, then hold the left mouse button over the world. Release pauses the stroke; another world press starts immediately. Esc or Cancel ends placement. Single-click mode remains available.
+
+Arming snapshots the placement recipe and interval. Each tick creates an ordinary, independently managed decal in Live State. Timing uses a monotonic wall clock; it emits at most one decal per GUI frame and skips missed ticks rather than bursting after a stall. A press over UI never starts a world stroke, and entering UI cancels the held stroke until a fresh world press. Missing geometry produces no decal. Workspace/preset load cancels only the pending gesture, preserving already placed decals.
+
+`SprayCadence.cs` owns the managed timing/input gate; `GraffitiSubmod.Placement.cs` owns native input and placement. No additional render hook, texture allocator or shader is introduced.
+
 ## Saved authoring state
 
-Image, size/depth/roll, opacity, brightness, range, renderer policy and import-browser view. Disclosure and authoring scroll state are saved too.
+Image, size/depth/roll, opacity, brightness, range, renderer policy, spray mode/interval and import-browser view. Disclosure and authoring scroll state are saved too.
 Feature presets retain settings and asset choices while leaving the current target selections intact.
 
 ## Live state

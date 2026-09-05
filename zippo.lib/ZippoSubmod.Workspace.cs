@@ -16,6 +16,8 @@ public sealed partial class ZippoSubmod
     private DraftBindings CreateDraftBindings()
     {
         var state = new DraftBindings();
+        state.Value("Disco", () => _disco, v => _disco = v, validate: v => v.Validate());
+        state.Value("DiscoAllLights", () => _discoAllLights, v => _discoAllLights = v);
         state.Value("intensity", () => _intensity, value => _intensity = value);
         state.Value("lightEnabled", () => _lightEnabled, value => _lightEnabled = value);
         state.Value("currentColor", () => _currentColor, value => _currentColor = value);
@@ -29,7 +31,7 @@ public sealed partial class ZippoSubmod
         state.Value("animPowerEnd", () => _animPowerEnd, value => _animPowerEnd = value);
         state.Text("animStartColorFilter", _animStartColorFilter);
         state.Choice("Vehicle", DraftOptions.Vehicles, () => _draftVehicle, v => _draftVehicle = v, target: true, vehicle: true);
-        state.Choice("Light part", () => DraftOptions.Parts(DraftLightParts()), () => _draftPart, v => _draftPart = v, target: true);
+        state.Choice("Light part", () => DraftOptions.Parts(DraftLightParts()), () => _draftPart, v => _draftPart = v, target: true, required: () => !_discoAllLights);
         return state;
     }
 }

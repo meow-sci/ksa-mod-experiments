@@ -11,14 +11,26 @@ Paint parts, kitten materials and engine glow. This feature is hosted by the sin
 4. Open **Live State**, select an item, and use its feature-specific controls.
 5. **Save settings as preset** stores a reusable recipe; **Save** in the menu stores the complete workspace. **Load** replaces every authoring form and visibility setting, without changing applied effects.
 
+## Paint at cursor
+
+Set the vehicle paint **Brush** and **Blend**, open **Paint at cursor**, choose a range/scope, and arm the next world click. This is a flight-scene tool. Esc cancels; a miss keeps it armed. The armed brush is a detached snapshot, and loading a workspace cancels the gesture without changing applied paint.
+
+- **Individual mesh instance** (default) colors only the clicked render mesh on that exact subpart instance.
+- **Whole clicked subpart** uses the existing per-part override for all its render meshes.
+- **All instances of clicked mesh** colors the matching render mesh asset across current and future instances, including other craft.
+
+The picker tests every primitive of static/dynamic part render meshes, including dynamic gimbal transforms. It does not paint terrain, skinned kittens or parachute cloth. Paint changes albedo color using the existing shader; it does not replace texture files. The priority is mesh instance → part instance → shared mesh asset → part template → global. Removing a specific override reveals any broader override underneath. Blend remains one shader-wide policy, so applying a new blend changes how all paint is combined.
+
+Mesh-instance/shared-mesh overrides are separate Live State items with color, copy-brush and removal controls. `PaintPicker.cs` owns raycasts, `VehiclePaint.Meshes.cs` owns mesh overrides, and `HumbleArteestSubmod.ClickPaint.cs` owns gesture/UI/inspectors. Existing Harmony handoffs now carry the resolved render mesh ID and verify the submitting model identity; no new patch target or GPU layout is added.
+
 ## Saved authoring state
 
-Paint brush/blend/scope, exact part and engine sets, part types/material names, tints and emissive parameters. Disclosure and authoring scroll state are saved too.
+Paint brush/blend/scope, cursor scope/range, exact part and engine sets, part types/material names, tints and emissive parameters. Disclosure and authoring scroll state are saved too.
 Feature presets retain settings and asset choices while leaving the current target selections intact.
 
 ## Live state
 
-Per-part/type paint, shared material colors, engine overrides and global policies. These objects remain owned by this feature and are never serialized into workspace files.
+Per-mesh-instance/shared-mesh and per-part/type paint, shared material colors, engine overrides and global policies. These objects remain owned by this feature and are never serialized into workspace files.
 Hiding the feature, changing a preset, or loading a workspace does not dispose, re-apply, stop or recreate them.
 An explicit live control or a game lifecycle event can change them.
 

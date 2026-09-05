@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><RequiresKSAAssemblies>false</RequiresKSAAssemblies></PropertyGroup>
   <ItemGroup><ProjectReference Include="../unscience-contracts.lib/unscience-contracts.lib.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../zippo.lib/DiscoTiming.cs" Link="FeatureAlgorithms/DiscoTiming.cs" />
+    <Compile Include="../graffiti.lib/SprayCadence.cs" Link="FeatureAlgorithms/SprayCadence.cs" />
+  </ItemGroup>
 </Project>

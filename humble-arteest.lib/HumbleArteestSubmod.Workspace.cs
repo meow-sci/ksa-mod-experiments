@@ -21,6 +21,10 @@ public sealed partial class HumbleArteestSubmod
             if (v.Materials == null || v.Templates == null || v.Scope < 0 || v.Scope > 2 || v.Blend < 0 || v.Blend > 2)
                 throw new InvalidOperationException("Invalid paint recipe.");
         });
+        state.Value("ClickScope", () => _clickScope, v => _clickScope = v,
+            validate: v => { if (v < 0 || v > 2) throw new InvalidOperationException("Invalid click paint scope."); });
+        state.Value("ClickRange", () => _clickRange, v => _clickRange = v,
+            validate: v => { if (!float.IsFinite(v) || v < 1 || v > 100_000) throw new InvalidOperationException("Invalid paint range."); });
         state.Text("Filter", _paintFilter);
         state.Value("SelectedParts", () => _settings.Parts, v => _settings.Parts = v, target: true);
         state.Value("SelectedEngines", () => _settings.Engines, v => _settings.Engines = v, target: true);

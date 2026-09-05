@@ -12,6 +12,8 @@ The solution compiles against 5402. Automated contract checks cover save/overwri
 
 Outstanding game-specific checks carried forward: Hot Pursuit secondary viewport omissions/lease contention; Pyro refraction (game-side `_hasRefractionInstances` is not set in 5402); Garry's Torch collision/debris behavior; Graffiti terrain/deployed-canopy picking; Parts Now loader/thumbnail/headroom invariants; Free Fallin projection/PBR/restore; editor scale/parachute limits and symmetry; Kiwi near deployed chutes; Force IVA viewport gating; Thug/Shiny rendering; Humble Arteest paint/material paths; Kitten animation driver and Con Man HUD scaling. Prior compile success never cleared these behavioral risks.
 
+Current creative-tool additions: Zippo Disco uses per-instance LightModule templates and shared assembly actuator ownership; Humble Arteest adds rendered-mesh cursor picking and mesh paint scopes; Graffiti adds held-input spray cadence. See the area pages and master surface for exact members. No new Harmony targets or GPU layouts; managed checks do not establish native acceptance.
+
 ## Integration model
 
 - `unscience/Mod.cs` is the StarMap entry and owns the 25 feature lifecycles. Visibility affects authoring navigation only. `IWorkspaceFeature` extends `ISubmod`; each feature owns its recipes and live records.
@@ -27,11 +29,11 @@ Outstanding game-specific checks carried forward: Hot Pursuit secondary viewport
 | [Master surface](game-integration-surface.md) | Game types, reflection watchlist, shader/asset dependencies, dated upgrade findings |
 | [Architecture](00-architecture-and-abstractions.md) | Host, shared contracts, selectors/part identity, StarMap, HotkeyGuard, hidden-HUD fallback |
 | [Vehicle physics](vehicle-physics.md) | eternal-flame, i-feel-seen, garrys-torch; resource and solver/render tracking |
-| [Celestials and lights](celestial-and-lights.md) | kiwis-marbles, zippo; celestial welds, shared LightController, exact live light identity |
+| [Celestials and lights](celestial-and-lights.md) | kiwis-marbles, zippo; celestial welds, shared LightController, exact live light identity, Disco templates/actuation |
 | [Camera](camera.md) | camera-controller-override, glass, hot-pursuit; separate draft/player and viewport leases |
 | [Telemetry](telemetry.md) | average-twr, geeforce; live recorders and monitoring policy |
 | [Pixel grids and render](pixel-grids-and-render.md) | its-so-shiny, thug-life; grid state and custom pass |
-| [Characters and materials](character-and-materials.md) | doh, humble-arteest, kitten-animations; EVA, material/paint/engine overrides, animation driver |
+| [Characters and materials](character-and-materials.md) | doh, humble-arteest, kitten-animations; EVA, material/paint/engine overrides, mesh-instance cursor paint, animation driver |
 | [Part editor](part-editor-and-robotics.md) | parts-now, dont-stifle-me; loading jobs, mesh headroom, editor policy |
 | [Exhaust](exhaust-plumes.md) | pyro; plume instances and explicit shared-template recipes |
 | [Decals](decals.md) | graffiti; DecalEntry, picking, custom pass and global policy |

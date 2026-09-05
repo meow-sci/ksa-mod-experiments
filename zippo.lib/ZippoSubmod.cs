@@ -14,7 +14,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
     public static ZippoSubmod? Instance { get; private set; }
 
     public string Name => "Zippo - Lights!";
-    public string Tooltip => "Controls light part intensity and colors.";
+    public string Tooltip => "Light appearance, queued transitions, and Disco party-light cycles.";
 
     private float _intensity = 1.0f;
     private bool _lightEnabled = true;
@@ -35,7 +35,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
     private string? _animQueueError;
 
     public void Initialize() { Instance = this; }
-    public void Update(double dt) { _animationManager.Update(dt, ResolveManagedPart); }
+    public void Update(double dt) { _animationManager.Update(dt, ResolveManagedPart); UpdateDisco(dt); }
 
     /// <summary>Builds the color preset combo items, appending "(Custom)" only when a custom color is active.</summary>
 
@@ -71,6 +71,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         var part = ResolvePartInVehicle(vehicleId, partId);
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
+        StopDisco(part);
         _managedLights[Key(part)] = part;
         if (color.HasValue) LightController.ApplyColor(part, color.Value);
         if (intensity.HasValue) LightController.ApplyIntensity(part, intensity.Value);
@@ -91,6 +92,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         var part = ResolvePartInVehicle(vehicleId, partId);
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
+        StopDisco(part);
         _managedLights[Key(part)] = part;
         if (!_animationManager.Enqueue(Key(part), animation))
             return $"Animation queue is full for part '{partId}' (max {LightAnimationManager.MaxQueueDepth}).";
@@ -118,7 +120,7 @@ public sealed partial class ZippoSubmod : IWorkspaceFeature
         return matches.Length == 1 ? matches[0] : null;
     }
 
-    public void Dispose() { _animationManager.Clear(); _managedLights.Clear(); Instance = null; }
+    public void Dispose() { foreach (var live in _discoLights.Values) live.Dispose(); _discoLights.Clear(); _animationManager.Clear(); _managedLights.Clear(); Instance = null; }
 
     private static bool MatchesFilter(ImInputString filter, string value)
     {
