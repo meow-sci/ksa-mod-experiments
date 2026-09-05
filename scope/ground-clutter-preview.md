@@ -8,8 +8,8 @@ See [ground clutter](ground-clutter.md) for runtime application and collider own
 `WorkshopPreview` owns its own mesh buffers, material descriptor sets, sampler, pipelines,
 color/depth images, command pools and fences. It does not create a game viewport, allocate a
 global camera shader slot, enter `VehicleEditor`, register a `GenericGizmo`, mutate a part or
-construct a Bepu shape. Its constructor allocates no GPU resources. `Refresh` resolves and
-copies CPU geometry only; `Render` performs graphics work from the host's **before-GUI** update.
+construct a Bepu shape. Its constructor allocates no GPU resources. `Refresh` resolves/copies geometry and may lazily upload privately owned imported GLB textures;
+`Refresh` and `Render` both run from the host's **before-GUI** update. See [GLB ownership](ground-clutter-glb-materials.md).
 Workspace restore changes detached Workshop state and requires explicit preview refresh.
 
 The first implementation uses a conservative synchronous policy for changed previews:
@@ -42,7 +42,7 @@ the main clutter area. Preview consumes:
 - `Program.GetRenderer`, `Renderer.Device/Allocator/Graphics`, Vulkan allocation/queue APIs.
 - `MeshReference.HostPrimitives`, `PrimitiveCount`, `PrimitiveMaterialIds`; `MeshAsset`
   vertex lists/spans, counts and index buffer. Streams must be float3 position/normal,
-  float2 UV0, with valid indexed triangles. All primitives of every selected mesh render.
+  float2 UV0, with valid indexed triangles. All primitives of every selected mesh render. Imported source identities separate file-local material slots; sorting is shared with runtime Apply and is independent of import order.
 - `TextureReference.ImageView`, `EmptyWhite`; resolved texture references are retained for
   descriptor lifetime and remain borrowed. Preview does not free or alter game textures.
 - `ShaderModuleUtils.FromString` for owned embedded shader modules; modules are destroyed

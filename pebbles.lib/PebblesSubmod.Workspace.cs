@@ -15,6 +15,10 @@ public sealed partial class PebblesSubmod
     private DraftBindings BindDraft()
     {
         var draft = new DraftBindings();
+        _glbBrowser.Bind(draft);
+        draft.Text("glbPath", _glbPath);
+        draft.Value("glbSelection", () => _glbSelected, v => { _glbSelected = v; _glbOptions = []; _glbStatus = "Load file to browse its meshes, or explicitly preview/apply its saved selection."; },
+            validate: v => { if (v.Length > 0) _ = GlbIdentity.Parse(v); });
         draft.Value("body", () => _bodyId, v => _bodyId = v, target: true);
         draft.Value("ecotype", () => _ecotypeName, v => _ecotypeName = v, target: true);
         draft.Value("object", () => _objectId, v => _objectId = v, target: true);
@@ -33,6 +37,12 @@ public sealed partial class PebblesSubmod
     }
     public IEnumerable<ILiveStateItem> GetLiveItems()
     {
+        if (_assets.ImportedGlbCount > 0)
+            yield return new LiveStateItem<ClutterAssets>("glb-imports", "Imported GLB assets", "Pebbles", _assets, assets =>
+            {
+                ImGui.TextWrapped($"{assets.ImportedGlbCount} imported content versions retained for previews and live clutter. Release all Pebbles state to reclaim imports safely.");
+                if (ImGui.Button("Release all Pebbles state")) ReleaseLiveState();
+            });
         foreach (var item in _controller.Live)
             yield return new LiveStateItem<ClutterLiveRecord>(item.BodyId, "Ground clutter override", item.BodyId, item.Status, item, live =>
             {

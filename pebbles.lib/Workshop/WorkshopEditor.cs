@@ -185,6 +185,6 @@ public sealed partial class WorkshopEditor : IDisposable
         if (_dragBefore != null) _state.Object = _dragBefore;
         _dragBefore = null; _activeAxis = -1; _cameraDrag = 0;
     }
-    public void Release() { CancelGesture(); _releaseRequested = true; _stale = true; _assets = null; }
+    public void Release() { CancelGesture(); _refreshRequested = false; _releaseRequested = true; _stale = true; _assets = null; }
     public void Dispose() { CancelGesture(); _preview.Dispose(); _stale = true; _assets = null; }
 }

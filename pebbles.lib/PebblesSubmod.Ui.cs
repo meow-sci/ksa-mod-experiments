@@ -34,6 +34,7 @@ public sealed partial class PebblesSubmod
             if (_message.Length > 0) ImGui.TextWrapped(_message);
             ImGui.TextWrapped(_controller.Status);
             foreach (var fault in _controller.Faults) ImGui.TextWrapped(fault);
+            ImportControls();
             if (_recipe.Ecotypes.Count == 0) return;
             ImGui.InputText(FormField.Label("Filter mesh / texture assets"), _assetFilter);
             BulkControls();

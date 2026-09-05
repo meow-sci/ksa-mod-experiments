@@ -32,7 +32,7 @@ public sealed class WorkshopPreview : IDisposable
     public Vector3 BoundsMax { get; private set; } = new(.5f);
     public Matrix4x4 ViewProjection => _lastMatrix;
 
-    /// <summary>Resolve and copy CPU data only. The next Render builds an independent GPU scene.</summary>
+    /// <summary>Resolve geometry and textures before GUI; imported textures may upload here. The next Render builds the independent GPU scene.</summary>
     public void Refresh(ObjectRecipe recipe, ClutterAssets assets, int lodIndex = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

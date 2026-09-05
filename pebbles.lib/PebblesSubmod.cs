@@ -26,6 +26,12 @@ public sealed partial class PebblesSubmod : IWorkspaceFeature
     {
         _controller.Update();
         _workshop.Update();
+        if (_releaseImports && !_controller.NeedsHooks && _controller.Faults.Count == 0)
+        {
+            _releaseImports = false; // A failed native release is reported, never retried every frame.
+            _workshop.Release(); _workshop.Update();
+            _assets.ReleaseGlbImports(); _glbOptions = [];
+        }
         _refreshTime -= dt;
         if (_refreshTime > 0) return;
         _refreshTime = 5;
@@ -35,6 +41,7 @@ public sealed partial class PebblesSubmod : IWorkspaceFeature
     {
         _workshop.SetCompletion(CompleteWorkshop);
         _workshop.Draw(_assets);
+        _glbBrowser.Draw(ImportGlb);
     }
     private void CompleteWorkshop(ObjectRecipe value)
     {
@@ -45,8 +52,14 @@ public sealed partial class PebblesSubmod : IWorkspaceFeature
         ecotype.Objects[index] = RecipeCopy.Clone(value);
     }
     public void CancelAuthoringGesture() => _workshop.CancelGesture();
-    public void ReleaseLiveState() { _controller.Release(); _workshop.Release(); }
-    public void Dispose() { _workshop.Dispose(); _controller.Dispose(); _assets.Dispose(); }
+    public void ReleaseLiveState() { _controller.Release(); _workshop.Release(); _releaseImports = true; }
+    public void Dispose()
+    {
+        _workshop.Dispose(); _controller.Dispose();
+        if (_assets.ImportedGlbCount > 0 && _controller.Faults.Count != 0)
+            throw new InvalidOperationException("GLB imports retained because native clutter retirement failed; restart the game to reclaim them.");
+        _assets.Dispose();
+    }
     private void Try(Action action)
     {
         try { _message = ""; action(); }

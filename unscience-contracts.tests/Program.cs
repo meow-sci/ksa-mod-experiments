@@ -7,6 +7,7 @@ using MeowSci.Unscience.Contracts;
 
 FeatureAlgorithmChecks.Run();
 PebblesChecks.Run();
+GlbChecks.Run();
 WorkshopChecks.Run();
 RuntimeOwnershipChecks.Run();
 

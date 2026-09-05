@@ -1047,7 +1047,7 @@ These integrations compile against 5402; no native UI/gameplay/GPU acceptance is
 
 ## Pebbles ground-clutter integration (5402)
 
-Owner: `pebbles.lib`, registered as the 26th independent bundled feature. Detailed runtime and source dependencies are in [ground clutter](ground-clutter.md); the independent offscreen renderer has its own [preview integration](ground-clutter-preview.md). Managed build/tests do not verify native acceptance.
+Owner: `pebbles.lib`, registered as the 26th independent bundled feature. Detailed runtime and source dependencies are in [ground clutter](ground-clutter.md); the independent offscreen renderer has its own [preview integration](ground-clutter-preview.md), and runtime disk imports have [GLB conversion/ownership details](ground-clutter-glb-materials.md). Managed build/tests do not verify native acceptance.
 
 | Surface | Mechanism / owner | Reason |
 |---|---|---|
@@ -1064,5 +1064,8 @@ Owner: `pebbles.lib`, registered as the 26th independent bundled feature. Detail
 | Ecotype placement/render/physical dictionaries; `BubbleClutterStatics`, `PhysicsBubble`, `ConstraintSim`, `JobSystems` | Direct game/physics APIs | Swap complete per-body arrays, drain exclusions, clear statics and retire native shapes after solver/GPU completion. |
 | `GameSettings.GenerateGroundClutter`, `GetGroundClutterCollisions`, `GetGroundClutterShadowCasting` | Read-only availability indicators | Report effective global gates without changing them. |
 | Private Workshop shaders, Vulkan images/descriptors/pipelines, ImGui texture registration | `Preview/` | No global viewport, vehicle editor, camera slots, registered gizmos or temporary Bepu shapes. |
+| `TextureLoader.LoadFromMemory` / `Unload`, `Stb.Loader.LoadSettings.ForceRgba8`, decoded `ITexture.Extent/Data` | `Assets/GlbTextures.cs` | Bounded embedded PNG/JPEG decode; managed channel/factor conversion adapts core GLB materials to native clutter. |
+| `TextureReference.Texture/ImageView`, private `BindlessHandle` setter; `SimpleVkTexture` allocation/upload/mips; `BindlessTextureLibrary.AddTexture/FreeTexture` | Private GLB adapter, explicit reflection setter and cancellable upload submission | Lazily upload privately owned images before GUI or during Apply, retain original device/library, retire borrowers and wait idle before recycling slots. |
+| `MeshAsset.SetVertexList/SetIndexBuffer`, `NativeStrideList.FromSpan`, bounds/counts; existing `MeshReference` private setters | `Assets/GlbImportLibrary.cs` | Managed GLB scene/accessor validation normalizes external geometry into private float3/float2/uint streams, independent of stock global registration. |
 
 Clutter's five LOD slots, material sorting, candidate-grid dimensions, 16 scale bins, material buffer layout and shader source conventions are version-sensitive. Source-color handling reserves material flag bits 31 (source colors) and 30 (sRGB sampling) only in private buffers. Both shape and GPU retirement need actual native exercise; see the [acceptance checklist](../docs/WORKSPACE.md#pebbles-authoring-and-acceptance).

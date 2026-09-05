@@ -49,17 +49,16 @@ internal sealed class ClutterGraph : IDisposable
                     if (l.MeshIds.Count == 0) throw new InvalidOperationException($"{r.Name}/{item.Name}: every LOD requires at least one mesh.");
                     var lod = new GroundClutterLodReference { MinScreenSizePixels = l.MinScreenSize, CastShadows = l.CastShadows, MeshIds = [], MaterialReferences = [] };
                     var meshes = l.MeshIds.Select(assets.ResolveMesh).ToArray();
-                    var sourceIds = meshes.SelectMany(m => m.PrimitiveMaterialIds).Distinct().Order().ToArray();
-                    if (l.Materials.Count != 1 && l.Materials.Count != sourceIds.Length)
-                        throw new InvalidOperationException($"{r.Name}/{item.Name}: mesh group has {sourceIds.Length} material slots; assign one material or exactly that many.");
-                    var mapping = sourceIds.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
+                    var slots = new GlbMaterialSlots(meshes.Select(m => (m.Id, m.PrimitiveMaterialIds)));
+                    if (l.Materials.Count != 1 && l.Materials.Count != slots.Count)
+                        throw new InvalidOperationException($"{r.Name}/{item.Name}: mesh group has {slots.Count} material slots; assign one material or exactly that many.");
                     foreach (var mesh in meshes)
                     {
-                        lod.Meshes.Add(Geometry.Copy(mesh, item.Transform, mapping));
+                        lod.Meshes.Add(Geometry.Copy(mesh, item.Transform, slots.Mapping(mesh.Id, mesh.PrimitiveMaterialIds)));
                         lod.MeshIds.Add(new SerializedReference { Id = mesh.Id });
                     }
                     if (Geometry.VertexCount > recipe.MeshVertexBudget) throw new InvalidOperationException($"Atlas needs {Geometry.VertexCount:N0} repeated vertices; budget is {recipe.MeshVertexBudget:N0}.");
-                    for (var mi = 0; mi < sourceIds.Length; mi++)
+                    for (var mi = 0; mi < slots.Count; mi++)
                     {
                         var mr = l.Materials[l.Materials.Count == 1 ? 0 : mi];
                         var material = Material(mr, assets);

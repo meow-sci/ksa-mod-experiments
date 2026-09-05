@@ -10,11 +10,11 @@ internal static class PebblesUi
 {
     public static string Choice(string label, string selected, IEnumerable<string> values, string filter = "")
     {
-        if (!ImGui.BeginCombo(FormField.Label(label), selected.Length == 0 ? "Select…" : selected)) return selected;
+        if (!ImGui.BeginCombo(FormField.Label(label), selected.Length == 0 ? "Select…" : GlbIdentity.Label(selected))) return selected;
         try
         {
             foreach (var id in values)
-                if ((filter.Length == 0 || id.Contains(filter, StringComparison.OrdinalIgnoreCase)) && ImGui.Selectable(id.Length == 0 ? "(none / default)" : id, id == selected)) selected = id;
+                if ((filter.Length == 0 || (id.Contains(filter, StringComparison.OrdinalIgnoreCase) || GlbIdentity.Label(id).Contains(filter, StringComparison.OrdinalIgnoreCase))) && ImGui.Selectable(id.Length == 0 ? "(none / default)" : GlbIdentity.Label(id) + "##" + id, id == selected)) selected = id;
         }
         finally { ImGui.EndCombo(); }
         return selected;

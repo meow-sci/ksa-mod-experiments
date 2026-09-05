@@ -39,7 +39,7 @@ Start with [workspace architecture](docs/WORKSPACE.md) and [integration scope](s
 | [kitten-animations.lib](kitten-animations.lib/README.md) | Author kitten body animation, expressions and locomotion tuning. | The explicitly applied kitten identity/mode and captured locomotion tuning. |
 | [kiwis-marbles.lib](kiwis-marbles.lib/README.md) | Weld celestial bodies to orbiters. | Each celestial weld with Cartesian/surface controls and solver-safe unweld. |
 | [parts-now.lib](parts-now.lib/README.md) | Load new part definitions during play. | Each runtime-loaded mod plus loader progress, results and GPU budget; gated reload/unload. |
-| [pebbles.lib](pebbles.lib/README.md) | Per-celestial ground clutter recipes, meshes/materials, placement and a detached collider Workshop. | Per-body applied override and original-state restoration. |
+| [pebbles.lib](pebbles.lib/README.md) | Per-celestial ground clutter recipes, meshes/materials, runtime GLB import, placement and a detached collider Workshop. | Per-body applied override, original-state restoration and retained GLB assets. |
 | [pyro.lib](pyro.lib/README.md) | Attach independent engine plumes to vehicle parts. | Each plume, bulk toggles and each applied shared exhaust-template override. |
 | [rocky-mcrock-face.lib](rocky-mcrock-face.lib/README.md) | Replace planetary ring meshes and textures. | One applied swap per body with edit/copy/restore; resources retained independently of the form. |
 | [skittles.lib](skittles.lib/README.md) | Configure ImGui colors and style. | The global applied ImGui style with live editor, legacy export and default restore. |

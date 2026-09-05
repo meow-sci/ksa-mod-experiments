@@ -22,9 +22,9 @@ internal sealed class PreviewGeometry
         var lod = recipe.Lods[lodIndex];
         if (lod.MeshIds.Count == 0) throw new InvalidOperationException("This LOD has no meshes. Choose a mesh to preview.");
         var meshes = lod.MeshIds.Select(assets.ResolveMesh).ToArray();
-        var materialIds = meshes.SelectMany(m => m.PrimitiveMaterialIds).Distinct().Order().ToArray();
-        if (lod.Materials.Count > 1 && lod.Materials.Count != materialIds.Length)
-            throw new InvalidOperationException($"Meshes require {materialIds.Length} materials, but this LOD has {lod.Materials.Count}. Use one material for all or match the slots.");
+        var slots = new GlbMaterialSlots(meshes.Select(m => (m.Id, m.PrimitiveMaterialIds)));
+        if (lod.Materials.Count > 1 && lod.Materials.Count != slots.Count)
+            throw new InvalidOperationException($"Meshes require {slots.Count} materials, but this LOD has {lod.Materials.Count}. Use one material for all or match the slots.");
         var transform = recipe.Transform;
         if (!Finite(transform.Scale.Vector) || transform.Scale.X <= 0 || transform.Scale.Y <= 0 || transform.Scale.Z <= 0)
             throw new InvalidOperationException("Mesh scales must be finite and positive, matching Apply.");
@@ -73,7 +73,7 @@ internal sealed class PreviewGeometry
                     throw new InvalidOperationException($"Mesh {mesh.Id} has invalid triangle indices.");
                 if (matrix.GetDeterminant() < 0)
                     for (int i = 0; i < indices.Length; i += 3) (indices[i + 1], indices[i + 2]) = (indices[i + 2], indices[i + 1]);
-                int slot = Array.IndexOf(materialIds, mesh.PrimitiveMaterialIds[p]);
+                int slot = slots.Slot(mesh.Id, mesh.PrimitiveMaterialIds[p]);
                 var material = lod.Materials.Count == 0 ? new MaterialRecipe() : lod.Materials[lod.Materials.Count == 1 ? 0 : slot];
                 string[] ids = [material.DiffuseId, material.NormalId, material.PbrId, material.OpacityId, material.ThicknessId];
                 var textures = ids.Select(id => string.IsNullOrWhiteSpace(id)
