@@ -45,7 +45,15 @@ Legacy feature preset files are preserved.
 
 ## Releases
 
-The existing GitHub Actions workflow builds the solution and packages only the `unscience` folder.
-Main-branch pushes produce tip prereleases; `release/<version>` pushes produce versioned releases.
-PRs and configured development branches build without publishing. Proprietary game assemblies
-come from the private `ksa-game-assemblies` checkout configured in CI.
+GitHub Actions builds the solution, runs the managed/architecture/documentation/release-policy checks, and packages only the `unscience` folder. Licensed game assemblies come from the private `ksa-game-assemblies` checkout configured in CI.
+
+| Branch/event | Published build | Retention |
+|---|---|---|
+| `main` push or manual run | `tip-<UTC timestamp>-<run id>-<attempt>` prerelease | Latest 5 tip builds |
+| `feature/*` push or manual run | `feature-<UTC timestamp>-<run id>-<attempt>` prerelease | Latest N feature builds across **all** feature branches |
+| `release/<version>` push or manual run | `v<version>` stable release | Kept; rebuilding the branch replaces that version |
+| Pull requests, `fix/*`, `chore/*`, other manual refs | Build/check only | No release |
+
+N defaults to **5**. Set the repository Actions variable `FEATURE_BUILD_RETENTION` to a positive integer to change it. Feature builds share one naming/retention pool; no branch-specific release series is created. Their embedded mod version is `<base>-feature.<timestamp>-<run id>-<attempt>`, and their ZIP is `unscience-feature-<timestamp>-<run id>-<attempt>.zip`. The release points to the originating commit. Prereleases are not marked Latest.
+
+Cleanup is serialized per channel while feature builds run concurrently. Retention reads every release API page and only deletes older published prereleases in its own channel, including their tags. Draft releases, stable releases and the other rolling channel are excluded. Run `python3 scripts/check-release-policy.py` to check branch publication rules and retention selection offline.

@@ -3,16 +3,16 @@ name: Build mod dist
 # Builds the whole unscience solution (independent feature libraries + the unscience host
 # mod) and publishes ONLY the unscience mod folder as a GitHub release:
 #
-#   push to main        → prerelease  "unscience tip <UTC timestamp>"  (tag tip-<stamp>)
-#   push to release/<v> → release     "unscience <v>"                  (tag v<v>)
-#   any other ref (feature/fix/chore branches, PRs into main)
-#                       → build only (no release, no version stamp)
+#   main pushes/manual runs      → rolling tip prereleases
+#   feature/* pushes/manual runs → rolling feature prereleases (one shared pool)
+#   release/<v>                  → named stable release
+#   PRs, fix/* and chore/*       → build only
 #
 # The KSA reference assemblies are licensed game files and live in the private
 # repo meow-sci/ksa-game-assemblies (DLLs — KSA.dll, Brutal.*.dll, Planet.*.dll
 # — under current/dll/ at the repo root). Access needs the
 # KSA_GAME_ASSEMBLIES_PAT repo secret: a fine-grained PAT with read-only
-# Contents access to that repo .
+# Contents access to that repo.
 
 on:
   push:
@@ -41,10 +41,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      channel: ${{ steps.meta.outputs.channel }}
     env:
       # Directory.Build.props resolves these before any per-OS defaults.
       KSA_DLL_DIR: ${{ github.workspace }}/.tmp/ksa-game-assemblies/current/dll
       UNSCIENCE_DIST_DIR: ${{ github.workspace }}/.tmp/dist
+      FEATURE_BUILD_RETENTION: ${{ vars.FEATURE_BUILD_RETENTION || '5' }}
+      TIP_BUILD_RETENTION: '5'
     steps:
       - name: Checkout unscience
         uses: actions/checkout@v6
@@ -68,36 +73,7 @@ jobs:
       # contain shell/sed metacharacters; this job has contents: write).
       - name: Compute release metadata
         id: meta
-        run: |
-          BASE="$(sed -nE 's/^version = "(.*)"/\1/p' unscience/mod.toml)"
-          if [[ ! "$BASE" =~ ^[0-9A-Za-z._-]+$ ]]; then
-            echo "::error::could not parse a usable base version from unscience/mod.toml (got: '$BASE')"
-            exit 1
-          fi
-          if [[ "$GITHUB_REF_NAME" == release/* ]]; then
-            NAME="${GITHUB_REF_NAME#release/}"
-            if [[ ! "$NAME" =~ ^[0-9A-Za-z._-]+$ ]]; then
-              echo "::error::release branch suffix '$NAME' must match ^[0-9A-Za-z._-]+\$ (no slashes or shell metacharacters)"
-              exit 1
-            fi
-            echo "publish=true"             >> "$GITHUB_OUTPUT"
-            echo "version=$NAME"            >> "$GITHUB_OUTPUT"
-            echo "modversion=$NAME"         >> "$GITHUB_OUTPUT"
-            echo "tag=v$NAME"               >> "$GITHUB_OUTPUT"
-            echo "title=unscience $NAME"    >> "$GITHUB_OUTPUT"
-            echo "prerelease=false"         >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF_NAME" == main ]]; then
-            STAMP="$(date -u +%Y%m%d-%H%M%S)"
-            echo "publish=true"             >> "$GITHUB_OUTPUT"
-            echo "version=tip-$STAMP"       >> "$GITHUB_OUTPUT"
-            echo "modversion=$BASE-tip.$STAMP" >> "$GITHUB_OUTPUT"
-            echo "tag=tip-$STAMP"           >> "$GITHUB_OUTPUT"
-            echo "title=unscience tip $STAMP (UTC)" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true"          >> "$GITHUB_OUTPUT"
-          else
-            # feature/fix/chore branches, PRs, and any other ref: compile only.
-            echo "publish=false"            >> "$GITHUB_OUTPUT"
-          fi
+        run: bash scripts/release-metadata.sh
 
       # The version users see in-game / in mod.toml matches the release.
       # MODVERSION is validated above to [0-9A-Za-z._-]+, so it cannot contain
@@ -119,6 +95,7 @@ jobs:
           dotnet run --project unscience-contracts.tests -c Release --no-build
           python3 scripts/check-workspace-boundaries.py
           python3 scripts/check-docs.py
+          python3 scripts/check-release-policy.py
 
       - name: Package
         if: steps.meta.outputs.publish == 'true'
@@ -141,8 +118,8 @@ jobs:
         run: |
           ZIP="$UNSCIENCE_DIST_DIR/unscience-$VERSION.zip"
           # Re-pushing a release/<v> branch rebuilds that release: drop the old
-          # release + tag so the tag moves to the new commit. (Tip tags are
-          # timestamped and never collide.)
+          # release + tag so the tag moves to the new commit. Rolling tags
+          # include run IDs and attempts to avoid collisions.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           fi
@@ -156,18 +133,39 @@ jobs:
             --generate-notes \
             "${EXTRA[@]}"
 
-      # Keep the 5 newest tip prereleases; delete older ones (and their tags)
-      # so main doesn't accumulate releases forever. Named releases untouched.
-      - name: Prune old tip releases
-        if: steps.meta.outputs.prerelease == 'true'
+  prune:
+    needs: build
+    if: needs.build.outputs.prerelease == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Cleanup is shared across feature branches, while builds remain concurrent.
+    concurrency:
+      group: rolling-release-cleanup-${{ needs.build.outputs.channel }}
+      cancel-in-progress: false
+    env:
+      FEATURE_BUILD_RETENTION: ${{ vars.FEATURE_BUILD_RETENTION || '5' }}
+      TIP_BUILD_RETENTION: '5'
+    steps:
+      - name: Checkout retention policy
+        uses: actions/checkout@v6
+
+      # Feature branches share one pool; named releases and the other channel
+      # are excluded. Fetch every page so retention is not capped at 200 entries.
+      - name: Prune rolling prereleases
         env:
           GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
         run: |
-          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 \
-            --json tagName,isPrerelease \
-            --jq '.[] | select(.isPrerelease and (.tagName | startswith("tip-"))) | .tagName' \
-            | tail -n +6 \
-            | while read -r tag; do
-                echo "Pruning $tag"
-                gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
-              done
+          KEEP="$TIP_BUILD_RETENTION"
+          [[ "$CHANNEL" == feature ]] && KEEP="$FEATURE_BUILD_RETENTION"
+          if [[ ! "$KEEP" =~ ^[1-9][0-9]*$ ]]; then
+            echo '::error::Rolling build retention must be a positive integer'
+            exit 1
+          fi
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            | python3 scripts/release-retention.py --channel "$CHANNEL" --keep "$KEEP" \
+            > "$RUNNER_TEMP/unscience-stale-releases.txt"
+          while IFS= read -r tag; do
+            echo "Pruning $tag"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done < "$RUNNER_TEMP/unscience-stale-releases.txt"
