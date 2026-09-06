@@ -47,24 +47,21 @@ public sealed partial class GlbDocument
                 if (!float.IsFinite(length)) throw new InvalidDataException("GLB normals overflow; export geometry at a smaller scale.");
                 normals[i] = length > 1e-20f ? Vector3.Normalize(normals[i]) : Vector3.UnitY;
             }
-            var uv = new Vector2[positions.Length];
-            if (attributes.TryGetProperty("TEXCOORD_0", out accessor))
-            {
-                float[] data = ReadAttribute(accessor.GetInt32(), 2, "VEC2");
-                if (data.Length != uv.Length * 2) throw new InvalidDataException("GLB UVs do not match positions.");
-                for (int i = 0; i < uv.Length; i++) uv[i] = new(data[i * 2], data[i * 2 + 1]);
-            }
             int material = Int(primitive, "material", -1);
             if (material < -1 || material >= (Root.TryGetProperty("materials", out var materials) ? materials.GetArrayLength() : 0))
                 throw new InvalidDataException("GLB material index is invalid.");
-            if (material >= 0 && !attributes.TryGetProperty("TEXCOORD_0", out _))
+            var primary = GlbTextureMapping.PrimaryInfo(material >= 0 ? materials[material] : default);
+            var mapping = GlbTextureMapping.Read(primary);
+            string uvAttribute = $"TEXCOORD_{mapping.TexCoord}";
+            var uv = new Vector2[positions.Length];
+            if (attributes.TryGetProperty(uvAttribute, out accessor))
             {
-                var m = materials[material];
-                bool textured = m.TryGetProperty("normalTexture", out _) || m.TryGetProperty("occlusionTexture", out _);
-                if (m.TryGetProperty("pbrMetallicRoughness", out var pbr))
-                    textured |= pbr.TryGetProperty("baseColorTexture", out _) || pbr.TryGetProperty("metallicRoughnessTexture", out _);
-                if (textured) throw new InvalidDataException("Textured GLB geometry requires TEXCOORD_0 UVs.");
+                float[] data = ReadAttribute(accessor.GetInt32(), 2, "VEC2");
+                if (data.Length != uv.Length * 2) throw new InvalidDataException("GLB UVs do not match positions.");
+                for (int i = 0; i < uv.Length; i++) uv[i] = mapping.Apply(new(data[i * 2], data[i * 2 + 1]));
             }
+            else if (primary.ValueKind == JsonValueKind.Object)
+                throw new InvalidDataException($"The main GLB texture requires {uvAttribute}, but this primitive has no such UVs.");
             result.Add(new(positions, normals, uv, indices, material));
             CheckBudget(result);
         }

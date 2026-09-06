@@ -16,7 +16,7 @@ Current runtime changes: all 26 features expose explicit release; initialization
 
 Current creative-tool additions: Zippo Disco uses per-instance LightModule templates and shared assembly actuator ownership; Humble Arteest adds rendered-mesh cursor picking and mesh paint scopes; Graffiti adds held-input spray cadence. See the area pages and master surface for exact members. No new Harmony targets or GPU layouts; managed checks do not establish native acceptance.
 
-Pebbles provides mesh/import, linked scale/collider setup and selected/all clutter-type replacement with automatic GLB material assignment and warned fallbacks for common Blender appearance extensions. Its simplified authoring retains the existing per-celestial override and preview integration inventory. Its runtime GLB importer, new runtime hooks, private GPU resources and physics invalidation require native acceptance; see [ground clutter](ground-clutter.md).
+Pebbles provides mesh/import, linked scale/collider setup and selected/all clutter-type replacement with automatic GLB material assignment, baked main-texture transforms/secondary UVs and warned appearance/detail-map fallbacks. Its simplified authoring retains the existing per-celestial override and preview integration inventory. Its runtime GLB importer, new runtime hooks, private GPU resources and physics invalidation require native acceptance; see [ground clutter](ground-clutter.md).
 
 ## Integration model
 
@@ -43,7 +43,7 @@ Pebbles provides mesh/import, linked scale/collider setup and selected/all clutt
 | [Decals](decals.md) | graffiti; DecalEntry, picking, custom pass and global policy |
 | [Parachutes](parachutes.md) | free-fallin; detached recipe and applied material resources |
 | [Ground clutter](ground-clutter.md) | pebbles; private per-body ecotype graphs, material buffers, collision rebuilds and Workshop preview |
-| [Ground clutter GLB import](ground-clutter-glb-materials.md) | pebbles; local GLB geometry/scene decoding, native embedded PNG/JPEG conversion, private texture upload and retirement |
+| [Ground clutter GLB import](ground-clutter-glb-materials.md) | pebbles; local GLB geometry/scene decoding, primary UV mapping, material fallbacks, native embedded PNG/JPEG conversion, private texture upload and retirement |
 | [Rings](rings.md) | rocky-mcrock-face, bloomin-onion; shared catalog/mesh infrastructure and outgoing-reference coordination |
 | [UI customization](ui-customization.md) | skittles, con-man, kitchen-sink; explicit style/layout/IVA policies |
 | [Retired RPC](rpc.md) | Removed server/client; no active network surface |

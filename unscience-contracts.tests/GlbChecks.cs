@@ -14,6 +14,7 @@ internal static class GlbChecks
     {
         GlbPixelChecks.Run();
         CompatibilityChecks();
+        GlbTextureChecks.Run();
         foreach (int component in new[] { 5121, 5123, 5125 })
         {
             using var document = GlbDocument.Parse(Fixture(component: component));
@@ -106,15 +107,11 @@ internal static class GlbChecks
         Check(material.GetRawText() == original && material.GetProperty("pbrMetallicRoughness").GetProperty("baseColorTexture").GetProperty("index").GetInt32() == 3, "Fallback policy never changes the source base-color texture or factors.");
         using var unknown = JsonDocument.Parse("""{"extensions":{"EXT_unknown_material":{}}}""");
         Reject(() => GlbCompatibility.MaterialWarnings(unknown.RootElement));
-        using var mapping = JsonDocument.Parse("""{"extensions":{"KHR_texture_transform":{"offset":[1,0]}}}""");
-        try { GlbCompatibility.RejectExtensions(mapping.RootElement); throw new Exception("Texture mapping must not be silently lost."); }
-        catch (InvalidDataException ex) { Check(ex.Message.Contains("KHR_texture_transform") && ex.Message.Contains("Bake"), "Mapping error gives the exact extension and recovery path."); }
         RejectJson(j => j["extensionsRequired"] = new JsonArray("EXT_unknown_material"));
-        RejectJson(j => j["extensionsRequired"] = new JsonArray("KHR_texture_transform"));
         Console.WriteLine("PASS: GLB known appearance fallbacks, source texture preservation and actionable unsupported-extension errors.");
     }
 
-    private static byte[] Fixture(Action<JsonObject>? edit = null, int component = 5123, Action<byte[]>? binaryEdit = null)
+    internal static byte[] Fixture(Action<JsonObject>? edit = null, int component = 5123, Action<byte[]>? binaryEdit = null)
     {
         int width = component == 5121 ? 1 : component == 5123 ? 2 : 4;
         var data = new byte[60 + width * 3];

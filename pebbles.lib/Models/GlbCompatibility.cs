@@ -5,11 +5,12 @@ using System.Text.Json;
 
 namespace MeowSci.PebblesLib;
 
-/// <summary>Explicit appearance fallbacks. Geometry/UV/image extensions are never silently dropped.</summary>
+/// <summary>Explicit appearance fallbacks, with texture mapping/source policy handled separately.</summary>
 public static class GlbCompatibility
 {
     private static readonly Dictionary<string, string> MaterialFallbacks = new(StringComparer.Ordinal)
     {
+        ["KHR_materials_pbrSpecularGlossiness"] = "specular color/detail (diffuse artwork retained; scalar glossiness approximated as roughness)",
         ["KHR_materials_specular"] = "custom specular highlights",
         ["KHR_materials_ior"] = "custom index of refraction",
         ["KHR_materials_clearcoat"] = "clearcoat",
@@ -23,13 +24,16 @@ public static class GlbCompatibility
         ["KHR_materials_emissive_strength"] = "emissive glow"
     };
 
+    internal static JsonElement SpecularGlossiness(JsonElement material) =>
+        GlbTextureMapping.Property(GlbTextureMapping.Property(material, "extensions"), "KHR_materials_pbrSpecularGlossiness");
+
     public static void RequiredExtensions(JsonElement root)
     {
         if (!root.TryGetProperty("extensionsRequired", out var required)) return;
         foreach (var extension in required.EnumerateArray())
         {
             string name = extension.GetString() ?? "(unnamed)";
-            if (!MaterialFallbacks.ContainsKey(name)) throw Unsupported(name);
+            if (!MaterialFallbacks.ContainsKey(name) && name is not ("KHR_texture_transform" or "KHR_texture_basisu" or "EXT_texture_webp")) throw Unsupported(name);
         }
     }
 
@@ -59,7 +63,7 @@ public static class GlbCompatibility
 
     private static InvalidDataException Unsupported(string extension) => new(extension switch
     {
-        "KHR_texture_transform" => "KHR_texture_transform changes texture mapping. Bake the material to an image using the first UV map in Blender; Pebbles cannot discard this without moving the artwork.",
+        "KHR_texture_transform" => "KHR_texture_transform is supported on textureInfo, but was found in an unsupported location.",
         "KHR_draco_mesh_compression" or "EXT_meshopt_compression" => $"{extension}: export the GLB with mesh compression disabled.",
         "EXT_texture_webp" or "KHR_texture_basisu" => $"{extension}: export embedded PNG/JPEG textures instead of WebP/KTX2.",
         _ => $"Unsupported GLB extension '{extension}'. Export a core metallic/roughness material or bake the material to a base-color image in Blender."
