@@ -37,7 +37,7 @@ Each preset represents a real camera lens focal length:
 
 ### FOV State (`glass.lib/FovController`)
 
-FOV state and control logic lives in `glass.lib` as `FovController` (namespace `MeowSci.GlassLib`), not in the mod itself. This allows other projects (e.g. `unladen-swallow.lib`) to control camera FOV by referencing `glass.lib` without depending on the `glass` mod.
+FOV state and control logic lives in `glass.lib` as `FovController` (namespace `MeowSci.GlassLib`), not in the mod itself. This allows other projects to control camera FOV by referencing `glass.lib` without depending on the `glass` mod.
 
 `GlassSubmod` also lives in `glass.lib` and implements `ISubmod` from `ksa-abstractions.lib`. It is instantiated directly by the unscience supermod.
 

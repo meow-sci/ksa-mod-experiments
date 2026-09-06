@@ -30,7 +30,7 @@ Spawned kittens appear in the list below with:
 
 ## Architecture
 
-All spawning and material logic lives in `doh.lib` (headless library). This mod project only handles ImGui UI and StarMap lifecycle. The library API is designed for future RPC integration via `unladen-swallow`.
+All spawning and material logic lives in `doh.lib` (headless library). This mod project only handles ImGui UI and StarMap lifecycle. The library API is reusable by other mods.
 
 ## Dependencies
 

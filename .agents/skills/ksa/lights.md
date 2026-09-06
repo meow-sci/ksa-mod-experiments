@@ -51,7 +51,9 @@ foreach (var lm in part.Modules.Get<LightModule>())   // Span<LightModule>
 }
 ```
 
-> **Field-name discrepancy to know:** the decomp field is `ColorRgb` (with `[XmlElement("Color")]`). `red-alert` addresses the live module's `ColorRgb`; `zippo` instead walks `PartTemplate.Components` filtering type `"KSA.LightModule+TemplateData"` and reads a field named `"Color"`. **Prefer the live-module `Template.ColorRgb` path** — it matches the decomp. Always call `OnDataLoad(null)` after editing channels.
+> **Field-name discrepancy to know:** the decomp field is `ColorRgb` (with `[XmlElement("Color")]`).
+> `zippo` walks `PartTemplate.Components` filtering type `"KSA.LightModule+TemplateData"` and reads
+> the `ColorRgb` field. Always call `OnDataLoad(null)` after editing channels.
 
 ### Sharing gotcha — TemplateData is per-template, not per-instance
 

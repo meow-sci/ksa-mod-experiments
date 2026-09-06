@@ -15,7 +15,6 @@ Camera Controller Override lets you:
 - **Animation groups** - Run multiple animations simultaneously with composited effects
 - **Custom easing** - Adjust acceleration/deceleration with easing power parameter
 - **Return-to-start** - Automatically animate back to initial camera position
-- **RPC integration** - All functionality exposed over HTTP via `unladen-swallow.lib` (`POST /camera/animate`, `GET /camera/status`, `DELETE /camera/stop`)
 
 ## Features
 
@@ -27,7 +26,7 @@ Camera Controller Override lets you:
 - **Return-to-start** - Auto-animate back to camera start position after sequence
 - **Real-time preview** - See animations live as you configure parameters
 - **Interceptor pattern** - Cleanly overrides camera input without patching visual systems
-- **RPC-ready** - `CameraControllerOverrideSubmod.Instance` static property enables external access from `unladen-swallow.lib`
+- **Reusable API** - `CameraControllerOverrideSubmod.Instance` exposes the active controller to other mods
 
 ## Architecture
 

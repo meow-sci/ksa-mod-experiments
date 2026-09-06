@@ -13,7 +13,7 @@
 
 Full review: [`plans/KSA_5402_UPGRADE.md`](plans/KSA_5402_UPGRADE.md). Three compile breaks this pass
 (`KSA.Viewport` → `IViewport` in five libs, `Cursor.InputRay` in graffiti, exhaust `AddInstance` air
-state in pyro), all fixed; the build is green, 63/63 projects, 0 warnings, 0 errors. Revisions
+state in pyro), all fixed; the build is green. Revisions
 5349–5400 are unlogged, so the review came from the source diff. Everything below still needs a live pass.
 
 - **garry's torch — works but throws errors** — a **new candidate** cause: 5402 adds part structural
@@ -32,9 +32,8 @@ state in pyro), all fixed; the build is green, 63/63 projects, 0 warnings, 0 err
 
 ## Triage notes — KSA `2026.8.22.5348` upgrade (2026-08-23)
 
-Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compile break this pass
-(space-tape, resolved by **removing the mod** — it was defunct); the build is green, 55/55 projects,
-0 warnings, 0 errors. Everything below still needs a live pass.
+Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). The build was green after the
+upgrade. Everything below still needs a live pass.
 
 - **kitten animations always the same expression** — ✅ **ROOT-CAUSED AND FIXED (2026-08-23). The
   rev-5278 pose-guard theory below was wrong.** The rev-5278 guard is real
@@ -64,11 +63,6 @@ Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compi
   `AnimatedRenderable.UpdateAnimation` so a forced clip survives the game's per-frame clip selection.
   See [`scope/character-and-materials.md`](scope/character-and-materials.md) → kitten-animations.
   **Still needs a live in-game pass to confirm on screen.**
-- **con-man (new this pass)** — ⚠️ rev 5293 added a global **Hud Scale** applied *after* per-canvas
-  scale. `GaugeCanvas` now divides by `GameSettings.GetGaugeScale()` and wraps draws in
-  `ConsoleStyle.BeginGaugeHostScope`. con-man's saved `_windowPosition`/`_windowSize`/`_customScale` are
-  in a space it doesn't model, so **layouts saved at one Hud Scale will restore wrong at another.**
-  Stacks on the still-open rev-5201 context-visibility gate. Plan doc §4.1.
 - **blinky broken** — ✅ **ROOT-CAUSED AND FIXED (2026-08-23). The engine-part-id theory was only a
   side bug; the real cause is the propellant feed.** Grids built and added mass, but no pixel could
   ever light because the pixel engines reached **no propellant**, so
@@ -118,9 +112,6 @@ Full review: [`plans/KSA_5348_UPGRADE.md`](plans/KSA_5348_UPGRADE.md). One compi
 - **new zippo feature — refill electricity** — unchanged; still a feature request, not a break.
   (Separately: zippo's long-recorded `GetField("Color")` bug is **closed** — the code reads `"ColorRgb"`,
   which is correct. The scope docs describing it as broken were stale and have been fixed.)
-- **space-tape** — 🗑️ **removed from the repo this pass.** Rev 5329 deleted `PartTemplate.Decoupler`;
-  the mod was defunct, so it and its `.lib` were deleted rather than ported. Note the stale deploy folder
-  `~/repos/meow-sci/mods/mods/space-tape/` will keep loading the old DLL until deleted by hand.
 
 ---
 
@@ -157,9 +148,6 @@ this pass (build is green, 55/55 projects); everything below still needs a live 
 - **flexo throws errors but works** — no signature drift in its patch targets this span. New
   editor-side suspects: bendable fuel-line hoses (5171), roll-while-snapped (5258), and the map grid
   moving out of screen space (5256/5257).
-- **con-man (new)** — ⚠️ gauges enabled in con-man may now silently refuse to draw: rev 5201 added a
-  per-canvas visibility **context** system, and `_enabled` is no longer the only gate. See the plan
-  doc §4.1.
 
 ---
 

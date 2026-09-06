@@ -26,8 +26,8 @@ root `~/repos/meow-sci/unscience`.
   (`GetAllVehicles`/`GetControlledVehicle`), so that helper's game touchpoints are part of
   each mod's effective surface and are listed per mod.
 - Every top-level mod also applies the shared `HotkeyGuard` (`ksa-abstractions.lib/HotkeyGuard.cs`,
-  patches `GameSettings.OnKeyAll`) — catalogued in `scope/telemetry.md` and not repeated in
-  full here; listed as one row per mod.
+  patches `GameSettings.OnKeyAll`) — catalogued in the master integration surface and not repeated
+  in full here; listed as one row per mod.
 
 **Summary of 4680 -> 4750 risk**
 
@@ -88,7 +88,7 @@ All ImGui via `Brutal.ImGuiApi`.
 | 10 | Direct typed API (indirect) | via #9 | `Battery.MaximumCapacity` — `public required Joules MaximumCapacity` | `KSA/Battery.cs:23` | Yes | Same (file byte-identical) | Read only inside `Refill`; mod never names `Joules`. |
 | 11 | Direct typed API | `eternal-flame.lib/EternalFlameLib.cs:74,111` (lookup) | `Vehicle.Id` — `public virtual string Id` (inherited `Astronomical.Id`) | `KSA/Astronomical.cs:104` | Yes | Same (OLD `Astronomical.cs:104`) | Monitored-vehicle key matching. |
 | 12 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `EternalFlameLib.cs:65,102`; `EternalFlameSubmod.cs:54,109`) | `Universe.CurrentSystem` (`KSA/Universe.cs:94`) -> `CelestialSystem.All` (`KSA/CelestialSystem.cs:64`) -> `LookupCollection<Astronomical>.UnsafeAsList()` (`KSA/LookupCollection.cs:210`) | `KSA/Universe.cs:94` | Yes | Same (`CelestialSystem.All` OLD `:57`) | Shared enumerator; a break here cascades to all three mods' UI. Since 5402 the list also contains debris fragments (`Vehicle.IsDebris`, `KSA/Vehicle.cs:392`). |
-| 13 | Harmony + Reflection | `eternal-flame/Patcher.cs:20` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`; `nameof`-resolved, prefix `ref bool __result` | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard (full row in `scope/telemetry.md`). |
+| 13 | Harmony + Reflection | `eternal-flame/Patcher.cs:20` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`; `nameof`-resolved, prefix `ref bool __result` | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard (full row in the master integration surface). |
 | 14 | Lifecycle | `eternal-flame/Mod.cs:19-87` | StarMap attrs: `StarMapMod`, `StarMapImmediateLoad`, `StarMapAllModsLoaded`, `StarMapBeforeGui`, `StarMapAfterGui`, `StarMapUnload` (StarMap.API) | (StarMap.API package) | Yes | Same | Fuel in `OnBeforeUi`; battery via the solver prefix. |
 
 **Game assets referenced** — None.
@@ -129,8 +129,8 @@ patch): `GarrysTorchSubmod.UpdateWelds(dt)` (`GarrysTorchSubmod.cs:85`) first ca
 `KittenRenderable.ModelToBodyMatrix()`. The latter supplies the Y/X and Z/X correction that the
 game's scalar-only `CharacterCore.Scale` cannot represent; it does not alter weld timing. Earlier
 prefix/postfix approaches on `ExecuteNextVehicleSolvers`/`ApplyVehicleSolvers` remain abandoned
-(see `garrys-torch/README.md:32-43`). Public API (`CreateWeld`/`ModifyWeld`/
-`RemoveWeld`/`AnimateWeld`/preset methods) is consumed by `unladen-swallow.lib` HTTP RPC.
+(see `garrys-torch/README.md:32-43`). The public API (`CreateWeld`/`ModifyWeld`/
+`RemoveWeld`/`AnimateWeld`/preset methods) is available to reusable callers.
 
 **UI/hotkeys** — Standalone window "Garry's Torch", 450x500, toggled by **F11**
 (`garrys-torch/Mod.cs:51,85`). Content (`GarrysTorchSubmod.RenderContent:105`): Create-Weld

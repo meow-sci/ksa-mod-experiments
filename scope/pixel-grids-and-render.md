@@ -30,9 +30,6 @@ per-span "Δ vs OLD" cells are historical unless marked `@5402`.
      with all three patch sets applied on the **single** supermod Harmony instance
      (`unscience/Patcher.cs:51` `ThugLifeRenderPatches.Apply`, `:57` `BlinkyPatches.Apply`,
      `:58` `ShinyPatches.Apply`, each wrapped in `TryApply`).
-- `blinky` is also driven headlessly via RPC: `unladen-swallow.lib/Blinky*Endpoint.cs`
-  call `BlinkyGridManager` (e.g. `BlinkyAnimateEndpoint.cs`, `BlinkyStaticEndpoint.cs`).
-  Those endpoints are mod-to-mod (unladen-swallow), not direct game integration.
 - `blinky` + `its-so-shiny` patch the **same three** render-data methods. Harmony allows
   multiple prefixes; `blinky` keys on `pixel_*` Ids and `its-so-shiny` on `shiny_*` Ids,
   so the prefixes never conflict (a part is skipped only if its own mod's prefix returns false).
@@ -54,12 +51,12 @@ surface still compiles. Details per mod below.
 attaches them to a live vehicle. Each pixel is an a/b engine pair (net-zero thrust);
 pixels are toggled by activating/deactivating their `EngineController`s. Supports
 multiple named grids per vehicle, patterns, scrolling, static display, global scan, and
-a render-skip performance toggle. Controllable via ImGui and via unladen-swallow RPC.
+a render-skip performance toggle. Controllable via ImGui.
 
 **Unscience integration** — `BlinkySubmod : ISubmod` (`blinky.lib/BlinkySubmod.cs:11`),
 instantiated by the supermod (`unscience/Mod.cs:69`) and the standalone host
 (`blinky/Mod.cs:27`). Static singleton `BlinkyGridManager` (`blinky.lib/BlinkyGridManager.cs:38`)
-is the shared control surface for both the UI and RPC. Render-skip patches applied via
+is the shared control surface for the UI and reusable callers. Render-skip patches applied via
 `BlinkyPatches.Apply` (`blinky/Patcher.cs:14` standalone, `unscience/Patcher.cs:57` embedded).
 
 **UI/hotkeys** — Standalone window "blinky", 480x640, `MenuBar`, toggled by **F11**

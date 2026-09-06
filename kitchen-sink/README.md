@@ -270,5 +270,4 @@ Check for compilation errors before continuing with implementation.
 
 See similar template mods:
 - [unscience](../unscience) - Minimal template without .lib
-- [stampy](../stampy) - Another template example
 - Other mods for inspiration on complete implementations

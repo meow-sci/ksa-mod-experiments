@@ -1,7 +1,0 @@
-name = "average-twr"
-description = "average-twr"
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.AverageTwr"

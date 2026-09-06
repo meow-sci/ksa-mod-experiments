@@ -33,7 +33,7 @@ public class GridState
 
 /// <summary>
 /// Static singleton that manages per-vehicle named LCD grids and exposes scroll, static display, and off operations.
-/// Shared between the blinky mod UI and the unladen-swallow RPC endpoints.
+/// Shared control surface for the blinky mod UI and reusable callers.
 /// </summary>
 public static class BlinkyGridManager
 {

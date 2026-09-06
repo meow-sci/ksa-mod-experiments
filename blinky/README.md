@@ -1,6 +1,6 @@
 # blinky — Dynamic LCD Engine Pixel Grid
 
-A KSA mod that dynamically creates LCD pixel grids of engine parts at runtime and attaches them to existing vehicles. Supports **multiple named grids per vehicle**, each independently configured and controlled. Provides static pixel display and pattern control — all controllable via both ImGui UI and HTTP RPC endpoints.
+A KSA mod that dynamically creates LCD pixel grids of engine parts at runtime and attaches them to existing vehicles. Supports **multiple named grids per vehicle**, each independently configured and controlled through its ImGui UI.
 
 ## Overview
 
@@ -38,7 +38,7 @@ Each vehicle can host multiple independent named grids. Grids are keyed by `(veh
 Built-in pattern buttons per grid: All On, Off, Alternating Rows, Alternating Cols, Checkerboard.
 
 ### Static Display
-Paints a set of pixels directly. Supports intelligent reset mode that only changes the pixels that need updating (diffs current vs new state). Available via RPC API.
+Paints a set of pixels directly. Supports intelligent reset mode that only changes the pixels that need updating (diffs current vs new state).
 
 ### Global Scan (Debug Menu)
 Auto-discovers all named blinky grids on all loaded vehicles by parsing `pixel_{gridName}_{row}_{col}_{a|b}` part IDs and registering each discovered grid.
@@ -94,16 +94,6 @@ and for a sample pixel — controller activity, stage, each declared feed connec
 ### Render Toggle
 Checkbox to toggle engine mesh rendering for a significant performance boost — hides part meshes while keeping the pixel grid fully functional.
 
-### RPC Endpoints (via unladen-swallow)
-All endpoints require a `vehicleId` and `gridName` to identify which grid to control.
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/blinky/animate` | POST | Start a scrolling animation with custom pixel data and speed |
-| `/blinky/static` | POST | Display a static set of pixels (with optional reset/diff) |
-| `/blinky/off` | POST | Turn off all pixels and stop any scroll |
-| `/blinky/grids` | GET | List all registered grids (optional `vehicleId` query filter) |
-| `/blinky/grids/repair` | POST | Re-wire a registered grid's propellant feed |
 
 ## Grid Configuration
 
@@ -151,12 +141,12 @@ blinky.lib/                   ← Core reusable logic (headless)
 
 ## Dependencies
 
-- `ksa-abstractions.lib` — `VehicleProvider`, `PartHelpers`, `GameThread`
+- `ksa-abstractions.lib` — `VehicleProvider` and `PartHelpers`
 
 ## Architecture
 
 - **blinky.lib** is fully self-contained
-- **BlinkyGridManager** is a static singleton shared between the mod UI and RPC endpoints
+- **BlinkyGridManager** is the static singleton used by the mod UI and reusable library API
 - Grids are registered by compound key `(vehicleId, gridName)` and discoverable from any consumer
 - Multiple grids per vehicle are fully independent (own config, scroll state, active pixels)
 - The mod UI (`Mod.cs`) is a thin ImGui layer that delegates all logic to `BlinkyGridManager`

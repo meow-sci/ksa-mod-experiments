@@ -38,11 +38,11 @@ These attributes are the **complete** StarMap interface. Do not attempt to call 
 |---|---|
 | `[StarMapImmediateLoad]` | Almost nothing — the renderer is NOT live (don't call `Program.GetRenderer()`). |
 | `[StarMapAllModsLoaded]` | Apply Harmony patches, build GPU resources, set static `Instance`. Renderer is live. |
-| `[StarMapBeforeGui]` (dt) | Per-frame compute / sampling / state mutation; drain the game-thread queue. |
+| `[StarMapBeforeGui]` (dt) | Per-frame compute, sampling, and state mutation. |
 | `[StarMapAfterGui]` (dt) | ImGui rendering, hotkey toggles (`ImGui.IsKeyPressed(ImGuiKey.F11)`). |
 | `[StarMapUnload]` | Unpatch Harmony, dispose GPU resources (reverse order), null static `Instance`. |
 
-**For the full scaffolding playbook** — the two-project `<name>` + `<name>.lib` split, `Patcher.cs`, `mod.toml`, `.csproj`/`Directory.Build.props`, the `ISubmod` interface, the dual standalone+submod static-`Instance` pattern, the `GameThread` off-thread scheduler, and solver-timing hooks (`Universe.ExecuteNextVehicleSolvers`) — see [lifecycle.md](lifecycle.md).
+**For the full scaffolding playbook** — the two-project `<name>` + `<name>.lib` split, `Patcher.cs`, `mod.toml`, `.csproj`/`Directory.Build.props`, the `ISubmod` interface, the dual standalone+submod static-`Instance` pattern, and solver-timing hooks (`Universe.ExecuteNextVehicleSolvers`) — see [lifecycle.md](lifecycle.md).
 
 ### Solver-timing hooks (cross-cutting)
 
@@ -52,7 +52,7 @@ State that must be visible to the **physics solvers each sim step** (battery cha
 
 | Topic | File |
 |---|---|
-| Mod scaffolding, lifecycle, ISubmod, GameThread scheduler, solver hooks | [lifecycle.md](lifecycle.md) |
+| Mod scaffolding, lifecycle, ISubmod, game-thread rules, solver hooks | [lifecycle.md](lifecycle.md) |
 | Vehicle telemetry, resources (fuel/battery refill), Situation, flight events | [telemetry.md](telemetry.md) |
 | Vehicle physics data, render override, engine control | [vehicle-api.md](vehicle-api.md) |
 | Parts/SubParts rendering, raycasting, mouse picking | [parts.md](parts.md) |
@@ -124,7 +124,7 @@ ExportedAssemblies = ["MeowSci.BlinkyLib"]
 1. **Shared state goes in `.lib` assemblies only** — the mod entry assembly (e.g. `MeowSci.Blinky`) is private and never imported by other mods.
 2. **`ImportedAssemblies` lists `.lib` assembly names** — e.g. `"MeowSci.BlinkyLib"`, not `"MeowSci.Blinky"`.
 3. **Use `Optional = true`** so each mod remains independently installable. Guard code paths that depend on the other mod being present.
-4. **Transitive `.lib` deps may need importing too** — if `blinky.lib` → `ksa-abstractions.lib` and both mods need the same `GameThread` static state, import `MeowSci.KsaAbstractions` as well.
+4. **Transitive `.lib` deps may need importing too** when multiple mods must share the same static state.
 5. **Build-time references still needed** — the `.csproj` `<ProjectReference>` to the `.lib` project provides compile-time types. At runtime, `ImportedAssemblies` redirects the load to the dependency's ALC instead of loading the local copy.
 
 # Universe & Vehicles

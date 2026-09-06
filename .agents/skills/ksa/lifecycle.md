@@ -128,28 +128,6 @@ static void Postfix(/* ... */) => MyThingSubmod.Instance?.DoTheThing();
 
 The `unscience` supermod owns a **single** `new Harmony("MeowSci.Unscience")`, calls `HotkeyGuard.Patch` once, then one `Apply()` per submod on that instance. Its `OnBeforeUi` loops `Update(dt)` over all submods (even hidden), `OnAfterUi` renders visible ones.
 
-## GameThread scheduler — mutating game state from off-thread
-
-KSA game state has **thread affinity** — only mutate it on the game thread. Background/HTTP threads (e.g. the `unladen-swallow` RPC server) must enqueue work and let the game thread drain it.
-
-```csharp
-// ksa-abstractions.lib/GameThread.cs
-public static class GameThread
-{
-    public static IGameStateScheduler Scheduler { get; }   // background threads enqueue here
-    public static void DrainOnGameThread();                 // call once per frame on the game thread
-}
-
-// IGameStateScheduler:
-Task Schedule(Action action);        // completes after the action runs on the game thread
-Task<T> Schedule<T>(Func<T> func);   // resolves to the return value
-```
-
-- **Off-thread (HTTP handler):** `var result = await GameThread.Scheduler.Schedule(() => { /* touch game state */ return x; });`
-- **Game thread:** call `GameThread.DrainOnGameThread()` from a submod's `Update(dt)` (which the supermod calls in `OnBeforeUi`).
-
-Backed by a `ConcurrentQueue<WorkItem>` + `TaskCompletionSource` (`RunContinuationsAsynchronously`); exceptions on the game thread fault the returned task.
-
 ## Solver-timing hooks — `Universe.ExecuteNextVehicleSolvers`
 
 Some state must be set **before the physics solvers run each sim step**, not in the render loop (the render frame and the sim step run at different cadences). Examples: refilling battery charge so the sim sees it (`eternal-flame`), repositioning welded celestials (`kiwis-marbles`), mutating a vehicle part tree (`kitchen-sink`).
@@ -169,7 +147,7 @@ harmony.Patch(original, prefix: new HarmonyMethod(myPrefix) { priority = Priorit
 - Repo-root `Directory.Build.props` holds shared props: `net10.0`, `LangVersion 13.0`, `Nullable enable`, `TreatWarningsAsErrors` (except CS1591), and the `KSAFolder` / `KSAUserModDir` / `SelectedDistModDir` paths.
 - Standalone csproj: `<OutputType>Library</OutputType>`, `<AssemblyName>MeowSci.<Name></AssemblyName>`, `<DistDir>$(SelectedDistModDir)<mod-name>\</DistDir>`.
 - PackageReferences (both `PrivateAssets="all"`): `StarMap.API`, `Lib.Harmony`.
-- ProjectReferences: `..\<name>.lib\...` and `..\ksa-abstractions.lib\...` (the latter pulls in `HotkeyGuard`, `GameThread`, `KsaPaths`, providers).
+- ProjectReferences: `..\<name>.lib\...` and `..\ksa-abstractions.lib\...` (the latter pulls in `HotkeyGuard`, `KsaPaths`, and providers).
 - KSA game DLLs are `<Reference HintPath="$(KSAFolder)...">` with `<Private>false</Private>` (not copied). Common: `KSA`, `Brutal.Core.Common`, `Brutal.Core.Numerics`, `Brutal.Core.Strings`, `Brutal.ImGui`, `Brutal.ImGui.Abstractions`. Render mods add `Brutal.Vulkan*`, `Brutal.Core.Memory`, `Planet.Render.Core`.
 - The `CopyCustomContent` target (`AfterTargets="AfterBuild"`) copies `mod.toml`, the entry DLL/pdb/deps.json, **all** `MeowSci.*.dll/pdb` (the lib + abstractions), `LICENSE`, and `third-party-licenses/` into `$(DistDir)`.
 - Build the whole solution with `dotnet build` and ensure it compiles before a task is complete.

@@ -1,6 +1,6 @@
 # doh.lib — DOH Library
 
-Headless library providing programmatic kitten spawning and per-kitten GPU material customization for KSA. Designed for use by the `doh` mod UI and future RPC endpoints via `unladen-swallow`.
+Headless library providing programmatic kitten spawning and per-kitten GPU material customization for KSA. Designed for use by the `doh` mod UI and other mods.
 
 ## Modules
 
@@ -41,7 +41,7 @@ Headless library providing programmatic kitten spawning and per-kitten GPU mater
 
 ## Thread Safety
 
-All `KittenSpawner` methods MUST run on the game thread. When invoked via RPC, callers must use `GameThread.Scheduler.Schedule()` for marshalling.
+All `KittenSpawner` methods MUST run on the game thread. Callers are responsible for invoking them from a game-thread lifecycle hook.
 
 ### Vehicle physics step vs. spawn/despawn
 
@@ -49,18 +49,6 @@ Since KSA build 5402 the game locks the shared BepuPhysics shapes registry while
 
 `KittenSpawner` guards both paths with `JobSystems.VehicleSolver.Wait()` (see `WaitForVehicleSolverIdle`) before touching the vehicle. `PrepareFrame` waits on the same scheduler at the start of every frame, so this only moves that wait earlier; nothing re-queues the solver until the next frame, so the rest of the spawn loop is safe. The game's own EVA button avoids the race differently, by staging the spawn in `InputEvents.EvaSpawnBuffer` and applying it at the frame sync point.
 
-## RPC Integration (Future)
-
-The library exposes a clean API surface for `unladen-swallow` RPC endpoints:
-
-| Endpoint | Method |
-|---|---|
-| `POST /doh/spawn` | `KittenSpawner.Spawn(SpawnRequest)` |
-| `DELETE /doh/despawn` | `KittenSpawner.Despawn(kittenId)` |
-| `DELETE /doh/despawn-all` | `KittenSpawner.DespawnAll()` |
-| `PUT /doh/recolor` | `KittenSpawner.RecolorKitten(kittenId, color)` |
-| `GET /doh/kittens` | `SpawnedKittenRegistry.GetAll()` |
-| `GET /doh/characters` | `KittenSpawner.GetAvailableCharacters()` |
 
 ## Dependencies
 

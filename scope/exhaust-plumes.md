@@ -118,7 +118,7 @@ data stride for thumbnail rendering" is logged), so the source diff is the only 
   `Vehicle.GetSurfaceVelocityCci()` (new API, `:2922`) × `Parent.GetCci2Cce()`, density from
   `Parent.GetAtmosphereReference()?.Physical.GetAtmosphericDensityAtAltitude(altitude)` (0 in vacuum /
   no atmosphere). The float return (`visualExpansionRadius`) is discarded. Solution builds clean
-  (63 projects, 0 warnings, 0 errors) against 5402.
+  (52 projects, 0 warnings, 0 errors) against 5402.
 - ⚠️ **Game-side regression — refraction pass never runs (needs live confirmation, nothing applied).**
   5348 set `_hasRefractionInstances = true` inside `AddInstance` when `refractionIntensity > 0.0001`
   (`:960-963`); 5402 only resets it (`:654`) and reads it (`:907`, `:1084`, `:1129`) — no assignment to

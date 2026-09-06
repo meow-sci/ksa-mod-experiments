@@ -53,8 +53,8 @@ itself instead of letting the game position the camera.
 - Patch wiring: the host sets `CameraControllerOverridePatches.SequencePlayer` then calls
   `Apply(Harmony)` (standalone: `camera-controller-override/Patcher.cs:18-20`; unscience:
   `unscience/Patcher.cs:59-63`, player wired at `unscience/Mod.cs:108`).
-- RPC: `CameraControllerOverrideSubmod.Instance` (static, set in `Initialize()`) is the entry point
-  `unladen-swallow.lib` uses to drive sequences over HTTP (catalogued in the RPC scope, not here).
+- `CameraControllerOverrideSubmod.Instance` (static, set in `Initialize()`) is the reusable entry point
+  for driving sequences programmatically.
 
 **UI/hotkeys** — Standalone window toggled with **F11** (`camera-controller-override/Mod.cs:51`),
 rendered in `OnAfterUi`. Embedded copy renders as a collapsible section inside the unscience window.
@@ -217,7 +217,7 @@ game's own FOV input.
   `ISubmod` UI; its `Update(dt)` calls `FovController.ApplyFov()` each frame.
 - Patch wiring: `GlassPatches.Apply(Harmony)` (standalone: `glass/Patcher.cs:14`; unscience:
   `unscience/Patcher.cs:70`). `GlassSubmod` added at `unscience/Mod.cs:73`.
-- RPC: `unladen-swallow.lib` controls FOV through `glass.lib`'s `FovController` (catalogued in RPC scope).
+- `glass.lib` exposes `FovController` as a reusable programmatic control surface.
 
 **UI/hotkeys** — Standalone window toggled with **F9** (`glass/Mod.cs:51`). Embedded copy is a
 collapsible section in the unscience window. `HotkeyGuard` applied. The game's own +/- FOV keys (which

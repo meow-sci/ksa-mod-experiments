@@ -160,7 +160,7 @@ These fields are populated when the mesh is loaded from GLTF atlas files. They a
 
 **Why the game doesn't care:** The built-in vehicle editor always works with top-level Parts that contain SubParts as children. `RayCastEgo()` iterates `SubParts[]` and those children typically DO have MeshView components. The game never needs to raycast against a bare SubPart template in isolation.
 
-**When it matters:** Custom editors (like space-tape) that create standalone Parts from individual SubPart template IDs hit this issue because the created Part has no SubParts children, and the Part itself may lack a MeshViewModule.
+**When it matters:** Custom editors that create standalone Parts from individual SubPart template IDs hit this issue because the created Part has no SubParts children, and the Part itself may lack a MeshViewModule.
 
 ### Fix: Create MeshViewModule from Rendering Mesh
 

@@ -2,7 +2,7 @@
 
 `GaugeCanvas` (HUD widgets), the View-menu injection point, celestial/orbit reparenting, and global ImGui style. All types in namespace `KSA`.
 
-## GaugeCanvas — HUD gauge save/restore (con-man)
+## GaugeCanvas — HUD gauge behavior
 
 `GaugeCanvas : GaugeBase` is the HUD gauge widget. Useful members:
 
@@ -108,7 +108,7 @@ Concrete body types: `StellarBody`, `PlanetaryBody`, `Asteroid`, `Comet`, plus `
 
 ### Orbit-line visibility
 
-`ShowOrbit` (a `ref bool` on every `IOrbiter`) is the entire orbit-line toggle: `orbiter.ShowOrbit = true;` works for vehicles and celestials alike (marque toggles both).
+`ShowOrbit` (a `ref bool` on every `IOrbiter`) is the entire orbit-line toggle: `orbiter.ShowOrbit = true;` works for vehicles and celestials alike.
 
 ## Repositioning a celestial every tick (kiwis-marbles)
 

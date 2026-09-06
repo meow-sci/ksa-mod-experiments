@@ -4,17 +4,15 @@ Permanent reference for how the **parts-now** (runtime Part/SubPart loading) and
 (editor scale un-limiter) mods bind to the Kitten Space Agency (KSA) game, so that future game updates
 that break them can be detected and root-caused quickly.
 
-> **space-tape and flexo were both removed at `2026.8.22.5348`** and are no longer part of this area —
-> see the stub sections below. Historical tables and findings for them live in git history and in
-> [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md) / earlier upgrade plans. With flexo
-> gone this area has **no robotics implementation** — the title is kept for the game surface it maps.
+> With flexo gone this area has **no robotics implementation** — the title is kept for the game
+> surface it maps. Historical findings live in git history and the dated upgrade plans.
 
 - **Current baseline:** `2026.9.7.5402` (NEW), diffed from `2026.8.22.5348` (OLD). See
   [`FULL_SCOPE.md`](FULL_SCOPE.md) for the version block. Revisions 5349–5400 are **unlogged** in any
   changelog (only rev 5401 "Fixed crash for incorrect data stride for thumbnail rendering" is logged),
   so the decomp diff is the only evidence for this span.
 - **Build status against 5402:** `parts-now.lib` and `dont-stifle-me.lib` both **compile clean**
-  after the `Viewport` → `IViewport` fixes (whole solution: 63/63 projects, 0 warnings, 0 errors).
+  after the `Viewport` → `IViewport` fixes (whole solution: 52/52 projects, 0 warnings, 0 errors).
 - **Decomp (source of truth):** `~/repos/meow-sci/ksa-game-assemblies/current/decomp` (NEW, 5402) and
   `~/repos/meow-sci/ksa-game-assemblies_prev/current/decomp` (OLD, 5348); Content under the sibling
   `…/current/Content` folders.
@@ -25,26 +23,6 @@ that break them can be detected and root-caused quickly.
 Legend for *In NEW?*: ✅ present & signature-compatible · ⚠️ present but changed · ❌ removed/renamed.
 
 ---
-
-## space-tape — **REMOVED @5348**
-
-space-tape was defunct and was deleted from the repo during the `2026.8.22.5348` upgrade pass
-(mod + `.lib`, solution entries, and the supermod wiring in `unscience/Mod.cs`). The trigger was
-rev **5329**, which deleted `KSA.DecouplerTemplate` and the `PartTemplate.Decoupler` field —
-decouplers are now a module (`KSA.Decoupler.TemplateData`, `[XmlType(TypeName = "Decoupler")]`) inside
-`PartTemplate.Components` — breaking `space-tape.lib/PartImporter.cs:124,128,129` with three × CS1061.
-
-Its integration points, its long-standing API-drift cluster (thumbnail API, energy/power
-`float`→`double`, docking-port fields, `ComputeBoundingSphereRadius`) and its editor-tag / part-size
-watch items are all **retired**. Kept here only so a future reader who finds space-tape in git history
-knows why it is gone; see [`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md) §2.
-
-Two of its game touchpoints were inherited by flexo — `PartModelRenderer.UpdateRenderData(Viewport, int)`
-and `OrbitLinePass` — and went **unowned** when flexo was removed in turn. `GenericGizmo` is the one
-survivor, now used by **dont-stifle-me**.
-
----
-
 
 ## dont-stifle-me
 
@@ -126,8 +104,7 @@ by hand.
 
 **Retired integration points** (no longer verify these on a game update):
 
-- `PartModelRenderer.UpdateRenderData(Viewport, int)` Harmony prefix — flexo was its **last** consumer
-  after space-tape went, so this keystone hook is now unowned by any unscience mod.
+- `PartModelRenderer.UpdateRenderData(Viewport, int)` Harmony prefix is now unowned by any unscience mod.
 - `OrbitLinePass.AddLineVertex` / `.AddLineEnd` — likewise unowned; flexo's editor scene was the last user.
 - The whole hinge rotation surface: `Part.Asmb2ParentAsmb`, `Part.PositionParentAsmb`,
   `Part.BoundingBoxVehicleAsmb` / `ComputeBoundingBoxVehicleAsmb()`, `Part.TreeChildren`, `Part.SubParts`
@@ -297,8 +274,7 @@ like every other game DLL reference in the repo.
   (rev 5171), roll (Q/E) while snapped to a connector (rev 5258), aeroshroud surface-attach connector
   flags (rev 5202), flipped-connector fixes across CoreElectricalA/FuelTankA/PassageA/PropulsionA
   (revs 5238/5239), a GLB→XML importer warning for suspicious connector orientations (rev 5225), and
-  new `MeshColliderTemplate` / `ConvexHullColliderTemplate` types (rev 5185) that space-tape's XML
-  emitters do not yet know about.
+  new `MeshColliderTemplate` / `ConvexHullColliderTemplate` types (rev 5185).
 
 ### Update-risk findings
 
@@ -387,7 +363,7 @@ like every other game DLL reference in the repo.
 - ⚠ **U11 (behavioral) — editor tags cannot be registered after boot.**
   `VehicleEditor.MarkEditorTagDefinitionsLoaded()` locks the list; `RegisterTag` then logs a warning
   and adds nothing, so a part carrying a new tag sits in a category button that does not exist.
-  Rule V7 rejects such tags up front. This is the same drift space-tape tracks as **R2** — if the
+  Rule V7 rejects such tags up front. If the
   registered tag set changes again (e.g. another category removal like "Interstage"), V7's messages
   change with it automatically, but bundles that used to validate will start failing.
 - ⚠ **U12 (behavioral, cosmetic) — `ThumbnailRenderer.SIZE` reads
@@ -406,11 +382,6 @@ dont-stifle-me / shared part surface:
 3. `GenericGizmo` ctor / `PerSegmentData` / `Static.GenericGizmoRenderData`, and `VehicleEditor.ScaleGizmo.GetSegmentDataByViewport(IViewport)` (`GenericGizmo.cs:277`, keyed by `ViewportId` since 5402) (dont-stifle-me per-axis drag).
 4. Editor scaling is **uniform and clamped 0.5×–2×** as of rev 5329 (was triaxial), and modules implement `IRescale.SetScale(in ScaleFactors)` — dont-stifle-me exists to undo exactly this, so re-check `MINIMUM_SCALE`/`MAXIMUM_SCALE`/`ScaleBoundsFor`/`UpdateSelectedScale`/`QuantizeScale` on every build, and that each of the five by-name `VehicleEditor` targets still has **exactly one** declaration (a second overload turns the by-name `AccessTools.Method` into `AmbiguousMatchException` at `Apply()`). `UpdateSelectedScale`/`UpdateScaleGizmo` take `IViewport` since 5402.
 
-> Items 3, 5, 6, 8b, 8c and 8d of the old list were **space-tape-only** and were retired when the mod
-> was removed at 5348 (`Viewport.MenuBarInUse`, the thumbnail-API pair, `DockingPortTemplate`,
-> `BatteryTemplate`/`Generator`/`PowerConsumer` reference types, `Part.ResetCachedPosMatrixValues`,
-> `Double3Ex`, `EVADoorTemplate.SeatId`).
->
 > The old **flexo** block was retired with flexo at 5348. `PartModelRenderer.UpdateRenderData(Viewport,int)`
 > and `OrbitLinePass.AddLineVertex/AddLineEnd` are now **unowned** and need no re-verification;
 > `PartTree.UpdateRenderData(ref readonly double4x4,bool,IViewport,int)` (`IViewport` since 5402) is still live but is i-feel-seen's
@@ -434,10 +405,6 @@ parts-now (all silent at runtime — see *Update-risk findings* above for the fu
 
 ## Area summary — Update-risk findings (5261 → 5348)
 
-- ❌ **space-tape removed.** Rev 5329 deleted `KSA.DecouplerTemplate` and `PartTemplate.Decoupler`
-  (decouplers are now `Decoupler.TemplateData` inside `PartTemplate.Components`, with `ConnectorId` and
-  `Force` as **fields**, `[XmlType(TypeName = "Decoupler")]` so the XML shape is unchanged). Three ×
-  CS1061 in `space-tape.lib/PartImporter.cs:124,128,129`. The mod was defunct and was deleted.
 - ⚠️ **parts-now — every part is now instantiated at load** (rev 5340). `Program.cs:1212-1215` runs
   `PartArchetypes.WarnOnMalformedParts()` inside `Loading.Task("Part Validation")`, constructing a real
   `Part` from every non-subpart template in `ModLibrary.AllParts` and calling
@@ -489,7 +456,7 @@ parts-now (all silent at runtime — see *Update-risk findings* above for the fu
   `Program.ThumbnailViewport` (`Program.cs:497`) and `ThumbnailCreator.Viewport` (`:33`) became throwing
   properties; `IsOffscreen`/`ShouldRenderGizmos`/`EViewportLightMode`/`Program.Viewports`/`ViewportCount`
   are gone (the thumbnail viewport is now built with `ViewportOptionFlags.RenderPartModels`,
-  `Program.cs:949`). Solution builds clean against 5402 (63/63 projects, 0 warnings, 0 errors).
+  `Program.cs:949`). Solution builds clean against 5402 (52/52 projects, 0 warnings, 0 errors).
 - ✅ **Rev 5401 "data stride" fix — parts-now inherits it, no change needed.** The Thumbnail files
   (`ThumbnailRenderer.cs`, `ThumbnailDynamic.cs`, `ThumbnailPart.cs`) changed only `Viewport`→`IViewport`
   and `viewport.Index`→`viewport.ShaderSlot` (`ThumbnailRenderer.cs:179`, `ThumbnailDynamic.cs:278`);

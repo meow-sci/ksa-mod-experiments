@@ -127,7 +127,7 @@ for (int i = 0; i < modules.Length; i++)
 
 ## Sampling loop pattern
 
-Used identically across geeforce (40 Hz), average-twr (100 Hz), steely-eyed (2 Hz). Use `while`, not `if`, to drain multiple intervals when a frame is long:
+Use `while`, not `if`, to drain multiple intervals when a frame is long:
 
 ```csharp
 _accumulator += dt;
@@ -157,4 +157,4 @@ Stateless detector comparing prev vs current snapshot, with a per-event-type deb
 - **NaN/Inf** in orbital data is normal — guard every `Orbit.*` read.
 - **Wrap every per-vehicle sample in try/catch** — a vehicle mid-teardown can throw and kill the whole loop.
 - **Prune stale vehicles** — diff the current `Id` set against your tracked-state dict each tick; vehicles get destroyed/unloaded.
-- **Game-thread only** for all mutations; use the `GameThread` scheduler for off-thread callers (see lifecycle.md).
+- **Game-thread only** for all mutations; do not invoke these paths from background threads.

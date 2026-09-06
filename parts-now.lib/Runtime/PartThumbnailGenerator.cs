@@ -1,8 +1,7 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// Do not introduce background access to KSA state; parts-now must remain safe standalone.
 //
 // Every member of PartThumbnailGenerator is game-thread only. Begin() / Step() / Dispose() all
 // record and submit Vulkan work directly, so they must only ever be called from

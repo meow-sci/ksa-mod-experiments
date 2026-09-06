@@ -72,16 +72,13 @@ UnscienceState.cs
  Brutal.ImGui.dll
  KSA.dll
 ../
- average-twr.lib/obj/Debug/net10.0/ref/MeowSci.AverageTwrLib.dll
  blinky.lib/obj/Debug/net10.0/ref/MeowSci.BlinkyLib.dll
  byo-music.lib/obj/Debug/net10.0/ref/MeowSci.ByoMusicLib.dll
  camera-controller-override.lib/obj/Debug/net10.0/ref/MeowSci.CameraControllerOverrideLib.dll
- con-man.lib/obj/Debug/net10.0/ref/MeowSci.ConManLib.dll
  doh.lib/obj/Debug/net10.0/ref/MeowSci.DohLib.dll
  eternal-flame.lib/obj/Debug/net10.0/ref/MeowSci.EternalFlameLib.dll
  flexo.lib/obj/Debug/net10.0/ref/MeowSci.FlexoLib.dll
  garrys-torch.lib/obj/Debug/net10.0/ref/MeowSci.GarrysTorchLib.dll
- geeforce.lib/obj/Debug/net10.0/ref/MeowSci.GeeForceLib.dll
  glass.lib/obj/Debug/net10.0/ref/MeowSci.GlassLib.dll
  humble-arteest.lib/obj/Debug/net10.0/ref/MeowSci.HumbleArteestLib.dll
  i-feel-seen.lib/obj/Debug/net10.0/ref/MeowSci.IFeelSeenLib.dll
@@ -90,10 +87,7 @@ UnscienceState.cs
  kitten-animations.lib/obj/Debug/net10.0/ref/MeowSci.KittenAnimationsLib.dll
  kiwis-marbles.lib/obj/Debug/net10.0/ref/MeowSci.KiwisMarblesLib.dll
  ksa-abstractions.lib/obj/Debug/net10.0/ref/MeowSci.KsaAbstractions.dll
- red-alert.lib/obj/Debug/net10.0/ref/MeowSci.RedAlertLib.dll
  skittles.lib/obj/Debug/net10.0/ref/MeowSci.SkittlesLib.dll
- space-tape.lib/obj/Debug/net10.0/ref/MeowSci.SpaceTapeLib.dll
- unladen-swallow.lib/obj/Debug/net10.0/ref/MeowSci.UnladenSwallowLib.dll
  zippo.lib/obj/Debug/net10.0/ref/MeowSci.ZippoLib.dll
 <DOTNET>/packs/Microsoft.NETCore.App.Ref/10.0.1/ref/net10.0/
  Microsoft.CSharp.dll
@@ -265,21 +259,6 @@ UnscienceState.cs
  WindowsBase.dll
 <NUGET>/
  cottle/2.1.0/lib/net8.0/Cottle.dll
- genhttp.api/10.5.0/lib/net10.0/GenHTTP.Api.dll
- genhttp.engine.internal/10.5.0/lib/net10.0/GenHTTP.Engine.Internal.dll
- genhttp.engine.shared/10.5.0/lib/net10.0/GenHTTP.Engine.Shared.dll
- genhttp.modules.clientcaching/10.5.0/lib/net10.0/GenHTTP.Modules.ClientCaching.dll
- genhttp.modules.compression/10.5.0/lib/net10.0/GenHTTP.Modules.Compression.dll
- genhttp.modules.conversion/10.5.0/lib/net10.0/GenHTTP.Modules.Conversion.dll
- genhttp.modules.errorhandling/10.5.0/lib/net10.0/GenHTTP.Modules.ErrorHandling.dll
- genhttp.modules.functional/10.5.0/lib/net10.0/GenHTTP.Modules.Functional.dll
- genhttp.modules.io/10.5.0/lib/net10.0/GenHTTP.Modules.IO.dll
- genhttp.modules.layouting/10.5.0/lib/net10.0/GenHTTP.Modules.Layouting.dll
- genhttp.modules.pages/10.5.0/lib/net10.0/GenHTTP.Modules.Pages.dll
- genhttp.modules.practices/10.5.0/lib/net10.0/GenHTTP.Modules.Practices.dll
- genhttp.modules.redirects/10.5.0/lib/net10.0/GenHTTP.Modules.Redirects.dll
- genhttp.modules.reflection/10.5.0/lib/net10.0/GenHTTP.Modules.Reflection.dll
- genhttp.modules.security/10.5.0/lib/net10.0/GenHTTP.Modules.Security.dll
  lib.harmony/2.4.2/lib/net10.0/0Harmony.dll
  microsoft.codeanalysis.common/5.0.0/lib/net9.0/Microsoft.CodeAnalysis.dll
  microsoft.codeanalysis.csharp/5.0.0/lib/net9.0/Microsoft.CodeAnalysis.CSharp.dll
@@ -288,7 +267,6 @@ UnscienceState.cs
  microsoft.extensions.objectpool/10.0.3/lib/net10.0/Microsoft.Extensions.ObjectPool.dll
  starmap.api/0.3.6/lib/net10.0/StarMap.API.dll
  tomlyn/0.19.0/lib/net8.0/Tomlyn.dll
- yamldotnet/16.3.0/lib/net8.0/YamlDotNet.dll
  zstdsharp.port/0.8.7/lib/net9.0/ZstdSharp.dll
 
 [analyzerReferences]

@@ -73,8 +73,8 @@ than skipping it silently.
 ## 1. What bounds the task in *this* repo
 
 Read this before assuming a bounded blast radius: **unscience has no firewall.** Unlike a mod that
-funnels game access through one seam, this repo is 29 mod projects + 28 `.lib` libraries (55 projects
-in `ksa-mod-experiments.slnx`) that touch KSA types **directly, everywhere**, and there is no
+funnels game access through one seam, this repo is 25 top-level projects + 26 `.lib` libraries + one
+test project (52 projects in `ksa-mod-experiments.slnx`) that touch KSA types **directly, everywhere**, and there is no
 per-member attribute in the code marking those touches. Consequences:
 
 - **`scope/` is the source of truth for game coupling**, and it is only as good as its last update —
@@ -86,7 +86,7 @@ per-member attribute in the code marking those touches. Consequences:
     broken/changed summary.
   - The 11 per-area files (`vehicle-physics.md`, `celestial-and-lights.md`, `camera.md`, `telemetry.md`,
     `pixel-grids-and-render.md`, `character-and-materials.md`, `part-editor-and-robotics.md`,
-    `ui-customization.md`, `rpc.md`, `standalone-mods.md`, `00-architecture-and-abstractions.md`) —
+    `ui-customization.md`, `standalone-mods.md`, `00-architecture-and-abstractions.md`) —
     per-mod **Integration points** tables (`# | Kind | Mod code file:line | Game target + signature |
     Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes`) plus an **Update-risk findings (OLD → NEW)**
     section each. These tables use the same NEW/OLD vocabulary as this skill.
@@ -97,16 +97,15 @@ per-member attribute in the code marking those touches. Consequences:
 
 | Chokepoint | Breaks |
 |---|---|
-| `GameSettings.OnKeyAll` (via `HotkeyGuard`) | **every top-level mod** (marque ships a local copy) |
+| `GameSettings.OnKeyAll` (via `HotkeyGuard`) | **every top-level mod** |
 | `Universe.ExecuteNextVehicleSolvers` | eternal-flame, kiwis-marbles, kitchen-sink (+ garrys-torch via `JobSystems.VehicleSolvers.Wait()`) |
 | `Universe.CurrentSystem` → `CelestialSystem.All` → `LookupCollection.UnsafeAsList()` (`VehicleProvider`/`CelestialProvider`) | ~every feature mod's UI |
-| the three `*Module.UpdateRenderData` prefixes, `PartModel.AddInstance` | blinky, its-so-shiny, humble-arteest, i-feel-seen, mesh-deform (`PartModelRenderer.UpdateRenderData` went unowned when flexo was removed) |
-| `ksa-abstractions.lib` helpers (`PartHelpers`, `IvaForceRender`, `XkcdColorHelper`, `GameThread`) | the mods listed per-helper in `scope/00-architecture-and-abstractions.md` |
+| the three `*Module.UpdateRenderData` prefixes, `PartModel.AddInstance` | blinky, its-so-shiny, humble-arteest, i-feel-seen (`PartModelRenderer.UpdateRenderData` went unowned when flexo was removed) |
+| `ksa-abstractions.lib` helpers (`PartHelpers`, `IvaForceRender`, `XkcdColorHelper`) | the mods listed per-helper in `scope/00-architecture-and-abstractions.md` |
 | StarMap.API lifecycle attrs + `Program.OnDrawUiFrame`/`OnFrame` hooks it patches | the whole suite's load path (a StarMap release is its own event, not a game update) |
 
-- **Standalone mods still count.** marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy
-  are **not** loaded by the supermod but are in the solution, build in CI, and break the same way —
-  they live in [`scope/standalone-mods.md`](../../../scope/standalone-mods.md). Don't drop them.
+- **Standalone mods still count.** byo-music is **not** loaded by the supermod but remains in the
+  solution and can break the same way; it lives in [`scope/standalone-mods.md`](../../../scope/standalone-mods.md).
 
 ---
 
@@ -137,23 +136,19 @@ Flag every commit line touching a subsystem unscience couples to:
 | Changelog keywords | Mods at risk | Area file |
 |---|---|---|
 | `Vehicle`, `Teleport`, `RefillConsumables`, solver/`JobSystems`, `IsControllable`, controllability gating | eternal-flame, garrys-torch, i-feel-seen, kiwis-marbles, doh, kitchen-sink | `vehicle-physics.md` |
-| electrical, `Battery`, `Joules`/`Energy…`/`Power…`, `SolarPanel`, `Generator`, `PowerConsumer` | eternal-flame, its-so-shiny, red-alert, space-tape | `vehicle-physics.md`, `part-editor-and-robotics.md` |
-| `Celestial`, `Orbit`/`SetOrbit`, `IOrbiter`, `ShowOrbit`, orbit lines, SOI | kiwis-marbles, marque, space-tape (grid via `OrbitLinePass`) | `celestial-and-lights.md` |
-| `LightModule`, `LightSwitch`, `ColorRgb`/`FloatReference`, `KeyframeAnimationModule` | zippo, red-alert, its-so-shiny | `celestial-and-lights.md` |
+| electrical, `Battery`, `Joules`/`Energy…`/`Power…`, `SolarPanel`, `Generator`, `PowerConsumer` | eternal-flame, its-so-shiny | `vehicle-physics.md`, `part-editor-and-robotics.md` |
+| `Celestial`, `Orbit`/`SetOrbit`, `IOrbiter`, `ShowOrbit`, orbit lines, SOI | kiwis-marbles | `celestial-and-lights.md` |
+| `LightModule`, `LightSwitch`, `ColorRgb`/`FloatReference`, `KeyframeAnimationModule` | zippo, its-so-shiny | `celestial-and-lights.md` |
 | `Camera`, `Controller`/`OrbitController`/`FlyController`, FOV, `Viewport` | glass, camera-controller-override | `camera.md` |
-| `FlightComputer`, `NavBall`, `Situation`, kinematics/accel, `VehicleConfigInfo` | average-twr, geeforce, steely-eyed-missile-kitten | `telemetry.md` |
 | `Part`/`PartTree`/`PartTemplate`, connectors, face-snapping, editor tags/categories, thumbnails, part size, **editor scale clamp / scale gizmo** | parts-now, dont-stifle-me, blinky, its-so-shiny, kitchen-sink | `part-editor-and-robotics.md` |
-| render pass, shaders/GLSL, `SuperMeshRenderSystem`, `PerInstanceData`, `MaterialData`, `GpuMaterialSystem`, MSAA, Vulkan | **thug-life, humble-arteest, mesh-deform, doh, blinky, its-so-shiny** | `pixel-grids-and-render.md`, `character-and-materials.md` |
+| render pass, shaders/GLSL, `SuperMeshRenderSystem`, `PerInstanceData`, `MaterialData`, `GpuMaterialSystem`, MSAA, Vulkan | **thug-life, humble-arteest, doh, blinky, its-so-shiny** | `pixel-grids-and-render.md`, `character-and-materials.md` |
 | `KittenEva`, `CharacterAvatar`, animations, `CatExpressionAnim`, `EVADoor`, characters | doh, kitten-animations, garrys-torch | `character-and-materials.md` |
-| `GaugeCanvas`, HUD, gauges, menu bar / `View` menu / file bar | con-man, marque, unscience `MenuBarPatch` | `ui-customization.md` |
+| `GaugeCanvas`, HUD, gauges, menu bar / `View` menu / file bar | unscience `MenuBarPatch` | `ui-customization.md` |
 | `ImGui`, `Brutal.*` package bump, nullability | **any mod** — see the `TreatWarningsAsErrors` note in step 2 | wherever it lands |
-| `ModLibrary` asset ids, part templates, meshes, FMOD/audio, substances | blinky, its-so-shiny, thug-life, doh, humble-arteest, parts-now, byo-music, mesh-deform | master index §5 |
+| `ModLibrary` asset ids, part templates, meshes, FMOD/audio, substances | blinky, its-so-shiny, thug-life, doh, humble-arteest, parts-now, byo-music | master index §5 |
 
-> A changelog line that moves **no symbol** can still break a mod. Worked example from the trees on
-> disk: rev 4940 *"Added Hud dropdown to file bar … including new layouts feature as well as the
-> toggles for enabling/disabling gauges that were previously found in the View dropdown."* That is a
-> native re-implementation of **con-man**'s entire feature plus a relocation of the menu **marque**
-> injects into — a pure behavior/UX hit with no compile error and no renamed member.
+> A changelog line that moves **no symbol** can still break a mod. Treat behavior and UX changes as
+> real integration changes even when every referenced member remains source-compatible.
 
 ### Step 2 — Build against CURRENT = the alarm system
 
@@ -213,7 +208,7 @@ top to bottom. For each entry, confirm the exact name still exists in `<NEW>` an
 
 ```powershell
 # member/field names (also grep <OLD> to prove whether a miss is new or pre-existing)
-rg -n '_fovRadians|_canvases|_customOffset|_expressionPose|_renderable|_characterAvatar|_matrixAsmb' `
+rg -n '_fovRadians|_expressionPose|_renderable|_characterAvatar' `
    '<NEW>\current\decomp\KSA'
 # whole-type / nested-type names used as strings
 rg -n 'class KittenEva|KSA\.LightModule\+TemplateData|struct TemplateData' '<NEW>\current\decomp'
@@ -222,8 +217,6 @@ rg -n 'class KittenEva|KSA\.LightModule\+TemplateData|struct TemplateData' '<NEW
 Highest-value single checks in this suite, all of which fail **silently**:
 
 - `Camera._fovRadians` (glass — rename ⇒ FOV override dies quietly).
-- `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle`
-  (con-man — 7 private fields, the largest cluster in the repo; `_canvases` is its validity canary).
 - The avatar chain `KittenEva` (compared by **type-name string**) → `_renderable` →
   `_characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` (garrys-torch, doh,
   kitten-animations). `Core` must stay a **value-type field** for garrys-torch's `SetValue` to work.
@@ -231,9 +224,8 @@ Highest-value single checks in this suite, all of which fail **silently**:
 - The doh/humble-arteest render-system bridge (`Program.MaterialSystem`/`SuperMeshRenderSystem`/
   `CharacterRenderSystem`, `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}`, `AssetManager.*`).
 - `ShaderReference.{Shader,+k__BackingField,DoLoad,ModPath,LocalPath}` and
-  `RenderCore.ShaderModuleUtils.FromFile` (humble-arteest paint, mesh-deform — cross-assembly private
-  names; already broken, see §5).
-- `ModLibrary.AllParts`/`AllCharacters` internals (doh, space-tape).
+  `RenderCore.ShaderModuleUtils.FromFile` (humble-arteest paint — cross-assembly private names).
+- `ModLibrary.AllParts`/`AllCharacters` internals (doh).
 - Harmony **field injectors** (`___Name` parameters) and any patch resolved with an explicit overload
   param array: these throw at `Apply` time and are typically swallowed, so the feature is simply inert
   with no crash. `Controller.___Transform` is the standing example (§5).
@@ -256,12 +248,8 @@ A pure line-number shift is fine (the tables' `Δ vs OLD` column already expects
 - **Renamed/removed/re-signatured members** — cross-check against step 2's error list; anything the
   compiler flagged should have a row here, and anything here that *didn't* fail the build deserves a
   second look (it may be reached by reflection instead).
-- **Quantity/unit type swaps — the highest-value catch.** Precedent in this repo:
-  `JoulesReference`(float) → `EnergyReference`/`PowerReference`(double) on
-  `BatteryTemplate.MaximumCapacity`, `GeneratorTemplate.Produced`, `PowerConsumerTemplate.Consumed`
-  broke `space-tape.lib` with CS1503 and needed `float.IsNaN` → `double.IsNaN`. Similar swaps
-  (`DockingPortTemplate.Force` → `PushoffImpulse`) also change the **XML writer** output, which fails
-  at runtime, not compile — check both sides.
+- **Quantity/unit type swaps — a high-value catch.** Similar swaps can also change serialized output,
+  which fails at runtime rather than compile time, so check both sides.
 - **New gating / changed preconditions** that alter when a read or write is valid — e.g. the rev-4699
   `Vehicle.IsControllable` + `PartTree.Controls` work. Compiles clean, behaves differently.
 - **Frames and numerics** — CCI/CCE/CCF/ECL conventions and `Brutal.Core.Numerics`
@@ -274,8 +262,7 @@ A pure line-number shift is fine (the tables' `Δ vs OLD` column already expects
   write target with no compile error.
 - **Content XML** — `<NEW>/current/Content` vs `<OLD>/current/Content` for the ids and attributes in
   master index §5 (part templates like `CorePropulsionA_Prefab_EngineA1..A6` / `LightPart`, meshes,
-  characters, substances, sounds) and for schema drift that hits space-tape's emitters (editor tag
-  categories, part size/`Diameter`, docking-port fields).
+  characters, substances, and sounds), plus any schema drift affecting live asset consumers.
 
 > **Decomp can lag the shipping binary.** If a member looks present but a read returns null/`-1` or a
 > reflection lookup misses in game, the DLL wins — dump the real structure at runtime with the
@@ -292,7 +279,7 @@ this set even on a clean changelog and a green build. Sources:
 | Coupling | Consumer | What to diff |
 |---|---|---|
 | `SuperMeshRenderSystem.RenderMainPass` postfix; `UnlitMeshVert`/`UnlitMeshFrag` via `ModLibrary.Get<ShaderReference>`; offscreen MSAA pass; `Camera.MVP.viewProjection`; `Part` ego transforms | **thug-life** (own Vulkan pipeline, descriptor, VB/IB, texture upload) | the patch target's signature, the two shader ids in `Content/Core/DefaultAssets.xml`, `Content/Core/Shaders/Mesh/UnlitMesh.*`, sample count / reverse-Z assumptions |
-| Runtime **GLSL text editing** by anchor string (`ShaderModuleUtils.FromFile` + `ShaderReference` swap) | **humble-arteest** Vehicle Paint, **mesh-deform** | `Content/Core/Shaders/Mesh/MeshIndirect.vert`/`.frag` in both trees — anchor strings, struct decls, `#ifdef ENABLE_*` variants. Already broken; see §5 below |
+| Runtime **GLSL text editing** by anchor string (`ShaderModuleUtils.FromFile` + `ShaderReference` swap) | **humble-arteest** Vehicle Paint | `Content/Core/Shaders/Mesh/MeshIndirect.frag` in both trees — anchor strings, struct declarations, `#ifdef ENABLE_*` variants |
 | `PerInstanceData` padding-byte hijack (bytes 68–79) via `PartModel.AddInstance` prefix | **humble-arteest** | the struct's field list/offsets, and whether the game started **using** a byte the mod writes |
 | `GpuMaterialSystem.BigBuffer` staged Vulkan writes at `handle*80+16` | **doh**, **humble-arteest** Kitten Color | `MaterialData` layout + `ModelPbr.frag`/`Common/MaterialSet.glsl` albedo path |
 | Temperature/TFI emissive LUT read (`#ifdef ENABLE_TEMPERATURE`) | **humble-arteest** Engine Emissive | which shader file hosts the LUT (it *moved* files in rev 4693 and the feature survived) |
@@ -336,33 +323,23 @@ Use this so nothing is missed. Detail (with `file:line` and decomp paths) lives 
 | Mod (+ `.lib`) | Dominant KSA coupling | Area file |
 |---|---|---|
 | **unscience** (supermod shell) | StarMap lifecycle attrs, consolidated Harmony instance, `MenuBarPatch`, inlined `EternalFlamePatches` | `00-architecture-and-abstractions.md` |
-| **ksa-abstractions.lib** | `VehicleProvider`/`CelestialProvider`/`SimTimeProvider`/`PartHelpers`/`HotkeyGuard`/`IvaForceRender`/`XkcdColorHelper`/`GameThread` — fans out to nearly everything | `00-architecture-and-abstractions.md` |
+| **ksa-abstractions.lib** | `VehicleProvider`/`CelestialProvider`/`SimTimeProvider`/`PartHelpers`/`HotkeyGuard`/`IvaForceRender`/`XkcdColorHelper` — fans out to nearly everything | `00-architecture-and-abstractions.md` |
 | eternal-flame | `Universe.ExecuteNextVehicleSolvers` prefix, `Vehicle.RefillConsumables`, `Battery.Refill(ref BatteryState)` | `vehicle-physics.md` |
 | garrys-torch | `Vehicle.Teleport` per-frame, `JobSystems.VehicleSolvers.Wait()`, KittenEva/`CharacterCore.Scale` reflection | `vehicle-physics.md` |
 | i-feel-seen | `Vehicle.GetWorldMatrix`/`UpdateRenderData` prefixes, `Camera.GetPositionEgo` | `vehicle-physics.md` |
 | kiwis-marbles | `Celestial.SetOrbit`/`UpdatePerFrameData`, `IOrbiter` CCI reads | `celestial-and-lights.md` |
 | zippo | `LightModule+TemplateData` reflection (`Intensity`, `ColorRgb`), `ColorRgbReference.OnDataLoad` | `celestial-and-lights.md` |
-| red-alert | `LightModule`/`LightSwitch`/`SolarPanel`, `KeyframeAnimationModule.TimeGoal` | `celestial-and-lights.md` |
 | glass | `Camera._fovRadians` (private), `ChangeFieldOfView`/`UpdateProjection` prefixes | `camera.md` |
 | camera-controller-override | `OrbitController`/`FlyController.OnFrame` prefixes + field injector | `camera.md` |
-| average-twr | `FlightComputer.VehicleConfig.TotalEngineVacuumThrust`, `NavBallData` | `telemetry.md` |
-| geeforce | `KinematicMeasurements.AccelerationBody` | `telemetry.md` |
-| steely-eyed-missile-kitten *(standalone)* | broad telemetry reads, atmosphere refs, `Situation` enum **names** | `telemetry.md`, `standalone-mods.md` |
 | blinky | runtime part creation + `PartTree.CreateFromNewPartTree`, `EngineController.SetIsActive`, render-skip prefix | `pixel-grids-and-render.md` |
 | its-so-shiny | `LightPart` template, `Connection.Connect`, battery anchors, render-skip prefix | `pixel-grids-and-render.md` |
 | thug-life | **own Vulkan pipeline** + `SuperMeshRenderSystem.RenderMainPass` postfix + `UnlitMesh` shaders | `pixel-grids-and-render.md` |
 | doh | `KittenEva` ctor, GPU material cloning, `MaterialData` byte writes, fur/attachment `MaterialIndices` | `character-and-materials.md` |
 | humble-arteest | **GLSL text-edit shader swap**, `PerInstanceData` byte hijack, emissive LUT | `character-and-materials.md` |
 | kitten-animations | `AnimatedRenderable.SetAnimation`, `CatExpressionAnim._expressionPose` cache bust | `character-and-materials.md` |
-| space-tape | part templates/components, thumbnails, connectors, editor tags, XML emitters, gizmos | `part-editor-and-robotics.md` |
 | skittles | `ImGui.GetStyle()` only — no Harmony, no KSA types (still exposed to Brutal.ImGui churn) | `ui-customization.md` |
-| con-man | **7 private `GaugeCanvas` fields** by name | `ui-customization.md` |
 | kitchen-sink | `ReinitializeDerivedValues`, `IvaForceRender` template mutation + ctor patch | `ui-customization.md` |
-| unladen-swallow | no direct game reads — delegates to other libs via `GameThread` scheduling (cross-ref table inside) | `rpc.md` |
-| marque *(standalone)* | `GaugeCanvas.OnDrawMenuBar` prefix, `IOrbiter.ShowOrbit`, SOI tree walk | `standalone-mods.md` |
 | byo-music *(standalone)* | `ModLibrary.Get<MusicPlayList>` / FMOD | `standalone-mods.md` |
-| mesh-deform *(standalone)* | GLSL anchor edit on `MeshIndirect.vert` | `standalone-mods.md` |
-| stampy *(standalone)* | see `standalone-mods.md` | `standalone-mods.md` |
 | fixme-mod-name | template only — canonical `HotkeyGuard` wiring reference | — |
 
 ---
@@ -387,7 +364,7 @@ carry it forward or close it — but never file it as caused by the new build:
 - **camera-controller-override** — `Controller.___Transform` Harmony field injector targets a field
   that does not exist on KSA controllers (the field is `Camera`); `Apply` throws and is swallowed, so
   the animation prefix never attaches. Pre-existing. Also surfaces as an inert
-  `POST /camera/animate` in unladen-swallow. Intended fix: inject `Camera ___Camera`.
+  Intended fix: inject `Camera ___Camera`.
 - **zippo** — `GetField("Color")` on `LightModule+TemplateData`; the real field is `ColorRgb`, so
   colour get/set is a silent no-op. Pre-existing.
 - **humble-arteest Vehicle Paint** — dead by design change: rev 4693 moved part-colour compilation to
@@ -395,11 +372,6 @@ carry it forward or close it — but never file it as caused by the new build:
   `ENABLE_*` variant and ignores `ShaderReference.Shader`, so the module swap can never take effect.
   Feature **self-detects and disables**. Engine Emissive and Kitten Color are unaffected. Reviving it
   is a redesign, not a patch.
-- **mesh-deform** — same root cause (plus its `MeshIndirect.vert` struct anchor was removed);
-  self-disables on `≥4693`.
-- **space-tape** — a cluster of API drift (thumbnail API, energy/power `float`→`double`, docking-port
-  fields, `ComputeBoundingSphereRadius(out float3)`) plus a GameData XML writer break. Some predates
-  `<BASELINE>`.
 - **garrys-torch** — CS8604 from the rev-4729 Brutal nullability bump (toolchain, not KSA API).
 - **unscience supermod** — `Patcher.cs` never wires `IvaForceRender.Patch`, so kitchen-sink's IVA
   force-render is partial inside the supermod.
@@ -425,12 +397,9 @@ a live pass rather than asserting they pass:
   scale and lighting, dont-stifle-me's scale gizmo. Only a live flight/editor session confirms these
   draw correctly.
 
-Practical live pass: build, launch KSA, open the **unscience** window (**F11**) — 22 submods load
+Practical live pass: build, launch KSA, open the **unscience** window (**F11**) — the bundled submods load
 through it, so it is the fastest broad smoke test — then exercise the specific mods implicated by the
-findings (standalone windows are mostly **F11**; doh **F8**, kiwis-marbles **F9**, thug-life **F12**;
-marque lives in the game's menu bar). unladen-swallow's HTTP endpoints (`0.0.0.0:7887`) let you drive
-blinky / its-so-shiny / glass / camera / torch without UI clicking, which is the quickest way to
-confirm those paths still act on the game.
+findings (standalone windows are mostly **F11**; doh **F8**, kiwis-marbles **F9**, thug-life **F12**).
 
 ---
 
@@ -464,14 +433,12 @@ the risk.
 Nothing in this repo is firewalled from KSA, but these parts couple to no game member and only break
 via toolchain/package churn:
 
-- unladen-swallow's GenHTTP server, routing, DTOs (its *endpoint bodies* call other libs — those calls
-  are in scope; the transport is not).
-- TOML persistence (Tomlyn) and its file layouts: skittles themes, con-man layouts, garrys-torch
-  presets, parts-now's `parts-now.toml`; steely-eyed's SQLite database and YAML mission schema.
-- Pure-ImGui layout/state code, easing math, ring buffers, topological sorts, the `client/` TypeScript
+- TOML persistence (Tomlyn) and its file layouts: skittles themes, garrys-torch presets, and
+  parts-now's `parts-now.toml`.
+- Pure-ImGui layout/state code, easing math, ring buffers, topological sorts,
   and `mkmod.ts`.
-- The **StarMap.API** loader ABI (and the other NuGet deps: Lib.Harmony, Tomlyn, GenHTTP,
-  YamlDotNet) — a StarMap or Harmony release is its own event, not a KSA game update. Note the
+- The **StarMap.API** loader ABI (and the other NuGet deps: Lib.Harmony and Tomlyn) — a StarMap or
+  Harmony release is its own event, not a KSA game update. Note the
   versions in the report, but don't attribute game breakage to them. StarMap is, however, the thing
   that patches `Program.OnDrawUiFrame`/`OnFrame` on the suite's behalf, so if the game moves those the
   break shows up as *StarMap not loading anything* rather than as a unscience error — check the game's

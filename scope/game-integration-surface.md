@@ -41,7 +41,7 @@ Per-row detail and the exact 5261↔5348 diff live in the linked area scope file
   in section 3 that is not string-based.
 - **Check the shaders & assets subtable (section 5) by reading the shipped files**, not just the C#:
   several mods edit GLSL by anchor-string and depend on asset ids — a shader refactor breaks them with
-  no C# change (mesh-deform is broken this way; humble-arteest Vehicle Paint was rebuilt for 5018 and
+  no C# change (humble-arteest Vehicle Paint was rebuilt for 5018 and
   now fails loudly instead of silently if its anchor moves).
 - **Re-verify the 🔶 standing invariants.** These are facts about the game that no symbol lookup and
   no compile can check, and each one fails silently:
@@ -143,20 +143,15 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.Asteroid / KSA.Comet
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Asteroid : MinorBody` / `Comet : MinorBody` (type, `is not Asteroid and not Comet`) | direct API (typecheck) | `KSA/Asteroid.cs:3`, `KSA/Comet.cs:3` | marque | `marque.lib/MarqueLib.cs:56,114,157-159` | OK | "Planetoids" filter |
 
 ### KSA.Astronomical
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Id : virtual string { get; protected set; }` (via `IObjectId`) | direct API | `KSA/Astronomical.cs:85` | VehicleProvider (→ most mods), eternal-flame, garrys-torch, i-feel-seen, kitchen-sink, kitten-animations, marque, steely-eyed, unladen-swallow | `ksa-abstractions.lib/VehicleProvider.cs:22`; `kitten-animations.lib/KittenAvatarAccessor.cs`; `Ui/TargetSection.cs`; `eternal-flame.lib/EternalFlameLib.cs:74` | OK | `Vehicle.Id` resolves here (not declared on `Vehicle`); kitten-animations stores an explicit target by this stable current-system id |
+| `Id : virtual string { get; protected set; }` (via `IObjectId`) | direct API | `KSA/Astronomical.cs:85` | VehicleProvider (→ most mods), eternal-flame, garrys-torch, i-feel-seen, kitchen-sink, kitten-animations | `ksa-abstractions.lib/VehicleProvider.cs:22`; `kitten-animations.lib/KittenAvatarAccessor.cs`; `Ui/TargetSection.cs`; `eternal-flame.lib/EternalFlameLib.cs:74` | OK | `Vehicle.Id` resolves here (not declared on `Vehicle`); kitten-animations stores an explicit target by this stable current-system id |
 
 ### KSA.AtmosphereReference / KSA.PhysicalAtmosphereReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `IParentBody.GetAtmosphereReference() : AtmosphereReference?` | direct API | `KSA/Vehicle.cs:2221` (call site) | steely-eyed | `…lib/Telemetry/VehicleTelemetry.cs:50` | OK | null on airless bodies |
-| `PhysicalAtmosphereReference.Physical.Height : DistanceReference` | direct API | `KSA/PhysicalAtmosphereReference.cs:23` | steely-eyed | `VehicleTelemetry.cs:52` | OK | |
-| `GetAtmosphericPressureAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:80` | steely-eyed | `VehicleTelemetry.cs:101` | OK | in try/catch |
-| `GetAtmosphericDensityAtAltitude(double) : double` | direct API | `KSA/PhysicalAtmosphereReference.cs:85` | steely-eyed | `VehicleTelemetry.cs:102` | OK | |
 | `PhysicalAtmosphereReference.GetAtmosphericPressure(Camera) : static double` | direct API | `KSA/PhysicalAtmosphereReference.cs:50` | pyro | `pyro.lib/PlumePhysics.cs:113` | OK @5348 | returns **atm**; pyro converts to Pa for `PlumeData` |
 
 ### KSA.Battery
@@ -215,7 +210,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.Celestial
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Celestial : Astronomical, IOrbiter,…` (type) | direct API | `KSA/Celestial.cs:19` | CelestialProvider (→ kiwis-marbles, marque) | `ksa-abstractions.lib/CelestialProvider.cs:12` | OK | `OfType<Celestial>()` |
+| `Celestial : Astronomical, IOrbiter,…` (type) | direct API | `KSA/Celestial.cs:19` | CelestialProvider (→ kiwis-marbles) | `ksa-abstractions.lib/CelestialProvider.cs:12` | OK | `OfType<Celestial>()` |
 | `SetOrbit(Orbit newOrbit)` | direct API | `KSA/Celestial.cs:153` | kiwis-marbles | `kiwis-marbles…/CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | bare `Orbit = newOrbit`; no `Children` re-parent (engine does it) |
 | `Parent : IParentBody` (`=> Orbit.Parent`) | direct API | `KSA/Celestial.cs:73` | kiwis-marbles | `CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | old-parent lookup before swap |
 | `IParentBody.UpdatePerFrameDataTree() : void` (default interface method) | direct API | `KSA/IParentBody.cs:110` | kiwis-marbles | `CelestialWeldEngine.cs` (`ApplyOrbit`) | OK | subtree refresh after SetOrbit (replaced bare `UpdatePerFrameData()`) |
@@ -229,7 +224,6 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `All : LookupCollection<Astronomical>` | direct API | `KSA/CelestialSystem.cs:57` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11-12` | OK | shared enumerator root |
-| `GetWorldSun() : StellarBody` | direct API | `KSA/CelestialSystem.cs` (call `Universe.cs:173`) | marque | `marque.lib/MarqueLib.cs:93` | OK | root of celestial tree |
 | `Deregister(Vehicle)` | direct API | `KSA/CelestialSystem.cs` | doh | `KittenSpawner.cs:62,67,68` | OK | despawn |
 | `JobSystems.VehicleSolver.Wait()` | direct API | `KSA/JobSystems.cs:16`; `Brutal.Concurrency.Jobs/JobScheduler.cs:51` | doh | `KittenSpawner.cs:69,161,226-229` | OK | waits for the background vehicle physics step before `new KittenEva` / `Vehicle.Dispose()`; avoids `ConstraintSim.UnlockShapes()` stepping-lock throw (5402) |
 | `All.TryGet(string, out Astronomical)` (LookupCollection) | direct API | `KSA/CelestialSystem.cs` | doh | `KittenSpawner.cs:62` | OK | despawn lookup |
@@ -262,8 +256,8 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.ColorRgbReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `R / G / B : float` | reflection-field (string) | `KSA/ColorRgbReference.cs:10,13,16` | zippo (unreachable, see Color bug), red-alert | `LightController.cs:61-63,82-86`; `red-alert.lib/LightActions.cs:83-86` | OK | red-alert path works; zippo path dead due to `Color` bug |
-| `OnDataLoad(Mod) : void` | reflection-method (string) | `KSA/ColorRgbReference.cs:35` | zippo, red-alert | `LightController.cs:82-86`; `LightActions.cs:83-86` | OK | 1-arg (`new object?[]{null}`); recomputes `Value` |
+| `R / G / B : float` | reflection-field (string) | `KSA/ColorRgbReference.cs:10,13,16` | zippo | `LightController.cs:61-63,82-86` | OK | color read/write |
+| `OnDataLoad(Mod) : void` | reflection-method (string) | `KSA/ColorRgbReference.cs:35` | zippo | `LightController.cs:82-86` | OK | 1-arg (`new object?[]{null}`); recomputes `Value` |
 
 ### KSA.Connection (nested in Part)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -298,7 +292,6 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.DistanceReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `InMeters() : double` | direct API | `KSA/DistanceReference.cs:148` | steely-eyed | `VehicleTelemetry.cs:52` | OK | atmosphere height |
 | `PartTemplate.Diameter : DistanceReference` (rev 4721) | direct API | `KSA/PartTemplate.cs:76-77` | not written) | — | ADDITIVE | mod never writes `<Diameter>`; mod-built parts miss size-filtered lists |
 
 ### KSA.EVADoor
@@ -331,11 +324,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.FlightComputer (+ nested VehicleConfigInfo)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Vehicle.FlightComputer : FlightComputer { get; private set; }` | direct API | `KSA/Vehicle.cs:415` | average-twr, blinky (debug) | `average-twr.lib/TwrDataReader.cs:17`; `BlinkySubmod.cs:612-618` | OK | |
-| `FlightComputer.AmbientPressure : float` (field) | direct API | `KSA/FlightComputer.cs:57` | average-twr | `TwrDataReader.cs:26` | **NEW @5117** | fed from `states.Environment.AtmosphericPressure`; 0 in vacuum |
-| `Vehicle.ComputeActiveThrust(float ambientPressure) → float` | direct API | `KSA/Vehicle.cs:6069` | average-twr | `TwrDataReader.cs:26` | **NEW @5117** | replaces `VehicleConfigInfo.TotalEngineVacuumThrust`; skips out-of-propellant engines; same call the navball TWR uses |
-| ~~`FlightComputer.VehicleConfig : VehicleConfigInfo`~~ | direct API | — | *(none)* | — | **no longer used @5117** | still exists; average-twr no longer reads it |
-| ~~`VehicleConfigInfo.TotalEngineVacuumThrust : float`~~ | direct API | — | — | — | 🔴 **REMOVED @5117 (rev 5114)** | with `TotalEngineVacuumMassFlowRate`, `TotalEngineExhaustVelocity`, `TotalEngineIsp`. Broke average-twr (CS1061) — **fixed** |
+| `Vehicle.FlightComputer : FlightComputer { get; private set; }` | direct API | `KSA/Vehicle.cs:415` | blinky (debug) | `BlinkySubmod.cs:612-618` | OK | |
 
 ### KSA.FloatReference
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -350,20 +339,12 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.GameSettings
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `OnKeyAll(GlfwKeyEvent) : static bool` | Harmony pre (HotkeyGuard) + reflection-method (`nameof`) | `KSA/GameSettings.cs:2379` | **ALL top-level mods via HotkeyGuard** (marque ships a local copy) | `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | OK | suite-wide chokepoint; prefix `ref bool __result` swallows key while typing |
+| `OnKeyAll(GlfwKeyEvent) : static bool` | Harmony pre (HotkeyGuard) + reflection-method (`nameof`) | `KSA/GameSettings.cs:2379` | **ALL top-level mods via HotkeyGuard** | `ksa-abstractions.lib/HotkeyGuard.cs:21,23` | OK | suite-wide chokepoint; prefix `ref bool __result` swallows key while typing |
 | `GameSettings.Current.Graphics.PartThumbnailSize : ushort` | direct API | `KSA/GameSettings.cs` | parts-now (indirect) | parts-now via `ThumbnailRenderer.SIZE` | OK | thumbnail size (rev 4696). parts-now reads it only through `ThumbnailRenderer.SIZE` and warns when it drifts from the boot-sized thumbnail viewport (U12); it never writes the setting |
 
 ### KSA.GaugeCanvas
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `OnDrawMenuBar() : static void` | Harmony pre | `KSA/GaugeCanvas.cs:809` | marque | `marque/Patcher.cs:39-44` | OK | renders View-menu "Marque" submenu |
-| `_canvases : static List<GaugeCanvas>` (NonPublic+Static) | reflection-field (string) | `KSA/GaugeCanvas.cs:20` | con-man | `con-man.lib/GaugeStateAccessor.cs:28` | OK | **required** (IsValid gate) |
-| `_enabled : bool` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:63` | con-man | `GaugeStateAccessor.cs:29` | OK | **required** |
-| `_customOffset : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:54` | con-man | `GaugeStateAccessor.cs:30` | OK | **required** |
-| `_customScale : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:56` | con-man | `GaugeStateAccessor.cs:31` | OK | **required** |
-| `_windowPosition : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:50` | con-man | `GaugeStateAccessor.cs:32` | OK | optional (degrades to Zero) |
-| `_windowSize : float2` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:52` | con-man | `GaugeStateAccessor.cs:33` | OK | optional (degrades to (100,100)) |
-| `_windowTitle : string` (NonPublic) | reflection-field (string) | `KSA/GaugeCanvas.cs:37` | con-man | `GaugeStateAccessor.cs:34` | OK | optional (skips reposition if null) |
 
 ### KSA.GenericGizmo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -410,21 +391,17 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.IOrbiter
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `IOrbiter` (type) | direct API | `KSA/IOrbiter.cs:10` | CelestialProvider (→ kiwis-marbles, marque) | `CelestialProvider.cs:16` | OK | celestials + vehicles |
+| `IOrbiter` (type) | direct API | `KSA/IOrbiter.cs:10` | CelestialProvider (→ kiwis-marbles) | `CelestialProvider.cs:16` | OK | celestials + vehicles |
 | `Parent : IParentBody { get; }` | direct API | `KSA/IOrbiter.cs:18` | kiwis-marbles | `CelestialWeldEngine.cs:21,26` | OK | null-checked |
 | `Orbit : Orbit { get; }` | direct API | `KSA/IOrbiter.cs:16` | kiwis-marbles | `CelestialWeldEngine.cs:21` | OK | |
 | `GetPositionCci() : double3` | direct API | `KSA/IOrbiter.cs:52` | kiwis-marbles | `CelestialWeldEngine.cs:24` | OK | (concrete `Vehicle.GetPositionCci` is a separate row) |
 | `GetVelocityCci() : double3` | direct API | `KSA/IOrbiter.cs:66` | kiwis-marbles | `CelestialWeldEngine.cs:25` | OK | |
-| `ShowOrbit : ref bool { get; }` (set) | direct API | `KSA/IOrbiter.cs:20` | marque | `marque.lib/MarqueLib.cs:49,84` | OK | `ref bool` property assignment |
 
 ### KSA.IParentBody
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `GetCci2Cce() : doubleQuat` | direct API | `KSA/IParentBody.cs:47` | garrys-torch | `garrys-torch.lib/WeldEngine.cs:75` | OK | called on `Vehicle.Parent` |
-| `Mass : double { get; }` | direct API (dead path) | `KSA/IParentBody.cs:11` | average-twr (dead) | `average-twr.lib/TwrDataReader.cs:12` | OK | `ComputeSurfaceGravity` not on sampling path |
-| `MeanRadius : double` (via IRadius) | direct API | `KSA/IRadius.cs:5` (steely cite `Vehicle.cs:482`) | average-twr (dead), steely-eyed | `TwrDataReader.cs:11`; `VehicleTelemetry.cs:47` | OK | Ap/Pe altitude (steely); dead path (average-twr) |
-| `Children` (add/enumerate) | direct API | `KSA/IParentBody.cs` | doh, marque | `KittenSpawner.cs:174`; `MarqueLib.cs:99,126-135` | OK | spawn parent / SOI tree walk |
-| `Id` (via IObjectId) | direct API | `KSA/IParentBody.cs`, `KSA/Astronomical.cs` | steely-eyed | `VehicleTelemetry.cs:46` | OK | SOI-change key |
+| `Children` (add/enumerate) | direct API | `KSA/IParentBody.cs` | doh | `KittenSpawner.cs:174` | OK | spawn parent |
 
 ### KSA.IPosition
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -440,19 +417,14 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `Xkcd` (nested static class, reflected `GetProperties`) → `Color.Preset` | reflection-type | `KSA/KSAColor.cs:23` | XkcdColorHelper (→ zippo, doh palettes) | `ksa-abstractions.lib/XkcdColorHelper.cs:22,29` | OK | breaks only if `Xkcd` removed or `Color.Preset→float4` conversion dropped |
-| `Xkcd.Scarlet`, `Xkcd.PaleGrey : Color.Preset` | direct API | `KSA/KSAColor.cs:1561,837` | garrys-torch, red-alert, skittles, con-man | `GarrysTorchSubmod.cs:333-334`; `red-alert…RedAlertSubmod.cs:128,129`; `skittles…SkittlesSubmod.cs:108-109`; `ConManSubmod.cs:125-126` | OK | button accents (cosmetic) |
+| `Xkcd.Scarlet`, `Xkcd.PaleGrey : Color.Preset` | direct API | `KSA/KSAColor.cs:1561,837` | garrys-torch, skittles | `GarrysTorchSubmod.cs:333-334`; `skittles…SkittlesSubmod.cs:108-109` | OK | button accents (cosmetic) |
 
 ### KSA.KeyframeAnimationModule
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ShowDeployRetract : bool` (field) | direct API | `KSA/KeyframeAnimationModule.cs:82` | red-alert | `red-alert.lib/ActionScanner.cs:51` | OK | deploy/retract vs continuous actuate |
-| `TimeGoal : float` (field) | direct API | `KSA/KeyframeAnimationModule.cs:76` | red-alert | `ActionExecutor.cs:92,101` | OK | actuation driver |
-| `Shared : KeyframeAnimationData` (field) → `.Duration` | direct API | `KSA/KeyframeAnimationModule.cs:74` | red-alert | `ActionExecutor.cs:92,101` | OK | |
+| `TimeGoal : float` (field) | direct API | `KSA/KeyframeAnimationModule.cs:76` | zippo | `zippo.lib/DiscoLight.cs` | OK | Disco actuator goal |
+| `Shared : KeyframeAnimationData` (field) → `.Duration` | direct API | `KSA/KeyframeAnimationModule.cs:74` | zippo | `zippo.lib/DiscoLight.cs` | OK | Disco timing and target lookup |
 
-### KSA.KinematicMeasurements
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `AccelerationBody : double3` (field, backs `Vehicle.AccelerationBody`) | direct API | `KSA/KinematicMeasurements.cs:9` | geeforce, steely-eyed | `geeforce.lib/GForceRecorder.cs:96`; `VehicleTelemetry.cs:81` | OK | body-frame proper accel |
 
 ### KSA.KittenEva
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -501,11 +473,10 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `"KSA.LightModule+TemplateData"` (nested type by full name) | reflection-type (string) | `KSA/LightModule.cs:12` | zippo | `zippo.lib/LightController.cs:39` | OK | hard-coded full name; rename → zero light parts |
-| `LightModule` (type, `Get<LightModule>()`) | direct API | `KSA/LightModule.cs` | red-alert, its-so-shiny (via ZippoLib) | `ActionScanner.cs:68`; `LightActions.cs:51` | OK | |
-| `LightModule.Template : TemplateData` (public field, assigned) | direct API | `KSA/LightModule.cs:59` | red-alert | `LightActions.cs:64,72,73` | OK | per-instance unshare swaps cloned TemplateData; must stay writable field |
+| `LightModule` (type, `Get<LightModule>()`) | direct API | `KSA/LightModule.cs` | zippo, its-so-shiny (via ZippoLib) | `zippo.lib/DiscoLight.cs`; `its-so-shiny.lib` | OK | |
+| `LightModule.Template : TemplateData` (public field, assigned) | direct API | `KSA/LightModule.cs:59` | zippo | `zippo.lib/DiscoLight.cs` | OK | Disco swaps a per-instance TemplateData clone; must stay writable |
 | `TemplateData.Intensity : FloatReference` (field) | reflection-field (string) | `KSA/LightModule.cs:30` | zippo | `LightController.cs:50,71` | OK | works |
-| `TemplateData.ColorRgb : ColorRgbReference` (field) | reflection-field (zippo) / direct (red-alert) | `KSA/LightModule.cs:33` | zippo (intended), red-alert | `LightController.cs` (intended); `LightActions.cs:58,71` | OK | red-alert uses it correctly |
-| `TemplateData` field **`"Color"`** (no such field) | reflection-field (string) | `KSA/LightModule.cs:33` (actual field is `ColorRgb`) | zippo | `LightController.cs:59,80` | **BROKEN** | `GetField("Color")`→null ⇒ color get/set silent no-op. Pre-existing in 4680 AND 4750 (not a regression). Fix: `"Color"`→`"ColorRgb"` |
+| `TemplateData.ColorRgb : ColorRgbReference` (field) | reflection-field / direct API | `KSA/LightModule.cs:33` | zippo | `LightController.cs`; `DiscoLight.cs` | OK | ordinary controls reflect it; Disco clones it directly |
 
 ### KSA.Loading
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -541,7 +512,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.ModLibrary
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, mesh-deform, byo-music, graffiti | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114,115`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MeshDeformShaders.cs:73`; `MusicPlayer.cs:8`; `graffiti.lib/DecalRenderer.cs` (`ShaderIncludeDirectory`) | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
+| `Get<T>(string id) : T where T:IKeyed` | direct API | `KSA/ModLibrary.cs:968` | blinky, its-so-shiny, thug-life, doh, humble-arteest, byo-music, graffiti | `LcdGridBuilder.cs:51`; `ShinyGridBuilder.cs:27`; `ThugLifeQuadRenderer.cs:114,115`; `MaterialFactory.cs:219`; `VehiclePaintShaders.cs`; `MusicPlayer.cs:8`; `graffiti.lib/DecalRenderer.cs` (`ShaderIncludeDirectory`) | OK | string-keyed; throws if id missing. Per-`T` asset ids in section 5 |
 | `AllParts : internal static SerializedCollection<PartTemplate>` | reflection-field (string "AllParts") | `KSA/ModLibrary.cs:86` | doh, parts-now | `KittenSpawner.cs:322`; `parts-now.lib/Runtime/GameRegistry.cs:72` | OK | `.Find(KeyHash)` (doh, parts-now) / `.GetList` (parts-now) |
 | `AllCharacters : internal static SerializedCollection<CharacterReference>` | reflection-field (string) | `KSA/ModLibrary.cs:90` | doh | `KittenSpawner.cs:347,354,357` | OK | character enumeration |
 | `{AllMeshes, AllFiles, AllMaterials, AllPartGameDataReferences, AllEditorTagDefinitions}` : internal static `SerializedCollection<…>` | reflection-field (string ×5) | `KSA/ModLibrary.cs:80,68,70,78,134` | parts-now | `Runtime/GameRegistry.cs:73-77,292` | OK | the other five registries a runtime load writes into. All resolved once in `GameRegistry`'s static ctor; a miss is **fatal** (`IsHealthy=false` disables every Load button) |
@@ -565,7 +536,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.ModuleList
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Get<T>() : Span<T>` | direct API | `KSA/ModuleList.cs:112` | red-alert, blinky, its-so-shiny, doh, humble-arteest | `ActionScanner.cs:68`; `LcdGridBuilder.cs:327`; `ShinyGridBuilder.cs:205`; `KittenSpawner.cs:278-289`; `EngineEmissive.cs:123` | OK | generic module accessor |
+| `Get<T>() : Span<T>` | direct API | `KSA/ModuleList.cs:112` | blinky, its-so-shiny, doh, humble-arteest, zippo | `LcdGridBuilder.cs:327`; `ShinyGridBuilder.cs:205`; `KittenSpawner.cs:278-289`; `EngineEmissive.cs:123`; `DiscoLight.cs` | OK | generic module accessor |
 
 ### KSA.ModuleStateful (StateList + ModuleAndAllMutableStatesRef)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -581,38 +552,32 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `MusicPlayList : SoundReference` (type) | direct API | `KSA/MusicPlayList.cs:6` | byo-music | `byo-music.lib/MusicPlayer.cs:8` | OK | |
 | `PlayMusic(out ChannelWrapper?, ulong delaySamples=0)` | direct API | `KSA/MusicPlayList.cs:21` | byo-music | `MusicPlayer.cs:10` | OK | routes through `GameAudio.System` (FMOD) |
 
-### KSA.NavBallData
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `Vehicle.NavBallData : ref readonly NavBallData` | direct API | `KSA/Vehicle.cs:528` | average-twr | `average-twr.lib/TwrDataReader.cs:6` | OK | `ref readonly` accessor |
-| `NavBallData.ThrustWeightRatio : double` (field) | direct API | `KSA/NavBallData.cs:21` | average-twr | `TwrDataReader.cs:6` | OK | 0 until flight computer populates |
 
 ### KSA.Orbit
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `CreateFromStateCci(IParentBody, SimTime, double3, double3, byte4) : static Orbit` | direct API | `KSA/Orbit.cs:1396` | garrys-torch, kiwis-marbles, doh | `WeldEngine.cs:121`; `CelestialWeldEngine.cs:31`; `KittenSpawner.cs:169,258` | OK | 5-arg state-vector factory; arg order/types must hold |
 | `OrbitLineColor : byte4` (field) | direct API | `KSA/Orbit.cs:1062` | garrys-torch, doh | `WeldEngine.cs:126`; `KittenSpawner.cs` | OK | |
-| `{Apoapsis, Periapsis, Eccentricity, Inclination, Period, SemiMajorAxis} : double` | direct API | `KSA/Orbit.cs` (exercised `IOrbiter.cs:97-106`) | steely-eyed | `VehicleTelemetry.cs:64-73` | OK | all `double.IsFinite`-guarded |
 | `StateVectors.{PositionCci, VelocityCci}` | direct API | `KSA/Orbit.cs` | doh | `KittenSpawner.cs:231,239-242` | OK | spawn positioning |
 
 ### KSA.Part (+ nested Connector)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Part` (type) | direct API | `KSA/Part.cs` | PartHelpers (→ many), unladen-swallow, blinky | `PartHelpers.cs:11`; `BlinkyGridScanEndpoint.cs:58` | OK | |
+| `Part` (type) | direct API | `KSA/Part.cs` | PartHelpers (→ many), blinky | `PartHelpers.cs:11` | OK | |
 | `new Part(string inName, PartTemplate, PartInstance?=null, Part?=null)` (ctor) | direct API | `KSA/Part.cs:765` | blinky, its-so-shiny, doh | `LcdGridBuilder.cs:268`; `ShinyGridBuilder.cs:157`; `KittenSpawner.cs:278` | OK | |
-| `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, mesh-deform | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:128`; `MeshDeformSubmod.cs:317-319` | OK | combo labels / pixel-id parsing |
-| `DisplayName : string { get; init; }` | direct API | `KSA/Part.cs:413` | zippo, red-alert, mesh-deform | `ZippoSubmod.cs`; `ActionScanner.cs:27`; `MeshDeformSubmod.cs:282` | OK | |
-| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, doh, parts-now | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:122`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78,148` | OK | feeds reflection/labels; `Template.Id` (SerializedId). parts-now compares it against the record's part ids in the unload safety gate |
-| `InstanceId : uint` | direct API | `KSA/Part.cs:321` | red-alert, graffiti, hot-pursuit | `ActionScanner.cs`; `graffiti.lib/GraffitiSubmod.cs`; `hot-pursuit.lib/HotPursuitSubmod.cs` | OK @5402 | stable sub-part addressing across per-frame target re-resolution |
+| `Id : string { get; init; }` | direct API | `KSA/Part.cs:411` | garrys-torch, zippo, blinky, its-so-shiny, thug-life, kitchen-sink | `GarrysTorchSubmod.cs:188`; `ZippoSubmod.cs`; `ThugLifeSubmod.cs:128` | OK | combo labels / pixel-id parsing |
+| `DisplayName : string { get; init; }` | direct API | `KSA/Part.cs:413` | zippo | `ZippoSubmod.cs` | OK | |
+| `Template : PartTemplate` (field) | direct API | `KSA/Part.cs:323` | garrys-torch, zippo, blinky, its-so-shiny, thug-life, kitchen-sink, doh, parts-now | `GarrysTorchSubmod.cs:188`; `LightController.cs:92`; `ThugLifeSubmod.cs:122`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:78,148` | OK | feeds reflection/labels; `Template.Id` (SerializedId). parts-now compares it against the record's part ids in the unload safety gate |
+| `InstanceId : uint` | direct API | `KSA/Part.cs:321` | graffiti, hot-pursuit, zippo | `graffiti.lib/GraffitiSubmod.cs`; `hot-pursuit.lib/HotPursuitSubmod.cs`; `zippo.lib/DiscoLight.cs` | OK @5402 | stable sub-part addressing across per-frame target re-resolution |
 | `RayCastEgo(ref readonly double4x4, Ray, out double ×2, out double3 ×4, out Part? closestSubPart, out Part?) : bool` | direct API | `KSA/Part.cs:2398` | graffiti, hot-pursuit | `graffiti.lib/DecalPicker.cs`; `hot-pursuit.lib/HotPursuitPicker.cs` | OK @5402 | KSA's watertight art-mesh raycast. Position/normal come back in the **returned hit sub-part's** local frame. |
 | `Parachute.{ClothPositionsFront, AttachLocationPartAsmb, Parent, CanopyIndex}` · `ChuteClothSystem.Topology` · `ChuteClothTopology.{Rings,Spokes,ApexIndex,CanopyNodeCount,NodeIndex}` · `Ray.RaycastWatertight(v0,v1,v2,out t)` | direct API (cloth pick) | `KSA/Parachute.cs`; `KSA/ChuteClothSystem.cs:84-98`; `KSA/ChuteClothTopology.cs`; `KSA/Ray.cs:141` | graffiti | `graffiti.lib/DecalPicker.Parachute.cs`, `DecalAnchors.cs` | OK @5402 (added) | Deployed canopies are outside part view meshes. Graffiti raycasts an apex fan + ring quads over the published front cloth nodes, then retains node indices/barycentric weights; module `InstanceId` with parent-part id + canopy-index fallback re-resolves the canopy so the decal follows it. Live-check against the bone-skinned GLB surface. |
 | `MatrixAsmb2Ego(in double4x4) : double4x4` | direct API | `KSA/Part.cs:1165` | graffiti, hot-pursuit | `graffiti.lib/DecalAnchors.cs`; `hot-pursuit.lib/HotPursuitPose.cs` | OK @5402 | includes `Part.Scale` and the whole articulated sub-part parent chain |
-| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh), garrys-torch, thug-life, kitchen-sink, mesh-deform, parts-now | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302`; `ThugLifeSubmod.cs:308`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:154` | OK | recursion key. parts-now recurses it (plus `PartTree.Parts`, `VehicleEditingSpace.AllParts`, `VehicleEditor.UnattachedPartTrees`) to prove nothing alive still uses a mod's parts before purging |
-| `FullPart : Part { get; }` | direct API | `KSA/Part.cs:659` | zippo, red-alert, blinky, its-so-shiny | `ZippoSubmod.cs:152`; `ActionExecutor.cs:80`; `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `=> PartParent ?? this` |
+| `Parts` (via `Vehicle.Parts.Parts`) / `Part.SubParts : ReadOnlySpan<Part>` | direct API | `KSA/Part.cs:655` | PartHelpers (→ zippo, its-so-shiny, humble-arteest, doh), garrys-torch, thug-life, kitchen-sink, parts-now | `PartHelpers.cs:32`; `WeldEngine.cs:157`; `FlexoPartTest.cs:302`; `ThugLifeSubmod.cs:308`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:154` | OK | recursion key. parts-now recurses it (plus `PartTree.Parts`, `VehicleEditingSpace.AllParts`, `VehicleEditor.UnattachedPartTrees`) to prove nothing alive still uses a mod's parts before purging |
+| `FullPart : Part { get; }` | direct API | `KSA/Part.cs:659` | zippo, blinky, its-so-shiny | `ZippoSubmod.cs:152`; `BlinkyPatches.cs:63`; `ShinyPatches.cs:57-63` | OK | `=> PartParent ?? this` |
 | `IsSubPart : bool` | direct API | `KSA/Part.cs:657` | blinky | `LcdGridBuilder.cs:326` | OK | |
-| `Modules : ModuleList` (field) | direct API | `KSA/Part.cs:401` | red-alert, humble-arteest | `ActionScanner.cs:68`; `EngineEmissive.cs:123` | OK | `.Get<T>()` / `.Add(...)` |
-| `SubtreeModules : ModuleList` (field) | direct API | `KSA/Part.cs:409` | red-alert, blinky, doh | `ActionScanner.cs:50`; `LcdGridBuilder.cs:327`; `KittenSpawner.cs:278-289` | OK | anim/solar/tank discovery |
-| `LightSwitch : PowerConsumer?` (field) | direct API | `KSA/Part.cs:407` | zippo, red-alert, its-so-shiny | `ZippoSubmod.cs:152`; `LightActions.cs:41`; `ShinyPixelCell.cs:24` | OK | light on/off path |
+| `Modules : ModuleList` (field) | direct API | `KSA/Part.cs:401` | humble-arteest, zippo | `EngineEmissive.cs:123`; `DiscoLight.cs` | OK | `.Get<T>()` / `.Add(...)` |
+| `SubtreeModules : ModuleList` (field) | direct API | `KSA/Part.cs:409` | blinky, doh | `LcdGridBuilder.cs:327`; `KittenSpawner.cs:278-289` | OK | anim/tank discovery |
+| `LightSwitch : PowerConsumer?` (field) | direct API | `KSA/Part.cs:407` | zippo, its-so-shiny | `ZippoSubmod.cs:152`; `ShinyPixelCell.cs:24` | OK | light on/off path |
 | `Connection : (nested type)` → see KSA.Connection | — | `KSA/Part.cs` | blinky, its-so-shiny | — | OK | (Connect/Disconnect/OtherPart rows under KSA.Connection) |
 | `Connections : List<Connection>` (field) | direct API | `KSA/Part.cs:391` | blinky, its-so-shiny | `LcdGridBuilder.cs:214`; `ShinyGridBuilder.cs:133` | OK | |
 | `Scale : double3 { get; set; }` | direct API (write) | `KSA/Part.cs:499` | garrys-torch, blinky, its-so-shiny | `WeldEngine.cs`; `LcdGridBuilder.cs:305`; `ShinyGridBuilder.cs:186` | OK | setter resets cached pos matrix; garrys writes independent X/Y/Z factors |
@@ -632,9 +597,9 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.PartModel (+ nested PerInstanceData, ViewportData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `AddInstance(PerInstanceData, Viewport, int frameIndex) : void` | Harmony pre (humble vehicle-paint, mesh-deform) + post (IvaForceRender) | `KSA/PartModel.cs:375` | humble-arteest (VehiclePaint), mesh-deform, IvaForceRender (kitchen-sink) | `VehiclePaintPatches.cs` (`AddInstancePrefix`); `MeshDeformPatches.cs:51-60`; `IvaForceRender.cs:46` | OK | `PartModel.cs` byte-identical; 3-arg single overload. humble binds by param name `instanceData` and ORs paint into `StateBitFlag` |
+| `AddInstance(PerInstanceData, Viewport, int frameIndex) : void` | Harmony pre (humble vehicle-paint) + post (IvaForceRender) | `KSA/PartModel.cs:375` | humble-arteest (VehiclePaint), IvaForceRender (kitchen-sink) | `VehiclePaintPatches.cs` (`AddInstancePrefix`); `IvaForceRender.cs:46` | OK | `PartModel.cs` byte-identical; 3-arg single overload. humble binds by param name `instanceData` and ORs paint into `StateBitFlag` |
 | `..ctor(PartModelModule.Template) : protected` | Harmony post (ctor, `AccessTools.Constructor`) | `KSA/PartModel.cs:351` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:42` | OK | explicit param-type array |
-| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `Wetness`@76; 80 B) | direct API | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint), mesh-deform | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs` (`AddInstancePrefix`); `MeshDeformManager.cs:127-134` | OK | humble now writes **only `StateBitFlag` bits 11..31** (no struct reinterpret, no game field clobbered); ⚠ mesh-deform still reuses `packing1`@72 + `Wetness`@76 |
+| `PerInstanceData` (struct: `ModelMatrix`@0 · `StateBitFlag`@64 · `EmissiveColor`@68 · `packing1`@72 · `Wetness`@76; 80 B) | direct API | `KSA/PartModel.cs:299-310` | IvaForceRender, humble-arteest (VehiclePaint) | `IvaForceRender.cs:98`; `VehiclePaintPatches.cs` (`AddInstancePrefix`) | OK | humble writes **only `StateBitFlag` bits 11..31** (no struct reinterpret and no game field clobbering) |
 | `PerInstanceData.StateBitFlag` **bits 11..31** | free-bit reuse (per-instance mod payload) | writers `KSA/PartModelModule.cs:82-133`, `KSA/PartModelDynamicModule.cs:81-107`; readers `MeshIndirect.frag:308-353` | humble-arteest (VehiclePaint) | `VehiclePaint.cs` (`EncodeBits`, `PaintBitShift`) | OK | 🔶 **audit every game update.** Game uses bits 0..10 only; 21 free bits carry a 7:7:7 sRGB paint color. `RayTraceInstance.StateFlags` is `int`, so the bits survive the RT path |
 | `ViewportData.Get(PartModel, Viewport) : ViewportData` → `.InstanceList.Add(...)` | direct API | `KSA/PartModel.cs:281,277` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:105` | OK | re-add internal instance to per-viewport draw list (editor) |
 | `Instances : static List<PartModel>` | direct API | `KSA/PartModel.cs:325` | IvaForceRender (kitchen-sink), parts-now | `IvaForceRender.cs:111`; `parts-now.lib/Runtime/RuntimeModPurgeSteps.cs:109` | OK | enumerated by `Enabled` setter. parts-now `RemoveAll`s its own templates' entries on purge — **KSA never prunes this list** |
@@ -664,8 +629,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.PartModelModule (+ nested Template, RaytracingMode)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelModule.cs:79` | blinky, its-so-shiny, mesh-deform, humble-arteest (VehiclePaint) | `BlinkyPatches.cs:26,30`; `ShinyPatches.cs:25,29`; `MeshDeformPatches.cs:34-43`; `VehiclePaintPatches.cs` (`PartModelModulePrefix`) | OK | game uses `Parent.FullPart.LightSwitch` here; humble reads `Module<T>.Parent : Part` (`KSA/Module.cs:419`); **only caller** of `PartModel.AddInstance` |
-| `Parent : Part` | direct API | `KSA/PartModelModule.cs:71` | mesh-deform | `MeshDeformPatches.cs:101` | OK | `__instance.Parent` |
+| `UpdateRenderData(in double4x4, bool, Viewport, int)` | Harmony pre (return false skips submit) | `KSA/PartModelModule.cs:79` | blinky, its-so-shiny, humble-arteest (VehiclePaint) | `BlinkyPatches.cs:26,30`; `ShinyPatches.cs:25,29`; `VehiclePaintPatches.cs` (`PartModelModulePrefix`) | OK | game uses `Parent.FullPart.LightSwitch` here; humble reads `Module<T>.Parent : Part` (`KSA/Module.cs:419`); **only caller** of `PartModel.AddInstance` |
 | `Template.Internal : bool` (field) | direct API (write) | `KSA/PartModelModule.cs:36` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:87,89,113,125` | OK | flipped false to force interior render |
 | `Template.RayTracing : RaytracingMode` (field) | direct API | `KSA/PartModelModule.cs:30` | IvaForceRender | `IvaForceRender.cs:103` | OK | |
 | `RaytracingMode.ShadowProxy` (enum) | enum | `KSA/PartModelModule.cs:14` | IvaForceRender | `IvaForceRender.cs:103` | OK | shadow-proxy skip in editor postfix |
@@ -675,7 +639,6 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.PartModelRenderer (+ nested ColorData)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ColorData.Rebuild() : static void` | direct API | `KSA/PartModelRenderer.cs:282` | mesh-deform | `MeshDeformShaders.cs:43,77` | OK | pipeline rebuild after shader swap. ⚠ destroys/recreates pipelines immediately — unsafe mid-frame. humble-arteest no longer calls it; it sets `Program.RendererRebuildNeeded` instead |
 | `ColorData.BuildPipelineModel` / `BuildPipelineDynamic` (→ `ShaderReference.CompileVariantWithCustomOptions`) | behavior dependency (no patch) | `KSA/PartModelRenderer.cs:104,193` | humble-arteest (VehiclePaint) | — | OK | Part color pipelines recompile MeshIndirect **from disk per `ENABLE_*` variant** and destroy the module right after, which is why swapping `ShaderReference.Shader` cannot work and interception happens at `ShaderModuleUtils.FromFile` |
 
 ### KSA.PartTemplate (+ component template types)
@@ -690,7 +653,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.PartTree
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Parts : ReadOnlySpan<Part>` | direct API | `KSA/PartTree.cs:67` | PartHelpers (→ many), garrys-torch, zippo, red-alert, blinky, its-so-shiny, thug-life, kitchen-sink, mesh-deform | `PartHelpers.cs:13`; `ZippoSubmod.cs:406`; `ActionScanner.cs:17` | OK | top-level parts |
+| `Parts : ReadOnlySpan<Part>` | direct API | `KSA/PartTree.cs:67` | PartHelpers (→ many), garrys-torch, zippo, blinky, its-so-shiny, thug-life, kitchen-sink | `PartHelpers.cs:13`; `ZippoSubmod.cs:406` | OK | top-level parts |
 | `Root` | direct API | `KSA/PartTree.cs` | blinky, its-so-shiny | `LcdGridBuilder.cs:135`; `ShinyGridBuilder.cs:146` | OK | |
 | `Batteries : ModuleStateful<…>.StateList` (field) | direct API | `KSA/PartTree.cs:37` | eternal-flame | `EternalFlameLib.cs:128` | OK | battery state list |
 | `Modules.Get<Battery>()` (ModuleList) | direct API | `KSA/PartTree.cs` | its-so-shiny | `ShinyGridBuilder.cs:205` | OK | |
@@ -710,7 +673,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.PowerConsumer
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `LightIsActive : bool` (field) | direct API | `KSA/PowerConsumer.cs:28` | zippo, red-alert, its-so-shiny | `ZippoSubmod.cs:161`; `LightActions.cs:42`; `ShinyPixelCell.cs:24,27` | OK | on/off toggle; rev-4681 electrical refactor didn't touch it |
+| `LightIsActive : bool` (field) | direct API | `KSA/PowerConsumer.cs:28` | zippo, its-so-shiny | `ZippoSubmod.cs:161`; `ShinyPixelCell.cs:24,27` | OK | on/off toggle; rev-4681 electrical refactor didn't touch it |
 
 ### KSA.Program
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -721,7 +684,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `OnDrawUiConsole(double)` (`private void`) | Harmony PREFIX (**string** `"OnDrawUiConsole"`) | `KSA/Program.cs:2880` @5348; called unconditionally `:2103` | unscience shell via `HiddenUiFrameHook` | `ksa-abstractions.lib/HiddenUiFrameHook.cs:28,44,47`; `unscience/Mod.cs:116-117`; `unscience/Patcher.cs:49,99` | OK @5348 | **Hidden-HUD fallback.** The two StarMap GUI targets above live inside `if (DrawUI)` in `OnFrame` (`:2093-2101`), so on F2 they are skipped and no StarMap GUI hook fires. This prefix replays `Mod.UpdateSubmods`/`UpdateWelds` at the same frame phase only while `Program.DrawUI` is false. Phase contract: every frame, after the UI block, before `ImGui.Render()`. Fallback anchor if renamed: `DrawFps()` (`:3008`) |
 | `DrawUI : static bool` (prop) | direct API | `KSA/Program.cs:504` | HiddenUiFrameHook | `HiddenUiFrameHook.cs:40,64` | OK @5348 | gate for the fallback; flipped by `InputAction.ToggleUi` = F2 (`KSA/Input.cs:297`, handled `Program.cs:1694`) |
 | `DrawProgramMenusHook() : void` (empty modding hook) | Harmony post | `KSA/Program.cs:3736` (cited `:3391` earlier) | unscience (MenuBarPatch), dont-stifle-me standalone (MenuBarPatch) | `unscience/MenuBarPatch.cs:8`; `dont-stifle-me/MenuBarPatch.cs:15` | OK | game ships as deliberate no-op; dont-stifle-me draws a `BeginMenu("Don't Stifle Me")` here |
-| `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ average-twr, geeforce, kitten-animations, unladen-swallow) | `VehicleProvider.cs:11`; `kitten-animations.lib/KittenAvatarAccessor.cs` | OK | kitten-animations uses it only for the default automatic target mode; an explicit kitten id ignores later control changes |
+| `ControlledVehicle : static Vehicle?` (field) | direct API | `KSA/Program.cs:254` | VehicleProvider (→ many), kitten-animations | `VehicleProvider.cs:11`; `kitten-animations.lib/KittenAvatarAccessor.cs` | OK | kitten-animations uses it only for the default automatic target mode; an explicit kitten id ignores later control changes |
 | `ConsoleWindow : static ConsoleWindow` (field) | direct API | `KSA/Program.cs:246` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | `.IsOpen` guard (Brutal type — see section 3 Brutal) |
 | `Editor : static VehicleEditor?` (field) | direct API | `KSA/Program.cs:202` | IvaForceRender, kitchen-sink, humble-arteest (VehiclePaint), parts-now | `IvaForceRender.cs:100`; `KitchenSinkLib.cs:56`; `PaintTargets.cs`; `parts-now.lib/Runtime/RuntimeModUnloadGate.cs:98`, `RuntimeModUnloader.cs:110` | OK | editor-only branch; humble uses it to pick flight vs editor paint targets. parts-now uses it for the unload safety gate and to clear the hover preview before a purge. Disposed+nulled in `Program.PrepareFrame` |
 | `ThumbnailViewport : static IViewport` (a `PartThumbnailViewport` from `ViewportRegistry.CreatePartThumbnailViewport(_renderer, ViewportOptionFlags.RenderPartModels, sampler)`; throws until built) | direct (render) | `KSA/Program.cs:497,949` | parts-now | `Runtime/PartThumbnailGenerator.cs:141` | OK | dedicated offscreen thumbnail viewport — no camera save/restore, no resize, no `UpdateShaderData`. Shared with the part browser's hover preview (see `ThumbnailDynamic`) |
@@ -734,7 +697,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `RenderViewport(CommandBuffer,IViewport,int) : private` | render-pass behavior | `KSA/Program.cs:4313` | hot-pursuit | stock secondary viewport path | **LIMITATION @5402** | Secondary rendering runs stars, distant spheres, vehicle/part passes, and the stock translucent path, but omits `ParticleSystem`, `VolumetricExhaustRenderer`, the main planet/ocean/cloud pipeline, part-glass, and overall-bloom passes. Engine plumes and generic particles cannot be enabled by Hot Pursuit; those game-owned passes bind main-camera targets/resources. |
 | `GetMainCamera() : static Camera` | direct API | `KSA/Program.cs:632` | glass | `glass.lib/FovController.cs` | OK @5402 | Glass is explicitly main-camera scoped so it does not overwrite Hot Pursuit's independent FOVs. |
 | `GetRenderCamera() : Camera` (= `RenderedViewport.GetCamera()`) | direct (render) | `KSA/Program.cs:642`, `RenderedViewport` `:491` | thug-life | `ThugLifeQuadRenderer.cs:252` | OK | **replaced `GetMainCamera()` (`:584`)** — `RenderMainPass` runs per visible viewport (main + both crew-portrait viewports), and ego space is camera-relative, so the main camera mis-transformed the portrait passes |
-| `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, mesh-deform, parts-now | `ThugLifeRenderManager.cs:81`; `MeshDeformShaders.cs:39`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
+| `GetRenderer() : Renderer` (→ `.Device`/`.Allocator`/`.Graphics`) | direct (render) | `KSA/Program.cs:486` (cited `:450` at the 4750 baseline) | thug-life, parts-now | `ThugLifeRenderManager.cs:81`; `parts-now.lib/Runtime/RuntimeModLoaderGpuStates.cs:85`, `PartThumbnailGenerator.cs:129`, `RuntimeModUnloader.cs:123` | OK | Vulkan device. humble-arteest no longer needs it — the patched `FromFile` receives the device as an argument |
 | `OffscreenTarget : RenderTarget` (→ `.SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`) | direct (render-pass) | `KSA/Program.cs:457` | thug-life | `ThugLifeQuadRenderer.cs:152` | OK | replaced `OffScreenPass`/`RenderPassState` @5261 (dynamic rendering). ⚠ **null until `BuildRenderTargets()` (`Program.cs:970` @5402), which runs after `ModLibrary.LoadAll()` (`:942`) — i.e. after `[StarMapAllModsLoaded]`; the mod's pipeline build is lazy for exactly this reason** |
 | `SetViewport(CommandBuffer)` | direct (render) | `KSA/Program.cs:4293` | thug-life | `ThugLifeQuadRenderer.cs:264` | OK | sizes to `RenderedViewport` |
 | `GetPlayerDeltaTime() : static double` | direct API | `KSA/Program.cs:4467` | garrys-torch | `WeldEngine.cs:119` | OK | fed into `GetJobSimStep` |
@@ -771,23 +734,8 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `Universe.GetJobSimStep(double) : SimStep` → `SimStep.NextTime : SimTime` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | tick-end time for new orbit state time |
 | `SimStep` (param of `ExecuteNextVehicleSolvers`) | Harmony arg type | `KSA/Universe.cs:1775` | eternal-flame, kitchen-sink, kiwis-marbles | (solver prefixes) | OK | prefixes ignore it (parameterless / by-name `dtPlayer` only) |
 
-### KSA.SimTime
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `SimTime` (`readonly struct`) | direct API | `KSA/SimTime.cs:6` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, garrys-torch, doh) | `SimTimeProvider.cs:9` | OK | |
-| `Seconds() : double` (instance) | direct API | `KSA/SimTime.cs:67` | geeforce, steely-eyed | `GeeForceSubmod.cs:34`; `MonitoringLoop.cs:45` | OK | timestamps sample |
 
-### KSA.Situation / KSA.SituationEx
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `Vehicle.Situation : Situation => _props.Situation` | direct API | `KSA/Vehicle.cs:494` | steely-eyed | `VehicleTelemetry.cs:85` | OK | |
-| `Situation` (`enum : byte`, 8 states) via `.ToString()` string-compare | enum (string-compare) | `KSA/Situation.cs:3` | steely-eyed | `VehicleTelemetry.cs:87-89`; `EventDetector.cs:62` | OK | byte-identical; rename breaks silently (rev 4704 aerostat = value reuse, no new names) |
-| `SituationEx.HasAnyContact(this Situation) : bool` | direct API (ext) | `KSA/SituationEx.cs:18` | steely-eyed | `VehicleTelemetry.cs:86` | OK | liftoff/landing logic |
 
-### KSA.SolarPanel
-| Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
-|---|---|---|---|---|---|---|
-| `SolarPanel` (type, `Get<SolarPanel>()` presence test) | direct API | `KSA/SolarPanel.cs:8` | red-alert | `ActionScanner.cs:51` | OK | rev-4681 added power internals; red-alert reads none |
 
 ### KSA.StaticMeshRenderable
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -823,14 +771,13 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 |---|---|---|---|---|---|---|
 | `ExecuteNextVehicleSolvers(double dtPlayer, SimStep simStep) : static void` | Harmony pre (Priority.First) | `KSA/Universe.cs:1775` | eternal-flame, kitchen-sink, kiwis-marbles | `unscience/Patcher.cs` (`EternalFlamePatches`, `KiwisMarblesPatches`); `kitchen-sink/Patcher.cs:56`; `kiwis-marbles.lib/KiwisMarblesPatches.cs` | OK | single overload → by-name `nameof`/`dtPlayer` resolution safe; kiwis-marbles depends on `PrepareFrame` ordering (Apply*Solvers before, ExecuteNextOrbitSolvers after) |
 | `CurrentSystem : static CelestialSystem? { get; private set; }` | direct API | `KSA/Universe.cs:92` | VehicleProvider/CelestialProvider (→ ~all feature mods) | `VehicleProvider.cs:15`; `CelestialProvider.cs:11` | OK | enumeration root |
-| `GetElapsedSimTime() : static SimTime` | direct API | `KSA/Universe.cs:1991` | SimTimeProvider (→ geeforce, steely-eyed, kiwis-marbles, doh) | `SimTimeProvider.cs:9` | OK | |
 | `GetJobSimStep(double) : SimStep` | direct API | `KSA/Universe.cs:2188` | garrys-torch | `WeldEngine.cs:119` | OK | (see KSA.SimStep) |
 
 ### KSA.Vehicle
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `Vehicle` (type) | direct API | `KSA/Vehicle.cs:28` | VehicleProvider (→ ~all), unladen-swallow | `VehicleProvider.cs:11` | OK | `OfType<Vehicle>()` |
-| `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink, mesh-deform | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
+| `Vehicle` (type) | direct API | `KSA/Vehicle.cs:28` | VehicleProvider (→ ~all) | `VehicleProvider.cs:11` | OK | `OfType<Vehicle>()` |
+| `Parts : PartTree` (field) | direct API | `KSA/Vehicle.cs:264` | PartHelpers (→ many), eternal-flame, blinky, its-so-shiny, kitchen-sink | `PartHelpers.cs:13`; `EternalFlameLib.cs:128`; `LcdGridBuilder.cs:37` | OK | get+set (blinky swaps tree) |
 | `Id` (inherited Astronomical.Id) | direct API | `KSA/Astronomical.cs:85` | (see KSA.Astronomical) | — | OK | |
 | `RefillConsumables() : void` | direct API | `KSA/Vehicle.cs:2300` | eternal-flame | `EternalFlameLib.cs:80` | OK | fuel/resource refill |
 | `AddVolumetricExhaustInstances(Camera, Viewport, VolumetricExhaustRenderer, double frameDeltaTime) : void` | **Harmony postfix** `(Vehicle __instance, Camera camera, VolumetricExhaustRenderer renderer, double frameDeltaTime)` | `KSA/Vehicle.cs:5303` | pyro | `pyro.lib/PyroPatches.cs:16,35` | OK @5348 | per-visible-vehicle exhaust submission (`Program.OnPreRender`); pyro adds its plumes to the same batch. Resolved via `nameof` (typed) |
@@ -840,8 +787,8 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `UpdatePerFrameData() : override void` | direct API | `KSA/Vehicle.cs:1972` | garrys-torch, doh | `WeldEngine.cs:130`; `KittenSpawner.cs:175` | OK | refresh caches post-teleport |
 | `UpdateVehicleConfiguration() : void` | direct API | `KSA/Vehicle.cs:1263` | blinky, its-so-shiny | `LcdGridBuilder.cs:149`; `ShinyGridBuilder.cs:98` | OK | |
 | `UpdateAfterPartTreeModification() : void` | direct API | `KSA/Vehicle.cs:1277` | kitchen-sink | `FlexoPartTest.cs:320` | OK | recompute mass/aero/CoM |
-| `Parent : IParentBody => Orbit.Parent` | direct API | `KSA/Vehicle.cs:332` | garrys-torch, average-twr (dead), steely-eyed, doh | `WeldEngine.cs:19`; `VehicleTelemetry.cs:44`; `KittenSpawner.cs:230` | OK | |
-| `Orbit : Orbit => Patch.Orbit` | direct API | `KSA/Vehicle.cs:330` | garrys-torch, steely-eyed | `WeldEngine.cs:126`; `VehicleTelemetry.cs:64` | OK | |
+| `Parent : IParentBody => Orbit.Parent` | direct API | `KSA/Vehicle.cs:332` | garrys-torch, doh | `WeldEngine.cs:19`; `KittenSpawner.cs:230` | OK | |
+| `Orbit : Orbit => Patch.Orbit` | direct API | `KSA/Vehicle.cs:330` | garrys-torch | `WeldEngine.cs:126` | OK | |
 | `GetPositionCci() : double3` | direct API | `KSA/Vehicle.cs:1949` | garrys-torch | `WeldEngine.cs:28` | OK | (concrete; cf. `IOrbiter.GetPositionCci`) |
 | `GetVelocityCci() : double3` | direct API | `KSA/Vehicle.cs:1897` | garrys-torch | `WeldEngine.cs:29` | OK | |
 | `GetBody2Cci() : doubleQuat` | direct API | `KSA/Vehicle.cs:2242` | garrys-torch | `WeldEngine.cs:30,90` | OK | |
@@ -854,23 +801,11 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `GetWorldMatrix(Camera) : float4x4?` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2772` | i-feel-seen | `IFeelSeenPatches.cs:27,30` | OK | string-resolved; non-virtual |
 | `UpdateRenderData(Viewport, int) : virtual void` | Harmony pre + reflection-method (string) | `KSA/Vehicle.cs:2785` | i-feel-seen | `IFeelSeenPatches.cs:28,31` | OK | string-resolved; `KittenEva` overrides (`KittenEva.cs:62`) |
 | `IsEditedVehicle : bool` | direct API | `KSA/Vehicle.cs:356` | i-feel-seen | `IFeelSeenPatches.cs:70` | OK | |
-| `NavBallData` (see KSA.NavBallData) | direct API | `KSA/Vehicle.cs:528` | average-twr | — | OK | |
-| `FlightComputer` (see KSA.FlightComputer) | direct API | `KSA/Vehicle.cs:415` | average-twr, blinky (debug) | — | OK | |
-| `TotalMass : float => _props.TotalMassPropsAsmb.Props.Mass` | direct API | `KSA/Vehicle.cs:512` | average-twr, steely-eyed | `TwrDataReader.cs:18`; `VehicleTelemetry.cs:76` | OK | |
-| `InertMass : float` | direct API | `KSA/Vehicle.cs:514` | steely-eyed | `VehicleTelemetry.cs:77` | OK | |
-| `PropellantMass : float` | direct API | `KSA/Vehicle.cs:516` | steely-eyed | `VehicleTelemetry.cs:78` | OK | |
-| `AccelerationBody : double3 => KinematicMeasurements.AccelerationBody` | direct API | `KSA/Vehicle.cs:518` | geeforce, steely-eyed | `GForceRecorder.cs:96`; `VehicleTelemetry.cs:81` | OK | |
-| `OrbitalSpeed : double => GetVelocityCci().Length()` | direct API | `KSA/Vehicle.cs:532` | steely-eyed | `VehicleTelemetry.cs:59` | OK | |
-| `GetSurfaceSpeed() : double` | direct API | `KSA/Vehicle.cs:2169` | steely-eyed | `VehicleTelemetry.cs:60` | OK | |
-| `GetInertialSpeed() : double` | direct API | `KSA/Vehicle.cs:2164` | steely-eyed | `VehicleTelemetry.cs:61` | OK | |
-| `GetBarometricAltitude() : double` | direct API | `KSA/Vehicle.cs:2175` | steely-eyed | `VehicleTelemetry.cs:55` | OK | |
-| `GetRadarAltitude() : double` | direct API | `KSA/Vehicle.cs:2180` | steely-eyed | `VehicleTelemetry.cs:56` | OK | |
-| `GetPositionEcl() : double3` | direct API | `KSA/Vehicle.cs:613` | steely-eyed | `VehicleTelemetry.cs:111` | OK | (cf. `IPosition.GetPositionEcl`) |
+| `FlightComputer` (see KSA.FlightComputer) | direct API | `KSA/Vehicle.cs:415` | blinky (debug) | — | OK | |
 | `GetManualThrottle()` | direct API (debug) | `KSA/Vehicle.cs:822` | blinky | `BlinkySubmod.cs:586-587` | OK | diagnose button only |
-| `SetEnum(Enum?) : void` | direct API | `KSA/Vehicle.cs:4838` | unladen-swallow, blinky | `ActionIgnite.cs:34`; `BlinkyGridManager.cs:258` | OK | `VehicleEngine` branch → private `SetAction` (`Vehicle.cs:4912`, ungated by `IsControllable`) |
+| `SetEnum(Enum?) : void` | direct API | `KSA/Vehicle.cs:4838` | blinky | `BlinkyGridManager.cs:258` | OK | `VehicleEngine` branch → private `SetAction` (`Vehicle.cs:4912`) |
 | `Dispose() : void` | direct API | `KSA/Vehicle.cs` | doh | `KittenSpawner.cs:68` | OK | despawn |
-| `ShowOrbit` (as IOrbiter) | direct API | `KSA/Vehicle.cs` | marque | `MarqueLib.cs:84` | OK | (see KSA.IOrbiter.ShowOrbit) |
-| `IsControllable : virtual bool` (rev 4699) | direct API | `KSA/Vehicle.cs:526` | (informational — not consumed) | — | ADDITIVE | new; gates control on a Control Module. RPC ignite path is NOT gated by it |
+| `IsControllable : virtual bool` (rev 4699) | direct API | `KSA/Vehicle.cs:526` | (informational — not consumed) | — | ADDITIVE | new; gates control on a Control Module |
 
 ### KSA.VehicleEditingSpace
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
@@ -904,7 +839,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.VehicleEngine
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `VehicleEngine : enum byte { MainIgnite, MainShutdown }` | enum | `KSA/VehicleEngine.cs:3-6` | unladen-swallow, blinky | `ActionIgnite.cs:34`; `BlinkyGridManager.cs:258` | OK | both members present |
+| `VehicleEngine : enum byte { MainIgnite, MainShutdown }` | enum | `KSA/VehicleEngine.cs:3-6` | blinky | `BlinkyGridManager.cs:258` | OK | both members present |
 
 ### KSA.IViewport / KSA.IGameViewport (replaced `KSA.Viewport` @5402)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 5402 | Notes |
@@ -912,8 +847,8 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | `Mode : CameraMode { get; }` (property) | direct API | `KSA/IViewport.cs:29` | IvaForceRender (kitchen-sink) | `IvaForceRender.cs:102` | OK (retyped) | vs `CameraMode.IVA`. Was a field on the old `Viewport` class |
 | `GetCamera() : Camera` | direct API | `KSA/IViewport.cs:51` | i-feel-seen, parts-now, dont-stifle-me, hot-pursuit | `IFeelSeenPatches.cs`; `PartThumbnailGenerator.cs`; `PerAxisScaleDrag.cs`; `hot-pursuit.lib/HotPursuitPose.cs` | OK @5402 | Hot Pursuit uses main as its reference camera. |
 | `Size : int2 { get; }` · `ShaderSlot : int { get; }` (was `Viewport.Index`) | direct API | `KSA/IViewport.cs:41,13` | parts-now, graffiti | `PartThumbnailGenerator.cs:515`; `DecalRenderer.cs:402`; `ShaderSlot` consumed indirectly by `ThumbnailDynamic.UpdateGlobalCameraData`'s camera-UBO slice | OK (retyped) | slots come from `ViewportRegistry`'s pool (max 8); the per-viewport UBOs are now sized for 8 slots (rev 5401 stride fix, `GlobalShaderBindings.cs:94,217`) |
-| `IViewport` (param of `UpdateRenderData`/`AddInstance`/`OnFrame`/`UpdateSelectedScale`/render prefixes) | Harmony arg type | `KSA/IViewport.cs:9` | blinky, its-so-shiny, mesh-deform, i-feel-seen, humble-arteest, IvaForceRender, dont-stifle-me, camera-controller-override, pyro | (render/editor prefixes) | **CHANGED @5402** (fixed) | every game method that took `Viewport` now takes `IViewport`; all remain single overloads, so by-name `AccessTools.Method` still resolves. Prefixes that name the param declare `IViewport` |
-| `ViewportOptionFlags.RenderPartModels` / `UseRaytracing` gates | new gating | `KSA/ViewportOptionFlags.cs`; `PartModel.cs:410-415` | IvaForceRender, humble-arteest, mesh-deform (postfix/prefix on `AddInstance`) | `IvaForceRender.cs:98-106` | ADDITIVE | `AddInstance` early-returns for viewports without `RenderPartModels`; every game-created viewport has it (`ViewportPresets.cs`), so dormant. Recommended mirror in IvaForceRender's postfix (open) |
+| `IViewport` (param of `UpdateRenderData`/`AddInstance`/`OnFrame`/`UpdateSelectedScale`/render prefixes) | Harmony arg type | `KSA/IViewport.cs:9` | blinky, its-so-shiny, i-feel-seen, humble-arteest, IvaForceRender, dont-stifle-me, camera-controller-override, pyro | (render/editor prefixes) | **CHANGED @5402** (fixed) | every game method that took `Viewport` now takes `IViewport`; all remain single overloads, so by-name `AccessTools.Method` still resolves. Prefixes that name the param declare `IViewport` |
+| `ViewportOptionFlags.RenderPartModels` / `UseRaytracing` gates | new gating | `KSA/ViewportOptionFlags.cs`; `PartModel.cs:410-415` | IvaForceRender, humble-arteest | `IvaForceRender.cs:98-106` | ADDITIVE | `AddInstance` early-returns for viewports without `RenderPartModels`; every game-created viewport has it (`ViewportPresets.cs`), so dormant |
 
 ### KSA.ViewportRegistry / KSA.IGameViewport / KSA.IViewportOwner
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 5402 | Notes |
@@ -990,7 +925,7 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `RenderTechnique.CreateShaderStages(Device, Span<ShaderReference>, Span<VkSpecializationInfo>=default)` | direct (render) | `RenderCore/RenderTechnique.cs:37` | thug-life | `ThugLifeQuadRenderer.cs:117` | OK | |
-| `ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags shaderStage, CompileOptions? options)` | **Harmony pre** (humble-arteest, free-fallin) + reflection-method (mesh-deform) | `RenderCore/ShaderModuleUtils.cs:115` | humble-arteest (VehiclePaint), free-fallin (Full Canopy), mesh-deform | `VehiclePaintPatches.cs` / `CanopyProjectionShaders.cs` (`FromFilePrefix`); `MeshDeformShaders.cs:373-397` | OK | Shared in-memory shader seam. Humble targets two part fragments; free-fallin targets `Model.vert`, `Model_Skinned.vert`, and `ModelPbr.frag`; both pass through all other paths and fall back to stock on error. Param names `device`/`filePath`/`shaderStage`/`options` are load-bearing for Harmony binding. |
+| `ShaderModuleUtils.FromFile(Device, string filePath, out VkShaderStageFlags shaderStage, CompileOptions? options)` | **Harmony pre** (humble-arteest, free-fallin) | `RenderCore/ShaderModuleUtils.cs:115` | humble-arteest (VehiclePaint), free-fallin (Full Canopy) | `VehiclePaintPatches.cs` / `CanopyProjectionShaders.cs` (`FromFilePrefix`) | OK | Shared in-memory shader seam. Humble targets two part fragments; free-fallin targets `Model.vert`, `Model_Skinned.vert`, and `ModelPbr.frag`; both pass through all other paths and fall back to stock on error. Param names `device`/`filePath`/`shaderStage`/`options` are load-bearing for Harmony binding. |
 | `KSA.Rendering.Utils.SetShaderFromMod(SimpleShaderStages, Device, string modId, bool useCustomOptions)` | **Harmony prefix** | `KSA.Rendering/Utils.cs:589` | free-fallin (Full Canopy) | `CanopyProjectionShaders.cs` (`SetShaderFromModPrefix`) | OK @5402 | Ordinary model rebuilds reuse cached `ShaderReference` modules and otherwise bypass `FromFile`. For the three projection shader ids only, the prefix sets `useCustomOptions=true`, routing compilation through `CompileVariantWithCustomOptions` → the `FromFile` transform. |
 | `ShaderModuleUtils.FromString(Device, ReadOnlySpan<byte> shaderCode, VkShaderStageFlags, CompileOptions?, ReadOnlySpan<byte> debugName)` | direct (render) | `RenderCore/ShaderModuleUtils.cs:79` (was :77) | humble-arteest (VehiclePaint), free-fallin (Full Canopy), graffiti | `VehiclePaintPatches.cs` / `CanopyProjectionShaders.cs` (`FromFilePrefix`); `graffiti.lib/DecalRenderer.cs` (`Compile`) | OK | `debugName` becomes shaderc's input-file name → relative `#include` resolution. Shader patchers pass a NUL-terminated real path; graffiti passes a fake filename next to shipped `GridFrag` so `Common/*.glsl` resolves. |
 | `BindlessTextureLibrary.{DescriptorSetLayout, DescriptorSet, AddTexture(VkImageView) : int, FreeTexture(int)}` | direct API (render) | `RenderCore.Systems/BindlessTextureLibrary.cs:38,155,198` | graffiti | `graffiti.lib/DecalRenderer.cs`, `DecalTextures.cs` | OK @5348 | decal-texture slots + set 2 of the decal pipeline. UpdateAfterBind\|PartiallyBound layout makes live slot writes legal; `FreeTexture` rewrites the slot to the empty texture, so only the image needs deferred destroy. Shares the same 1024-slot pool parts-now budgets (V15) |
@@ -1007,17 +942,15 @@ external GLBs use absolute paths plus SHA-256 content identities and are not glo
 ### KSA.ShaderReference (asset-reference type)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
-| `ShaderReference : FileReference, IKeyed` (type) | direct API | `KSA/ShaderReference.cs:20` | thug-life, humble-arteest, mesh-deform | `ThugLifeQuadRenderer.cs:114`; `VehiclePaintShaders.cs` (`TryResolveShaderPath`) | OK | via `ModLibrary.Get<ShaderReference>` |
-| `Shader : VkShaderModule? { get; private set; }` (+ `<Shader>k__BackingField`) | reflection-field (string) | `KSA/ShaderReference.cs:33` | mesh-deform | `MeshDeformShaders.cs:232-252` | OK | swap via private setter. **Inert for part color shaders since rev 4693** — the color pipelines never read it; humble-arteest no longer uses this |
-| `DoLoad() : internal void` | reflection-method (string) | `KSA/ShaderReference.cs:167` | mesh-deform | `MeshDeformShaders.cs:65-73` | OK | restore original shader; humble-arteest no longer uses this |
-| `ModPath` (on `FileReference` base, public property) | direct API | `KSA/FileReference.cs:23` | humble-arteest, mesh-deform | `VehiclePaintShaders.cs` (`TryResolveShaderPath`); `MeshDeformShaders.cs:336,341` | OK | resolve on-disk shader path (humble: pre-flight anchor check only) |
+| `ShaderReference : FileReference, IKeyed` (type) | direct API | `KSA/ShaderReference.cs:20` | thug-life, humble-arteest | `ThugLifeQuadRenderer.cs:114`; `VehiclePaintShaders.cs` (`TryResolveShaderPath`) | OK | via `ModLibrary.Get<ShaderReference>` |
+| `ModPath` (on `FileReference` base, public property) | direct API | `KSA/FileReference.cs:23` | humble-arteest | `VehiclePaintShaders.cs` (`TryResolveShaderPath`) | OK | resolve on-disk shader path for pre-flight anchor checks |
 
 ### Brutal.* (game-shipped; risk-bearing only)
 | Member (signature) | Kind | Decomp path | Used by | Mod code ref(s) | 4750 | Notes |
 |---|---|---|---|---|---|---|
 | `ConsoleWindow.IsOpen : bool => _show` | direct API | `Brutal.ImGuiApi.Abstractions/ConsoleWindow.cs:292` | HotkeyGuard (→ all mods) | `ksa-abstractions.lib/HotkeyGuard.cs:38` | OK | guard bypassed while dev console open |
 | `ImGui.GetIO().WantTextInput` | direct API | `Brutal.ImGuiApi/*` | HotkeyGuard (→ all mods) | `HotkeyGuard.cs:38` | OK | detects ImGui text-input focus; watch on Brutal bumps |
-| `ImGuiStyle.Colors : float4_60` / `ImGuiStylePtr` (60-color array + 72 style members) | direct API | `Brutal.ImGuiApi/ImGuiStyle.cs:188`; `ImGuiStylePtr.cs` | skittles, con-man | `skittles.lib/ThemeDefinition.cs:89-90`; `ConManSubmod.cs:68-73` | OK | hard-codes 60 colors + fixed style-var list; a Brutal slot/member add is silently dropped — watch every Brutal bump |
+| `ImGuiStyle.Colors : float4_60` / `ImGuiStylePtr` (60-color array + 72 style members) | direct API | `Brutal.ImGuiApi/ImGuiStyle.cs:188`; `ImGuiStylePtr.cs` | skittles | `skittles.lib/ThemeDefinition.cs:89-90` | OK | hard-codes 60 colors + fixed style-var list; a Brutal slot/member add is silently dropped — watch every Brutal bump |
 | `ImGuiCol` (enum, 60 slots `Text`…`ModalWindowDimBg` + `COUNT`) | enum | `Brutal.ImGuiApi/ImGuiCol.cs:5-65` | skittles | `skittles.lib/ThemeSerializer.cs:12-31` | OK | hard-coded `60` count must match |
 | `VkUtils.StageAndUploadToBuffer` / `BufferEx.VkBuffer` / `IVulkanContext.Device.CreateStagingPool` / `ByteSize.Of<T>()` | GPU write (Brutal.VulkanApi) | `Brutal.VulkanApi(.Abstractions)` | doh, humble-arteest (KittenColor) | `MaterialSystemAccessor.cs:282-295`; `KittenColor.cs:191-215` | OK | GPU material-buffer write; rev-4729 Brutal bump is the churn surface (build passes). The `Span<float4>`→bytes conversion now uses the BCL `MemoryMarshal.AsBytes`; the `CommunityToolkit.HighPerformance` game-DLL reference it used to need is **retired** — that DLL is not in `ksa-game-assemblies/current/dll/` (`copy-ksa.ts` does not copy it), so the reference broke any build pointed at that tree |
 | `SimpleVkTexture` / `VkUtils.UploadBufferToImage` + pipeline/descriptor primitives (`DescriptorSetLayoutEx`, `DescriptorPoolEx`, `VertexInput`, `ShaderStages`, `CommandBuffer`) | GPU (Brutal.VulkanApi/RenderCore) | `Brutal.VulkanApi`, `RenderCore`, `Core` | thug-life | `ThugLifeTextureFactory.cs:33,64`; `ThugLifeQuadRenderer.cs` | OK | custom Vulkan pipeline; highest churn surface (rev 4729); 4750 build passes |
@@ -1070,11 +1003,9 @@ on every game update FIRST.
 | `KittenRenderable._ground{Idle,Walk,Run}Anim`, `_ladderAnim`, `_jumpIntroAnim`, `_flailAnim`, `_jumpLandAnim`, `_moon{Walk,Run}Anim`, `_swimAnim`, `_swimIdleAnim`, `_seatedIdleAnim`, `_seatedIdleActionAnims`, `_walk/_run/_swimPairSampler`, `_blendSampler` | kitten-animations | 17 private fields by name — the only route to the ground animation set | OK — degrades per field into a UI warning, never a crash |
 | `KittenRenderable._catPersonalityExpressionAnim / _catExpressionAnim / _catEyeAnim / _catEarAnim` | kitten-animations | private fields by name; distinguishes the two same-typed expression processors | OK |
 | `AnimatedRenderable.UpdateAnimation` | kitten-animations | `AccessTools.Method` by name (Harmony prefix) | OK — loud `MissingMethodException` at `Apply` if renamed |
-| `LightModule.TemplateData` (`"KSA.LightModule+TemplateData"`) + `PartTemplate.Components` + `TemplateData.Intensity`/`FloatReference.Value` + `ColorRgbReference.{R,G,B,OnDataLoad}` | zippo, red-alert, its-so-shiny (via ZippoLib) | hard-coded type/field/method names | OK |
+| `LightModule.TemplateData` (`"KSA.LightModule+TemplateData"`) + `PartTemplate.Components` + `TemplateData.Intensity`/`FloatReference.Value` + `ColorRgbReference.{R,G,B,OnDataLoad}` | zippo, its-so-shiny (via ZippoLib) | hard-coded type/field/method names | OK |
 | ~~`LightModule.TemplateData."Color"`~~ | ~~zippo~~ | ~~`GetField("Color")` — wrong name~~ | **RETIRED @5348** — the bug is gone: the code reads `"ColorRgb"` (`zippo.lib/LightController.cs:59,80`), which is the real field. Fixed by commit `07787ea`; earlier scope text calling this BROKEN was **stale**. There is no `GetField("Color")` anywhere in the repo. |
-| `GaugeCanvas._canvases/_enabled/_customOffset/_customScale/_windowPosition/_windowSize/_windowTitle` | con-man | 7 private fields by name (IsValid canary) | OK — all 7 still declared **on `GaugeCanvas` itself** (not lifted to `GaugeBase`, which would break `GetField`). `_windowTitle` went `private`→`protected`; still `NonPublic\|Instance`, so it resolves. **Behavioral risk instead:** revs 4919/4940/4959/5003 rebuilt the gauge/HUD system around con-man, rev 5201 added context-visibility gating, and **rev 5293 added a global Hud Scale applied after `_customScale`** (see §6) |
 | `Program.Instance`/`MaterialSystem`/`SuperMeshRenderSystem`/`CharacterRenderSystem` + `GpuObjectSystem.{BigBuffer,DeviceCtx,CreateObject}` + `AssetManager.{AssetMap,GetOrLoad}` + `GpuObjectAssetRef.Handle` + `GpuTextureSystem.*` + `Pbr/Character*Reference.*` | doh, humble-arteest (KittenColor) | deep render-system reflection bridge | OK |
-| `ShaderReference.{Shader (+k__BackingField), DoLoad, ModPath, LocalPath}` + `RenderCore.ShaderModuleUtils.FromFile` | mesh-deform | private/internal member names, cross-asm | OK (but `Shader` is inert for part color pipelines since 4693) |
 | `ModLibrary.AllParts`/`AllCharacters` + `SerializedCollection.{GetList,Find}` | doh | internal static fields/methods by name | OK |
 | `ModLibrary.AllParts` | parts-now | `GetField("AllParts", Static\|NonPublic\|Public)` in `parts-now.lib/Runtime/GameRegistry.cs:72,292` — the **only** file in parts-now allowed to reflect | OK |
 | `ModLibrary.AllMeshes` | parts-now, rocky-mcrock-face | `GetField("AllMeshes")` — `GameRegistry.cs:73`; `rocky-mcrock-face.lib/RingAssetCatalog.cs` (`Collection<T>`) | OK |
@@ -1098,7 +1029,6 @@ on every game update FIRST.
 | `GameSettings.OnKeyAll` | all mods (HotkeyGuard) | `AccessTools.Method(…, nameof(OnKeyAll))` | OK |
 | `Program.OnDrawUiConsole` (private) | unscience (HiddenUiFrameHook) | `AccessTools.Method(typeof(Program), "OnDrawUiConsole")` — `HiddenUiFrameHook.cs:44`. Miss throws at `Patch()` → logged/skipped; symptom is mods freezing on F2 again. Must remain an every-frame call *after* the `if (DrawUI)` block and *before* `ImGui.Render()` (`Program.cs:2103` @5348) | OK |
 | `Universe.ExecuteNextVehicleSolvers` | eternal-flame, kitchen-sink, kiwis-marbles | `AccessTools.Method` by name (no param array) | OK (single overload) |
-| `Situation` enum names (`"Landed"/"Floating"/…`) via `.ToString()` | steely-eyed | enum-name string compare | OK |
 
 ---
 
@@ -1108,7 +1038,6 @@ on every game update FIRST.
 |---|---|---|---|---|---|
 | `UnlitMesh.vert` / `UnlitMesh.frag` | shader | `ModLibrary.Get<ShaderReference>("UnlitMeshVert"/"UnlitMeshFrag")` | `Core/DefaultAssets.xml:66,67` → `Core/Shaders/Mesh/UnlitMesh.*` | thug-life | OK (**byte-identical 4750→5018**; also untouched by 4693/4745) |
 | `GridFrag` (path anchor only) + `Common/Camera.glsl` / `Common/TextureSet.glsl` (headers, `#include`d) | shader include root + headers | `ModLibrary.Get<ShaderReference>("GridFrag").ModPath` → its **directory** is the `#include` root for graffiti's two runtime-compiled decal shaders | `Content/Core/DefaultAssets.xml:373` → `Core/Shaders/Grid.frag`; `Core/Shaders/Common/*.glsl` | graffiti | OK @5348 — a `global.camera`/`global.lighting` struct or `SAMPLE_TEXTURE`/`SET_TEXTURE` macro change fails at shaderc compile (loud console line; decals self-disable) |
-| `MeshIndirect.vert` (struct + varying anchors) | shader text-edit | `Get<ShaderReference>("MeshIndirectVert")`, GLSL anchor strings | `Content/Core/Shaders/Mesh/MeshIndirect.vert` | mesh-deform | **BROKEN** (anchors diverged; see §6). humble-arteest **no longer touches this file** |
 | `MeshIndirect.frag` + `MeshIndirectRaytraced.frag` (paint injection) | shader text-edit (in memory, via the `FromFile` prefix) | matched by **file name**; anchor = first `vec3 sampledColor …;` line; requires `inStateFlags` varying and `gammaToLinear` (`Common/Shared.glsl:203`) | `Content/Core/Shaders/Mesh/MeshIndirect.frag:114`; `MeshIndirectRaytraced.frag:156` | humble-arteest (VehiclePaint) | OK (rebuilt for 5018) — if the anchor moves, `Enable` fails with a UI message and rendering stays stock |
 | `MeshIndirect.frag` (Temperature LUT, `#ifdef ENABLE_TEMPERATURE`) | shader (read-only, no edit) | — | `Content/Core/Shaders/Mesh/MeshIndirect.frag:214-219` | humble-arteest (EngineEmissive) | OK (MOVED from `DynamicMeshIndirect.frag` rev 4693; feature still works) |
 | `Model.vert` + `Model_Skinned.vert` + `ModelPbr.frag` → `TextureSet.glsl` / `MaterialSet.glsl` | shader text-edit (in memory, via the `FromFile` prefix) | exact declaration/assignment/call anchors; added location-3 `vec2`; Full Canopy marker in `Material.extraData.w` | `Content/Core/Shaders/Mesh/Model{,_Skinned}.vert`; `Mesh/ModelPbr.frag`; `Common/{TextureSet,MaterialSet}.glsl` | free-fallin; existing read-only albedo effect also used by doh and humble-arteest (KittenColor) | OK @5402 — transformed shaders compile to valid SPIR-V; static vertex supplies pass-through varying, skinned vertex derives bind-pose X/Z projection, fragment substitutes only marked albedo sampling |
@@ -1174,12 +1103,11 @@ consolidation** (`Part.IsLightSwitchedOff()`). Full review:
   by default (`bool includeDebris = false`); `FindVehicle`, parts-now's fail-closed unload gate and
   graffiti's decal pick opt back in. `kiwis-marbles`: cloth solvers snapshot before the weld prefix (one-frame
   lag for a chute near a welded body). `glass`: `UpdateProjection` prefix now also hits thumbnail cameras.
-  `zippo`/`red-alert`/`its-so-shiny`: light state now resolved via `Part.IsLightSwitchedOff()`, which
+  `zippo`/`its-so-shiny`: light state now resolved via `Part.IsLightSwitchedOff()`, which
   still reads `LightIsActive` first — no change. `Part.DisplayName` now prefers the template name (labels).
 
 **VERIFIED CLEAN this span**
-- **Entire string-reflection watchlist (§4) resolves**, same kind and type (con-man's seven fields
-  byte-identical at the same lines; `CharacterAvatar.Core`/`CharacterCore.Scale` still fields).
+- **Entire string-reflection watchlist (§4) resolves**, with the same member kinds and types.
 - **Every Harmony patch-target signature unchanged** apart from `Viewport → IViewport`, all single
   overloads; `GameSettings.cs` byte-identical; `ExecuteNextVehicleSolvers` body identical.
 - **GPU byte layouts identical** — `PerInstanceData` (both), `MaterialData`; `StateBitFlag` bits 11..31 unused.
@@ -1188,391 +1116,5 @@ consolidation** (`Part.IsLightSwitchedOff()`). Full review:
   `NavBallData`, `Situation` unchanged. No `Brutal*` decomp changes.
 
 **Known-broken reconciliation:** `___Transform` and zippo `"Color"` are closed (stale rows corrected);
-humble-arteest Vehicle Paint / mesh-deform still dead by design (4693); the "supermod never wires
+humble-arteest Vehicle Paint remains dead by design (4693); the "supermod never wires
 `IvaForceRender.Patch`" note was stale (wired at `unscience/Patcher.cs:74`).
-
-### 5261 → 5348 (previous span — 87 revisions, 5262–5348)
-
-Dominated by **ground clutter** (collisions, exclusion masks, destruction, distribution fixes), a
-**terrain precision rework** (`PrecisionFuncs.glsl`, `AnchoredNoise.glsl`, split-double anchors), a
-**clustered-lighting rewrite** (rev 5301: `ViewportLightModes`, `PartModelShadowCull`, VRAM 25.9 MB →
-1.08 MB), a **static-object pipeline** (launchpads, decals, `StaticObject.vert/.frag`), a
-**physics-bubble merge/split rewrite** (revs 5331/5339), a **vehicle-power rework onto electrical
-circuits** (rev 5326), **Vulkan 1.3 → 1.4** (rev 5315), and the one that reached us: a **part/module
-sequencing refactor** (rev 5329). Full review:
-[`../plans/KSA_5348_UPGRADE.md`](../plans/KSA_5348_UPGRADE.md).
-
-**CHANGED (compile break against 5348 — resolved by removing the mod)**
-- `PartTemplate.Decoupler` **removed** and `KSA.DecouplerTemplate` **deleted**, rev 5329
-  (*"Sequencing has moved from parts down to modules"*). Decouplers are now a module:
-  `KSA.Decoupler.TemplateData` (`[XmlType(TypeName = "Decoupler")]`) inside `PartTemplate.Components`,
-  with `ConnectorId`/`Force` as **fields**. Three × CS1061 in `space-tape.lib/PartImporter.cs:124,128,129`.
-  → **space-tape was defunct and has been deleted** (mod + `.lib`, solution entries, supermod wiring).
-  The solution went 57 → **55 projects** and the supermod now bundles **22** submods (was 23). The
-  on-disk XML `<Decoupler ConnectorId=… Force=… />` is
-  **unchanged** — only the typed reader broke. `scope/part-editor-and-robotics.md`
-
-**REMOVED (not a game break — mod deleted by choice, after this pass)**
-- ❌ **flexo (robotics) deleted.** `flexo.lib` compiled **clean** against 5348 and every one of its
-  patch targets verified OK below; it was removed because the hinge approach never worked in-game and
-  will not be reattempted this way. Mod + `.lib`, both solution entries, the `unscience.csproj`
-  `ProjectReference` and the supermod wiring in `unscience/Mod.cs` + `unscience/Patcher.cs` are all
-  unwired. Solution **55 projects**, supermod **22 submods**. Two game surfaces became **unowned** with
-  it — `PartModelRenderer.UpdateRenderData(Viewport, int)` (the keystone render hook, inherited from
-  space-tape) and `OrbitLinePass.AddLineVertex`/`AddLineEnd` — and their table rows are gone;
-  `GenericGizmo` survives under dont-stifle-me. `PartTree.RecomputeStaticMass` stays on the
-  string-reflection watchlist for kitchen-sink alone. `scope/part-editor-and-robotics.md`
-
-**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
-- ⚠️ **con-man vs the new global Hud Scale** (rev 5293). `GaugeCanvas` now divides by
-  `GameSettings.GetGaugeScale()` in `PixelsToUv` (`:536`), multiplies its size constraint by it
-  (`:817`) and wraps draws in `ConsoleStyle.BeginGaugeHostScope(gaugeScale * clamp(ContentScale,
-  0.6, 3))` (`:859-866`). All seven reflected fields still resolve **byte-identically at the same line
-  numbers**, but con-man's saved `_windowPosition`/`_windowSize`/`_customScale` are now in a scaled
-  space it does not model — **layouts saved at one Hud Scale restore wrong at another.** Stacks on the
-  still-open rev-5201 context gate. Also: `RecalculateAll()` gained an optional `bool forceReattach`
-  (source-compatible; con-man does not call it), `Detached = false` is reset on reattach (`:954`), and
-  the crew-portraits canvas gained a `GameSettings.ShowCrewPortraitCameras()` gate (rev 5276).
-  Rev 5277 removed `GameSettings.Interface.FontSize` and redefined `GetInterfaceScale()` from
-  `FontSize/20f` to a 50–200 % `Interface.Scale`. **Open.** `scope/ui-customization.md`
-- ⚠️ **kitten-animations vs the per-frame pose guard** (rev 5278). `AnimatedRenderable` gained
-  `private ulong _lastPoseUpdateFrameNumber` and the pose path is now gated on
-  `Program.FrameNumber != _lastPoseUpdateFrameNumber` (was `!FreezeAnimation`). `CatExpressionAnim` is
-  **byte-identical** and `_expressionPose` still resolves, but a forced second pose evaluation **in the
-  same frame is now dropped** — the first concrete mechanism found for the standing *"always the same
-  expression"* entry in `ISSUES.md`. **Open.** `scope/character-and-materials.md`
-- ⚠️ **thug-life's render environment moved under it.** Everything it binds to is intact
-  (`RenderMainPass` signature, `Program.OffscreenTarget`, `UnlitMesh.*` byte-identical), but rev 5315
-  raised the game to **Vulkan 1.4** and rev 5283 added **UI coverage culling**
-  (`Content/Core/Shaders/UiCoverage/*`, seven new ids in `DefaultAssets.xml`,
-  `GaugeCanvas.RegisterOpaqueCoverage`). Neither is statically clearable.
-  `scope/pixel-grids-and-render.md`
-- ✅ **blinky / its-so-shiny — favourable.** Rev 5326 moved `PowerManager.PopulateGraph` out of the
-  constructor (`KSA/PowerManager.cs:14` @5261) into `OnDrawUi` behind `ShowFlow`
-  (`:130-138` @5348); power now runs on the new `PartTree.ElectricalCircuits`. **The O(N³) DFS both
-  grid builders are architected around no longer runs during play** (`LcdGridBuilder.cs:62,114,319`;
-  `ShinyGridBuilder.cs:42`). No change needed; their splitting optimisations are now dead weight.
-  Counterweight: `Part.Modules` is now `new ModuleList(keepModuleIdIndex: true)` for every part.
-- ⚠️ **parts-now vs load-time part validation** (rev 5340). `Program.cs:1212-1215` now runs
-  `PartArchetypes.WarnOnMalformedParts()` in a `Loading.Task("Part Validation")`, constructing a real
-  `Part` from **every** non-subpart template in `ModLibrary.AllParts`. Rev 5329 added
-  `PartTemplate.WarnOnDuplicateModuleIds()`. Ordering invariant holds — `ModLibrary.Bind(_renderer)` is
-  at `:942`, before validation at `:1214` — so parts-now's generated parts **will** be instantiated and
-  may surface new load-time warnings. `scope/part-editor-and-robotics.md`
-- Editor scaling changed **triaxial → uniform, clamped 0.5×–2×**, and modules gained `IRescale`
-  (rev 5329) — dont-stifle-me (which exists to undo it), parts-now. Engine deactivate-mid-burn fixed (5333) and sequence-0 no longer
-  zeroes delta-v/TWR (5318) — blinky, average-twr. TVC gains retuned (5317) — average-twr, geeforce,
-  steely-eyed. Lights now register for **all** viewports, not just `Program.MainViewport`
-  (rev 5301, `LightModule.cs:125,141`) — zippo, red-alert, its-so-shiny.
-
-**VERIFIED CLEAN this span**
-- **Entire string-reflection watchlist (§4) resolves**, plus a **field-vs-property audit**: rev 5329
-  moved `Parent` from a `Module<T>` field to a `ModuleBase.Parent` auto-property (and `ModuleBase` now
-  implements `IPartParent`), which would silently break `GetField("Parent")` —
-  `ksa-abstractions.lib/ReflectionHelpers` has no property fallback. **No mod reflects on `Parent`.**
-  `CharacterAvatar.Core` and `CharacterCore.Scale` are both still plain fields.
-- **Every Harmony patch-target signature unchanged** (line shifts only), including
-  `Universe.ExecuteNextVehicleSolvers(double, SimStep)` despite a substantially rewritten body
-  (bubble ownership moved into `VehicleUpdateTask`, revs 5331/5339), and
-  `PartModelRenderer.UpdateRenderData(Viewport, int)` — at the time of this pass flexo's explicit
-  `[Viewport, int]` array still resolved uniquely (the new 3-arg `(Viewport, int, ref readonly double4x4)`
-  overload is on other types); that hook is now **unowned** after flexo's removal.
-  `JobSystems.VehicleSolver` (garrys-torch's drain) is intact.
-- **jplrepo's IL transpiler anchor holds.** Rev 5332 rewrote `Program.DrawMenuBar` (Save/Load hidden
-  while the editor is open) but the version-string block is untouched: still exactly one
-  `ImGui.SetCursorPosY`, at `Program.cs:509→512`, right after `DrawProgramMenusHook()`.
-- **GPU byte layouts identical** — `PartModel.PerInstanceData`, `PartModelDynamic.PerInstanceData`,
-  `MaterialData`. humble-arteest's padding-byte hijack and doh's `handle*80+16` writes are safe.
-- **Shaders** — `UnlitMesh.vert/.frag` and `MeshIndirect.vert` **byte-identical**. `MeshIndirect.frag`
-  changed by one line (`SamplePortraitLight` → `SampleMeshForwardLights`, rev 5301), leaving
-  humble-arteest's `vec3 sampledColor` anchor at `:114` and the `ENABLE_TEMPERATURE` LUT intact.
-  `ModelPbr.frag` gained a `RAYTRACED_REFLECTIONS` variant; the `albedo` path and
-  `Common/MaterialSet.glsl` are unchanged.
-- **Coordinate frames unchanged** — rev 5280's `CelestialFrameMath.{ComputeCcf2Cci, ComposeCcf2Cce}` is
-  a pure extraction; `Celestial.GetCcf2Cci`/`GetCci2Ccf`/`GetCci2Cce`/`GetCce2Cci` keep their
-  signatures and semantics. `Camera.cs` and `KinematicMeasurements.cs` are **byte-identical**
-  (glass, geeforce clean). `Battery.cs` byte-identical (eternal-flame clean).
-- **Provider chokepoint intact** — `Universe.CurrentSystem` → `CelestialSystem.All` →
-  `LookupCollection<T>.UnsafeAsList()` all unchanged.
-- **doh's MMU walk survives a retype.** Rev 5269 changed `CharacterAvatar.Attachments.Mmu.MmuMesh`
-  from `StaticMeshRenderable` to `AnimatedRenderable`; doh walks by field name and finds
-  `MaterialIndices` anywhere in the hierarchy (`KittenSpawner.cs:542-556`), and `AnimatedRenderable`
-  declares it (`:35`).
-- **`Part` API churned but missed the suite.** Rev 5329 **removed** `Part.Sequence`, `SetSequence(int)`,
-  `ActivateInStage(Vehicle?)`, `DeactivateInStage(Vehicle?)` and `ScaleTotal`; added
-  `ActivateSubtreeInStage(Vehicle?, int)`, `Set`/`Shift SubtreeModulesSequence`,
-  `CountEnabledSubtreeSequencedModules`, `HasSubtreeSequencedModule`, `GetSubtreeSequencedModules`,
-  `RefreshScale`, `RefreshScaleAndReposition`, `RefreshTankContents`, `FindSurfaceMountPointPartAsmb`.
-  **No unscience mod referenced any removed member.** `PartTree` gained public `RefreshStaticMass()`;
-  kitchen-sink still `Traverse`s the private `RecomputeStaticMass`, which remains (flexo did too, until
-  it was removed).
-- **Assets** — every referenced id present and unchanged. `DefaultAssets.xml` removed the `LaunchPad`
-  GltfFile (rev 5328) and added `StaticObject*`, seven `UiMask*` and `LightEvalStats`; none are
-  referenced by unscience.
-- **StarMap seams present** — `Program.OnDrawUiFrame` / `OnFrame` / `DrawProgramMenusHook`.
-
-**Known-broken reconciliation this span**
-- **zippo `GetField("Color")`** — ✅ **CLOSED; the previous scope text was stale.** The code reads
-  `"ColorRgb"` (`zippo.lib/LightController.cs:59,80`), the real field name. Fixed by commit `07787ea`.
-- **camera-controller-override `___Transform`** — ✅ still closed (retired @5261).
-- **humble-arteest Vehicle Paint** — ❌ still dead by design (rev 4693); self-disables; anchors resolve.
-- **mesh-deform** — ❌ still broken and **unchanged**: `MeshIndirect.vert` is byte-identical to 5261 and
-  its struct anchor (`"    uint EmissiveColor;"` immediately followed by `};`) still doesn't match —
-  the file has `uint EmissiveColor;` then `#endif` (`:16-17`). Its world-position anchor (`:63`) does
-  match.
-- **blinky broken** — ✅ **closed 2026-08-23.** Two separate bugs: (a) `LcdGridConfig.EnginePartId`
-  defaulted to `"CorePropulsionA_Prefab_EngineA1"`, absent from Content — now `A3`, and `EngineA1` is
-  out of `BlinkySubmod.EnginePresets`; (b) the real one — the pixel engines could not reach propellant
-  because blinky connected `Part`↔`Part` instead of via the engine's **declared feed connector**,
-  which the 5018 feed rewrite made mandatory. See `scope/pixel-grids-and-render.md` → *Root cause of
-  "blinky broken"*.
-- **unscience never wires `IvaForceRender.Patch`** — ❌ still open.
-- **space-tape's API-drift cluster** — ✅ closed by removal.
-- **flexo's `R-flexo-1`…`R-flexo-4` risk cluster** (by-name solver patch, the private
-  cache-invalidation contract, `RecomputeStaticMass`, solver-phase tree mutation) — ✅ closed by removal.
-
----
-
-### 5117 → 5261 (previous span — 420 decomp files, ~16.7k inserted lines)
-
-Dominated by a **vehicle-threading rewrite** (`DynamicWorkerPool`/`ParallelBatch`/`PhysicsBubble`
-islands, `BepuWorkerDispatcher`), the **`SimTime` → `UniverseTime`** 128-bit-nanosecond migration, an
-**EVA/kitten overhaul** (control modes, ladders, jump/tumble anims, kitten cameras + portrait UI), a
-**gauge/HUD context-visibility system**, and continued **render-pass modernization**.
-Full review: [`../plans/KSA_5261_UPGRADE.md`](../plans/KSA_5261_UPGRADE.md).
-
-**CHANGED (compile breaks against 5261 — all now FIXED)**
-- `SimTime` **renamed** to `UniverseTime` (now `Int128` nanoseconds, was double seconds) and
-  `Universe.GetElapsedSimTime()` → `Universe.GetElapsedTime()`, rev 5211. `.Seconds()` survives on the
-  new type, and every consumer either calls it or passes the value into `Orbit.CreateFromStateCci`, so
-  **no arithmetic changed**. → `ksa-abstractions.lib/SimTimeProvider.cs:9`,
-  `doh.lib/Spawning/KittenSpawner.cs:167,257`, `garrys-torch.lib/WeldEngine.cs:119`.
-  `scope/00-architecture-and-abstractions.md`, `scope/vehicle-physics.md`
-- `JobSystems.VehicleSolvers` **split** into `VehicleSolver` (single-runner `JobScheduler`
-  orchestrator) + `VehicleWorkerPool` (`DynamicWorkerPool` of parallel islands), revs 5208–5216. →
-  `garrys-torch.lib/GarrysTorchSubmod.cs:93` now waits on `VehicleSolver`. This is the **complete**
-  drain: the pool exposes no `Wait()` and is only driven through scoped `ParallelBatch()` fork/join,
-  so pool work joins before the queued `_vehicleUpdateTask` finishes — the game drains identically in
-  `Universe.DeserializeSave`. `scope/vehicle-physics.md`
-- `ImageBarrierInfo.Presets.SampledReadFragment` → **`SampledReadF`** (abbreviation sweep:
-  `…Vertex`→`…V`, `…Fragment`→`…F`, `…Compute`→`…C`). Same layout/access/stage. **Originated in the
-  unvalidated 5118–5168 window**, not this build — the preset list is byte-identical OLD↔NEW. →
-  `parts-now.lib/Runtime/ThumbnailReadback.cs:56,84`. `scope/part-editor-and-robotics.md`
-- `Program.OffScreenPass` **removed**. Not a rename — the game **migrated the main scene pass from
-  classic Vulkan render passes to dynamic rendering.** The offscreen target is now
-  `Program.OffscreenTarget` (`RenderTarget : IRenderPassInfo`), which is `PassContext.MainOpaquePass`
-  and has **no `.Pass` / `.SampleCount`**; pass compatibility comes from
-  `SetupGraphicsPipeline(ref VkGraphicsPipelineCreateInfo)`, which chains a
-  `VkPipelineRenderingCreateInfo` onto `pNext`, sets `RenderPass = VkRenderPass.NullHandle` and fills
-  `MultisampleState` from the target's `Samples`. **Originated in the unvalidated 5118–5168 window.**
-  → `thug-life.lib/ThugLifeQuadRenderer.cs:110` now mirrors the game's own main-pass pipelines
-  (`GenericMeshRenderer.cs:305`, `PartModelRenderer.cs:184,269`, `PartModelGlass.cs:269`).
-  `scope/pixel-grids-and-render.md`
-
-**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
-- ⚠️ **con-man vs the new gauge context system** (rev 5201). `GaugeCanvas` gained
-  `VisibleInContext: List<GaugeVisibilityFlag>`, `IsContextVisible()` and `ApplyContextOverrides()`,
-  and the draw gate is now
-  `!_enabled || !IsContextVisible() || (this == Program.CrewPortraitsCanvas && !CrewPortraitPanel.HasOccupants)`.
-  con-man's `_enabled` reflection still resolves, but **setting it true no longer guarantees the gauge
-  draws** — a canvas with context flags (`Burn`, `Engines`, `EVA`, `Vehicle`, `Sequence`, `Target`,
-  `IVA`, `Thrusters`, `Atmosphere`) stays hidden unless every flag matches the controlled vehicle.
-  `GameSettings.Current.GaugeContextOverrides` (persisted to `settings.toml`) is a second source of
-  truth con-man does not know about. **Open — not fixed.** `scope/ui-customization.md`
-- ✅ **blinky's dark grids — root-caused and fixed 2026-08-23.** The missing `EngineA1` part id was
-  real but secondary; the reason *every* grid stayed dark is that the **5018 fuel/resource rewrite made
-  a declared feed connector mandatory**. `ResourceManager.CanFlowAcross` refuses the first hop out of
-  a consumer part unless the connection sits on a connector named by the template's
-  `ConsumerFeedWiring`/`FeedsFrom`, and the base check additionally demands `BulkFluid`, which a bare
-  `Part`↔`Part` connection never carries (`Part.EndpointCapabilities` is `null`, and
-  `Intersect(null, null)` gives `Electricity | ServiceFluid`). blinky now connects
-  `RocketCore.FeedConnectors[i]` → fuel `Part`. Both defaults moved to `EngineA3`.
-  `scope/pixel-grids-and-render.md`
-- Vehicle-control lockout tightened (revs 5252/5253: `ControlsLockout`, engine shutdown blocked without
-  a control module) — unladen-swallow RPC, blinky, its-so-shiny, eternal-flame.
-- **All batteries ×10 maximum capacity** (rev 5227, Content-only) — eternal-flame, its-so-shiny,
-  space-tape, red-alert.
-- New kitten anim states (ladders/jump/tumble, revs 5203/5233/5244/5249) — kitten-animations, doh,
-  garrys-torch. Map grid moved out of screen space + per-body grid plane (revs 5256/5257) — space-tape,
-  flexo. Cursor/orbit-line arbitration rework (rev 5221) — marque, kiwis-marbles, space-tape, flexo.
-
-**VERIFIED CLEAN this span**
-- Entire string-reflection watchlist (§4) resolves; every Harmony patch-target signature unchanged
-  (line shifts only), including `Universe.ExecuteNextVehicleSolvers(double, SimStep)` — still one overload.
-- `PerInstanceData` and `MaterialData` byte layouts **identical**. `UnlitMesh.vert/.frag` and
-  `MeshIndirect.vert` **identical**; `MeshIndirect.frag` changed by exactly one line (rev 5196 portrait
-  lights) with humble-arteest's `vec3 sampledColor` anchor, `inStateFlags` guard and the
-  `ENABLE_TEMPERATURE` LUT all intact.
-- StarMap's seams (`Program.OnDrawUiFrame`/`OnDrawUiViewports`/`OnFrame`/`DrawProgramMenusHook`) present.
-- `KittenEva` changes are purely **additive**. Rev 5242's row-major quaternion/mat3 fix changed **no
-  `Brutal.Numerics` file** — frames used by garrys-torch/kiwis-marbles/thug-life are untouched.
-
----
-
-### 5018 → 5117 (previous span — 223 decomp files, ~11.7k inserted lines; 103 Content files)
-
-Dominated by a **crew/roster system** (KittenRoster, IVASeat, EVADoor↔seat linking, crew assignment
-UI), a **burn/orbit UX rework** (right-click burn context menu, danger arcs), **launch pads**,
-**vehicle structural destruction**, and **cloud shadows on vessels**.
-
-**CHANGED (compile breaks against 5117 — both now FIXED)**
-- `Double3Ex.{Up,Down,Left,Right,Forward,Backward}` **removed** (rev 5067: *"they were misleading and
-  often misused"*). Game migrated its own uses to new `Camera.{ForwardView,RightView,UpView}` and
-  renamed `Camera.GetForward/GetRight/GetUp` → `Get*Ecl` (**no mod calls the renamed accessors**).
-  15 CS0117 in space-tape. → new `ksa-abstractions.lib/Directions.cs` (identical values).
-  `scope/part-editor-and-robotics.md`, `scope/00-architecture-and-abstractions.md`
-- `FlightComputer.VehicleConfigInfo.TotalEngineVacuumThrust` **removed** with the rest of the
-  vacuum-referenced family (`TotalEngineVacuumMassFlowRate`, `TotalEngineExhaustVelocity`,
-  `TotalEngineIsp`), rev 5114. 1 CS1061 in average-twr. → now
-  `Vehicle.ComputeActiveThrust(FlightComputer.AmbientPressure)`, the game's own navball path.
-  `scope/telemetry.md`
-
-**CHANGED (silent — compile-clean, was actively corrupting; now FIXED)**
-- `Part`'s **uncached-matrix sentinel** changed from `double4x4.Identity` to an all-NaN
-  `UncachedMatrix` (rev 5112, `MatrixAsmb2VehicleAsmb` caching), plus three new cached fields.
-  space-tape wrote `Identity` into `_matrixAsmb`/`_matrixAsmb2Parent` **to invalidate** them — on 5117
-  that asserts a cached identity transform instead, collapsing the part transform with no build
-  error. → all three sites now call the public `Part.ResetCachedPosMatrixValues()`; the reflection is
-  retired. flexo's similar-looking `HingeController` path was **never** exposed (it touches property
-  setters, which invalidate correctly). `scope/part-editor-and-robotics.md`
-
-**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
-- ⚠️ **space-tape `<EVADoor>` writer vs `EVADoorTemplate.SeatId`** (rev 5085). `SeatId` is new and is
-  what links a door to an `IVASeat`; the EVA button now only appears when that seat is occupied.
-  space-tape emits no `SeatId`, so **authored EVA doors will be inert**. (Its existing `ConnectorId`
-  attribute was never an `EVADoorTemplate` member on 5018 either — pre-existing silent no-op.)
-  **Open — not fixed here.** `scope/part-editor-and-robotics.md`
-- ⚠️ **doh `KittenSpawner` vs the roster rework** (revs 5074/5083/5085/5102/5103). doh replicates the
-  *old* `EVADoor.CreateKittenEva()` flow; the game now sources the kitten from `Universe.KittenRoster`
-  via the door's aligned `IVASeat`, and `Vehicle` disposal finalizes kitten mission stats. The
-  `KittenEva` ctor is signature-identical so doh still runs, but it spawns **roster-less** kittens.
-  `scope/character-and-materials.md`
-- ⚠️ **con-man vs `GaugeCanvas.PlaceBesideActiveBurnGizmo()`** (revs 5092/5113). New game code
-  **writes `_customOffset`** — the exact private field con-man reflects and owns — to park the burn
-  window beside the burn gizmo. The game can now overwrite con-man's saved layout offsets.
-  `scope/ui-customization.md`
-- ⚠️ **garrys-torch / kiwis-marbles vs vehicle structural destruction** (rev 5115). Vehicles can now be
-  destroyed by exceeding a structural g-limit or dynamic-pressure limit. Torch teleports the vehicle
-  every frame; marbles rewrites orbits. `scope/vehicle-physics.md`, `scope/celestial-and-lights.md`
-- ⚠️ **`NavBallData.ThrustWeightRatio` changed meaning** (rev 5114) — now ambient-corrected and
-  propellant-aware. average-twr's readings shift with no code change. `scope/telemetry.md`
-- **Watch item — `EditorTag` gained `Booster`/`Coupling`/`Cargo`.** parts-now's `BuiltInEditorTags`
-  still lists six. Harmless today (the three are neither registered in `VehicleEditor._editorTagLookup`
-  nor declared in `PartGameData.xml`). `scope/part-editor-and-robotics.md`
-
-**VERIFIED CLEAN across 5018 → 5117**
-- **All 33 Harmony patch-target signatures byte-identical**, including the shared chokepoints
-  `GameSettings.OnKeyAll`, `Universe.ExecuteNextVehicleSolvers` (still one overload),
-  `Program.DrawProgramMenusHook`, all three `*Module.UpdateRenderData`, `PartModel(.Dynamic).AddInstance`,
-  `SuperMeshRenderSystem.RenderMainPass`, `ShaderModuleUtils.FromFile`, both controller `OnFrame`s.
-- **The entire §4 reflection watchlist resolves**, including all 7 `GaugeCanvas` fields,
-  `Camera._fovRadians`, the KittenEva→`CharacterCore.Scale` chain, `LightModule+TemplateData.ColorRgb`,
-  all six parts-now `ModLibrary.All*` registries, `SerializedCollection<T>._collection`, and
-  `VehicleEditor._editorTagLookup`. (`ModLibrary.cs`'s diff is **only** log line-number churn.)
-- **Byte-identical files:** `PartModel`, `PartModelDynamic`, `MaterialData`, `GpuMaterialSystem`,
-  `SuperMeshRenderSystem`, `PartModelRenderer`, `LightModule`, `LightSwitch`, `CatExpressionAnim`,
-  `CharacterAvatar`, `CharacterCore`, `GenericGizmo`, `OrbitLinePass`, `Controller`,
-  `KeyframeAnimationModule`, `DeviceMeshInterleaved`, `ShaderModuleUtils`, `Situation`,
-  `KinematicMeasurements`, `KSAColor`, `MusicPlayList`.
-- **humble-arteest's GLSL anchors survive.** `MeshIndirect.frag`/`MeshIndirectRaytraced.frag` changed
-  (rev 5100 cloud shadows) but only inside `getLightColor()`; the `vec3 sampledColor` anchor
-  (`:114`/`:156`) and the `inStateFlags` varying (`:30`/`:20`) are intact, and the new `GetCloudShadow`
-  resolves from `Common/Lighting.glsl:52` through the game's own include callback, which the mod
-  passes straight through. **Still needs a live render pass.**
-- 🔶 **`PerInstanceData` layout unchanged and `StateBitFlag` bits 11..31 still free** (the game uses
-  ≤ bit 6 in the mesh shaders). humble-arteest Vehicle Paint's standing invariant **holds**.
-- 🔶 **parts-now's load-order invariant holds:** `ModLibrary.LoadAll()` (`KSA/Program.cs:965`) still
-  precedes `ModLibrary.Bind()` (`:994`).
-- **thug-life:** `UnlitMesh*` shaders unchanged and both shader ids still in `DefaultAssets.xml`. The
-  MSAA / alpha-to-coverage work (revs 5057/5058) is absorbed because the mod reads
-  `Program.OffScreenPass.SampleCount` dynamically rather than hard-coding it. **Live pass still required.**
-- **mesh-deform:** `MeshIndirect.vert` byte-identical → still self-disabled, unchanged.
-- Assets removed in revs 5077/5096 (`IconSymmetry*`, `Icon*Gizmo`, `IconAngleSnapping*`,
-  `PlanetMeshVertexDataComp`) are referenced by **no** mod in this repo.
-
----
-
-### 4750 → 5018 (previous span)
-
-Every table row whose 5018 status was BROKEN or CHANGED. The 4750→5018 span is large (433 decomp
-files, ~40k inserted lines) and dominated by three game-side rewrites: **combustion → reaction
-model**, **fuel/resource feed wiring**, and **staging → resource groups**.
-
-**CHANGED (compile breaks against 5018 — all three now FIXED)**
-- `PartTemplate.Tank` **removed**; tanks are now `Tank.TemplateData` entries in the generic
-  `PartTemplate.Components` list (a part may have several). → `space-tape.lib/PartImporter.cs`
-  now iterates `Components`. `scope/part-editor-and-robotics.md`
-- `SubstanceLibrary.TryGetCombustionProcess` **removed** along with `CombustionObject`,
-  `CombustionProcess`, `CombustionProcessTemplate`, `CombustionTable`. Replaced by
-  `TryGetReaction` → `Reaction`/`FixedReaction`/`MixtureReaction`, and `Tank.ConfigureFor` now takes
-  a `ReactantMix`. Mixture ratio left the asset id (`MMH_NTO_1.6` → `MMH_NTO` + `DefaultMixtureRatio`
-  1.65). → `doh.lib/Spawning/KittenSpawner.cs`. `scope/character-and-materials.md`
-- `RocketCore.ResourceManager` **moved down** to the `Combustor` subclass (`SolidMotor` cores have
-  none); the base now exposes the feed-wiring model (`FeedConnectors`, `ResolvedConsumerFeeds`,
-  `TryPrepareDrain`/`TryAccumulateDrain`). → `blinky.lib/BlinkySubmod.cs`. `scope/pixel-grids-and-render.md`
-
-**CHANGED (silent — byte layout; guarded, no live break)**
-- `PartModel.PerInstanceData.packing2` → **`public float Wetness`**, and
-  `PartModelDynamic.PerInstanceData.packing1` → **`public float Wetness`**. New `ENABLE_WETNESS`
-  shader variant (`MeshIndirect.vert/.frag`, gated on `GameSettings.Current.Graphics.VesselWater`).
-  The game now **uses** a slot humble-arteest Vehicle Paint and mesh-deform write into. Both are
-  already inert behind their `ShadersActive` probe, so nothing writes there today — but the hazard
-  deepened. humble-arteest **Engine Emissive** is unaffected (it writes only `Temperature`/
-  `TfiThickness`, whose offsets are unchanged). `scope/character-and-materials.md`, `scope/standalone-mods.md`
-
-**BEHAVIORAL (compile-clean, no symbol moved — needs a live pass)**
-- **Gauge/HUD rework vs con-man + marque.** Revs 4919/4940/4959/5003 moved the sequence UI, burn UI
-  and all pop-ups into the GaugeCanvas system, added an `AlwaysEnabled` canvas flag, and **relocated
-  the gauge enable/disable toggles from the View dropdown to a new Hud dropdown** that also ships a
-  native **HudLayouts** save/load feature — i.e. a first-party re-implementation of con-man's whole
-  feature, plus a move of the menu marque injects into. All 7 reflected fields still resolve.
-  `scope/ui-customization.md`, `scope/standalone-mods.md`
-- **`KeyframeAnimationModule.TimeGoal` now fans out to mirrored parts** (`ApplyToMirroredParts`), so a
-  single write can move symmetry-partner parts too. → red-alert. `scope/celestial-and-lights.md`
-- **Animation pipeline reworked**: `IAnimProcessor` gained `UpdateLocalPose(…, Span<TransformTRS>, …)`,
-  `CatExpressionAnim.MixPose` → `MixPoseLocal`, `AnimatedRenderable` now builds a pose buffer.
-  kitten-animations does **not** implement the interface and its `_expressionPose` cache-bust target
-  is intact, so it still works — but this is prime suspect for the `ISSUES.md` "kitten animations
-  always the same expression" report. `scope/character-and-materials.md`
-- **Rev 4914 control-module lockout** (engine/thruster Active checkboxes, Decouple, staging key locked
-  out with no control module) is implemented in the **UI layer only** — `EngineController.SetIsActive`
-  and `ThrusterController.SetIsActive` are byte-identical to 4750, so blinky and its-so-shiny drive
-  pixel engines unaffected. `scope/vehicle-physics.md`
-- **Staging rewrite**: `StageList.cs` and `Staging.cs` deleted in favour of `ResourceGroups`/
-  `ResourceGroupList`/`SequencePerformance*`. `Part.Stage` and `Part.SetStage(int)` are unchanged, so
-  blinky/its-so-shiny stage alignment still compiles and reads correctly — but rev 4873 changed
-  `SetStage`'s cost/rebuild behavior. `scope/pixel-grids-and-render.md`
-
-**CLOSED — previously-recorded breaks confirmed already fixed in-repo (re-verified against 5018)**
-- `Controller.___Transform` field injector (camera-controller-override) — **fixed**. The prefix reads
-  `__instance.Camera` directly (`CameraControllerOverridePatches.cs:54`); 5018 still exposes
-  `public Camera Camera` on `Controller` and still has no `Transform` field, so the fix remains
-  correct. → `scope/camera.md`
-- `LightModule.TemplateData."Color"` (zippo) — **fixed**. `LightController.cs:59,80` now read
-  `"ColorRgb"`, which is the 5018 field name. → `scope/celestial-and-lights.md`
-- unscience supermod `IvaForceRender.Patch` — **fixed**. Now wired at `unscience/Patcher.cs:66`
-  (with a matching `Unpatch` at :100). → `scope/00-architecture-and-abstractions.md`
-
-**BROKEN — genuinely still dead, pre-existing, NOT caused by 5018**
-- `MeshIndirect.vert`/`.frag` GLSL anchors (humble-arteest **Vehicle Paint**, **mesh-deform**) — dead
-  by design change since rev 4693 and still dead: 5018's `MeshIndirect.vert` still carries the
-  `#ifdef ENABLE_*` feature gates (now extended with `ENABLE_WETNESS`/`ENABLE_FROST`), so both mods'
-  content probes correctly self-disable. Reviving paint is a redesign, not a patch.
-  → `scope/character-and-materials.md`, `scope/standalone-mods.md`
-
-**VERIFIED CLEAN against 5018** — every Harmony patch target signature (`RenderMainPass`,
-the three `*Module.UpdateRenderData`, `PartModel(.Dynamic).AddInstance`,
-`PartModelRenderer.UpdateRenderData(Viewport,int)`, `Universe.ExecuteNextVehicleSolvers`,
-`Program.DrawProgramMenusHook`, `Orbit`/`FlyController.OnFrame`, `Camera.ChangeFieldOfView`/
-`UpdateProjection`, `Vehicle.GetWorldMatrix`/`UpdateRenderData`, `GameSettings.OnKeyAll`,
-`GaugeCanvas.OnDrawMenuBar`); the full §4 watchlist; `MaterialData` layout (`AlbedoColor` @16,
-stride 80) and `CharacterAvatar`/`CharacterCore` (still a **struct** with `public float Scale`);
-`UnlitMesh.*`, `MaterialSet.glsl` and `ModelPbr.frag` (byte-identical → thug-life and doh Kitten
-Color safe); the `#ifdef ENABLE_TEMPERATURE` LUT (Engine Emissive).
-
-**parts-now (new since 5018)** — written against this build, so every row above is `OK` by
-construction rather than by diff. It adds **no Harmony patch** (only the mandatory `HotkeyGuard`),
-nine string-reflection names (§4) and two new game-DLL references (`Brutal.Vulkan.Vma`,
-`Planet.Render.Core`). Its risk is concentrated in the 🔶 standing invariants **U1**–**U7** in
-[`part-editor-and-robotics.md`](part-editor-and-robotics.md) → parts-now → *Update-risk findings*,
-none of which the compiler or a symbol grep can check.

@@ -11,7 +11,6 @@ Zippo lets you:
 - **Toggle lights on/off** - Quickly disable/enable selected lights
 - **Animate lights** - Queue single-step animations that interpolate color and intensity with easing
 - **Run Disco party lights** - Independently cycle colors, moving light assemblies, and spotlight beam spread
-- **HTTP RPC control** - All features available via `unladen-swallow` REST endpoints
 - **Real-time updates** - Changes apply immediately in-game
 
 ## Features
@@ -27,7 +26,6 @@ Zippo lets you:
 - **Animation status UI** - Progress bar, elapsed/total time display
 - **Disco recipes** - Editable 1-32 color palette or deterministic random rainbow hues, independent transition/hold/easing per channel, single-light or vehicle-wide targeting
 - **Safe per-instance effects** - Disco color and cone-angle changes use module-local template copies and restore originals on stop, disappearance, or unload
-- **RPC API** - Full HTTP REST control via unladen-swallow (list lights, set state, animate, clear queue)
 
 ## Architecture
 

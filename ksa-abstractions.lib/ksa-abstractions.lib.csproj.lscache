@@ -57,10 +57,7 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 [sourceFiles]
 CelestialProvider.cs
 EasingHelper.cs
-GameStateQueue.cs
-GameThread.cs
 HotkeyGuard.cs
-IGameStateScheduler.cs
 ISubmod.cs
 IvaForceRender.cs
 KsaPaths.cs

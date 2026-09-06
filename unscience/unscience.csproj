@@ -13,11 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\average-twr.lib\average-twr.lib.csproj" />
     <ProjectReference Include="..\blinky.lib\blinky.lib.csproj" />
     <ProjectReference Include="..\byo-music.lib\byo-music.lib.csproj" />
     <ProjectReference Include="..\camera-controller-override.lib\camera-controller-override.lib.csproj" />
-    <ProjectReference Include="..\con-man.lib\con-man.lib.csproj" />
     <ProjectReference Include="..\doh.lib\doh.lib.csproj" />
     <ProjectReference Include="..\eternal-flame.lib\eternal-flame.lib.csproj" />
     <ProjectReference Include="..\garrys-torch.lib\garrys-torch.lib.csproj" />
@@ -26,7 +24,6 @@
     <ProjectReference Include="..\hot-pursuit.lib\hot-pursuit.lib.csproj" />
     <ProjectReference Include="..\pebbles.lib\pebbles.lib.csproj" />
     <ProjectReference Include="..\pyro.lib\pyro.lib.csproj" />
-    <ProjectReference Include="..\geeforce.lib\geeforce.lib.csproj" />
     <ProjectReference Include="..\glass.lib\glass.lib.csproj" />
     <ProjectReference Include="..\i-feel-seen.lib\i-feel-seen.lib.csproj" />
     <ProjectReference Include="..\its-so-shiny.lib\its-so-shiny.lib.csproj" />
@@ -34,11 +31,9 @@
     <ProjectReference Include="..\kiwis-marbles.lib\kiwis-marbles.lib.csproj" />
     <ProjectReference Include="..\ksa-abstractions.lib\ksa-abstractions.lib.csproj" />
     <ProjectReference Include="..\skittles.lib\skittles.lib.csproj" />
-    <ProjectReference Include="..\unladen-swallow.lib\unladen-swallow.lib.csproj" />
     <ProjectReference Include="..\zippo.lib\zippo.lib.csproj" />
     <ProjectReference Include="..\humble-arteest.lib\humble-arteest.lib.csproj" />
     <ProjectReference Include="..\kitchen-sink.lib\kitchen-sink.lib.csproj" />
-    <ProjectReference Include="..\red-alert.lib\red-alert.lib.csproj" />
     <ProjectReference Include="..\thug-life.lib\thug-life.lib.csproj" />
     <ProjectReference Include="..\parts-now.lib\parts-now.lib.csproj" />
     <ProjectReference Include="..\dont-stifle-me.lib\dont-stifle-me.lib.csproj" />
@@ -50,15 +45,6 @@
     <PackageReference Include="StarMap.API" Version="0.3.6" PrivateAssets="all" />
     <PackageReference Include="Tomlyn" Version="0.19.0" />
     <PackageReference Include="Lib.Harmony" Version="2.4.2" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
-
-    <!--
-      See unladen-swallow.lib: GenHTTP (reached transitively through unladen-swallow.lib) pulls
-      Microsoft.Extensions.ObjectPool 10.x, but the game ships and loads 11.x, which is what
-      Brutal.Core.Strings/Brutal.Core.Logging reference. Excluding the package's assets lets the
-      game's DLL below be the single provider, clearing the MSB3277 10-vs-11 conflict.
-    -->
-    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.3" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -91,11 +77,6 @@
       <Private>false</Private>
     </Reference>
 
-    <!-- Game-shipped assembly: bind to the game's 11.x copy, don't ship our own (see above). -->
-    <Reference Include="Microsoft.Extensions.ObjectPool" Condition="Exists('$(KSAFolder)Microsoft.Extensions.ObjectPool.dll')">
-      <HintPath>$(KSAFolder)Microsoft.Extensions.ObjectPool.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -119,33 +100,6 @@
     </ItemGroup>
     <Copy SourceFiles="@(MeowSciAssemblies)" DestinationFolder="$(DistDir)" Condition="'@(MeowSciAssemblies)' != ''" />
     <Copy SourceFiles="$(TargetDir)Tomlyn.dll" DestinationFolder="$(DistDir)" Condition="Exists('$(TargetDir)Tomlyn.dll')" />
-
-    <!-- Dynamically discover GenHTTP.*.dll files -->
-    <ItemGroup>
-      <GenHttpAssemblies Include="$(TargetDir)GenHTTP.*.dll" />
-    </ItemGroup>
-    <Copy SourceFiles="@(GenHttpAssemblies)"
-          DestinationFolder="$(DistDir)"
-          Condition="'@(GenHttpAssemblies)' != ''" />
-
-    <!-- Transitive dependencies required by GenHTTP at runtime.
-         Microsoft.Extensions.ObjectPool is deliberately NOT listed: the game ships and loads its
-         own 11.x copy, so shipping ours would be a stale duplicate that never wins. -->
-    <ItemGroup>
-      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
-      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Extensions.Logging.Abstractions.dll" />
-      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.Data.Sqlite.dll" /> -->
-      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" /> -->
-      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.core.dll" /> -->
-      <!-- <GenHttpTransitiveDeps Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" /> -->
-      <GenHttpTransitiveDeps Include="$(TargetDir)Cottle.dll" />
-      <GenHttpTransitiveDeps Include="$(TargetDir)YamlDotNet.dll" />
-      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.CodeAnalysis.dll" />
-      <GenHttpTransitiveDeps Include="$(TargetDir)Microsoft.CodeAnalysis.CSharp.dll" />
-    </ItemGroup>
-    <Copy SourceFiles="@(GenHttpTransitiveDeps)"
-          DestinationFolder="$(DistDir)"
-          Condition="'@(GenHttpTransitiveDeps)' != ''" />
 
     <!-- Copy third-party licenses -->
     <MakeDir Directories="$(DistDir)third-party-licenses" />

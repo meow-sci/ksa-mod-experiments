@@ -22,7 +22,7 @@ Verification baseline:
   (NuGet **`StarMap.API` v0.3.6**, `PrivateAssets="all"`) is the loader seam, NOT the game — StarMap
   itself Harmony-patches the game's render loop and invokes the mod's attributed methods. So the
   shell never references the game's frame loop directly; it rides StarMap's hooks.
-- **Submod aggregation.** The host instantiates 29 `ISubmod` implementations (one per feature
+- **Submod aggregation.** The host instantiates 24 `ISubmod` implementations (one per feature
   lib), stores them in a list, and drives them uniformly: `Initialize()` once, `Update(dt)` every
   frame (even hidden), `RenderContent()` inside a `CollapsingHeader`, `RenderFloatingWindows()`
   always, `Dispose()` on unload. The same `ISubmod` classes are reused by each feature's own
@@ -35,8 +35,7 @@ Verification baseline:
 - **`ksa-abstractions.lib` is the game-facing seam.** All cross-cutting game access is funnelled
   through small static helpers here (`VehicleProvider`, `CelestialProvider`, `SimTimeProvider`,
   `PartHelpers`, `XkcdColorHelper`, `HotkeyGuard`, `HiddenUiFrameHook`, `IvaForceRender`, `KsaPaths`) plus pure-C#
-  utilities (`ISubmod`, `EasingHelper`, `Directions`, `GameThread`/`GameStateQueue`/
-  `IGameStateScheduler`, `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a
+  utilities (`ISubmod`, `EasingHelper`, `ReflectionHelpers`, `SubmodUI`). Concentrating game touchpoints here means a
   game update's blast radius is mostly this one library.
 
 ### StarMap lifecycle attributes used by `Mod.cs`
@@ -59,8 +58,8 @@ Attributes come from `StarMap.API` (`StarMap.API/BaseAttributes.cs`, `OnGuiAttri
 **Hidden-HUD (F2) fallback.** `Program.OnFrame` (`KSA/Program.cs:2191-2201` @5402) calls `OnDrawUiFrame` /
 `OnDrawUiViewports` / `OnDrawUiThreadSafe` only inside `if (DrawUI)`, and F2 (`InputAction.ToggleUi`,
 `KSA/Input.cs:297`, handled `KSA/Program.cs:1755`) flips `Program.DrawUI` (`:527`). So while the HUD is
-hidden **neither StarMap GUI hook fires** and every `Update(dt)`-driven feature freezes (welds let go,
-refills stop, RPC queue never drains). `ksa-abstractions.lib/HiddenUiFrameHook.cs` prefixes
+hidden **neither StarMap GUI hook fires** and every `Update(dt)`-driven feature freezes (welds let go
+and refills stop). `ksa-abstractions.lib/HiddenUiFrameHook.cs` prefixes
 `Program.OnDrawUiConsole(double)` — called unconditionally at `:2201`, in the same frame phase
 (after `PrepareFrame`, inside ImGui `NewFrame`…`Render`, before `OnPreRender`) — and replays the
 shell's registered `UpdateSubmods` then `UpdateWelds` only when `DrawUI` is false. ImGui rendering
@@ -187,13 +186,10 @@ Update-risk findings (5117 → 5261):
   steps…"* → **CS0246** at `SimTimeProvider.cs:9`. Because this is the suite's single game-facing
   time seam, the failure blocked **all 55 projects** — the rest of the solution's errors were hidden
   behind it until this one was fixed.
-- **Fix is type-only.** `.Seconds()` survives on the new struct and every consumer either calls it
-  (`geeforce.lib/GeeForceSubmod.cs:34`, `steely-eyed-missile-kitten.lib/Monitoring/MonitoringLoop.cs:45`,
-  `steely-eyed-missile-kitten/Mod.cs:158`) or passes the value straight into
-  `Orbit.CreateFromStateCci` (`kiwis-marbles.lib/CelestialWeldEngine.cs:33`). **No precision or
+- **Fix is type-only.** `.Seconds()` survives on the new struct and the remaining consumer passes the
+  value straight into `Orbit.CreateFromStateCci` (`kiwis-marbles.lib/CelestialWeldEngine.cs:33`). **No precision or
   arithmetic handling needed changing**, despite the double→`Int128` backing swap.
-- **The wrapper keeps the name `SimTimeProvider`.** Renaming the class to match the game would churn
-  four call sites across three mods for no functional gain; noted as an optional follow-up, not done.
+- **The wrapper keeps the name `SimTimeProvider`.** Renaming the class would add churn for no functional gain.
   This is exactly the blast-radius concentration this library exists for — one game rename cost
   **one line** here plus two incidental direct callers (`doh.lib`, `garrys-torch.lib`) that bypass it.
 
@@ -222,13 +218,6 @@ Update-risk findings (4680→4750):
   (`KSA/Part.cs:666` @5402) — the alternate tree API named in the task — both exist and are
   unchanged, but `PartHelpers` does **not** use them.
 
-### IGameStateScheduler.cs / GameStateQueue.cs / GameThread.cs
-
-| # | Kind | Mod code | Game target | In NEW? | Δ vs OLD | Risk/notes |
-|---|---|---|---|---|---|---|
-| 1 | Pure C# | all three files | **none** — `System.Threading`, `ConcurrentQueue`, `TaskCompletionSource(RunContinuationsAsynchronously)` only | n/a | n/a | Game-thread affinity abstraction. Off-thread callers `Schedule(...)`; game thread `DrainOnGameThread()` (called from a submod `Update`, i.e. inside `[StarMapBeforeGui]`). No game API surface. |
-
-Update-risk findings (4680→4750): **No breaking deltas detected** (no game dependency).
 
 ### ISubmod.cs
 
@@ -246,26 +235,6 @@ Update-risk findings (4680→4750): **No breaking deltas detected.**
 
 Update-risk findings (4680→4750): **No breaking deltas detected.**
 
-### Directions.cs
-
-Named unit-axis vectors (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's right-handed,
-Y-up, -Z-forward convention. Added at **5117** to replace `KSA.Double3Ex.{Up,Down,Left,Right,Forward,
-Backward}`, which rev 5067 removed (*"they were misleading and often misused"*). Values are identical
-to the removed properties, so adopting it was behavior-neutral.
-
-| # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
-|---|---|---|---|---|---|---|---|
-| 1 | Direct API (struct) | `Directions.cs:20-35` | `Brutal.Numerics.double3.UnitX/UnitY/UnitZ` — `public static double3 UnitX => new double3(1,0,0)` etc. | `Brutal.Numerics/double3.cs:47-51` | ✅ | Same | Only dependency. Not a KSA type — moves with the Brutal package, not the game build. |
-
-**Used by:** *(none as of 5348)* — its 19 call sites all lived in space-tape, which was removed.
-Kept because it is a cheap, correct abstraction and the next editor-side mod will want it.
-
-Update-risk findings (5018→5117):
-- Deliberately **not** an alias for `Camera.ForwardView`/`RightView`/`UpView`. The game kept those for
-  genuine camera-view-frame use and explicitly narrowed their meaning in rev 5067 (*"Clarified
-  reference frame for camera vectors"*); routing frame-agnostic gizmo/thumbnail axes through a camera
-  type would re-create the ambiguity the game just removed.
-- Lowest-risk entry in this library: no KSA member is referenced at all.
 
 ### XkcdColorHelper.cs
 
@@ -418,9 +387,6 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
 - **StarMap load-order invariant HOLDS:** `ModLibrary.LoadAll()` (`KSA/Program.cs:965`) still precedes
   `ModLibrary.Bind()` (`KSA/Program.cs:994`), so `[StarMapAllModsLoaded]` still fires before
   `DeviceMeshInterleaved.Shared.Build()`. This is parts-now's headline standing invariant (U1).
-- **New helper: `Directions.cs`** — see above. Added to absorb the rev-5067 `Double3Ex` removal in one
-  place rather than at 19 call sites, per this library's stated purpose of concentrating a game
-  update's blast radius.
 - **Brutal packages:** solution builds clean with `TreatWarningsAsErrors` and **0 warnings** against
   the 5117 DLLs, so no nullability/signature shift landed in the ImGui surface actually used
   (contrast the rev-4729 bump, which cost `garrys-torch.lib` a CS8604).
@@ -468,7 +434,7 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
   through them are safe.
 - ✅ **`HotkeyGuard` clean.** `GameSettings.OnKeyAll(GlfwKeyEvent)` is unchanged, and so is the
   `Program.OnKey` call chain it sits in — so the guard still blocks game hotkeys for **every** top-level
-  mod (marque's local copy included).
+  mod.
 - ✅ **StarMap's seams are present.** `Program.OnDrawUiFrame`, `Program.OnFrame` and
   `Program.DrawProgramMenusHook` all still exist, so the suite's load path is intact. Rev 5332 changed
   `Program.DrawMenuBar` only by gating the Save/Load `MenuItem` on `!IsEditorOpen`; unscience's
@@ -490,15 +456,12 @@ the Brutal.ImGuiApi ini API (see note below); it compiles against 4750.
   and `Part.PositionParentAsmb` are unchanged. Note rev 5329 **removed** `Part.Sequence`,
   `SetSequence(int)`, `ActivateInStage`, `DeactivateInStage` and `ScaleTotal` — **no unscience code
   referenced any of them**, confirmed by the green build and by grep.
-- ✅ **`XkcdColorHelper`, `GameThread`/`GameStateQueue`, `EasingHelper`, `Directions`, `KsaPaths`,
+- ✅ **`XkcdColorHelper`, `EasingHelper`, `KsaPaths`,
   `SubmodUI`, `UnscienceState`** — no breaking deltas; the whole solution builds with
   `TreatWarningsAsErrors` on and **0 warnings**, so no Brutal/ImGui nullability shift landed in the
   surface the suite uses.
 - ✅ **`IvaForceRender.Patch` IS wired in the supermod** (`unscience/Patcher.cs:74`, unpatch `:114`) — an
   earlier draft of this summary said "still open"; that was stale (the Phase-4 wiring predates 5348).
-- ℹ️ **space-tape remains retired.** Hot Pursuit is a new, separate camera feature built on
-  5402's public secondary-viewport leases and current part raycast surface; it does not revive the
-  removed editor/decoupler implementation. **The supermod now aggregates 27 submods.**
 
 ---
 
@@ -553,8 +516,8 @@ logged in `version.json`; revisions **5349–5400 are unlogged**, so the source 
   `PartTree.UpdateRenderData` now also renders `Parachute` lines (`KSA/PartTree.cs:937-945`) and `Part`
   gained `InertMassKg`/`CrashTolerancePascals`/`StructuralPart`/`IsAttachedInternal`. No consumer of
   this library reads any of them.
-- ✅ **`XkcdColorHelper`, `Directions`, `SubmodUI`, `UnscienceState`, `GameThread` trio** — `KSAColor.cs`,
-  `Brutal.Numerics/{double3,Color}.cs`, `Brutal.ImGuiApi/{ImGuiCol,ImGuiStyle}.cs` and
+- ✅ **`XkcdColorHelper`, `SubmodUI`, `UnscienceState`** — `KSAColor.cs`,
+  `Brutal.Numerics/Color.cs`, `Brutal.ImGuiApi/{ImGuiCol,ImGuiStyle}.cs` and
   `ConsoleWindow.cs` are byte-identical; **no `Brutal*` file appears in the diff list** (the Brutal DLLs
   differ only by hash at identical size — a rebuild). `ModLibrary.cs` changed only at `:565-568`
   (`Program.Viewports` → `ViewportRegistry.Views`); `LoadAll()` (`Program.cs:942`) still precedes

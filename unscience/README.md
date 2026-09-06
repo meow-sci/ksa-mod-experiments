@@ -1,28 +1,34 @@
 # Unscience — Unified Supermod
 
-A unified supermod that consolidates 29 KSA feature libraries into a single ImGui window with collapsible headers. Each submod's content appears under its own header, and a gear icon context menu lets you toggle individual submod visibility.
+A unified supermod that consolidates 24 KSA feature libraries into a single ImGui window with collapsible headers. Each submod's content appears under its own header, and a gear icon context menu lets you toggle individual submod visibility.
 
 ## Included Submods
 
 | Submod | Description |
 |--------|-------------|
-| Average TWR | Samples thrust-to-weight ratio at 100 Hz and displays statistics |
 | Blinky — Dynamic LCD Grid | Builds and controls pixel grids on vehicle light parts |
+| Bloomin' Onion | Creates and edits planetary ring systems at runtime |
 | Camera Controller Override | 8 camera animation types (zoom, spiral, orbit, shake) with keyframe sequencing |
+| Doh | Spawns EVA kittens and customizes their materials |
+| Don't Stifle Me | Extends vehicle-editor scale and configurable-value limits |
 | Eternal Flame — Infinite Fuel | Monitors vehicles and periodically refills all fuel tanks |
 | Garry's Torch | Welds vehicles together with position/rotation offsets and independent X/Y/Z scale |
-| G-Force Monitor | Records and displays g-forces at 40 Hz with history, peak detection, and jerk analysis |
 | Glass — Camera Lens | Overrides camera FOV with presets or manual control |
 | Graffiti — PNG Decals | Click-to-place projected PNG decals on vehicle hulls, deployed parachute cloth, and terrain |
 | Free Fallin — Parachute Customizer | Applies a global stock tint, panel-tiled or cohesive full-canopy PNG, centered decal, and canopy PBR controls |
+| Hot Pursuit | Mounts live secondary cameras on vehicle parts |
+| Humble Arteest | Kitten colors, engine emissive controls, and experimental vehicle paint |
 | I Feel Seen | Forces vehicle render data updates at any distance |
 | Its So Shiny | Builds and controls Blinky-style pixel grids from built-in light parts |
+| Kitchen Sink | Miscellaneous editor and IVA-rendering experiments |
 | Kitten Animations | Targets any live EVA kitten through a filterable picker, then plays body animations and expressions |
 | Kiwi's Marbles | Welds celestial bodies to other orbiters with CCI offsets |
+| Parts Now | Validates and loads part asset bundles at runtime |
 | Rocky McRock Face | Swaps planetary ring meshes/textures (Saturn's rock field) with any built-in mesh |
 | Pebbles — Ground Clutter | Replaces selected planet clutter types with built-in meshes or GLBs, with scale, collider editing and per-planet restore |
+| Pyro | Customizes volumetric engine exhaust plumes |
 | Skittles — Theme Manager | Applies and saves ImGui themes with a built-in style editor |
-| Unladen Swallow | HTTP RPC server for remote game control |
+| Thug Life | Renders a custom textured quad through KSA's main render pass |
 | Zippo — Light Control | Controls light appearance and queued transitions, plus repeating Disco color, actuation, and spotlight-spread cycles |
 
 ## Usage
@@ -39,13 +45,13 @@ A unified supermod that consolidates 29 KSA feature libraries into a single ImGu
 - **Hidden-HUD (F2) resilience**: StarMap's `[StarMapBeforeGui]`/`[StarMapAfterGui]` hooks target `Program.OnDrawUiFrame`/`OnDrawUiViewports`, which the game skips entirely while the HUD is hidden — so without help every submod `Update()` and the garrys-torch weld update would freeze on F2. `Mod.cs` factors that non-UI work into `UpdateSubmods(dt)` / `UpdateWelds(dt)` and registers both with `HiddenUiFrameHook` (`ksa-abstractions.lib`), whose `Program.OnDrawUiConsole` prefix replays them at the same frame phase only while `Program.DrawUI` is false. The unscience window, floating windows and the F11 toggle stay hidden along with the HUD.
 - **`Patcher.cs`** consolidates Harmony patches from blinky (render-skip), camera-controller-override (sequence playback via `CameraControllerOverridePatches`), free-fallin (canopy material substitution and material-gated full-canopy shader projection via `FreeFallinPatches`), garrys-torch (KittenEva XYZ render-scale correction via `KittenScalePatches`), glass (FOV override), graffiti (projected-decal render pass via `GraffitiPatches`), i-feel-seen (render distance), pyro (exhaust submission via `PyroPatches`), skittles (hotkey blocking), and dont-stifle-me (editor scale and configurable-value limits via `EditorScalePatches` / `EditorValueLimitPatches`), delegating to patch helpers in each lib
 - **Garry's Torch update timing**: Unscience hosts `GarrysTorchSubmod` directly and calls `UpdateWelds(dt)` from `OnAfterUi`; that method drains `JobSystems.VehicleSolver` before teleporting vehicles. The regular submod `Update(dt)` path is intentionally non-mutating for weld physics.
-- Submod implementations live in their respective **`.lib` projects** (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` + `BlinkyPatchState` in `blinky.lib`, `CameraControllerOverrideSubmod` in `camera-controller-override.lib`, `GeeForceSubmod` in `geeforce.lib`, `KittenAnimationsSubmod` in `kitten-animations.lib`)
+- Submod implementations live in their respective **`.lib` projects** (for example `BlinkySubmod` + `BlinkyPatchState` in `blinky.lib`, `CameraControllerOverrideSubmod` in `camera-controller-override.lib`, and `KittenAnimationsSubmod` in `kitten-animations.lib`)
 - **`unscience/Submods/`** directory has been removed — no intermediate wrapper layer
 - Each lib submod owns its own ImGui `RenderContent()` — unscience just calls it
 
 ## Dependencies
 
-All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, its-so-shiny.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.
+The supermod references each included feature's `.lib` project plus `ksa-abstractions.lib`; see `unscience.csproj` for the authoritative dependency list.
 
 ## Pebbles integration
 

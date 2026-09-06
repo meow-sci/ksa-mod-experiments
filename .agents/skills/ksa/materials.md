@@ -179,7 +179,7 @@ static void AddInstancePrefix(PartModelDynamic __instance, ref PartModelDynamic.
 
 ## Lifecycle / threading gotchas
 
-- **Game-thread only** for every material write / spawn. Off-thread (RPC) callers marshal via `GameThread.Scheduler.Schedule(...)`.
+- **Game-thread only** for every material write or spawn; do not invoke these paths from background threads.
 - **`Program.Instance` is null** before the game finishes loading — guard every accessor.
 - **Reflection must walk `BaseType`** for `GpuMaterialSystem` members (BigBuffer/DeviceCtx/CreateObject/GetOrLoad live on base classes).
 - **Destroy old shader module AFTER swap**, not before.

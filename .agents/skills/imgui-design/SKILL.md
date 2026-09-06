@@ -74,7 +74,7 @@ if (ImGui.BeginTable("##select", 2, flags))
 
 ### 3-column fixed-label + stretch-widget + fixed-buttons table
 
-Use when rows need a label, a fill widget, and a fixed-width button group (e.g. con-man layout):
+Use when rows need a label, a fill widget, and a fixed-width button group:
 
 ```csharp
 var flags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX;
@@ -205,5 +205,4 @@ if (!canAct) ImGui.BeginDisabled();
 if (ImGui.Button(" Act ##id")) DoAct();
 if (!canAct) ImGui.EndDisabled();
 ```
-
 

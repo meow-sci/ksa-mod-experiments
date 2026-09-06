@@ -25,7 +25,7 @@ decompiled-source path for each so the dependency can be re-checked against any 
   `version.json` on disk**, so this pass was driven by the source diff (197 `KSA/*.cs` changed, 66
   added, 2 removed; 20 Content files) rather than a changelog.
 - **How each touchpoint was verified:** (1) `dotnet build ksa-mod-experiments.slnx --no-incremental`
-  against the `5402` reference DLLs — **63/63 projects, 0 warnings, 0 errors** after three compile
+  against the `5402` reference DLLs — **52/52 projects, 0 warnings, 0 errors** after three compile
   breaks were fixed (`KSA.Viewport` → `IViewport`, `Cursor.InputRay` → `GetEgoRay`,
   `VolumetricExhaustRenderer.AddInstance` air-state args); (2) re-grep of the **entire**
   string-reflection watchlist plus a signature + body diff of **every** Harmony patch target across
@@ -59,7 +59,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
    against the per-area "Update-risk findings" sections — some changes (control gating, editor tag
    schema, particle/shader reworks) break behavior without moving a symbol.
 4. **Re-check shaders & per-instance layout.** Runtime-recompiled GLSL and per-instance data hacks
-   (humble-arteest, mesh-deform) break when the game's shader sources change even though the C#
+   (humble-arteest) break when the game's shader sources change even though the C#
    compiles. Includes verifying `PerInstanceData.StateBitFlag` bits 11..31 are still unused by the
    game. See [`game-integration-surface.md`](game-integration-surface.md) → *Shaders & assets*.
 5. **Record deltas + update these docs**, then capture the fix work in a `plans/` document (see the
@@ -99,26 +99,24 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`game-integration-surface.md`](game-integration-surface.md) | **Master cross-reference index** — every game type/member touched, merged across mods | Start here for "does the game still have X?"; includes the string-reflection watchlist + shader/asset table |
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
 | [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
-| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`; Zippo Disco's per-instance templates, cone angles and `KeyframeAnimationModule.TimeGoal` ownership |
+| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`; Zippo Disco's per-instance templates, cone angles and `KeyframeAnimationModule.TimeGoal` ownership |
 | [`camera.md`](camera.md) | camera-controller-override, glass, hot-pursuit | `OrbitController/FlyController/FixedController.OnFrame`, `Camera._fovRadians`; four public secondary-viewport leases under the sealed 8-slot registry; part-raycast camera mounts; Hot Pursuit nearby-celestial sync and stock secondary-render omissions |
-| [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
 | [`character-and-materials.md`](character-and-materials.md) | doh, humble-arteest, kitten-animations | `GpuMaterialSystem.BigBuffer`, `KittenEva`/`EVADoor` (**doh @5402**: spawn/despawn now `JobSystems.VehicleSolver.Wait()` before touching the shapes registry), `PerInstanceData` `StateBitFlag` free-bit paint + `ShaderModuleUtils.FromFile` shader patch; **kitten-animations** — filterable selection of any live EVA kitten by `Vehicle.Id`, Harmony prefix on `AnimatedRenderable.UpdateAnimation`, 17 private `KittenRenderable` animation fields, and a mod-owned `CatExpressionAnim` |
-| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** scale patches on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale`, plus configurable editor-limit patches on `DrawParachuteSection` / `Parachute.SetDiameter` (2–1000 m diameter). **space-tape removed @5348** — rev 5329 deleted `PartTemplate.Decoupler`; the mod was defunct and was deleted rather than ported. **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
+| [`part-editor-and-robotics.md`](part-editor-and-robotics.md) | parts-now, dont-stifle-me | parts-now's `ModLibrary` reflection + `DeviceMeshInterleaved.Shared` headroom invariant; **dont-stifle-me** scale patches on `VehicleEditor.ScaleBoundsFor` / `UpdateSelectedScale` / `QuantizeScale`, plus configurable editor-limit patches on `DrawParachuteSection` / `Parachute.SetDiameter` (2–1000 m diameter). **flexo removed @5348** — compiled clean, but the robotics approach never worked and will not be reattempted; `PartModelRenderer.UpdateRenderData` and `OrbitLinePass` are now unowned |
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + live `Parachute.ClothPositionsFront` triangle picking + `Cursor.GetEgoRay`, CPU terrain march; **no string reflection** (new @5348; canopy picking added @5402) |
 | [`parachutes.md`](parachutes.md) | free-fallin | `ChuteRenderable.Draw`, `Utils.SetShaderFromMod`, and `ShaderModuleUtils.FromFile` prefixes; private `_renderable` + protected `AnimatedRenderable.MaterialIndices`; runtime `MaterialData` and PNG/PBR uploads; material-gated bind-pose projection through `Model{,_Skinned}.vert` / `ModelPbr.frag`; stock canopy assets (new @5402) |
 | [`ground-clutter.md`](ground-clutter.md) | pebbles; [GLB materials](ground-clutter-glb-materials.md) | Per-body native clutter graphs, private materials, `ExecuteNextClothSolvers` transactions, collider/physics invalidation, GLB uploads and independent Workshop preview; shared Harmony ownership |
 | [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
-| [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
-| [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
-| [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
+| [`ui-customization.md`](ui-customization.md) | skittles, kitchen-sink | `ImGui` style surface, `ReinitializeDerivedValues` + IvaForceRender |
+| [`standalone-mods.md`](standalone-mods.md) | byo-music | **Not bundled in the supermod**; secondary reference |
 
-Bundled in the unscience supermod (29): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
-doh, dont-stifle-me, eternal-flame, free-fallin, garrys-torch, geeforce, glass, graffiti, hot-pursuit, humble-arteest,
+Bundled in the unscience supermod (24): blinky, bloomin-onion, camera-controller-override, doh,
+dont-stifle-me, eternal-flame, free-fallin, garrys-torch, glass, graffiti, hot-pursuit, humble-arteest,
 i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pebbles, pyro,
-red-alert, rocky-mcrock-face, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
-jplrepo live in the repo but are **not** loaded by the supermod.)
+rocky-mcrock-face, skittles, thug-life, zippo. (byo-music and jplrepo live in the repo but
+are **not** loaded by the supermod.)
 
 ---
 
@@ -160,7 +158,7 @@ craft destruction and unload restoration still need an in-game smoke pass. See [
 - **garrys-torch vs part failure.** Overlapping welded vehicles can now shed debris or be destroyed.
   `WeldEngine.UpdateWeld` gained a disposed guard so the aftermath unwelds cleanly instead of throwing,
   but nothing stops the game destroying a welded craft — that still needs eyes on it.
-- **garrys-torch XYZ scale.** Weld state, UI, presets, animation, and RPC now carry independent
+- **garrys-torch XYZ scale.** Weld state, UI, presets, animation, and the public API now carry independent
   X/Y/Z factors. Normal vehicles write the existing `Part.Scale : double3`; KittenEva's scalar-only
   character path is corrected by a narrow postfix on `KittenRenderable.ModelToBodyMatrix`. Legacy
   scalar TOML/API inputs migrate uniformly. Live-check unequal axes and identity restore on unweld.
@@ -179,8 +177,8 @@ craft destruction and unload restoration still need an in-game smoke pass. See [
 - **thug-life** — `RenderMainPass` now also runs per secondary viewport; the quad still has never had
   a live pass on any build since 5261.
 
-**Verified clean against 5402:** the **entire string-reflection watchlist** (same kind and type;
-con-man's seven fields byte-identical at the same lines), **every Harmony target signature** apart
+**Verified clean against 5402:** the **entire string-reflection watchlist** (same kind and type),
+**every Harmony target signature** apart
 from the `IViewport` retype (all single overloads; `GameSettings.cs` byte-identical;
 `ExecuteNextVehicleSolvers` body identical), **`PerInstanceData`/`MaterialData` byte-identical**,
 `MeshIndirect.*`/`UnlitMesh.*` byte-identical, frames and telemetry types unchanged, no `Brutal*` drift.
@@ -190,9 +188,9 @@ pins the panel to any live EVA kitten by stable `Vehicle.Id`; target changes res
 processor state. It compiles clean against 5402; uncontrolled playback, target disappearance/re-EVA
 and target switching with an active override still need an in-game pass.
 
-**Carried forward (unchanged by this build):** con-man vs global Hud Scale (5348); kitten-animations
-forced clips/expressions and parts-now load-time validation still want a live pass; humble-arteest Vehicle Paint and
-mesh-deform remain dead by design (4693). `___Transform`, zippo `"Color"`, and the "supermod never
+**Carried forward (unchanged by this build):** kitten-animations forced clips/expressions and
+parts-now load-time validation still want a live pass; humble-arteest Vehicle Paint remains dead by
+design (4693). `___Transform`, zippo `"Color"`, and the "supermod never
 wires `IvaForceRender`" notes were stale and are closed. pyro, graffiti, rocky-mcrock-face,
 bloomin-onion and dont-stifle-me have still never been exercised in-game.
 

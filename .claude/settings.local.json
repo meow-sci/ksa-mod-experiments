@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(ls C:\\\\Users\\\\Alex\\\\.claude\\\\skills)",
-      "Bash(ls C:\\\\Users\\\\Alex\\\\repos\\\\meow-sci\\\\grant_space-tape\\\\.claude\\\\skills)",
       "Bash(git *)",
       "Bash(grep -i \"\\\\.cs$\")",
       "Bash(xargs grep -l \"Battery\")",
@@ -11,7 +10,6 @@
       "PowerShell($dll = Get-Content -Path \"C:\\\\Users\\\\Alex\\\\Documents\\\\My Games\\\\Kitten Space Agency\\\\mods\\\\unscience\\\\MeowSci.Unscience.dll\" -Encoding Byte -Raw; $text = [System.Text.Encoding]::ASCII.GetString\\($dll\\); \\($text -split \"`0\"\\) | Where-Object { $_ -match \"garrys-torch|build marker|ApplyVehicleSolvers\" } | Select-Object -First 20)",
       "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"C:\\\\Users\\\\Alex\\\\Documents\\\\My Games\\\\Kitten Space Agency\\\\mods\\\\unscience\\\\MeowSci.Unscience.dll\"\\); $text = [System.Text.Encoding]::UTF8.GetString\\($bytes\\); if \\($text -match \"build marker v4\"\\) { Write-Output \"FOUND build marker v4\" } else { Write-Output \"MISSING build marker v4\" }; if \\($text -match \"ApplyVehicleSolvers\"\\) { Write-Output \"FOUND ApplyVehicleSolvers ref\" } else { Write-Output \"MISSING ApplyVehicleSolvers ref\" }; if \\($text -match \"ExecuteNextVehicleSolvers\"\\) { Write-Output \"FOUND ExecuteNextVehicleSolvers ref\" } else { Write-Output \"MISSING ExecuteNextVehicleSolvers ref\" }; Write-Output \"---unscience DLL size: $\\($bytes.Length\\)\")",
       "Bash(xargs grep -l \"interface IFollowable\")",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Alex\\\\repos\\\\meow-sci\\\\grant_space-tape\" -Directory)",
       "Bash(Select-Object Name)",
       "PowerShell(dotnet build *)"
     ],

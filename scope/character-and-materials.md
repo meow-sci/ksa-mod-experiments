@@ -148,8 +148,8 @@ Vehicle/character filterable combos, offset/count, color picker + XKCD combo, pe
   `lightColor += SamplePortraitLight(inWorldPosition, N, sampledColor, metallic);` for IVA portrait
   lights. The mod's `vec3 sampledColor …;` anchor (line 114) and its `inStateFlags` guard both still
   match, and the `ENABLE_TEMPERATURE` LUT still lives in that file.
-  `MeshIndirect.vert` is **byte-identical** (mesh-deform's anchor target).
-- ❌ **humble-arteest Vehicle Paint / mesh-deform remain dead by design** (rev 4693
+  `MeshIndirect.vert` is **byte-identical**.
+- ❌ **humble-arteest Vehicle Paint remains dead by design** (rev 4693
   `CompileVariantWithCustomOptions` recompiles from disk and ignores `ShaderReference.Shader`). Both
   self-detect and disable. `ShaderReference.{Shader,DoLoad,ModPath,LocalPath}` and
   `RenderCore.ShaderModuleUtils.FromFile` all still resolve, so the probes still work.
@@ -470,7 +470,7 @@ Locomotion Anim Tuning.
 
 Revisions 5349–5400 are **unlogged** in any KSA changelog (only rev 5401 "Fixed crash for incorrect
 data stride for thumbnail rendering" is logged), so this pass is source-diff-only. Solution builds
-clean against 5402 (63 projects, 0 warnings, 0 errors). **No code change was needed in this area.**
+clean against 5402 (52 projects, 0 warnings, 0 errors). **No code change was needed in this area.**
 
 - ✅ **The `Viewport` → `IViewport` rework is a no-op for every Harmony seam here.**
   `PartModelModule.UpdateRenderData` (`:87`), `PartModelDynamicModule.UpdateRenderData` (`:55`),
@@ -498,7 +498,7 @@ clean against 5402 (63 projects, 0 warnings, 0 errors). **No code change was nee
   `MeshGlassIndirect(.Raytraced).frag`, `Common/MaterialSet.glsl`, `Common/Shared.glsl` and
   `Selected.comp` are **byte-identical** 5348↔5402 — the `vec3 sampledColor` anchors (`:114` / `:156`),
   `inStateFlags`, `gammaToLinear` (`:203`) and the `ENABLE_TEMPERATURE` LUT (`:46-48`, `:297-304`) are
-  all in place; mesh-deform's `MeshIndirect.vert` probe still self-disables exactly as before.
+  all in place.
   `ModelPbr.frag` gained only a `gl_FrontFacing` normal flip for the new two-sided parachute canopy
   (`:70-73`); the albedo path Kitten Color/doh depend on (`:65-75`, `MaterialSet.glsl:31`) is untouched.
 - ✅ **The KittenEva reflection chain is intact and still field-shaped.** `KittenEva` (type-name

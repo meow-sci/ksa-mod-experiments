@@ -5,26 +5,21 @@ using Brutal.ImGuiApi;
 using StarMap.API;
 using KSA;
 using MeowSci.KsaAbstractions;
-using MeowSci.AverageTwrLib;
 using MeowSci.BlinkyLib;
 using MeowSci.EternalFlameLib;
 using MeowSci.GarrysTorchLib;
-using MeowSci.GeeForceLib;
 using MeowSci.GlassLib;
 using MeowSci.IFeelSeenLib;
 using MeowSci.ItsSoShinyLib;
 using MeowSci.CameraControllerOverrideLib;
-using MeowSci.ConManLib;
 using MeowSci.KittenAnimationsLib;
 using MeowSci.KiwisMarblesLib;
 using MeowSci.SkittlesLib;
-using MeowSci.UnladenSwallowLib;
 using MeowSci.ZippoLib;
 using MeowSci.HumbleArteestLib;
 using MeowSci.DohLib;
 using MeowSci.KitchenSinkLib;
 using MeowSci.PartsNowLib;
-using MeowSci.RedAlertLib;
 using MeowSci.ThugLifeLib;
 using MeowSci.DontStifleMeLib;
 using MeowSci.GraffitiLib;
@@ -68,17 +63,14 @@ public class Mod
             var skittles = new SkittlesSubmod();
             var cameraOverride = new CameraControllerOverrideSubmod();
 
-            _submods.Add(new AverageTwrSubmod());
             _submods.Add(new BlinkySubmod());
             _submods.Add(new BloominOnionSubmod());
             _submods.Add(cameraOverride);
-            _submods.Add(new ConManSubmod());
             _submods.Add(new DohSubmod());
             _submods.Add(new DontStifleMeSubmod());
             _submods.Add(new EternalFlameSubmod());
             _submods.Add(new FreeFallinSubmod());
             _submods.Add(new GarrysTorchSubmod());
-            _submods.Add(new GeeForceSubmod());
             _submods.Add(new GlassSubmod());
             _submods.Add(new GraffitiSubmod());
             _submods.Add(new HotPursuitSubmod());
@@ -92,11 +84,9 @@ public class Mod
             var pebbles = new PebblesSubmod();
             _submods.Add(pebbles);
             _submods.Add(new PyroSubmod());
-            _submods.Add(new RedAlertSubmod());
             _submods.Add(new RockyMcRockFaceSubmod());
             _submods.Add(skittles);
             _submods.Add(new ThugLifeSubmod());
-            _submods.Add(new UnladenSwallowSubmod());
             _submods.Add(new ZippoSubmod());
 
             // Initialize all submods so Tracker is populated before patching

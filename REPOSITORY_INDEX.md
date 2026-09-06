@@ -14,14 +14,12 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `SimTimeProvider` — wrapper for `Universe.GetElapsedSimTime()`
 - `ReflectionHelpers` — utility for safe field/property access via reflection
 - `PartHelpers` — recursive part tree helpers
-- `IGameStateScheduler` / `GameStateQueue` / `GameThread` — thread-safe game-state scheduler; enqueue mutations from HTTP/background threads, drain on game thread in `OnBeforeUi`
 - `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `HotkeyGuard` — mandatory Harmony prefix on `GameSettings.OnKeyAll` that swallows game hotkeys while an ImGui text input has focus
 - `HiddenUiFrameHook` — Harmony prefix on `Program.OnDrawUiConsole` that replays a host's registered `BeforeGui`/`AfterGui` per-frame work while the game HUD is hidden (F2), because StarMap's `[StarMapBeforeGui]`/`[StarMapAfterGui]` targets are skipped by the game in that state; used by unscience
 - `PngLibrary` / `PngFileBrowser` — shared `.unscience/pngs` catalog and reusable ImGui filesystem picker; every filesystem PNG import is copied into this one auto-uniquifying library, used by graffiti and free-fallin
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
-- `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. No current consumer (its only user, space-tape, was removed in `2026.8.22.5348`)
 
 ---
 
@@ -49,7 +47,7 @@ Vehicle welding system. Attaches one vehicle to another with support for positio
 - Save weld settings as named presets, load presets into create form
 - ImGui control panel with filterable combos (vehicle → part → preset) and bordered weld sections
 - **Animation system**: Smooth interpolation of weld position/rotation and each XYZ scale axis with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
-- **Public API**: `GarrysTorchSubmod.Instance` singleton, `CreateWeld`, `ModifyWeld`, `RemoveWeld`, `AnimateWeld`, `FindWeld`, preset pass-throughs — exposed for use by `unladen-swallow.lib` RPC endpoints
+- **Public API**: `GarrysTorchSubmod.Instance` singleton, `CreateWeld`, `ModifyWeld`, `RemoveWeld`, `AnimateWeld`, `FindWeld`, and preset pass-throughs for reuse by other mods
 - **Safe update API**: `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` performs animation and weld teleports; ordinary `ISubmod.Update(dt)` is intentionally non-mutating for weld physics
 
 ### [kiwis-marbles](kiwis-marbles) / [kiwis-marbles.lib](kiwis-marbles.lib)
@@ -73,8 +71,7 @@ Light control and animation system. Selects vehicles and light parts, controls t
 - **Runtime ownership**: Disco clones per-instance light templates, assigns shared assembly actuators to one owner, and restores owned state on stop, target disappearance, or unload
 - Recursive part tree search for light components
 - Real-time light property updates
-- **Public API** (`ZippoSubmod.Instance`): `GetLightPartInfos()`, `SetLightState()`, `QueueAnimation()`, `ClearAnimationQueue()` — used by unladen-swallow RPC
-- **RPC endpoints** (via unladen-swallow): `GET /zippo/lights`, `POST /zippo/lights/state`, `POST /zippo/animate`, `DELETE /zippo/animate`
+- **Public API** (`ZippoSubmod.Instance`): `GetLightPartInfos()`, `SetLightState()`, `QueueAnimation()`, `ClearAnimationQueue()` for reuse by other mods
 
 ### [i-feel-seen](i-feel-seen) / [i-feel-seen.lib](i-feel-seen.lib)
 Vehicle render distance override. Allows tracking and toggling render visibility for specific vehicles independent of camera distance.
@@ -126,56 +123,17 @@ Camera FOV control. Provides 8 lens presets (from super telephoto at 15° to fis
 - Real-time FOV adjustment
 - Camera.FieldOfView and Camera.UpdateProjection patching
 - Game default preset (50°)
-- **glass.lib**: `FovController` — programmatic camera FOV control; `SetFov()`, `DisableOverride()`, `ApplyFov()`, `GetCurrentFovDegrees()`. Used by `unladen-swallow.lib` to expose FOV control over HTTP.
+- **glass.lib**: `FovController` — programmatic camera FOV control; `SetFov()`, `DisableOverride()`, `ApplyFov()`, `GetCurrentFovDegrees()`.
 
 ---
 
 ## Information Display & Monitoring Mods
-
-### [average-twr](average-twr) / [average-twr.lib](average-twr.lib)
-TWR (Thrust-to-Weight Ratio) calculator and display. Shows real-time TWR and maximum acceleration data for the controlled vehicle.
-- Real-time TWR calculation
-- Maximum acceleration computation
-- Sample collection at 100 Hz
-- ImGui display window (F11 toggle)
-
-### [geeforce](geeforce) / [geeforce.lib](geeforce.lib)
-G-force recorder and display. Monitors acceleration forces (g-forces) acting on the controlled vehicle at 40 Hz sample rate with ring-buffer history, peak/jerk detection, and interactive scrub slider.
-- 40 Hz sampling rate (25ms intervals) with ring-buffer history (30s–1h)
-- Per-axis (X/Y/Z body frame) acceleration, jerk, kill-gee breach detection
-- Interactive scrub slider for reviewing history; live/paused modes
-- Configurable history window and kill-gee/jerk thresholds
-- **geeforce.lib**: `GeeForceSubmod` (ISubmod — owns sampling loop + delegates to GForceUI.RenderContent), `GForceRecorder` (ring-buffer + stats), `GForceUI` (static graph/UI — `RenderContent()` for embedded use, `Render()` for standalone window)
 
 ### [kitchen-sink](kitchen-sink) / [kitchen-sink.lib](kitchen-sink.lib)
 Random collection of one-off hacks and fixes for KSA. F11 window toggle.
 - **Fix Invisible Subparts**: button that calls `ReinitializeDerivedValues` on `Program.Editor.EditingSpace.Parts` to restore visibility of invisible subparts in the vehicle editor (workaround for a KSA bug)
 - **Force IVA Rendering**: toggle that directly mutates `Template.Internal` on all `PartModel` instances to force interior parts to render outside IVA camera mode; includes a Harmony constructor patch to catch newly created parts and a `PartModel.AddInstance` editor override so IVA SubParts remain visible in the vehicle editor
 - **kitchen-sink.lib**: `KitchenSinkSubmod` (ISubmod — renders fix panels), `IvaForceRender` (static API — template mutation + tracking for IVA force rendering)
-
-### [steely-eyed-missile-kitten](steely-eyed-missile-kitten) / [steely-eyed-missile-kitten.lib](steely-eyed-missile-kitten.lib)
-Mission monitoring, event detection, and achievement tracking mod. Passively samples telemetry for all vehicles at a configurable rate, detects interesting flight events, evaluates YAML-defined mission conditions, and persists everything to a local SQLite database.
-- Passive telemetry monitoring for all vehicles (configurable rate, default 2 Hz)
-- Monitored metrics: altitude (baro/radar), speed (orbital/surface/inertial), orbital params (Ap/Pe/eccentricity/inclination), mass, g-forces, situation
-- Flight event detection: SoiChanged, Liftoff, Landed, SplashDown, AtmosphereEntered, AtmosphereExited, StableOrbitAchieved, OrbitEscaped
-- YAML mission definitions with flexible condition trees: threshold, event, location, and composite (all_of, any_of, sequence)
-- SQLite persistence of all flight events and mission progress to `Documents/My Games/Kitten Space Agency/.steely-eyed-missile-kitten/events.db`
-- Three-tab F11 ImGui window: Live Telemetry table, Event Feed (color-coded, filtered), Missions (activate/track/abandon)
-- JSON Schema for mission YAML IDE validation (`missions/mission-schema.json`)
-- **steely-eyed-missile-kitten.lib**: `VehicleTelemetry` (all KSA API reads co-located), `TelemetrySnapshot`, `MonitoringLoop`, `EventDetector`, `EventBus`, `EventDatabase`, `EventWriter`, `MissionLoader`/`MissionManager`/`MissionEvaluator`, `MonitorUI`/`EventFeedUI`/`MissionUI`
-
----
-
-### [red-alert](red-alert) / [red-alert.lib](red-alert.lib)
-Vehicle action plan builder. Composes reusable lists of light and solar-panel actions across one or more vehicles. Each plan has a single **Engage** button that fires every action in order.
-- Discovers per-part capabilities by scanning each vehicle's part tree (`LightModule` template components, `LightSwitch`, `SolarPanel`, `KeyframeAnimationModule`)
-- Action picker only shows actions the selected part supports (e.g. only solar parts get Deploy/Retract)
-- Action types: light off / on / toggle, light color, light actuate (animation 0..1), solar deploy / retract / toggle, solar actuate
-- Standalone F11 ImGui window plus `ISubmod` integration with unscience supermod
-- ImGui UI follows the standard submod layout: padded content area, Create form + collapsible plan sections with bordered child windows, filterable Vehicle/Part combos
-- **red-alert.lib**: `RedAlertSubmod` (ISubmod UI), `ActionPlan` / `PlannedAction` / `ActionablePart` / `ActionType` / `PartCapability` (data model), `ActionScanner` (capability discovery), `ActionExecutor` (live execution via `KeyframeAnimationModule.TimeGoal`), `LightActions` (light color + on/off via reflection)
-
----
 
 ## Animation & Visual Effects Mods
 
@@ -187,7 +145,7 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - Layout modes: Flat (plane) or Cylinder (sides only, radius auto-calculated from width × spacing)
 - Configurable grid size, spacing, position offset, engine scale, and engine template
 - Batch creation with single `PartTree.CreateFromNewPartTree()` rebuild (N→1 recomputes)
-- **BlinkyGridManager** — static singleton managing grids by `(vehicleId, gridName)` compound key, shared with RPC endpoints
+- **BlinkyGridManager** — static singleton managing grids by `(vehicleId, gridName)` compound key
 - **Global scan** — discovers blinky grids across all loaded vehicles (Debug menu)
 - **Propellant feed** — each pixel engine is wired to a fuel-bearing part through its own **declared feed connector** (`RocketCore.FeedConnectors`); KSA rejects any other route, so this is what makes the pixels actually light
 - **Repair Feed** — re-wires a grid's propellant feed in place (for grids found by scanning, or built before the feed-wiring fix) and rebuilds the resource managers
@@ -200,7 +158,7 @@ Dynamic LCD pixel grid builder. Builds NxM engine pixel grids at runtime by dyna
 - Build/Destroy individual grids at any time; vehicle combo selector with filter
 - Per-grid collapsible UI sections with info table, pattern buttons, and destroy
 - Menu bar with Debug menu for global grid scanning
-- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder` (`BuildGrid`, `DestroyGrid`, `ScanExistingGrid`, `RepairFuelFeeds`), `BlinkyPixelGrid`. Used by `unladen-swallow.lib` for RPC endpoints.
+- **blinky.lib**: `BlinkyGridManager` (compound-key scroll/static/off/pattern APIs, `ScanAllVehicles`), `ScrollAnimation`, `PixelGrid` (single-grid + `ScanAllFromVehicle` auto-discovery), `PixelPatterns`, `LcdGridConfig`, `LcdGridBuilder` (`BuildGrid`, `DestroyGrid`, `ScanExistingGrid`, `RepairFuelFeeds`), `BlinkyPixelGrid`.
 
 ### [its-so-shiny](its-so-shiny) / [its-so-shiny.lib](its-so-shiny.lib)
 Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-in `LightPart` instead of engine parts, avoiding engine ignition, thrust cancellation, and fuel/resource graph complexity.
@@ -212,7 +170,7 @@ Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-i
 - Pattern controls: off, all on, alternating rows, alternating columns, checkerboard
 - Global scan discovers existing `shiny_*` grids across loaded vehicles
 - Standalone F11 ImGui window plus direct unscience submod integration
-- **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`. Used by `unladen-swallow.lib` for RPC endpoints.
+- **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
 Kitten avatar animation controller. Plays every animation the game has loaded for a selected live EVA kitten, triggers facial expressions, and exposes the blend weights and locomotion tuning that decide how hard each animation lands.
@@ -273,72 +231,6 @@ Global ImGui theme manager. Provides a theme picker and a full style editor that
 - Persistent theme selection across game sessions; restores game default on unload
 - **skittles.lib**: `ThemeDefinition` (60-color + style POCO), `ThemeSerializer` (Tomlyn TOML I/O), `ThemeManager` (load/save/apply/list), `BuiltInThemes` (Inanimate Carbon Rod preset)
 
-### [con-man](con-man) / [con-man.lib](con-man.lib)
-Game UI layout manager for gauge canvases. Saves and restores HUD gauge visibility, position, and scale to named layouts stored as TOML files.
-- Save current gauge layout to named TOML file
-- Load/apply saved layouts with filtered combobox selector
-- Set a startup default layout (auto-applied on game launch)
-- Delete layouts with confirmation
-- Live gauge summary table showing all GaugeCanvas state (name, id, enabled, offset, scale)
-- Persistence in Documents/My Games/Kitten Space Agency/.con-man/layouts/
-- F11 window toggle (standalone mode)
-- **con-man.lib**: `ConManSubmod` (ISubmod — layout selector/save/delete/startup default UI), `LayoutManager` (save/load/delete/apply/list layouts, startup default), `GaugeStateAccessor` (reflection-based access to GaugeCanvas private fields), `LayoutSerializer` (Tomlyn TOML I/O for layouts and config)
-
----
-
-## HTTP RPC Mods
-
-### [unladen-swallow](unladen-swallow) / [unladen-swallow.lib](unladen-swallow.lib)
-HTTP RPC server mod. Embeds a GenHTTP server (`0.0.0.0:7887`) that exposes KSA mod functionality over a REST API. ImGui window (F11 toggle) with enable/disable checkbox. Exposes camera FOV control via `glass.lib`, blinky pixel grid control via `blinky.lib`, its-so-shiny light grid control via `its-so-shiny.lib`, and camera animation sequencing via `camera-controller-override.lib`.
-- F11 toggle ImGui window
-- Enable/disable HTTP server via checkbox
-- Live server status indicator (Running/Stopped)
-- `GET /health` — server liveness check
-- `GET /fov` — returns current FOV state (current, override, isActive)
-- `POST /fov` — sets camera FOV override (`{ "fov": 30.0 }`) or disables it (`{ "fov": 0 }`)
-- Expanded blinky API (14 endpoints) covering grid lifecycle, animation control, render settings, and engine control:
-- `GET /blinky/grids` — list registered grids (optional `vehicleId` filter)
-- `POST /blinky/grids` — build and register a new grid on a vehicle
-- `DELETE /blinky/grids` — destroy/unregister a grid (`vehicleId` and `gridName` query params)
-- `POST /blinky/grids/scan` — scan a specific vehicle for an existing named grid
-- `POST /blinky/grids/scan-all` — discover and register grids across all vehicles
-- `POST /blinky/grids/repair` — re-wire a registered grid's propellant feed so its engines can light
-- `POST /blinky/animate` — start scrolling animation from client-supplied pixels
-- `DELETE /blinky/animate` — stop an active scroll without clearing current pixels
-- `POST /blinky/animate/builtin` — start built-in scrolling animation payload
-- `POST /blinky/static` — display a static pixel pattern
-- `POST /blinky/pattern` — apply built-in patterns (`allOn`, `allOff`, `checkerboard`, `altRows`, `altCols`)
-- `POST /blinky/off` — turn all pixels off and stop scroll
-- `GET /blinky/render` / `POST /blinky/render` — get/set pixel part mesh rendering toggle
-- `POST /blinky/engines/deactivate` — deactivate non-LCD engines on a vehicle
-- Expanded its-so-shiny API (9 endpoints) covering light grid lifecycle, animation control, and appearance:
-- `GET /shiny/grids` — list registered light grids (optional `vehicleId` filter)
-- `POST /shiny/grids` — build and register a new light grid on a vehicle (with color/intensity)
-- `DELETE /shiny/grids` — destroy/unregister a light grid (`vehicleId` and `gridName` query params)
-- `POST /shiny/grids/scan` — scan a specific vehicle for an existing named light grid
-- `POST /shiny/grids/scan-all` — discover and register light grids across all vehicles (with default color/intensity)
-- `POST /shiny/animate` — start scrolling animation from client-supplied pixels
-- `DELETE /shiny/animate` — stop an active scroll without clearing current pixels
-- `POST /shiny/static` — display a static pixel pattern
-- `POST /shiny/pattern` — apply built-in patterns (`allOn`, `allOff`, `checkerboard`, `altRows`, `altCols`)
-- `POST /shiny/off` — turn all pixels off and stop scroll
-- `GET /shiny/appearance` — get current color/intensity for a light grid (`vehicleId` and `gridName` query params)
-- `POST /shiny/appearance` — set color and intensity for a light grid
-- `POST /camera/animate` — runs a camera animation sequence (zoom, orbit, spiral, shake, pan, rotate, groups, return-to-start)
-- `GET /camera/status` — returns current playback state (Playing/Stopped/Paused, keyframe index, elapsed time)
-- `DELETE /camera/stop` — stops any running camera animation
-- `GET /torch/welds` — list all active welds
-- `POST /torch/welds` — create a weld (`{ "sourceVehicleId": "...", "targetVehicleId": "...", "data": {...} }` or supply `presetName`)
-- `DELETE /torch/welds` — unweld/remove a weld (`{ "sourceVehicleId": "..." }`)
-- `POST /torch/welds/modify` — immediately modify a weld's position/rotation/scale/lockRotation (partial update — only provided fields updated)
-- `POST /torch/welds/animate` — smoothly interpolate a weld to target state over a duration with easing
-- `GET /torch/presets` — list all named weld presets
-- `POST /torch/presets` — save or update a named preset (`{ "name": "...", "data": {...} }`)
-- `DELETE /torch/presets` — delete a named preset (`{ "name": "..." }`)
-- **unladen-swallow.lib**: `SwallowServer` (GenHTTP host), `FovEndpoint`, `BlinkyListEndpoint`, `BlinkyGridsEndpoint`, `BlinkyGridScanEndpoint`, `BlinkyGridScanAllEndpoint`, `BlinkyGridRepairEndpoint`, `BlinkyAnimateEndpoint`, `BlinkyBuiltInScrollEndpoint`, `BlinkyStaticEndpoint`, `BlinkyPatternEndpoint`, `BlinkyOffEndpoint`, `BlinkyRenderEndpoint`, `BlinkyEngineDeactivateEndpoint`, `ShinyListEndpoint`, `ShinyGridsEndpoint`, `ShinyGridScanEndpoint`, `ShinyGridScanAllEndpoint`, `ShinyAnimateEndpoint`, `ShinyStaticEndpoint`, `ShinyPatternEndpoint`, `ShinyOffEndpoint`, `ShinyAppearanceEndpoint`, `CameraAnimateEndpoint`, `CameraStatusEndpoint`, `CameraStopEndpoint`, `TorchWeldsEndpoint`, `TorchWeldModifyEndpoint`, `TorchWeldAnimateEndpoint`, `TorchPresetsEndpoint` (all with game-thread scheduling), shared API types. References `glass.lib`, `blinky.lib`, `its-so-shiny.lib`, `camera-controller-override.lib`, `garrys-torch.lib`, and `ksa-abstractions.lib`.
-
----
-
 ## Kitten Spawning & Customization Mods
 
 ### [doh](doh) / [doh.lib](doh.lib)
@@ -352,7 +244,7 @@ Programmatic kitten spawning with per-kitten GPU material customization. Spawns 
 - Individual despawn or despawn-all management
 - Spawned kitten registry with full tracking
 - F8 ImGui window with vehicle/character combos (filterable), color picker, kitten list table
-- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking), `DohSubmod` (ISubmod for unscience integration). All methods game-thread-only; RPC-ready via GameThread.Scheduler.
+- **doh.lib**: `MaterialSystemAccessor` (reflection bridge to GpuMaterialSystem/GpuTextureSystem), `MaterialFactory` (runtime per-kitten material creation), `KittenMaterialSet` (per-kitten GPU handles + live UpdateTint), `KittenSpawner` (spawn/despawn/recolor engine replicating EVADoor.CreateKittenEva), `SpawnRequest`/`SpawnResult` (DTOs), `SpawnedKittenRegistry` (state tracking), `DohSubmod` (ISubmod for unscience integration). All methods are game-thread-only.
 - **Unscience integration**: DOH is available as a submod in the unscience supermod via `DohSubmod`.
 
 ---
@@ -420,9 +312,9 @@ Define **brand-new planetary rings at runtime** and apply them to **any celestia
 ### [unscience](unscience)
 Unified supermod that consolidates the standalone feature mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates their patches. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Free Fallin, Garry's Torch, G-Force Monitor, Glass, Graffiti, Hot Pursuit, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pebbles, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (29 total)
+- Submods: Blinky, Bloomin' Onion, Camera Controller Override, Doh, Don't Stifle Me, Eternal Flame, Free Fallin, Garry's Torch, Glass, Graffiti, Hot Pursuit, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pebbles, Pyro, Rocky McRock Face, Skittles, Thug Life, Zippo (24 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
-- Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
+- Each submod class lives in its `.lib` project (for example `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
 - `Update(dt)` runs every frame for all submods (even hidden) for frame-critical logic
 - Consolidated Harmony patches include blinky render-skip, camera-controller-override sequence playback, free-fallin canopy material substitution + full-canopy shader projection, glass main-camera FOV override, hot-pursuit fixed-camera pose, humble-arteest vehicle paint + engine emissive, i-feel-seen render distance, skittles hotkey blocking, pyro exhaust submission, and graffiti decal pass
@@ -467,19 +359,6 @@ Vehicle editor un-limiter. Restores free part scaling and provides an extensible
 - Reuses the game's private `QuantizeScale` / `ForEachPartWithSymmetry` delegates so snapping (when on) and symmetry match stock
 - Standalone: "Don't Stifle Me" top-level menu via `Program.DrawProgramMenusHook` postfix; bundled in unscience as a submod section
 - Known limit: connectors/mass follow the largest axis (game's `ScaleFactors`), so non-uniform parts may have off-surface connectors
-
-## Orbit & Navigation Mods
-
-### [marque](marque) / [marque.lib](marque.lib)
-Orbit line visibility manager. Adds a **Marque** submenu to the game's View menu bar for toggling orbit lines on vehicles and celestial bodies.
-- **Vehicles** submenu: All/None bulk toggle + alphabetically sorted individual vehicle toggles with checkmarks
-- **Celestials** submenu: All/None bulk toggle + hierarchical celestial tree organized by SOI
-  - Planets with moons open as submenus with their own All/None controls
-  - Recursive depth — moons with sub-moons get nested submenus
-- Menus stay open after clicking (no auto-close) for fast multi-toggle workflows
-- Harmony prefix on `GaugeCanvas.OnDrawMenuBar` to inject into the View menu
-- **marque.lib**: `MarqueLib.DrawMarqueMenus()` — full menu rendering logic, vehicle listing, celestial hierarchy traversal, orbit visibility toggling via `IOrbiter.ShowOrbit`
-
 
 ---
 

@@ -227,7 +227,7 @@ Note: `Dispose()` on the manager sets `Active = false` **before** freeing GPU re
 
 ## KSA-specific techniques worth knowing
 
-**Render-data injection via `Unsafe.As` struct reinterpretation.** Several mods (humble-arteest paint & emissive, mesh-deform) write into the unused padding bytes of the game's per-instance GPU struct. Define an overlay struct with `[StructLayout(LayoutKind.Sequential)]` matching the real layout, reinterpret the `ref` param, and assign the named fields:
+**Render-data injection via `Unsafe.As` struct reinterpretation.** humble-arteest paint and emissive write into unused padding bytes of the game's per-instance GPU struct. Define an overlay struct with `[StructLayout(LayoutKind.Sequential)]` matching the real layout, reinterpret the `ref` param, and assign the named fields:
 
 ```csharp
 private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerInstanceData instanceData)
@@ -240,7 +240,7 @@ private static void AddInstancePrefix(PartModel __instance, ref PartModel.PerIns
 }
 ```
 
-**Two-patch coordination via `ThreadLocal<T>`.** When the data you need to inject (in a deep patch) isn't available in that method's args, capture it in an earlier patch and stash it thread-locally. mesh-deform captures the current `Part` in a prefix on `PartModelModule.UpdateRenderData`, then reads it in a prefix on `PartModel.AddInstance`. Safe because KSA renders single-threaded:
+**Two-patch coordination via `ThreadLocal<T>`.** When data needed by a deep patch is not available in that method's arguments, capture it in an earlier patch and stash it thread-locally. This is safe only when the relevant KSA path is single-threaded:
 
 ```csharp
 public static readonly ThreadLocal<Part?> CurrentPart = new();
@@ -316,10 +316,10 @@ private static void Postfix() { /* ImGui.BeginMenu(...) ... */ }
 | `Vehicle.GetWorldMatrix` / `Vehicle.UpdateRenderData` | prefix (skip) | i-feel-seen — override render transform/distance for tracked vehicles |
 | `Camera.ChangeFieldOfView` | prefix (skip) | glass — block stock FOV input when override active |
 | `Camera.UpdateProjection` | prefix + field write | glass — inject custom FOV via `Camera._fovRadians` |
-| `PartModel.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest paint, mesh-deform — inject GPU per-instance data |
+| `PartModel.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest paint — inject GPU per-instance data |
 | `PartModelDynamic.AddInstance` | prefix (`ref PerInstanceData`) | humble-arteest engine emissive temperature/TFI |
 | `PartModel` ctor / `PartModel.AddInstance` | postfix | IvaForceRender — force interior meshes visible |
-| `PartModelModule.UpdateRenderData` (+ Dynamic/Glass variants) | prefix (skip) | blinky/shiny — conditionally skip rendering `pixel_`/`shiny_` parts; mesh-deform Part capture |
+| `PartModelModule.UpdateRenderData` (+ Dynamic/Glass variants) | prefix (skip) | blinky/shiny — conditionally skip rendering `pixel_`/`shiny_` parts |
 | `Universe.ExecuteNextVehicleSolvers` | prefix (`Priority.First`) | eternal-flame / kiwis-marbles / kitchen-sink — mutate sim state before the vehicle solvers read it |
 | `SuperMeshRenderSystem.RenderMainPass` | postfix | thug-life — record extra quad draws into the command buffer |
 | `Controller.OnFrame` (Orbit/Fly) | prefix (`___Transform`) | camera-controller-override — keyframe camera playback |

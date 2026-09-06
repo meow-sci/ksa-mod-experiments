@@ -1,8 +1,7 @@
 // THREADING RULE (repeated in every parts-now file):
 // Everything runs on the game thread except RuntimeModLoader's loader step, which runs on a
 // Task.Run worker. The worker touches only ILoader.Load(). Completion is polled from Update(dt).
-// Do NOT use MeowSci.KsaAbstractions.GameThread — its queue is only drained when
-// unladen-swallow.lib is present, and parts-now must work standalone.
+// Do not introduce background access to KSA state; parts-now must remain safe standalone.
 
 using System;
 using System.Collections.Generic;

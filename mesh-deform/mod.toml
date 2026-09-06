@@ -1,7 +1,0 @@
-name = "mesh-deform"
-description = "Per-part GPU vertex shader deformation — manual dents and bulges via PerInstanceData padding injection."
-version = "0.1.0"
-author = "meow sci"
-
-[StarMap]
-EntryAssembly = "MeowSci.MeshDeform"

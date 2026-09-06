@@ -25,20 +25,6 @@ isolated per instance and restored when the effect stops. See [Zippo](zippo/READ
 picker follows the controlled kitten by default or stays pinned to an explicitly selected kitten id.
 See [Kitten Animations](kitten-animations/README.md).
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run 
-```
-
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
-
 ## building
 
 Every project compiles against the proprietary KSA game assemblies, which are

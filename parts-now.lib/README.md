@@ -460,8 +460,7 @@ It is repeated at the top of every file in the project. Two hard reasons stand b
   from `Program.OnDrawUiFrame` — i.e. `ISubmod.Update(dt)` — which runs before the frame's swapchain
   image is acquired.
 
-`MeowSci.KsaAbstractions.GameThread` is deliberately **not** used: its queue is only drained when
-`unladen-swallow.lib` is present, and parts-now must work standalone.
+All game-state work is deliberately kept on the game thread so parts-now remains safe standalone.
 
 ---
 
