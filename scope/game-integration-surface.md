@@ -51,6 +51,54 @@ against 5018 (compile or silent runtime) · **ADDITIVE** new in 5018, not yet co
 
 ---
 
+## Pebbles — ground clutter backport (@5402)
+
+Owner: `pebbles.lib`, hosted by main's `ISubmod` lifecycle and consolidated Harmony instance.
+Full inventories: [ground clutter](ground-clutter.md), [GLB materials](ground-clutter-glb-materials.md).
+Compiled and managed-checked; native acceptance of the main integration remains pending.
+
+| Surface | Integration / source in Pebbles | Update dependency |
+|---|---|---|
+| `Universe.ExecuteNextClothSolvers` | `Runtime/ClutterHooks.cs` prefix | Safe queued apply/restore phase after CPU solvers |
+| `GroundClutterRenderer.RebuildFrameResources`, `Dispose` | postfix / prefix | Retained-original pipelines and renderer recreation |
+| `ClutterEcotypeRenderData.RebuildFrameResources` | prefix/finalizer | Exact owned material binding context |
+| `ClutterEcotypeRenderData.SortMaterialIds`, `CreateColorRenderer`, `CreateDepthPrePassRenderer`, `CreateShadowDepthRenderer` | transpilers | Exactly one `GroundClutterRenderer.MaterialBuffer` getter or `GetMaterialIndex` call per method |
+| `ShaderReference.CompileVariantWithCustomOptions` | prefix | Private source-color `ClutterSolidFrag` adaptation only |
+| Public constructors of `GroundClutterPlacementData`, `ClutterEcotypeRenderData`, `ClutterEcotypePhysicalData`, `ClutterCubeCellGrid`, `ClutterViewResources`, `SimpleVkMeshAtlas` | prefixes | Reachable partial-construction ownership capture |
+| `CelestialTemplate.GroundClutterReference`, ecotype/object/LOD/material references; renderer `PlanetPlacementData`, `PlanetEcotypeRenderData`, `PlanetPhysicalData` | `Runtime/ClutterCapture.cs`, `ClutterGraph.cs`, `ClutterController.cs` | Private per-body graphs; original arrays retained; five LODs, 51 object slots, 256 candidates/cell, 16 physics scale buckets |
+| `PhysicsBubble`, `ConstraintSim`, `GroundClutterStatics`, Bepu shapes and primitive templates | `Runtime/ClutterController.cs`, `ClutterColliders.cs`, `ClutterRetirement.cs` | Solver completion, static invalidation, exclusion preservation and shape retirement |
+| `TextureLoader.LoadFromMemory/Unload`, `ForceRgba8`, `ITexture.Extent/Data` | `Assets/GlbMaterials.cs` | PNG/JPEG native decoding with bounded RGBA8 copy |
+| `SimpleVkTexture`, `BindlessTextures.AddTexture/FreeTexture` | `Assets/GlbTextures.cs`, `GlbMaterials.cs` | Private image upload, mipmaps, original-device lifetime and borrowed consumer ordering |
+| `Program.GetRenderer`, allocator/device/graphics, `ShaderModuleUtils.FromString`, ImGui texture registration | `Preview/*.cs` | Independent Vulkan dynamic rendering; 32-byte vertex, 112-byte push constants, 5 combined samplers; see preview inventory |
+
+**String/reflection watchlist additions:**
+
+- `Celestial.<BodyTemplate>k__BackingField`, `Astronomical.bodyTemplate`, `object.MemberwiseClone`.
+- `GroundClutterRenderer._renderPassInfo`, `_planetClutterMaxBoundingRadius`;
+  `PlanetRenderer._groundClutterRendererCreated`.
+- `Universe._vehicleUpdateTask`, `VehicleUpdateTask.SyncWindowBubbles`;
+  bubble clutter exclusion/static clearing APIs.
+- `GroundClutterPlacementData._exclusionCache`; eight uint exclusion words per cell.
+- `GroundClutterLodReference.BuildMaterialIndirection`; private setters on
+  `MeshReference.HostPrimitives` and `PrimitiveMaterialIds`.
+- `ModLibrary.AllMeshes`, `AllFiles`, `AllGltfs`, `SerializedCollection<T>.GetList`;
+  glTF named mesh/model indexes and CPU-only `MeshReference.Load`.
+- `StagingPool._submitted`, `_commandBufferIndex`;
+  `ClutterEcotypePhysicalData._compoundShapes`, `_primitiveShapes`.
+- `TextureReference.Texture`, `ImageView` protected setters and `BindlessHandle` private setter.
+- Direct public/nonpublic resource fields of the six constructor-captured native ownership
+  classes: re-audit the [partial retirement rules](ground-clutter.md#reflection-and-binary-dependencies)
+  whenever their fields change.
+
+**Shader/asset additions:** `ClutterSolidFrag` / `GroundClutter/Solid.frag` exact terrain-color
+modulation marker; native `GroundClutterGpuMaterial` layout and private flags bits 31/30,
+`diffuseTextureId`, `globalTextures`, `textureSampler`, `inUv`. Native `SolidDepth.frag` and
+`SolidShadow.frag` opacity uses red-channel coverage. Embedded Workshop GLSL and private
+vertex/push/descriptor layouts must agree. Registry meshes/textures are selected by exact IDs;
+external GLBs use absolute paths plus SHA-256 content identities and are not globally registered.
+
+---
+
 ## 3. Master table — by game type
 
 > "Used by" lists every consuming mod (merged). Members reached through `ksa-abstractions.lib` helpers

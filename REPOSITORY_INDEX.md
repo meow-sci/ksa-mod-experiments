@@ -416,7 +416,7 @@ Define **brand-new planetary rings at runtime** and apply them to **any celestia
 ### [unscience](unscience)
 Unified supermod that consolidates the standalone feature mods into a single ImGui window with collapsible headers and a gear icon (⚙) context menu for per-submod visibility toggles. All submod logic lives directly in the respective `.lib` projects — unscience instantiates these lib submods and orchestrates them via the `ISubmod` interface from `ksa-abstractions.lib`. A single Harmony instance consolidates their patches. Standalone mods continue to work independently.
 - F11 window toggle with unified panel for all core submods
-- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Free Fallin, Garry's Torch, G-Force Monitor, Glass, Graffiti, Hot Pursuit, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (28 total)
+- Submods: Average TWR, Blinky, Bloomin' Onion, Camera Controller Override, Con-Man, Doh, Don't Stifle Me, Eternal Flame, Free Fallin, Garry's Torch, G-Force Monitor, Glass, Graffiti, Hot Pursuit, Humble Arteest (Vehicle Paint, Kitten Color, Engine Emissive), I Feel Seen, Its So Shiny, Kitchen Sink, Kitten Animations, Kiwi's Marbles, Parts Now, Pebbles, Pyro, Red Alert, Rocky McRock Face, Skittles, Thug Life, Unladen Swallow, Zippo (29 total)
 - Uses `ISubmod` interface (from `ksa-abstractions.lib`): `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - Each submod class lives in its `.lib` project (e.g. `AverageTwrSubmod` in `average-twr.lib`, `BlinkySubmod` in `blinky.lib`)
 - `unscience/Submods/` directory removed — no thin UI wrapper layer; submod classes own their own ImGui rendering
@@ -484,3 +484,20 @@ Orbit line visibility manager. Adds a **Marque** submenu to the game's View menu
 - **Top-level mods**: Folders without `.lib` suffix or standalone folders are runnable mods
 - **.lib folders**: Contain headless/library functionality that can be used by the corresponding mod
 - **ksa-abstractions.lib**: Shared utilities used across multiple mods
+
+### [pebbles.lib](pebbles.lib) — Pebbles ground clutter
+
+Bundled `ISubmod` for per-celestial ground clutter replacement. Select built-in meshes or import
+self-contained GLB 2.0 scenes/materials, set uniform scale, and author fitted box/sphere/capsule/
+cylinder colliders in a textured floating editor. Applies every variant/LOD of selected clutter
+types while preserving native placement and untouched types. Session-owned controller queues
+safe native apply/restore, retains per-body originals and manages private GPU/physics resources.
+Applied-state and import-release controls live in the submod panel. Uses main's consolidated
+Harmony instance; no standalone host or workspace/contracts dependency.
+See [README](pebbles.lib/README.md) and [integration scope](scope/ground-clutter.md).
+
+### [pebbles.tests](pebbles.tests)
+
+Game-independent executable checks for Pebbles recipes, collider scaling, Workshop camera/gizmo
+math and undo history, GLB geometry/material parsing, texture mapping and pixel conversion.
+Run `dotnet run --project pebbles.tests/pebbles.tests.csproj`; see its [README](pebbles.tests/README.md).

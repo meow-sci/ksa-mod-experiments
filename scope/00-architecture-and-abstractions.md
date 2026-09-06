@@ -22,7 +22,7 @@ Verification baseline:
   (NuGet **`StarMap.API` v0.3.6**, `PrivateAssets="all"`) is the loader seam, NOT the game — StarMap
   itself Harmony-patches the game's render loop and invokes the mod's attributed methods. So the
   shell never references the game's frame loop directly; it rides StarMap's hooks.
-- **Submod aggregation.** The host instantiates 27 `ISubmod` implementations (one per feature
+- **Submod aggregation.** The host instantiates 29 `ISubmod` implementations (one per feature
   lib), stores them in a list, and drives them uniformly: `Initialize()` once, `Update(dt)` every
   frame (even hidden), `RenderContent()` inside a `CollapsingHeader`, `RenderFloatingWindows()`
   always, `Dispose()` on unload. The same `ISubmod` classes are reused by each feature's own
@@ -561,3 +561,15 @@ logged in `version.json`; revisions **5349–5400 are unlogged**, so the source 
   thug-life scope files.
 - **Live pass wanted:** F2 hidden-HUD replay (HiddenUiFrameHook) once with the new viewport code; Force
   IVA in the editor (above); Unscience menu item still appears under the game menu bar.
+
+## Pebbles lifecycle integration
+
+`Mod.OnFullyLoaded` instantiates `PebblesSubmod : ISubmod` and passes its `ClutterController`
+to `Patcher.PebblesController`. The shared Harmony instance applies/removes its hooks through
+`ApplyPatches`/`RemovePatches`. Removal is restricted to Pebbles' patch methods, never the entire
+shared owner. Ordinary updates handle discovery, scene changes and deferred resource release;
+the `Universe.ExecuteNextClothSolvers` prefix commits pending native transactions.
+`RenderContent` includes applied-state restoration, and `RenderFloatingWindows` owns the GLB
+browser and collider editor. Unload retires its resources before patch removal.
+The host's HotkeyGuard and hidden-HUD updates remain unchanged. Exact targets and private
+member dependencies: [ground clutter](ground-clutter.md), [GLB conversion](ground-clutter-glb-materials.md).

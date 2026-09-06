@@ -71,4 +71,6 @@
     <Project Path="rocky-mcrock-face.lib/rocky-mcrock-face.lib.csproj" />
     <Project Path="bloomin-onion/bloomin-onion.csproj" />
     <Project Path="bloomin-onion.lib/bloomin-onion.lib.csproj" />
+    <Project Path="pebbles.lib/pebbles.lib.csproj" />
+    <Project Path="pebbles.tests/pebbles.tests.csproj" />
 </Solution>

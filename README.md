@@ -12,6 +12,10 @@ its panel UVs or project one cohesive image across the full canopy, composite a 
 tune its PBR response. `graffiti` can also raycast deployed canopy cloth and attach projected decals
 that follow its inflation and motion.
 
+`pebbles` adds per-planet ground clutter replacement with built-in meshes or imported GLBs,
+uniform scaling, and a textured collider editor. Its apply/restore controls live in the existing
+Unscience collapsible panel; state is session-only. See [Pebbles](pebbles.lib/README.md).
+
 To install dependencies:
 
 ```bash

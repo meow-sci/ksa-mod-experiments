@@ -31,6 +31,7 @@ using MeowSci.GraffitiLib;
 using MeowSci.FreeFallinLib;
 using MeowSci.HotPursuitLib;
 using MeowSci.PyroLib;
+using MeowSci.PebblesLib;
 using MeowSci.RockyMcRockFaceLib;
 using MeowSci.BloominOnionLib;
 
@@ -88,6 +89,8 @@ public class Mod
             _submods.Add(new KittenAnimationsSubmod());
             _submods.Add(new KiwisMarblesSubmod());
             _submods.Add(new PartsNowSubmod());
+            var pebbles = new PebblesSubmod();
+            _submods.Add(pebbles);
             _submods.Add(new PyroSubmod());
             _submods.Add(new RedAlertSubmod());
             _submods.Add(new RockyMcRockFaceSubmod());
@@ -115,6 +118,7 @@ public class Mod
             _showModTooltips = UnscienceState.ShowModTooltips;
 
             // Wire up Patcher dependencies and apply patches
+            Patcher.PebblesController = pebbles.Controller;
             Patcher.IFeelSeenTracker = iFeelSeen.Tracker;
             Patcher.CameraSequencePlayer = cameraOverride.SequencePlayer;
             Patcher.MenuBarToggle = () => _windowVisible = !_windowVisible;

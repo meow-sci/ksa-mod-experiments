@@ -19,6 +19,7 @@ using MeowSci.GraffitiLib;
 using MeowSci.FreeFallinLib;
 using MeowSci.HotPursuitLib;
 using MeowSci.PyroLib;
+using MeowSci.PebblesLib;
 
 namespace MeowSci.Unscience;
 
@@ -28,6 +29,7 @@ internal static class Patcher
 
     public static VehicleTracker? IFeelSeenTracker { private get; set; }
     public static KeyframeSequencePlayer? CameraSequencePlayer { private get; set; }
+    public static ClutterController? PebblesController { private get; set; }
     public static Action? MenuBarToggle { get; set; }
 
     public static void Patch()
@@ -80,6 +82,7 @@ internal static class Patcher
         TryApply("pyro", () => PyroPatches.Apply(_harmony!));
         TryApply("graffiti", () => GraffitiPatches.Apply(_harmony!));
         TryApply("free-fallin", () => FreeFallinPatches.Apply(_harmony!));
+        TryApply("pebbles", () => PebblesController?.ApplyPatches(_harmony!));
         TryApply("hot-pursuit", () => HotPursuitPatches.Apply(_harmony!));
         Console.WriteLine("unscience: Harmony patches applied");
     }
@@ -122,6 +125,7 @@ internal static class Patcher
                 TryRemove("pyro", () => PyroPatches.Remove(_harmony!));
                 TryRemove("graffiti", () => GraffitiPatches.Remove(_harmony!));
                 TryRemove("free-fallin", () => FreeFallinPatches.Remove(_harmony!));
+                TryRemove("pebbles", () => PebblesController?.RemovePatches(_harmony!));
                 TryRemove("hot-pursuit", () => HotPursuitPatches.Remove(_harmony!));
             }
             VehiclePaint.Cleanup();
@@ -129,6 +133,7 @@ internal static class Patcher
             _harmony = null;
             IFeelSeenTracker = null;
             CameraSequencePlayer = null;
+            PebblesController = null;
         }
         catch (Exception ex)
         {

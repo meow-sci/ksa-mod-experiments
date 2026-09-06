@@ -1,6 +1,6 @@
 # Unscience — Unified Supermod
 
-A unified supermod that consolidates 28 KSA feature libraries into a single ImGui window with collapsible headers. Each submod's content appears under its own header, and a gear icon context menu lets you toggle individual submod visibility.
+A unified supermod that consolidates 29 KSA feature libraries into a single ImGui window with collapsible headers. Each submod's content appears under its own header, and a gear icon context menu lets you toggle individual submod visibility.
 
 ## Included Submods
 
@@ -20,6 +20,7 @@ A unified supermod that consolidates 28 KSA feature libraries into a single ImGu
 | Kitten Animations | Plays kitten avatar MMU animations, expressions, and walking animations |
 | Kiwi's Marbles | Welds celestial bodies to other orbiters with CCI offsets |
 | Rocky McRock Face | Swaps planetary ring meshes/textures (Saturn's rock field) with any built-in mesh |
+| Pebbles — Ground Clutter | Replaces selected planet clutter types with built-in meshes or GLBs, with scale, collider editing and per-planet restore |
 | Skittles — Theme Manager | Applies and saves ImGui themes with a built-in style editor |
 | Unladen Swallow | HTTP RPC server for remote game control |
 | Zippo — Light Control | Controls light part intensity and color on vehicles |
@@ -45,3 +46,14 @@ A unified supermod that consolidates 28 KSA feature libraries into a single ImGu
 ## Dependencies
 
 All `.lib` projects referenced: average-twr.lib, blinky.lib, camera-controller-override.lib, eternal-flame.lib, garrys-torch.lib, geeforce.lib, glass.lib, i-feel-seen.lib, its-so-shiny.lib, kitten-animations.lib, kiwis-marbles.lib, skittles.lib, unladen-swallow.lib, zippo.lib, ksa-abstractions.lib, and others.
+
+## Pebbles integration
+
+Pebbles uses the existing collapsible submod panel and feature-owned session state. Author a
+mesh/GLB and colliders, select a planet and clutter types, then Apply. Applied clutter and import
+counts appear below the form, alongside restore-type, restore-planet and release-all controls.
+The floating collider editor/browser continue rendering when the main panel is collapsed.
+`Patcher.cs` wires its controller into the shared Harmony instance; cleanup removes only
+Pebbles methods. The host's existing HotkeyGuard and hidden-HUD update hook cover Pebbles.
+No newux shell, workspace persistence or Live State framework is included.
+See [Pebbles README](../pebbles.lib/README.md) for usage and limitations.

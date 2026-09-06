@@ -80,7 +80,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 - **One consolidated Harmony instance.** `unscience/Patcher.cs` owns a single
   `Harmony("MeowSci.Unscience")`; each feature lib exposes `Apply(Harmony)`/`Remove(Harmony)` and the
   supermod applies them all onto that instance. `HotkeyGuard` is applied first.
-- **`ISubmod` aggregation.** 28 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
+- **`ISubmod` aggregation.** 29 feature libs implement `ISubmod` (`Name`/`Initialize`/`Update`/
   `RenderContent`/`RenderFloatingWindows`/`Dispose`); the same classes power each feature's standalone
   mod too.
 - **`ksa-abstractions.lib` is the game-facing seam.** Cross-cutting game access is funneled through a
@@ -108,14 +108,15 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`exhaust-plumes.md`](exhaust-plumes.md) | pyro | `Vehicle.AddVolumetricExhaustInstances` postfix, `VolumetricExhaustRenderer.AddInstance`, `VolumetricExhaustInstance` (+ private `_shaderData`), internal `VolumetricExhaustTemplate.References`, `PlumeData`/`ExhaustInstance` layout drift (new @5348) |
 | [`decals.md`](decals.md) | graffiti | `RenderTarget.ResolveAttachments` postfix (GridPass-window projected-decal pass), `GlobalShaderBindings` + `BindlessTextureLibrary` descriptor sets, runtime GLSL vs `Common/*.glsl` headers, `Part.RayCastEgo` + live `Parachute.ClothPositionsFront` triangle picking + `Cursor.GetEgoRay`, CPU terrain march; **no string reflection** (new @5348; canopy picking added @5402) |
 | [`parachutes.md`](parachutes.md) | free-fallin | `ChuteRenderable.Draw`, `Utils.SetShaderFromMod`, and `ShaderModuleUtils.FromFile` prefixes; private `_renderable` + protected `AnimatedRenderable.MaterialIndices`; runtime `MaterialData` and PNG/PBR uploads; material-gated bind-pose projection through `Model{,_Skinned}.vert` / `ModelPbr.frag`; stock canopy assets (new @5402) |
+| [`ground-clutter.md`](ground-clutter.md) | pebbles; [GLB materials](ground-clutter-glb-materials.md) | Per-body native clutter graphs, private materials, `ExecuteNextClothSolvers` transactions, collider/physics invalidation, GLB uploads and independent Workshop preview; shared Harmony ownership |
 | [`rings.md`](rings.md) | rocky-mcrock-face, bloomin-onion | planetary-ring mesh/texture swap (rocky) and **runtime ring definition on any celestial** (bloomin-onion) via the public `PlanetaryRingsReference` data tree + `Program.RebuildRenderer()`; **no Harmony patches**; `ModLibrary.AllMeshes`/`AllFiles` reflection, `MeshReference.<HostPrimitives>k__BackingField`, ctor-baking invariant in `PlanetaryRingsRenderData`; bloomin-onion adds `PlanetTransparenciesRenderer._anyRings` (load-bearing), `TextureReference.<TextureAsset>k__BackingField` (painted textures) and a cosmetic `DistantSphereRenderer._data` sync (new @5348) |
 | [`ui-customization.md`](ui-customization.md) | skittles, con-man, kitchen-sink | `ImGui` style surface, `GaugeCanvas` private-field reflection, `ReinitializeDerivedValues` + IvaForceRender |
 | [`rpc.md`](rpc.md) | unladen-swallow | GenHTTP server + game-thread marshaling; delegates to other libs (cross-ref table inside) |
 | [`standalone-mods.md`](standalone-mods.md) | marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy | **Not bundled in the supermod**; secondary reference. **mesh-deform shader break** |
 
-Bundled in the unscience supermod (28): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
+Bundled in the unscience supermod (29): average-twr, blinky, bloomin-onion, camera-controller-override, con-man,
 doh, dont-stifle-me, eternal-flame, free-fallin, garrys-torch, geeforce, glass, graffiti, hot-pursuit, humble-arteest,
-i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pyro,
+i-feel-seen, its-so-shiny, kitchen-sink, kitten-animations, kiwis-marbles, parts-now, pebbles, pyro,
 red-alert, rocky-mcrock-face, skittles, thug-life, unladen-swallow, zippo. (marque, byo-music, steely-eyed-missile-kitten, mesh-deform, stampy and
 jplrepo live in the repo but are **not** loaded by the supermod.)
 
@@ -138,6 +139,8 @@ items, one game-side regression.**
   now same-frame rather than one frame stale.
 - **`VolumetricExhaustRenderer.AddInstance` gained `airVelocity`/`airDensity`** → pyro computes them
   the way `Vehicle.AddVolumetricExhaustInstances` does.
+
+**Pebbles backport:** bundled through main's `ISubmod`/shared Harmony lifecycle, with session-owned authoring and applied controls in its existing panel. Managed checks and compilation cover the port; native apply/restore, collision, preview and unload still need an in-game smoke pass. See [ground clutter](ground-clutter.md).
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
 - **hot-pursuit** — nearby-celestial synchronization now prevents the 5402 secondary distant-sphere
