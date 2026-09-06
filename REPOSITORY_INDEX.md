@@ -63,12 +63,14 @@ Celestial body welding mod. Repositions planets and moons by welding them to fol
 - **kiwis-marbles.lib**: `CelestialWeldEntry` (Source/Target/Offset/OriginalOrbit), `CelestialWeldEngine` (per-step repositioning, re-parenting, subtree refresh, Kahn's topological sort), `KiwisMarblesPatches` (solver-step Harmony hook shared by the standalone mod and unscience)
 
 ### [zippo](zippo) / [zippo.lib](zippo.lib)
-Light control and animation system. Selects vehicles and light parts, then controls their intensity and color using the full XKCD color palette. Supports queued single-step animations that interpolate both color and intensity with configurable easing.
+Light control and animation system. Selects vehicles and light parts, controls their intensity and color using the full XKCD color palette, queues single-step transitions, and runs repeating Disco party-light recipes on one light or a whole vehicle.
 - Vehicle and light part selection
 - Light intensity control (0-1 slider)
 - Light color: 950+ XKCD named colors via filterable combobox + custom color picker
 - On/off toggle for lights
 - **Animation system**: Queue-based single-step animations (max 25/part) interpolating color+intensity with Linear/EaseIn/EaseOut/EaseInOut easing + power control; manual controls locked during animation
+- **Disco system**: independent repeating color, moving-assembly actuation, and spotlight beam-spread channels; ordered 1-32 color palettes or deterministic random rainbow hues; per-channel transition/hold/easing
+- **Runtime ownership**: Disco clones per-instance light templates, assigns shared assembly actuators to one owner, and restores owned state on stop, target disappearance, or unload
 - Recursive part tree search for light components
 - Real-time light property updates
 - **Public API** (`ZippoSubmod.Instance`): `GetLightPartInfos()`, `SetLightState()`, `QueueAnimation()`, `ClearAnimationQueue()` — used by unladen-swallow RPC

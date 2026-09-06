@@ -17,6 +17,10 @@ that follow its inflation and motion. Graffiti and Free Fallin share one importe
 uniform scaling, and a textured collider editor. Its apply/restore controls live in the existing
 Unscience collapsible panel; state is session-only. See [Pebbles](pebbles.lib/README.md).
 
+`zippo` includes Disco party lights for one light or a whole vehicle, with independent repeating
+color, moving-assembly actuation, and spotlight beam-spread cycles. Runtime light templates are
+isolated per instance and restored when the effect stops. See [Zippo](zippo/README.md).
+
 To install dependencies:
 
 ```bash

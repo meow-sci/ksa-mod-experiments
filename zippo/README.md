@@ -1,6 +1,6 @@
 # Zippo - Vehicle Light Control & Animation System
 
-A lighting system that allows you to select vehicles and their light components, then control light intensity and color in real-time using the full XKCD color palette. Supports single-step queued animations that smoothly interpolate both color and intensity with configurable easing.
+A lighting system that lets you select vehicles and their light components, control intensity and color in real time, queue smooth transitions, and run repeating Disco party-light recipes across one light or an entire vehicle.
 
 ## Overview
 
@@ -10,6 +10,7 @@ Zippo lets you:
 - **Set light color** - 950+ named XKCD colors via filterable combobox, or custom color picker
 - **Toggle lights on/off** - Quickly disable/enable selected lights
 - **Animate lights** - Queue single-step animations that interpolate color and intensity with easing
+- **Run Disco party lights** - Independently cycle colors, moving light assemblies, and spotlight beam spread
 - **HTTP RPC control** - All features available via `unladen-swallow` REST endpoints
 - **Real-time updates** - Changes apply immediately in-game
 
@@ -24,6 +25,8 @@ Zippo lets you:
 - **Queue-based animation** - Per-part animation queue (max 25) with color+intensity interpolation
 - **Easing functions** - Linear, EaseIn, EaseOut, EaseInOut with configurable power parameters
 - **Animation status UI** - Progress bar, elapsed/total time display
+- **Disco recipes** - Editable 1-32 color palette or deterministic random rainbow hues, independent transition/hold/easing per channel, single-light or vehicle-wide targeting
+- **Safe per-instance effects** - Disco color and cone-angle changes use module-local template copies and restore originals on stop, disappearance, or unload
 - **RPC API** - Full HTTP REST control via unladen-swallow (list lights, set state, animate, clear queue)
 
 ## Architecture
@@ -42,6 +45,14 @@ Provides reflection-based access to KSA's light system.
 - `WriteColor(List<object> lights, float3 color)` - Sets RGB color on light objects
 - `ApplyIntensity(Part part, float intensity)` - Updates intensity for a vehicle part
 - `ApplyColor(Part part, float3 color)` - Updates color for a vehicle part
+
+#### DiscoRecipe and DiscoTiming
+
+Describe repeating color, actuation, and spotlight-spread channels. Each active light receives a deep copy of the authored recipe, so later UI edits do not mutate a running effect.
+
+#### DiscoLight
+
+Owns one active light effect. It clones the runtime `LightModule.TemplateData` for instance-local color and cone angles, claims at most one matching assembly actuator, and restores owned state when stopped.
 
 ### Reflection Pattern
 
@@ -66,6 +77,20 @@ ImGui window with:
 - **Color Presets** - Buttons for Marine, HotPink, RadioactiveGreen, BabyPurple
 - **Custom Color Option** - RGB sliders for custom colors
 - **Apply/Toggle Buttons** - Apply settings, quickly toggle all lights on/off
+- **Disco Party Lights** - Configure channels, palette/random mode, ranges, transition/hold/easing, and target one light or every light on the selected vehicle
+- **Active Disco Lights** - Inspect status, pause, toggle the assembly light switch, copy a running recipe, or stop and restore
+
+## Disco Party Lights
+
+Select a vehicle and optionally a light part, then expand **Disco Party Lights**. Choose a single light or enable **All lights on selected vehicle**, select any combination of these channels, and start Disco:
+
+- **Color** cycles through an editable palette of 1-32 colors, or through independently seeded random rainbow hues.
+- **Actuation** alternates a matching light assembly's keyframe animation between normalized minimum and maximum positions. Unsupported lights skip this channel. KSA moves toward each goal at the mechanism's own rate, so very short cycles can outpace it.
+- **Beam spread** alternates between two inner/outer cone half-angle pairs. Point lights skip this channel.
+
+Each channel has independent transition duration, hold duration, and easing. Pause freezes the recipe clock, although a mechanism may finish moving toward its most recent goal. Starting Disco again replaces the selected light's previous Disco effect and clears its ordinary Zippo animation queue. Applying an ordinary light edit or queuing a normal animation stops Disco on that light first. Both the standalone mod and the Unscience-hosted feature drive active effects from their frame lifecycle; Unscience's existing hidden-HUD fallback also keeps them moving while F2 hides the game UI.
+
+Color and spread are isolated to each runtime light module rather than mutating the shared part template. An assembly actuator can have only one Disco owner; a later start takes ownership. Stop, part disappearance, and mod unload restore the original module template and restore the actuator goal when it is still owned. If another feature replaces the template or changes the goal, Zippo does not overwrite that external state.
 
 ## Light Components
 
@@ -137,7 +162,7 @@ foreach (var part in lightParts)
 ## Notes for Future Development
 
 - **Performance**: Light updates are reflected immediately; consider batching for many lights
-- **Animation**: Could extend to support color/intensity transitions over time
+- **Live validation**: Exercise color isolation, moving-light actuation, spotlight cone spread, pause, external template replacement, craft destruction, and unload restoration after KSA updates
 - **Save/Load**: No persistence currently; could save/load light configurations
 - **Part Naming**: Light parts are identified by KSA's part template system; no manual naming needed
 - **Asset Colors**: Could load colors from external XKCD color database instead of hardcoding

@@ -1,5 +1,18 @@
 # Game Integration Surface — master index (unscience KSA mod suite)
 
+## Current Zippo Disco integration (backported 2026-09-06)
+
+| Game surface | Owner / behavior | Status against 5402 |
+|---|---|---|
+| `Part.Modules.Get<LightModule>()`; writable `LightModule.Template`; all `TemplateData` fields | `zippo.lib/DiscoLight.cs` installs complete module-local template copies. Color and spotlight cone references are isolated per instance; restoration is conditional on retaining ownership. | Typed and compile-checked; field-completeness and native isolation need a live pass. |
+| `ColorRgbReference(float3)`, `R/G/B/IndexedColor`, `OnDataLoad`; `FloatReference(float).Value` | Repeating color and spotlight inner/outer half-angle updates. Point lights skip spread. | Typed and compile-checked; rendering needs a live pass. |
+| `Part.FullPart.Modules.Get<KeyframeAnimationModule>()`; `Shared.Duration`, `Shared.PartLookup`, `TimeGoal` | Matching moving-light assemblies alternate normalized goals. One Disco light owns a shared driver; release restores only an unchanged last write. | Typed and compile-checked; mirrored fan-out and mechanism behavior need a live pass. |
+| `Part.LightSwitch` / `FullPart.LightSwitch`; `PowerConsumer.LightIsActive`; `Part.InstanceId` | Active-effect switch control/restoration and unambiguous UI identity. Exact runtime `Part` references are retired when absent from the live vehicle/debris scan. | Typed and compile-checked; destruction/unload restoration needs a live pass. |
+| `[StarMapBeforeGui]` → `Program.OnDrawUiFrame(double)` | Standalone Zippo and the Unscience host both drive `ZippoSubmod.Update(dt)` so queued and Disco animations advance. | Existing lifecycle target; Unscience's existing hidden-HUD fallback covers the hosted feature. |
+
+No new Harmony patch, render pass, shader ABI, byte offset, or asset path is introduced. Full rationale and
+the acceptance checklist live in [celestial-and-lights.md](celestial-and-lights.md#zippo-disco-extension-backported-2026-09-06).
+
 Single consolidated lookup of every game-side touchpoint (KSA.* types + risk-bearing game-shipped
 Brutal.*/RenderCore.* members) across all unscience mods, aggregated from the per-area `scope/`
 files. Use it on every KSA update to find which mods a changed game member puts at risk.

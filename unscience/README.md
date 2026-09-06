@@ -23,7 +23,7 @@ A unified supermod that consolidates 29 KSA feature libraries into a single ImGu
 | Pebbles — Ground Clutter | Replaces selected planet clutter types with built-in meshes or GLBs, with scale, collider editing and per-planet restore |
 | Skittles — Theme Manager | Applies and saves ImGui themes with a built-in style editor |
 | Unladen Swallow | HTTP RPC server for remote game control |
-| Zippo — Light Control | Controls light part intensity and color on vehicles |
+| Zippo — Light Control | Controls light appearance and queued transitions, plus repeating Disco color, actuation, and spotlight-spread cycles |
 
 ## Usage
 

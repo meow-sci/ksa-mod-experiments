@@ -81,19 +81,23 @@ across versions (only line numbers shifted). All access is typed (no string refl
 ## zippo
 
 **Purpose** — Select a vehicle and one of its light parts, then control intensity/color in real time, toggle
-on/off, and queue single-step color+intensity animations with easing. Also exposes an RPC API
-(`ZippoSubmod` public methods) for unladen-swallow.
+on/off, queue single-step color+intensity animations with easing, or run repeating Disco recipes on one
+light or every light on a vehicle. Disco independently cycles color, moving-light actuation and spotlight
+beam spread. Zippo also exposes an RPC API (`ZippoSubmod` public methods) for unladen-swallow.
 
 **Unscience integration** — `ZippoSubmod : ISubmod` (static `Instance` for RPC). `Update(dt)` drives
-`LightAnimationManager` which re-applies interpolated color/intensity each frame. Light access is centralized in
-the stateless `LightController`. Vehicles via `VehicleProvider`, part-tree walk via `PartHelpers.GetPartsWhere`,
-XKCD palette via `XkcdColorHelper` (all abstractions).
+`LightAnimationManager` and every `DiscoLight` each frame. Ordinary light access is centralized in the
+stateless `LightController`; Disco uses typed runtime modules so color and spread remain per-instance.
+Vehicles come from `VehicleProvider`, part-tree walking from `PartHelpers`, and XKCD colors from
+`XkcdColorHelper` (all abstractions). Starting either animation mode stops the other for its exact target.
 
 **UI/hotkeys** — **F11** toggles the window (`Mod.cs:47`). Vehicle/light-part filterable combos, intensity
 `DragFloat`, "Default/preset/(Custom)" color combo, `ColorEdit4` picker, animation builder (start/end XKCD color
-combos + intensity/duration/easing/power) with a progress bar, and a Debug "Dump Parts" button.
+combos + intensity/duration/easing/power) with a progress bar, a Disco recipe editor and active-effect
+inspectors, and a Debug "Dump Parts" button.
 
-**Persistence** — None. `_originalColors` dict and per-part animation queues are in-memory only.
+**Persistence** — None. `_originalColors`, ordinary animation queues, authored Disco settings and active
+Disco records are session-only.
 
 | # | Kind | Mod code (file:line) | Game target (Type.Member + signature) | Decomp path (NEW) | In NEW? | Δ vs OLD | Risk/notes |
 |---|------|----------------------|----------------------------------------|-------------------|---------|----------|------------|
@@ -112,6 +116,28 @@ combos + intensity/duration/easing/power) with a progress bar, and a Debug "Dump
 | 13 | Reflection (palette) | `ZippoSubmod.cs:253,284` (via `XkcdColorHelper.GetAll`) | `KSAColor.Xkcd` static props → `Color.Preset` | `KSAColor.cs:23` | Yes | Same | Reflects all `Xkcd` static color props; cast `(Color.Preset)`. Rename of `Xkcd`/prop-type change would empty the combo. |
 | 14 | Direct typed | `LightController.cs:20-27` | hard-coded preset float3 (Marine/HotPink/RadioactiveGreen/BabyPurple) | n/a (constants from `KSAColor.cs`) | n/a | n/a | Hard-coded RGB; cosmetic only, no runtime dependency. |
 | 15 | Lifecycle/Harmony | `Patcher.cs:19,31` | `HotkeyGuard` → `GameSettings.OnKeyAll` | `GameSettings.cs:3301` | Yes | Same | Shared. |
+
+### Zippo Disco extension (backported 2026-09-06)
+
+| # | Kind | Mod code | Game target (KSA 2026.9.7.5402) | Decomp path | Ownership / risk |
+|---|---|---|---|---|---|
+| D1 | Direct typed | `DiscoLight.cs` | `Part.Modules.Get<LightModule>()`; writable `LightModule.Template` | `KSA/Part.cs:680`; `KSA/ModuleList.cs`; `KSA/LightModule.cs:62` | Each live effect installs a complete module-local template and restores the original only when the module still points to its owned copy. A competing external replacement is preserved. |
+| D2 | Direct typed | `DiscoLight.cs` | `LightModule.TemplateData.{Id,Type,Transform,Range,Intensity,ColorRgb,InnerAngle,OuterAngle,RayTracing,DisableInIva}` | `KSA/LightModule.cs:12-45` | Every field is copied. Color and spotlight angle references become private only for enabled channels; point lights skip cone updates. Field additions to the game require review so the copy remains complete. |
+| D3 | Direct typed | `DiscoLight.cs` | `ColorRgbReference(float3)`, `R/G/B/IndexedColor`, `OnDataLoad(Mod)`; `FloatReference(float)`, `Value` | `KSA/ColorRgbReference.cs`; `KSA/FloatReference.cs` | Per-instance RGB refresh and degree-to-radian half-angle interpolation. No shared part-template mutation or GPU resource is introduced. |
+| D4 | Direct typed | `ZippoSubmod.Disco.cs`; `DiscoLight.cs` | `Part.FullPart.Modules.Get<KeyframeAnimationModule>()`; `Shared.{Duration,PartLookup}`; `TimeGoal` | `KSA/KeyframeAnimationModule.cs:74,76`; `KSA/KeyframeAnimationData.cs:223,225` | Drivers are selected only when their animation targets the light subpart ID. One Disco record owns a shared assembly driver; later starts release the earlier owner. Goals restore only if the last Zippo-written value is still current. KSA's mirrored-part fan-out still needs a live check. |
+| D5 | Direct typed | `DiscoLight.cs`; `ZippoSubmod.Disco.cs` | `Part.LightSwitch`, `Part.FullPart.LightSwitch`, `PowerConsumer.LightIsActive` | `KSA/Part.cs:686,1123`; `KSA/PowerConsumer.cs:30` | Start leaves the switch unchanged. The active inspector may toggle it; stop restores the captured value only if Zippo still owns the last write. |
+| D6 | Direct typed | `ZippoSubmod.cs`; `ZippoSubmod.Disco.cs` | `Part.InstanceId`; live `Vehicle`/`Part` reference identity | `KSA/Part.cs:574` | Ordinary queues use runtime-unique instance keys; active Disco records use reference identity and labels include the instance ID. Each update scans vehicles including debris; disappeared exact references are disposed rather than retargeted. |
+| D7 | StarMap lifecycle | `zippo/Mod.cs`; `unscience/Mod.cs` | `[StarMapBeforeGui]` → `Program.OnDrawUiFrame(double)` | `KSA/Program.cs:2639` | Standalone Zippo now calls `ZippoSubmod.Update(dt)` from its hook; Unscience calls the same method through `UpdateSubmods`. This is essential for ordinary queues and Disco. Unscience also uses `HiddenUiFrameHook` while F2 hides the HUD; standalone playback follows StarMap and pauses while that game UI hook is skipped. |
+
+`DiscoTiming` samples repeating hold/transition phases directly from elapsed time, so skipped frames do
+not require a catch-up loop. Random hues are stable per step and independently seeded per active light.
+Pause freezes recipe time; it does not stop a mechanism already moving toward its last goal. Starting
+Disco cancels the ordinary queue for that light; every ordinary UI/RPC write and queue action stops Disco
+first. `Dispose()` stops all effects and restores owned state for both the standalone mod and Unscience.
+
+**Disco assets/Harmony** — None. No Harmony target, shader, render-pass, byte layout, or game asset is added.
+Native color isolation, actuator selection/ownership, spotlight cone rendering, pause, external-template
+replacement, craft destruction/debris handoff, and unload restoration require an in-game smoke pass.
 
 **Game assets referenced** — None.
 

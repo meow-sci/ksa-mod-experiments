@@ -36,7 +36,18 @@ public class Mod
     }
 
     [StarMapBeforeGui]
-    public void OnBeforeUi(double dt) { }
+    public void OnBeforeUi(double dt)
+    {
+        try
+        {
+            if (!_isInitialized || _isDisposed) return;
+            _submod.Update(dt);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"zippo: Error updating light animations: {ex.Message}");
+        }
+    }
 
     [StarMapAfterGui]
     public void OnAfterUi(double dt)

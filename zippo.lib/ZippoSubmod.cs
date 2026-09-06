@@ -7,12 +7,12 @@ using MeowSci.KsaAbstractions;
 
 namespace MeowSci.ZippoLib;
 
-public sealed class ZippoSubmod : ISubmod
+public sealed partial class ZippoSubmod : ISubmod
 {
     public static ZippoSubmod? Instance { get; private set; }
 
     public string Name => "Zippo - Lights!";
-    public string Tooltip => "Controls light part intensity and colors.";
+    public string Tooltip => "Controls light appearance, queued transitions, and repeating Disco party-light cycles.";
 
     private List<Vehicle> _vehicles = new();
     private string[] _vehicleComboItems = new[] { "(none)" };
@@ -29,7 +29,7 @@ public sealed class ZippoSubmod : ISubmod
     private int _colorComboIdx;
     private bool _colorIsCustom;
     private float4 _currentColor = new(1.0f, 1.0f, 1.0f, 1.0f);
-    private readonly Dictionary<string, float3> _originalColors = new();
+    private readonly Dictionary<Part, float3> _originalColors = new(ReferenceEqualityComparer.Instance);
     private readonly LightAnimationManager _animationManager = new();
 
     // ── Animation UI state ────────────────────────────────────────────────────
@@ -51,7 +51,11 @@ public sealed class ZippoSubmod : ISubmod
     private readonly ImInputString _lightPartFilter = new(128);
 
     public void Initialize() { Instance = this; }
-    public void Update(double dt) { _animationManager.Update(dt, ResolvePartById); }
+    public void Update(double dt)
+    {
+        _animationManager.Update(dt, ResolvePartByKey);
+        UpdateDisco(dt);
+    }
 
     public void RenderContent()
     {
@@ -137,7 +141,8 @@ public sealed class ZippoSubmod : ISubmod
         var selectedPart = SelectedLightPart;
         if (selectedPart != null)
         {
-            bool isAnim = _animationManager.IsAnimating(selectedPart.Id);
+            string selectedPartKey = PartKey(selectedPart);
+            bool isAnim = _animationManager.IsAnimating(selectedPartKey);
             if (isAnim) ImGui.BeginDisabled();
             ImGui.SeparatorText("Light Controls");
 
@@ -156,6 +161,7 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.TableNextColumn();
                 if (ImGui.Button(_lightEnabled ? " Turn Off ##zp" : " Turn On ##zp"))
                 {
+                    StopDisco(selectedPart);
                     _lightEnabled = !_lightEnabled;
                     if (ls != null)
                         ls.LightIsActive = _lightEnabled;
@@ -171,6 +177,7 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.SetNextItemWidth(-1);
                 if (ImGui.DragFloat("##zp_intensity", ref _intensity, 0.005f, 0f, 1f))
                 {
+                    StopDisco(selectedPart);
                     _savedIntensity = _intensity;
                     LightController.ApplyIntensity(selectedPart, _intensity);
                 }
@@ -184,10 +191,11 @@ public sealed class ZippoSubmod : ISubmod
                 var colorItems = BuildColorComboItems();
                 if (ImGui.Combo("##zp_colorpreset", ref _colorComboIdx, colorItems, colorItems.Length))
                 {
+                    StopDisco(selectedPart);
                     if (_colorComboIdx == 0)
                     {
                         // Restore original color
-                        if (_originalColors.TryGetValue(selectedPart.Id, out var orig))
+                        if (_originalColors.TryGetValue(selectedPart, out var orig))
                         {
                             _currentColor = new float4(orig.X, orig.Y, orig.Z, 1.0f);
                             LightController.ApplyColor(selectedPart, orig);
@@ -212,6 +220,7 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.SetNextItemWidth(-1);
                 if (ImGui.ColorEdit4("##zp_colorpicker", ref _currentColor, ImGuiColorEditFlags.NoLabel))
                 {
+                    StopDisco(selectedPart);
                     var color3 = new float3(_currentColor.X, _currentColor.Y, _currentColor.Z);
                     LightController.ApplyColor(selectedPart, color3);
                     _colorIsCustom = true;
@@ -358,6 +367,7 @@ public sealed class ZippoSubmod : ISubmod
             // Queue / Clear buttons
             if (ImGui.Button(" Queue Animation ##zp_qanim"))
             {
+                StopDisco(selectedPart);
                 _animQueueError = null;
                 var startColor = new float3(_animStartColor4.X, _animStartColor4.Y, _animStartColor4.Z);
                 var endColor = new float3(_animEndColor4.X, _animEndColor4.Y, _animEndColor4.Z);
@@ -368,18 +378,18 @@ public sealed class ZippoSubmod : ISubmod
                     _animStartIntensity, _animEndIntensity,
                     duration, easing,
                     _animPowerStart, _animPowerEnd);
-                if (!_animationManager.Enqueue(selectedPart.Id, anim))
+                if (!_animationManager.Enqueue(selectedPartKey, anim))
                     _animQueueError = $"Queue full (max {LightAnimationManager.MaxQueueDepth})";
             }
             ImGui.SameLine();
             if (ImGui.Button(" Clear Queue ##zp_clranim"))
-                _animationManager.CancelAll(selectedPart.Id);
+                _animationManager.CancelAll(selectedPartKey);
 
             if (_animQueueError != null)
                 ImGui.TextColored(new float4(1f, 0.4f, 0.4f, 1f), _animQueueError);
 
-            var activeAnim = _animationManager.GetActiveAnimation(selectedPart.Id);
-            int queueCount = _animationManager.GetQueueCount(selectedPart.Id);
+            var activeAnim = _animationManager.GetActiveAnimation(selectedPartKey);
+            int queueCount = _animationManager.GetQueueCount(selectedPartKey);
             if (activeAnim != null)
             {
                 float progress = (float)(activeAnim.ElapsedSeconds / activeAnim.DurationSeconds);
@@ -392,6 +402,8 @@ public sealed class ZippoSubmod : ISubmod
                 ImGui.Text($"Queued: {queueCount} animation(s)");
             }
         }
+
+        RenderDisco(SelectedVehicle, selectedPart);
 
         // Debug section (collapsed by default, placed after controls)
         if (_vehicleComboIdx > 0 && ImGui.CollapsingHeader("Debug##zp"))
@@ -446,8 +458,8 @@ public sealed class ZippoSubmod : ISubmod
                 LightController.ReadIntensity(part.Template),
                 LightController.ReadColor(part.Template),
                 isEnabled,
-                _animationManager.IsAnimating(part.Id),
-                _animationManager.GetQueueCount(part.Id)));
+                _animationManager.IsAnimating(PartKey(part)),
+                _animationManager.GetQueueCount(PartKey(part))));
         }
         return result;
     }
@@ -458,6 +470,7 @@ public sealed class ZippoSubmod : ISubmod
         var part = ResolvePartInVehicle(vehicleId, partId);
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
+        StopDisco(part);
         if (color.HasValue) LightController.ApplyColor(part, color.Value);
         if (intensity.HasValue) LightController.ApplyIntensity(part, intensity.Value);
         if (enabled.HasValue)
@@ -477,7 +490,8 @@ public sealed class ZippoSubmod : ISubmod
         var part = ResolvePartInVehicle(vehicleId, partId);
         if (part == null) return $"Part '{partId}' not found on vehicle '{vehicleId}'.";
 
-        if (!_animationManager.Enqueue(partId, animation))
+        StopDisco(part);
+        if (!_animationManager.Enqueue(PartKey(part), animation))
             return $"Animation queue is full for part '{partId}' (max {LightAnimationManager.MaxQueueDepth}).";
         return null;
     }
@@ -485,25 +499,42 @@ public sealed class ZippoSubmod : ISubmod
     /// <summary>Clears the animation queue for a specific part. Returns error message or null on success.</summary>
     public string? ClearAnimationQueue(string vehicleId, string partId)
     {
-        // No error if part doesn't exist — clear is idempotent
-        _animationManager.CancelAll(partId);
+        // No error if part doesn't exist — clear is idempotent.
+        var part = ResolvePartInVehicle(vehicleId, partId);
+        if (part != null) _animationManager.CancelAll(PartKey(part));
         return null;
     }
 
     /// <summary>Returns true if a part has an active animation.</summary>
-    public bool IsAnimating(string partId) => _animationManager.IsAnimating(partId);
-
-    private Part? ResolvePartById(string partId)
+    public bool IsAnimating(string partId)
     {
-        var vehicles = VehicleProvider.GetAllVehicles();
+        foreach (var vehicle in VehicleProvider.GetAllVehicles(includeDebris: true))
+        {
+            foreach (var part in LightController.GetLightParts(vehicle))
+            {
+                if ((part.Id == partId || PartKey(part) == partId)
+                    && _animationManager.IsAnimating(PartKey(part)))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private Part? ResolvePartByKey(string partKey)
+    {
+        var vehicles = VehicleProvider.GetAllVehicles(includeDebris: true);
         foreach (var v in vehicles)
         {
             var parts = LightController.GetLightParts(v);
             foreach (var p in parts)
-                if (p.Id == partId) return p;
+                if (PartKey(p) == partKey) return p;
         }
         return null;
     }
+
+    private static string PartKey(Part part) => $"part-instance:{part.InstanceId}";
 
     private Part? ResolvePartInVehicle(string vehicleId, string partId)
     {
@@ -512,7 +543,12 @@ public sealed class ZippoSubmod : ISubmod
         return LightController.GetLightParts(vehicle).Find(p => p.Id == partId);
     }
 
-    public void Dispose() { Instance = null; }
+    public void Dispose()
+    {
+        StopAllDisco();
+        _animationManager.Clear();
+        Instance = null;
+    }
 
     private Vehicle? SelectedVehicle =>
         _vehicleComboIdx > 0 && (_vehicleComboIdx - 1) < _vehicles.Count
@@ -568,13 +604,13 @@ public sealed class ZippoSubmod : ISubmod
         _lightEnabled = ls == null || ls.LightIsActive;
 
         // First-time discovery: save the original color for this part
-        if (!_originalColors.ContainsKey(part.Id))
-            _originalColors[part.Id] = LightController.ReadColor(part.Template);
+        if (!_originalColors.ContainsKey(part))
+            _originalColors[part] = LightController.ReadColor(part.Template);
 
         // Default to the "Default" preset (original color)
         _colorIsCustom = false;
         _colorComboIdx = 0;
-        var orig = _originalColors[part.Id];
+        var orig = _originalColors[part];
         _currentColor = new float4(orig.X, orig.Y, orig.Z, 1.0f);
 
         // Seed animation start values from current part state

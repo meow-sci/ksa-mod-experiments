@@ -99,7 +99,7 @@ When a new game version arrives, bump this baseline and re-run the workflow belo
 | [`game-integration-surface.md`](game-integration-surface.md) | **Master cross-reference index** — every game type/member touched, merged across mods | Start here for "does the game still have X?"; includes the string-reflection watchlist + shader/asset table |
 | [`00-architecture-and-abstractions.md`](00-architecture-and-abstractions.md) | unscience supermod shell (`Mod.cs`/`Patcher.cs`/`MenuBarPatch`/`UnscienceState`) + `ksa-abstractions.lib` | StarMap lifecycle map, consolidated-Harmony cross-ref, `HotkeyGuard`, `IvaForceRender`, providers |
 | [`vehicle-physics.md`](vehicle-physics.md) | eternal-flame, garrys-torch, i-feel-seen | `Universe.ExecuteNextVehicleSolvers`, `Battery.Refill`, `Vehicle.Teleport`, KittenEva reflection; **garrys-torch solver-drain rewrite (`JobSystems.VehicleSolver`)** |
-| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`, `KeyframeAnimationModule.TimeGoal`; **zippo color latent bug** |
+| [`celestial-and-lights.md`](celestial-and-lights.md) | kiwis-marbles, zippo, red-alert | `Celestial.SetOrbit`, `IParentBody.Children`/`UpdatePerFrameDataTree`, `Universe.ExecuteNextVehicleSolvers` prefix (kiwis-marbles sim-step timing, fixed 2026-08-23), `IOrbiter`, `LightModule`/`LightSwitch`; Zippo Disco's per-instance templates, cone angles and `KeyframeAnimationModule.TimeGoal` ownership |
 | [`camera.md`](camera.md) | camera-controller-override, glass, hot-pursuit | `OrbitController/FlyController/FixedController.OnFrame`, `Camera._fovRadians`; four public secondary-viewport leases under the sealed 8-slot registry; part-raycast camera mounts; Hot Pursuit nearby-celestial sync and stock secondary-render omissions |
 | [`telemetry.md`](telemetry.md) | average-twr, geeforce | `NavBallData.ThrustWeightRatio`, `VehicleConfigInfo.TotalEngineVacuumThrust`, `Vehicle.AccelerationBody`, `Situation` |
 | [`pixel-grids-and-render.md`](pixel-grids-and-render.md) | blinky, its-so-shiny, thug-life | three `*Module.UpdateRenderData` patches, `PartTree.CreateFromNewPartTree`, `RocketCore.FeedConnectors` (blinky ignition), `SuperMeshRenderSystem.RenderMainPass`, UnlitMesh shaders |
@@ -141,6 +141,13 @@ items, one game-side regression.**
   the way `Vehicle.AddVolumetricExhaustInstances` does.
 
 **Pebbles backport:** bundled through main's `ISubmod`/shared Harmony lifecycle, with session-owned authoring and applied controls in its existing panel. Managed checks and compilation cover the port; native apply/restore, collision, preview and unload still need an in-game smoke pass. See [ground clutter](ground-clutter.md).
+
+**Zippo Disco backport:** the abandoned new-UX branch's complete party-light engine now runs through
+main's existing standalone and Unscience `ISubmod` lifecycle. It supports vehicle-wide or per-light
+color, moving-assembly actuation and spotlight-spread cycles with independent timing, pause/status
+controls, exact runtime ownership, conflict handling and stop/disappearance/unload restoration. No
+Harmony target, shader or asset dependency was added. Native color isolation, actuation, cone spread,
+craft destruction and unload restoration still need an in-game smoke pass. See [celestial and lights](celestial-and-lights.md).
 
 **Behavioral — compile-clean, needs a live pass before any code change:**
 - **hot-pursuit** — nearby-celestial synchronization now prevents the 5402 secondary distant-sphere
