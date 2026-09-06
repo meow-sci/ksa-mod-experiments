@@ -17,12 +17,18 @@ public sealed class KittenAnimationDriver
 {
     private bool _wasOverriding;
     private bool _restartRequested;
+    private float? _originalEarWeight;
+    private float? _originalEyeLookAngle;
+    private float? _originalPersonalityWeight;
+    private bool _earOverrideApplied;
+    private bool _eyeLookOverrideApplied;
+    private bool _personalityOverrideApplied;
 
-    /// <summary>The kitten body model the overrides apply to. Refreshed once per frame by the submod.</summary>
-    public AnimatedRenderable? TargetModel { get; set; }
+    /// <summary>The kitten body model the overrides apply to.</summary>
+    public AnimatedRenderable? TargetModel { get; private set; }
 
     /// <summary>The game's own animation processors on that model.</summary>
-    public KittenAnimProcessors? Processors { get; set; }
+    public KittenAnimProcessors? Processors { get; private set; }
 
     // --- clip override ---
 
@@ -81,23 +87,55 @@ public sealed class KittenAnimationDriver
         Release();
         ForcedAnimation = null;
         ForcedLabel = string.Empty;
+        _restartRequested = false;
+    }
+
+    /// <summary>Binds the driver to one kitten and records the persistent values it may override.</summary>
+    public void BindTarget(AnimatedRenderable model, KittenAnimProcessors processors)
+    {
+        if (ReferenceEquals(TargetModel, model) && ReferenceEquals(Processors, processors)) return;
+
+        UnbindTarget();
+        TargetModel = model;
+        Processors = processors;
+        _originalEarWeight = processors.Ear?.ExpressionWeight;
+        _originalEyeLookAngle = processors.Eye?.MaxLookAtAngle;
+        _originalPersonalityWeight = processors.Personality?.ExpressionWeight;
+    }
+
+    /// <summary>Releases the current kitten and restores persistent processor values owned by the mod.</summary>
+    public void UnbindTarget()
+    {
+        RestorePersistentProcessorOverrides();
+
+        if (_wasOverriding && TargetModel != null)
+            TargetModel.FreezeAnimation = false;
+
+        TargetModel = null;
+        Processors = null;
+        _originalEarWeight = null;
+        _originalEyeLookAngle = null;
+        _originalPersonalityWeight = null;
+        _earOverrideApplied = false;
+        _eyeLookOverrideApplied = false;
+        _personalityOverrideApplied = false;
+        _wasOverriding = false;
     }
 
     /// <summary>Clears every override and forgets the resolved model. Called on unload / kitten change.</summary>
     public void Reset()
     {
+        UnbindTarget();
         Release();
         ForcedAnimation = null;
         ForcedLabel = string.Empty;
+        _restartRequested = false;
         PlaybackRateScale = 1f;
         OverrideEarWeight = false;
         OverrideEyeLookAngle = false;
         OverrideEyePitch = false;
         OverridePersonalityWeight = false;
         LimitReactiveExpression = false;
-        TargetModel = null;
-        Processors = null;
-        _wasOverriding = false;
     }
 
     /// <summary>
@@ -126,21 +164,51 @@ public sealed class KittenAnimationDriver
         var processors = Processors;
         if (processors == null) return;
 
-        if (OverrideEarWeight && processors.Ear != null)
-            processors.Ear.ExpressionWeight = EarWeight;
+        if (processors.Ear != null)
+        {
+            if (OverrideEarWeight)
+            {
+                processors.Ear.ExpressionWeight = EarWeight;
+                _earOverrideApplied = true;
+            }
+            else if (_earOverrideApplied && _originalEarWeight.HasValue)
+            {
+                processors.Ear.ExpressionWeight = _originalEarWeight.Value;
+                _earOverrideApplied = false;
+            }
+        }
 
         if (processors.Eye != null)
         {
             if (OverrideEyeLookAngle)
+            {
                 processors.Eye.MaxLookAtAngle = EyeLookAngleDeg;
+                _eyeLookOverrideApplied = true;
+            }
+            else if (_eyeLookOverrideApplied && _originalEyeLookAngle.HasValue)
+            {
+                processors.Eye.MaxLookAtAngle = _originalEyeLookAngle.Value;
+                _eyeLookOverrideApplied = false;
+            }
 
             // The game rewrites LookPitchOffsetDeg every frame (0 unless on a ladder or swimming).
             if (OverrideEyePitch)
                 processors.Eye.LookPitchOffsetDeg = EyePitchDeg;
         }
 
-        if (OverridePersonalityWeight && processors.Personality != null)
-            processors.Personality.ExpressionWeight = PersonalityWeight;
+        if (processors.Personality != null)
+        {
+            if (OverridePersonalityWeight)
+            {
+                processors.Personality.ExpressionWeight = PersonalityWeight;
+                _personalityOverrideApplied = true;
+            }
+            else if (_personalityOverrideApplied && _originalPersonalityWeight.HasValue)
+            {
+                processors.Personality.ExpressionWeight = _originalPersonalityWeight.Value;
+                _personalityOverrideApplied = false;
+            }
+        }
 
         // The reactive face is driven from vehicle acceleration; we can only cap it after the fact.
         if (LimitReactiveExpression && processors.Reactive != null)
@@ -175,5 +243,20 @@ public sealed class KittenAnimationDriver
 
         if (PlaybackRateScale != 1f)
             dt *= PlaybackRateScale;
+    }
+
+    private void RestorePersistentProcessorOverrides()
+    {
+        var processors = Processors;
+        if (processors == null) return;
+
+        if (_earOverrideApplied && processors.Ear != null && _originalEarWeight.HasValue)
+            processors.Ear.ExpressionWeight = _originalEarWeight.Value;
+
+        if (_eyeLookOverrideApplied && processors.Eye != null && _originalEyeLookAngle.HasValue)
+            processors.Eye.MaxLookAtAngle = _originalEyeLookAngle.Value;
+
+        if (_personalityOverrideApplied && processors.Personality != null && _originalPersonalityWeight.HasValue)
+            processors.Personality.ExpressionWeight = _originalPersonalityWeight.Value;
     }
 }

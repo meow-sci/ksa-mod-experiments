@@ -17,7 +17,7 @@ A unified supermod that consolidates 29 KSA feature libraries into a single ImGu
 | Free Fallin — Parachute Customizer | Applies a global stock tint, panel-tiled or cohesive full-canopy PNG, centered decal, and canopy PBR controls |
 | I Feel Seen | Forces vehicle render data updates at any distance |
 | Its So Shiny | Builds and controls Blinky-style pixel grids from built-in light parts |
-| Kitten Animations | Plays kitten avatar MMU animations, expressions, and walking animations |
+| Kitten Animations | Targets any live EVA kitten through a filterable picker, then plays body animations and expressions |
 | Kiwi's Marbles | Welds celestial bodies to other orbiters with CCI offsets |
 | Rocky McRock Face | Swaps planetary ring meshes/textures (Saturn's rock field) with any built-in mesh |
 | Pebbles — Ground Clutter | Replaces selected planet clutter types with built-in meshes or GLBs, with scale, collider editing and per-planet restore |

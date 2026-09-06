@@ -1,12 +1,15 @@
 # Kitten Animations — Avatar Animation Controller
 
-Plays any animation the game has loaded for the controlled kitten, triggers facial expressions, and
-exposes the blend weights and locomotion tuning that decide how hard each animation lands.
+Plays any animation the game has loaded for a selected EVA kitten, triggers facial expressions, and
+exposes the blend weights and locomotion tuning that decide how hard each animation lands. The target
+can follow the controlled kitten automatically or be pinned to any live EVA kitten in the system.
 
 ## Overview
 
 Kitten Animations lets you:
 
+- **Target any EVA kitten** — a filterable dropdown follows the controlled kitten by default or pins
+  the panel to a named live `KittenEva` without taking control of it
 - **Play every loaded clip** — the full ground/EVA locomotion set (idle, walk, run, jump, jump land,
   tumble, ladder, moon walk, moon run, swim, swim idle, seated idle + seated idle actions), the full
   MMU set (idle default, idle actions, six directional loops, arm retract), the live blend samplers,
@@ -44,9 +47,11 @@ frame (`CatEyeAnim.LookPitchOffsetDeg` and the reactive `CatExpressionAnim.Expre
 
 #### `KittenAvatarAccessor`
 
-Resolves the controlled kitten and its avatar.
+Discovers live EVA kittens and resolves the selected kitten's avatar.
 
-- `GetKitten()` — controlled vehicle as `KittenEva`
+- `GetControlledKitten()` — controlled vehicle as `KittenEva`
+- `GetAllKittens()` — all live `KittenEva` vehicles in the current system, sorted by id
+- `FindKitten(id)` — stable-id lookup for an explicitly selected kitten
 - `GetKittenRenderable()` — `KittenEva.Renderable` (public property; no reflection)
 - `GetAvatar(KittenRenderable)` / `GetKittenAvatar()` — `KittenRenderable._characterAvatar`
   (private field, reflection)
@@ -119,15 +124,18 @@ standalone and from `unscience/Patcher.cs` when embedded.
 
 #### `KittenAnimationsSubmod`
 
-`ISubmod` implementation. `Update(dt)` re-resolves the kitten, rebinds when the avatar changes
+`ISubmod` implementation. `Update(dt)` resolves either the controlled kitten or the explicitly
+selected kitten id, rebinds when the kitten/avatar changes
 (rebuilding the catalog, re-reading the processors, re-attaching the expression processor), refreshes
-`KittenAnimationDriver.TargetModel`, and advances the expression envelope. `RenderContent()` renders
+the driver target, and advances the expression envelope. Switching targets clears the target-specific
+clip/expression and restores persistent processor values on the old kitten. `RenderContent()` renders
 the sections below without any window framing.
 
 ### UI sections (`kitten-animations.lib/Ui`)
 
 | Section | Contents |
 |---|---|
+| `TargetSection` | filterable live-EVA-kitten selector; automatic controlled-kitten mode or stable explicit id |
 | `PlaybackSection` | live locomotion readout; override on/off, restart, freeze, clear; blend time and playback-rate multiplier |
 | `AnimationLibrarySection` | one collapsible group per catalog group, one button per clip, active clip highlighted, tooltip shows asset id + length |
 | `ExpressionSection` | variant selector, five triggers + clear, strength/ease-in/hold/ease-out drag fields (type-to-exceed), latch, live status |
@@ -137,7 +145,9 @@ the sections below without any window framing.
 ## UI (`Mod.cs`)
 
 Standalone: **F11** toggles a `Kitten Animations` window that hosts the submod content. Embedded in
-unscience under its own collapsible header.
+unscience under its own collapsible header. Selecting a target never changes game control or moves
+the camera. If an explicit target boards or despawns, its id remains selected and is shown as
+unavailable until it returns to EVA or another target is chosen.
 
 ## Configuration
 

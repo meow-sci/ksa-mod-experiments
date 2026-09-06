@@ -301,16 +301,20 @@ rebuild, which is what recompiles the part pipelines.
 
 ## kitten-animations
 
-**Purpose** — Drives the controlled kitten's `CharacterAvatar`: plays every animation the game loaded
-for it (the full ground/EVA locomotion set, the MMU set, the live blend samplers, the overlay poses),
-triggers the five facial expressions, and exposes the animation-processor blend weights plus the
-animation-facing slice of `KittenLocomotionTuning.Current`.
+**Purpose** — Drives a selected live EVA kitten's `CharacterAvatar`: plays every animation the game
+loaded for it (the full ground/EVA locomotion set, the MMU set, the live blend samplers, the overlay
+poses), triggers the five facial expressions, and exposes the animation-processor blend weights plus
+the animation-facing slice of `KittenLocomotionTuning.Current`. A filterable picker follows the
+controlled kitten by default or pins the panel to any current-system `KittenEva` by stable vehicle id;
+selection never changes game control.
 
 **Unscience integration** — `KittenAnimationsSubmod : ISubmod`
-(`kitten-animations.lib/KittenAnimationsSubmod.cs`) binds the controlled `KittenEva` and owns a
+(`kitten-animations.lib/KittenAnimationsSubmod.cs`) resolves and binds the selected `KittenEva` and owns a
 `KittenAnimationCatalog`, a `KittenAnimProcessors`, a `KittenExpressionController` and a
-`KittenAnimationDriver`. `Update(dt)` (from `[StarMapBeforeGui]`) rebinds on avatar change, refreshes
-`KittenAnimationDriver.TargetModel` and advances the expression envelope.
+`KittenAnimationDriver`. `Update(dt)` (from `[StarMapBeforeGui]`) rebinds on kitten/avatar change and
+advances the expression envelope. Explicit targets survive control changes; missing targets unbind
+without fallback and rebind if the same id returns. Driver bind/unbind snapshots and restores the
+persistent ear, eye-angle and personality values that the mod actually changed.
 
 **Harmony (new this pass)** — one prefix on `AnimatedRenderable.UpdateAnimation(double dt)`
 (`KittenAnimationPatches`). Applied from `kitten-animations/Patcher.cs` standalone and from
@@ -321,7 +325,8 @@ every `AnimatedRenderable` in the scene and returns immediately unless the insta
 model; it also re-applies processor knobs the game rewrites per frame and can scale `dt`.
 
 **UI / hotkeys** — Standalone **F11** window (`kitten-animations/Mod.cs`); embedded in unscience.
-Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim Tuning.
+Sections: filterable Target Kitten selector, Playback, Animations, Expressions, Animation Strength,
+Locomotion Anim Tuning.
 
 **Persistence** — None.
 
@@ -329,7 +334,7 @@ Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim
 
 | # | Kind | Mod code (file) | Game target (Type.Member + sig) | Decomp path (NEW) | In NEW? | Risk/notes |
 |---|---|---|---|---|---|---|
-| 1 | Typed (via abstraction) | KittenAvatarAccessor.cs | `VehicleProvider.GetControlledVehicle()` → `Program.ControlledVehicle : Vehicle?`; pattern-match `is KittenEva` | KSA/Program.cs; KSA/KittenEva.cs:13 | ✅ | unchanged |
+| 1 | Typed (via abstraction) | KittenAvatarAccessor.cs, TargetSection.cs | automatic mode: `VehicleProvider.GetControlledVehicle()` → `Program.ControlledVehicle : Vehicle?`; explicit mode/list: `VehicleProvider.{GetAllVehicles(),FindVehicle(string)}` → `Universe.CurrentSystem.All`, with `Vehicle.Id`; pattern-match `is KittenEva` | KSA/Program.cs; KSA/Universe.cs; KSA/CelestialSystem.cs; KSA/Astronomical.cs; KSA/KittenEva.cs:13 | ✅ | target stored by stable id, never combo index/object reference; live list excludes debris through VehicleProvider |
 | 2 | Typed | KittenAvatarAccessor.cs | `KittenEva.Renderable : KittenRenderable` (public property) | KSA/KittenEva.cs:59 | ✅ | **replaces the old `_renderable` reflection** — added rev ≤5348 |
 | 3 | Reflection (private) | KittenAvatarAccessor.cs | `KittenRenderable._characterAvatar : CharacterAvatar` | KSA/KittenRenderable.cs:12 | ✅ | same field doh/garrys use |
 | 4 | Typed | PlaybackSection.cs | `KittenEva.{LocomotionState, ControlMode, AnimPlaybackRate, AnimJumpChainStage, AnimJumpChainCountdown}` | KSA/KittenEva.cs:51,67,53,55,57 | ✅ | read-only status; all public |
@@ -358,6 +363,19 @@ Sections: Playback, Animations, Expressions, Animation Strength, Locomotion Anim
 - **None by string/path.** Every animation is a typed `AnimationAssetRef` / `IAnimation` already
   resolved by the game on the live `KittenRenderable` / `CharacterAvatar`; the mod selects from them
   and never loads an asset by id. No shader, material, or character-id references.
+
+### Current target-selection findings
+
+- ✅ **Any live EVA kitten can now be targeted without taking control.** The selector uses the same
+  filterable-combo UX as other vehicle pickers, defaults to following `Program.ControlledVehicle`,
+  and pins explicit choices by `Vehicle.Id`. KSA's render path walks every `KittenEva` in
+  `Program.VehiclesInFrame` and calls its `KittenRenderable.UpdateRenderData`, so the existing
+  model-identity-filtered `AnimatedRenderable.UpdateAnimation` prefix works unchanged for an
+  uncontrolled target. Seated IVA crew are separate renderables and remain out of scope.
+- ✅ **Target changes release target-owned state.** A forced clip/expression is cleared, the mod-owned
+  expression processor is detached, and persistent ear/eye-angle/personality values are restored on
+  the previous target. Reactive face and eye pitch remain game-driven and are rewritten before the
+  prefix each render. No new Harmony, reflection, shader or asset surface was added.
 
 ### Update-risk findings (5348, rework pass)
 

@@ -21,6 +21,10 @@ Unscience collapsible panel; state is session-only. See [Pebbles](pebbles.lib/RE
 color, moving-assembly actuation, and spotlight beam-spread cycles. Runtime light templates are
 isolated per instance and restored when the effect stops. See [Zippo](zippo/README.md).
 
+`kitten-animations` can drive any live EVA kitten without taking control of it. Its filterable target
+picker follows the controlled kitten by default or stays pinned to an explicitly selected kitten id.
+See [Kitten Animations](kitten-animations/README.md).
+
 To install dependencies:
 
 ```bash

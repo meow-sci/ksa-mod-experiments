@@ -215,7 +215,8 @@ Light-part pixel grid builder. Builds Blinky-style NxM grids using KSA's built-i
 - **its-so-shiny.lib**: `ItsSoShinySubmod` (ISubmod UI), `ShinyGridManager` (registration, patterns, static display, scroll APIs), `ShinyGridBuilder` (runtime creation/destruction), `ShinyPixelGrid`, `ShinyPixelCell`, `ShinyGridConfig`, `ShinyScrollAnimation`, `ShinyPixelPatterns`. Used by `unladen-swallow.lib` for RPC endpoints.
 
 ### [kitten-animations](kitten-animations) / [kitten-animations.lib](kitten-animations.lib)
-Kitten avatar animation controller. Plays every animation the game has loaded for the controlled kitten, triggers facial expressions, and exposes the blend weights and locomotion tuning that decide how hard each animation lands.
+Kitten avatar animation controller. Plays every animation the game has loaded for a selected live EVA kitten, triggers facial expressions, and exposes the blend weights and locomotion tuning that decide how hard each animation lands.
+- Filterable target dropdown: follow the controlled kitten automatically or pin the panel to any live EVA kitten by stable vehicle id without changing game control
 - Full ground/EVA locomotion set: idle, walk, run, jump, jump land, tumble/flail, ladder, moon walk, moon run, swim, swim idle, seated idle + seated idle actions
 - Full MMU set: idle default, idle actions, six directional loops, arm retract
 - Live blend samplers (walk/moonwalk, run/moonrun, swim pair, MMU directional) and overlay poses (blink, ear/helmet mask)
@@ -224,7 +225,7 @@ Kitten avatar animation controller. Plays every animation the game has loaded fo
 - Animation strength knobs: ear motion weight, eye look angle, eye pitch offset, personality mood-face weight, reactive-face cap
 - Animation-facing slice of `KittenLocomotionTuning.Current` (blend time, playback-rate clamps, nominal clip speeds, moonwalk/swim ramps, jump-land timing) with a scoped reset
 - Live readout: locomotion mode, control mode, ground speed, gravity, jump-chain stage, game playback rate, blend weights
-- **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — binds the kitten and renders all sections), `KittenAnimationCatalog` (discovers every loaded clip; ground set lives in private `KittenRenderable` fields), `KittenAnimProcessors` (typed handles on the game's four anim processors), `KittenExpressionController` (mod-owned `CatExpressionAnim` + envelope), `KittenAnimationDriver` (override state applied from the pose prefix), `KittenAnimationPatches` (Harmony), `KittenAvatarAccessor` (kitten/renderable/avatar access), `Ui/` (Playback, AnimationLibrary, Expression, Strength, Tuning sections)
+- **kitten-animations.lib**: `KittenAnimationsSubmod` (ISubmod — resolves and binds the selected kitten), `KittenAnimationCatalog` (discovers every loaded clip; ground set lives in private `KittenRenderable` fields), `KittenAnimProcessors` (typed handles on the game's four anim processors), `KittenExpressionController` (mod-owned `CatExpressionAnim` + envelope), `KittenAnimationDriver` (target ownership + override state applied from the pose prefix), `KittenAnimationPatches` (Harmony), `KittenAvatarAccessor` (live-kitten discovery/renderable/avatar access), `Ui/` (Target, Playback, AnimationLibrary, Expression, Strength, Tuning sections)
 
 ### [byo-music](byo-music) / [byo-music.lib](byo-music.lib)
 Bring Your Own Music - Custom music player. Plays audio playlists from defined assets (e.g., SabotageMusic playlist).

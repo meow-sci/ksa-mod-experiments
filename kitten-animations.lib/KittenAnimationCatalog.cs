@@ -28,7 +28,7 @@ public sealed class AnimationGroup
 }
 
 /// <summary>
-/// Discovers every animation the game has loaded for the controlled kitten.
+/// Discovers every animation the game has loaded for the selected EVA kitten.
 ///
 /// The ground locomotion set (idle/walk/run/jump/land/tumble/ladder/moonwalk/moonrun/swim/seated)
 /// is loaded by KittenRenderable into private fields from CharacterGroundAnimationsReference — it is

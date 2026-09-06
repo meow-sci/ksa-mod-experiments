@@ -7,7 +7,7 @@ using MeowSci.KsaAbstractions;
 namespace MeowSci.KittenAnimationsLib;
 
 /// <summary>
-/// Animation panel for the controlled kitten: plays any clip the game loaded for it, triggers facial
+/// Animation panel for a selected EVA kitten: plays any clip the game loaded for it, triggers facial
 /// expressions, and exposes the blend weights and locomotion tuning that decide how hard each
 /// animation lands.
 /// </summary>
@@ -19,9 +19,12 @@ public sealed class KittenAnimationsSubmod : ISubmod
     private readonly KittenAnimationDriver _driver = new();
     private readonly KittenExpressionController _expressions = new();
     private readonly Random _random = new();
+    private readonly ImInputString _targetFilter = new(128);
 
     private AnimationUiContext? _context;
+    private KittenEva? _boundKitten;
     private CharacterAvatar? _boundAvatar;
+    private string? _selectedKittenId;
 
     public void Initialize()
     {
@@ -32,7 +35,7 @@ public sealed class KittenAnimationsSubmod : ISubmod
     {
         try
         {
-            var kitten = KittenAvatarAccessor.GetKitten();
+            var kitten = ResolveTargetKitten();
             var renderable = kitten?.Renderable;
             var avatar = KittenAvatarAccessor.GetAvatar(renderable);
 
@@ -42,11 +45,8 @@ public sealed class KittenAnimationsSubmod : ISubmod
                 return;
             }
 
-            if (!ReferenceEquals(avatar, _boundAvatar))
+            if (!ReferenceEquals(kitten, _boundKitten) || !ReferenceEquals(avatar, _boundAvatar))
                 Bind(kitten, renderable, avatar);
-
-            // Refreshed every frame: the model is what the Harmony prefix matches against.
-            _driver.TargetModel = avatar.Core.CharacterModel;
 
             _expressions.Update(dt);
         }
@@ -61,11 +61,19 @@ public sealed class KittenAnimationsSubmod : ISubmod
     {
         SubmodUI.BeginContentArea("##ka_content");
 
+        var kittens = KittenAvatarAccessor.GetAllKittens();
+        var controlledKitten = KittenAvatarAccessor.GetControlledKitten();
+        if (TargetSection.Render(kittens, controlledKitten, _selectedKittenId, _targetFilter,
+                out var selectedKittenId))
+        {
+            SelectTarget(selectedKittenId);
+        }
+
+        ImGui.Spacing();
         var context = _context;
         if (context == null)
         {
-            ImGui.TextDisabled("No kitten under control.");
-            ImGui.TextDisabled("Take control of a kitten on EVA to play its animations.");
+            RenderNoTargetMessage(kittens, controlledKitten);
             SubmodUI.EndContentArea();
             return;
         }
@@ -92,14 +100,15 @@ public sealed class KittenAnimationsSubmod : ISubmod
 
     private void Bind(KittenEva kitten, KittenRenderable renderable, CharacterAvatar avatar)
     {
+        Unbind();
+
         var catalog = KittenAnimationCatalog.Build(avatar, renderable);
         var processors = KittenAnimProcessors.Read(renderable);
 
-        _expressions.Detach();
         _expressions.Attach(avatar);
 
         _driver.ClearClip();
-        _driver.Processors = processors;
+        _driver.BindTarget(avatar.Core.CharacterModel, processors);
 
         _context = new AnimationUiContext
         {
@@ -112,6 +121,7 @@ public sealed class KittenAnimationsSubmod : ISubmod
             Random = _random,
         };
 
+        _boundKitten = kitten;
         _boundAvatar = avatar;
 
         if (catalog.UnresolvedFields.Count > 0)
@@ -120,13 +130,65 @@ public sealed class KittenAnimationsSubmod : ISubmod
 
     private void Unbind()
     {
-        if (_boundAvatar == null) return;
-
         _expressions.Detach();
         _driver.ClearClip();
-        _driver.TargetModel = null;
-        _driver.Processors = null;
+        _driver.UnbindTarget();
         _context = null;
+        _boundKitten = null;
         _boundAvatar = null;
+    }
+
+    private KittenEva? ResolveTargetKitten()
+    {
+        return _selectedKittenId == null
+            ? KittenAvatarAccessor.GetControlledKitten()
+            : KittenAvatarAccessor.FindKitten(_selectedKittenId);
+    }
+
+    private void SelectTarget(string? kittenId)
+    {
+        if (string.Equals(_selectedKittenId, kittenId, StringComparison.Ordinal)) return;
+
+        Unbind();
+        _selectedKittenId = kittenId;
+    }
+
+    private void RenderNoTargetMessage(
+        System.Collections.Generic.IReadOnlyCollection<KittenEva> kittens,
+        KittenEva? controlledKitten)
+    {
+        if (_selectedKittenId != null)
+        {
+            bool available = false;
+            foreach (var kitten in kittens)
+            {
+                if (!string.Equals(kitten.Id, _selectedKittenId, StringComparison.Ordinal)) continue;
+                available = true;
+                break;
+            }
+
+            if (available)
+            {
+                ImGui.TextDisabled($"Binding selected kitten '{_selectedKittenId}'...");
+            }
+            else
+            {
+                ImGui.TextDisabled($"Selected kitten '{_selectedKittenId}' is not currently on EVA.");
+                ImGui.TextDisabled("Choose another target, or wait for this kitten to return to EVA.");
+            }
+        }
+        else if (controlledKitten != null)
+        {
+            ImGui.TextDisabled($"Binding controlled kitten '{controlledKitten.Id}'...");
+        }
+        else if (kittens.Count > 0)
+        {
+            ImGui.TextDisabled("No EVA kitten is currently controlled.");
+            ImGui.TextDisabled("Select a target kitten above, or take control of one.");
+        }
+        else
+        {
+            ImGui.TextDisabled("No EVA kittens are available in the current system.");
+        }
     }
 }
