@@ -1,3 +1,7 @@
+using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace MeowSci.UnladenSwallowLib;
 
 /// <summary>Standard API response envelope.</summary>
@@ -466,11 +470,66 @@ public enum TorchEasingType
 /// <summary>3D vector for position (meters) or rotation (degrees).</summary>
 public record Vec3(float X, float Y, float Z);
 
+/// <summary>
+/// Reads an XYZ scale object, while accepting the pre-XYZ scalar representation as a
+/// backwards-compatible uniform scale. Scale responses are always written as XYZ objects.
+/// </summary>
+public sealed class ScaleVectorJsonConverter : JsonConverter<Vec3>
+{
+    public override Vec3 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Number)
+        {
+            float factor = reader.GetSingle();
+            return new Vec3(factor, factor, factor);
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Scale must be a number or an object with x, y, and z values.");
+
+        float? x = null;
+        float? y = null;
+        float? z = null;
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+        {
+            if (reader.TokenType != JsonTokenType.PropertyName)
+                throw new JsonException("Invalid scale object.");
+
+            string? propertyName = reader.GetString();
+            if (!reader.Read())
+                throw new JsonException("Incomplete scale object.");
+
+            if (propertyName?.Equals("x", StringComparison.OrdinalIgnoreCase) == true)
+                x = reader.GetSingle();
+            else if (propertyName?.Equals("y", StringComparison.OrdinalIgnoreCase) == true)
+                y = reader.GetSingle();
+            else if (propertyName?.Equals("z", StringComparison.OrdinalIgnoreCase) == true)
+                z = reader.GetSingle();
+            else
+                reader.Skip();
+        }
+
+        if (!x.HasValue || !y.HasValue || !z.HasValue)
+            throw new JsonException("Scale must provide x, y, and z values.");
+
+        return new Vec3(x.Value, y.Value, z.Value);
+    }
+
+    public override void Write(Utf8JsonWriter writer, Vec3 value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteNumber("x", value.X);
+        writer.WriteNumber("y", value.Y);
+        writer.WriteNumber("z", value.Z);
+        writer.WriteEndObject();
+    }
+}
+
 /// <summary>Full weld configuration data (used in create, modify, presets).</summary>
 public record WeldData(
     Vec3 Position,
     Vec3 Rotation,
-    float Scale = 1f,
+    [property: JsonConverter(typeof(ScaleVectorJsonConverter))] Vec3? Scale = null,
     bool LockRotation = true
 );
 
@@ -480,7 +539,7 @@ public record WeldInfo(
     string TargetVehicleId,
     Vec3 Position,
     Vec3 Rotation,
-    float Scale,
+    Vec3 Scale,
     bool LockRotation
 );
 
@@ -502,7 +561,7 @@ public record TorchModifyWeldRequest(
     string SourceVehicleId,
     Vec3? Position = null,
     Vec3? Rotation = null,
-    float? Scale = null,
+    [property: JsonConverter(typeof(ScaleVectorJsonConverter))] Vec3? Scale = null,
     bool? LockRotation = null
 );
 
@@ -532,7 +591,7 @@ public record TorchPresetInfo(
     string Name,
     Vec3 Position,
     Vec3 Rotation,
-    float Scale,
+    Vec3 Scale,
     bool LockRotation
 );
 

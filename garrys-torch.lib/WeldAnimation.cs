@@ -13,10 +13,10 @@ public class WeldAnimation
 {
     public float3 StartPosition { get; }
     public float3 StartRotation { get; }
-    public float StartScale { get; }
+    public float3 StartScale { get; }
     public float3 TargetPosition { get; }
     public float3 TargetRotation { get; }
-    public float TargetScale { get; }
+    public float3 TargetScale { get; }
     public double DurationSeconds { get; }
     public double ElapsedSeconds { get; private set; }
     public WeldEasingType Easing { get; }
@@ -25,8 +25,8 @@ public class WeldAnimation
     public bool IsComplete => ElapsedSeconds >= DurationSeconds;
 
     public WeldAnimation(
-        float3 startPosition, float3 startRotation, float startScale,
-        float3 targetPosition, float3 targetRotation, float targetScale,
+        float3 startPosition, float3 startRotation, float3 startScale,
+        float3 targetPosition, float3 targetRotation, float3 targetScale,
         double durationSeconds, WeldEasingType easing,
         double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
     {
@@ -42,6 +42,19 @@ public class WeldAnimation
         EasingPowerEnd = easingPowerEnd;
     }
 
+    /// <summary>Backwards-compatible constructor for callers that animate a uniform scale.</summary>
+    public WeldAnimation(
+        float3 startPosition, float3 startRotation, float startScale,
+        float3 targetPosition, float3 targetRotation, float targetScale,
+        double durationSeconds, WeldEasingType easing,
+        double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
+        : this(
+            startPosition, startRotation, WeldScale.Uniform(startScale),
+            targetPosition, targetRotation, WeldScale.Uniform(targetScale),
+            durationSeconds, easing, easingPowerStart, easingPowerEnd)
+    {
+    }
+
     /// <summary>
     /// Advances the animation by dt seconds and applies interpolated values to the weld.
     /// Returns true if still running, false when complete.
@@ -55,7 +68,7 @@ public class WeldAnimation
             // Snap to exact target values on completion
             weld.Position = TargetPosition;
             weld.Rotation = TargetRotation;
-            if (weld.Scale != TargetScale)
+            if (!WeldScale.Equals(weld.Scale, TargetScale))
             {
                 weld.Scale = TargetScale;
                 WeldEngine.ApplyVehicleScale(weld.Source, TargetScale);
@@ -69,8 +82,8 @@ public class WeldAnimation
         weld.Position = Lerp(StartPosition, TargetPosition, t);
         weld.Rotation = Lerp(StartRotation, TargetRotation, t);
 
-        float newScale = StartScale + (TargetScale - StartScale) * t;
-        if (weld.Scale != newScale)
+        float3 newScale = Lerp(StartScale, TargetScale, t);
+        if (!WeldScale.Equals(weld.Scale, newScale))
         {
             weld.Scale = newScale;
             WeldEngine.ApplyVehicleScale(weld.Source, newScale);

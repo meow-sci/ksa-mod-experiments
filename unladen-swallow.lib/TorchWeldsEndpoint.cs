@@ -57,10 +57,11 @@ public static class TorchWeldsEndpoint
                         var data = ResolveWeldData(submod, body.Data, body.PresetName);
                         var pos = ToFloat3(data.Position);
                         var rot = ToFloat3(data.Rotation);
+                        var scale = ToScale(data.Scale);
 
                         var (weld, error) = submod.CreateWeld(
                             body.SourceVehicleId, body.TargetVehicleId,
-                            pos, rot, data.Scale, data.LockRotation);
+                            pos, rot, scale, data.LockRotation);
 
                         if (weld == null)
                             throw new ProviderException(ResponseStatus.BadRequest, error!);
@@ -122,16 +123,19 @@ public static class TorchWeldsEndpoint
         return new WeldData(
             new Vec3(preset.Position.X, preset.Position.Y, preset.Position.Z),
             new Vec3(preset.Rotation.X, preset.Rotation.Y, preset.Rotation.Z),
-            preset.Scale,
+            ToVec3(preset.Scale),
             preset.LockRotation);
     }
 
     private static float3 ToFloat3(Vec3 v) => new float3(v.X, v.Y, v.Z);
+    private static float3 ToScale(Vec3? v) =>
+        v == null ? WeldScale.Identity : new float3(v.X, v.Y, v.Z);
+    private static Vec3 ToVec3(float3 v) => new(v.X, v.Y, v.Z);
 
     private static WeldInfo ToWeldInfo(WeldEntry w) =>
         new WeldInfo(
             w.Source.Id, w.Target.Id,
             new Vec3(w.Position.X, w.Position.Y, w.Position.Z),
             new Vec3(w.Rotation.X, w.Rotation.Y, w.Rotation.Z),
-            w.Scale, w.LockRotation);
+            ToVec3(w.Scale), w.LockRotation);
 }

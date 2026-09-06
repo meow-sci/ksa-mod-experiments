@@ -41,13 +41,16 @@ public static class TorchWeldAnimateEndpoint
                         var data = ResolveWeldData(submod, body.Data, body.PresetName);
                         var targetPos = new float3(data.Position.X, data.Position.Y, data.Position.Z);
                         var targetRot = new float3(data.Rotation.X, data.Rotation.Y, data.Rotation.Z);
+                        var targetScale = data.Scale == null
+                            ? WeldScale.Identity
+                            : new float3(data.Scale.X, data.Scale.Y, data.Scale.Z);
 
                         var easing = body.Easing ?? new TorchEasingConfig();
                         var weldEasing = (WeldEasingType)(int)easing.Easing;
 
                         var error = submod.AnimateWeld(
                             body.SourceVehicleId,
-                            targetPos, targetRot, data.Scale,
+                            targetPos, targetRot, targetScale,
                             body.DurationSeconds, weldEasing,
                             easing.EasingPowerStart, easing.EasingPowerEnd);
 
@@ -79,7 +82,7 @@ public static class TorchWeldAnimateEndpoint
         return new WeldData(
             new Vec3(preset.Position.X, preset.Position.Y, preset.Position.Z),
             new Vec3(preset.Rotation.X, preset.Rotation.Y, preset.Rotation.Z),
-            preset.Scale,
+            new Vec3(preset.Scale.X, preset.Scale.Y, preset.Scale.Z),
             preset.LockRotation);
     }
 }

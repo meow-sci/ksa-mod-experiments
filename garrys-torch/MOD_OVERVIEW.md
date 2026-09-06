@@ -16,7 +16,7 @@ Per-weld XYZ offset (metres) in the target's body frame, adjustable via drag-flo
 Per-weld pitch/yaw/roll (degrees) layered on top of the orientation captured at weld time. Can be toggled off ("Lock Rotation" checkbox) to let the source rotate freely while still tracking position.
 
 ### 4. Vehicle Scaling
-Per-weld uniform scale factor applied to all parts (and sub-parts) of the source vehicle. Special-case handling scales KittenEva characters via reflection into `CharacterAvatar.Core.Scale`.
+Per-weld X/Y/Z scale factors applied to all parts (and sub-parts) of the source vehicle. KittenEva characters retain X in `CharacterAvatar.Core.Scale`; a narrow Harmony postfix corrects the private model-to-body matrix for independent Y and Z scaling.
 
 ### 5. ImGui Control Panel
 F11-toggled window listing all active welds with collapsible sections, plus an "Add New Weld" combo-box UI.
@@ -37,9 +37,9 @@ If the source and target end up orbiting different parent bodies the weld is aut
 | `RenderWindow()` | Draws the ImGui window — active weld editors + new-weld combo UI |
 | `InitiateWeld(source, target)` | Captures rotation offset and creates a `WeldEntry` |
 | `UpdateWeld(entry)` → `bool` | Per-frame: computes new orbit + orientation for source from target + offsets, calls `Teleport`. Returns `false` on parent mismatch to trigger removal |
-| `RemoveWeld(entry)` | Resets source scale to 1 and removes the weld |
-| `ApplyVehicleScale(vehicle, factor)` | Sets `Part.Scale` recursively; reflection path for KittenEva avatar scaling |
-| `SetPartScaleRecursive(part, factor)` | Recursive helper for part + sub-part scale |
+| `RemoveWeld(entry)` | Resets source scale to `(1,1,1)` and removes the weld |
+| `ApplyVehicleScale(vehicle, scale)` | Sets XYZ `Part.Scale` recursively; reflection + render-matrix correction for KittenEva avatar scaling |
+| `SetPartScaleRecursive(part, scale)` | Recursive helper for part + sub-part XYZ scale |
 | `EulerDegreesToQuat(pitch, yaw, roll)` | Converts Euler degrees (ZYX intrinsic) to `doubleQuat` |
 | `WeldEntry` class | Data object: Source, Target, RotationOffset, Position, Rotation, Scale, LockRotation |
 
@@ -47,10 +47,11 @@ If the source and target end up orbiting different parent bodies the weld is aut
 
 | Symbol | Purpose |
 |---|---|
-| `Patcher.Patch()` | Applies all `[HarmonyPatch]` patches in the assembly |
-| `Patcher.Unload()` | Unpatches all and nulls the Harmony instance |
+| `Patcher.Patch()` | Applies `HotkeyGuard` and `KittenScalePatches` |
+| `Patcher.Unload()` | Removes both patches and nulls the Harmony instance |
 
-> Note: No individual patch methods currently exist — Patcher is scaffolding for future Harmony patches.
+`KittenScalePatches` postfixes private `KittenRenderable.ModelToBodyMatrix()` so a KittenEva can
+render unequal scale axes even though the game's `CharacterCore.Scale` field is scalar.
 
 ### Key KSA APIs Used
 
@@ -58,5 +59,5 @@ If the source and target end up orbiting different parent bodies the weld is aut
 - `Vehicle.Teleport(orbit, body2Cce, bodyRates)` — reposition a vehicle
 - `Orbit.CreateFromStateCci(...)` — build an orbit from position + velocity
 - `Vehicle.Parts.Parts` / `Part.Scale` / `Part.SubParts` — part tree traversal
-- `Universe.CurrentSystem.Vehicles.GetList()` — enumerate vehicles
-- `Universe.GetElapsedSimTime()` — current sim time for orbit creation
+- `VehicleProvider.GetAllVehicles()` — enumerate vehicles through the shared abstraction
+- `Universe.GetJobSimStep(...).NextTime` — next solver time for orbit creation

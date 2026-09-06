@@ -37,9 +37,12 @@ public static class TorchWeldModifyEndpoint
                         float3? rot = body.Rotation != null
                             ? new float3(body.Rotation.X, body.Rotation.Y, body.Rotation.Z)
                             : null;
+                        float3? scale = body.Scale != null
+                            ? new float3(body.Scale.X, body.Scale.Y, body.Scale.Z)
+                            : null;
 
                         var (weld, error) = submod.ModifyWeld(
-                            body.SourceVehicleId, pos, rot, body.Scale, body.LockRotation);
+                            body.SourceVehicleId, pos, rot, scale, body.LockRotation);
 
                         if (weld == null)
                             throw new ProviderException(ResponseStatus.NotFound, error!);
@@ -48,7 +51,7 @@ public static class TorchWeldModifyEndpoint
                             weld.Source.Id, weld.Target.Id,
                             new Vec3(weld.Position.X, weld.Position.Y, weld.Position.Z),
                             new Vec3(weld.Rotation.X, weld.Rotation.Y, weld.Rotation.Z),
-                            weld.Scale, weld.LockRotation));
+                            new Vec3(weld.Scale.X, weld.Scale.Y, weld.Scale.Z), weld.LockRotation));
                     });
                     return (object)new ApiResponse<TorchWeldResult>("ok", result);
                 }

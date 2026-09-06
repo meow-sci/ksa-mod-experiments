@@ -114,7 +114,7 @@ All ImGui via `Brutal.ImGuiApi`.
 
 **Purpose** — Vehicle-to-vehicle welding. Every frame it teleports a *source* vehicle to a
 pose relative to a *target* vehicle (optionally anchored to a specific target `Part`), with
-position/rotation offset, uniform part scaling (special-cased for `KittenEva` avatars), and
+position/rotation offset, independent local-axis X/Y/Z part scaling (including `KittenEva` avatars), and
 optional rotation lock. Also supports eased animation of weld params.
 
 **Unscience integration** — `GarrysTorchSubmod : ISubmod`
@@ -125,15 +125,17 @@ patch): `GarrysTorchSubmod.UpdateWelds(dt)` (`GarrysTorchSubmod.cs:85`) first ca
 `KSA.JobSystems.VehicleSolver.Wait()` (`:103`) to drain in-flight vehicle workers, then
 `WeldEngine.UpdateWeld` per weld. Standalone host `garrys-torch/Mod.cs:27,59`; embedded host
 `unscience/Mod.cs:71` (submod) + `unscience/Mod.cs:173` (`GarrysTorchSubmod.Instance?.UpdateWelds(dt)`).
-`garrys-torch/Patcher.cs` applies **only** `HotkeyGuard` — no game-targeting Harmony patch
-(earlier prefix/postfix approaches on `ExecuteNextVehicleSolvers`/`ApplyVehicleSolvers` were
-abandoned; see `garrys-torch/README.md:32-43`). Public API (`CreateWeld`/`ModifyWeld`/
+`garrys-torch/Patcher.cs` applies `HotkeyGuard` plus one render-only postfix on the private
+`KittenRenderable.ModelToBodyMatrix()`. The latter supplies the Y/X and Z/X correction that the
+game's scalar-only `CharacterCore.Scale` cannot represent; it does not alter weld timing. Earlier
+prefix/postfix approaches on `ExecuteNextVehicleSolvers`/`ApplyVehicleSolvers` remain abandoned
+(see `garrys-torch/README.md:32-43`). Public API (`CreateWeld`/`ModifyWeld`/
 `RemoveWeld`/`AnimateWeld`/preset methods) is consumed by `unladen-swallow.lib` HTTP RPC.
 
 **UI/hotkeys** — Standalone window "Garry's Torch", 450x500, toggled by **F11**
 (`garrys-torch/Mod.cs:51,85`). Content (`GarrysTorchSubmod.RenderContent:105`): Create-Weld
 header (filterable source / target / target-part / preset combos), position/rotation
-`DragFloat3`, scale `DragFloat`, lock-rotation checkbox, active-weld child panels with
+`DragFloat3`, scale `DragFloat3`, lock-rotation checkbox, active-weld child panels with
 per-weld edit + Save-as-preset / Unweld, and delete/save modals.
 
 **Persistence** — Named **presets** only (not active welds). `PresetManager`
@@ -141,7 +143,8 @@ per-weld edit + Save-as-preset / Unweld, and delete/save modals.
 `<MyDocuments>/My Games/Kitten Space Agency/.unscience/garrys-torch-presets.toml`
 (`PresetManager.cs:23-24`, dir from `ksa-abstractions.lib/KsaPaths.cs:9` via
 `Environment.SpecialFolder.MyDocuments`). Active welds are in-memory (`_welds`) and lost on
-reload. TOML via `Tomlyn`.
+reload. TOML via `Tomlyn`; new presets store `scale_x`/`scale_y`/`scale_z`, while the loader expands
+the legacy scalar `scale` key uniformly for backwards compatibility.
 
 **Integration points**
 
@@ -160,24 +163,34 @@ reload. TOML via `Tomlyn`.
 | 11 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:75` | `IParentBody.GetCci2Cce()` — `doubleQuat` (interface) | `KSA/IParentBody.cs:51` | Yes | Same (file byte-identical) | Called on `Vehicle.Parent`. |
 | 12 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:58` | `Part.PositionVehicleAsmb` — `public double3` (computed property) | `KSA/Part.cs:704` | Yes | Same (OLD `Part.cs:696`) | Part-anchor position. |
 | 13 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:61` | `Part.Asmb2VehicleAsmb` — `public doubleQuat` (computed property) | `KSA/Part.cs:720` | Yes | Same (OLD `Part.cs:712`) | Part-anchor orientation. (5402 also added `Asmb2VehicleAsmb` to the nested `Part.Connection.IConnector` interface, `Part.cs:483` — unrelated to this binding.) |
-| 14 | Direct typed API (write) | `garrys-torch.lib/WeldEngine.cs:200` | `Part.Scale` — `public double3 Scale { get; set; }` (setter calls `ResetCachedPosMatrixValues`) | `KSA/Part.cs:815` | Yes | Same (OLD `Part.cs:807`) | Recursive uniform scale write. |
+| 14 | Direct typed API (write) | `garrys-torch.lib/WeldEngine.cs` | `Part.Scale` — `public double3 Scale { get; set; }` (setter calls `ResetCachedPosMatrixValues`) | `KSA/Part.cs:815` | Yes | Same (OLD `Part.cs:807`) | Recursive XYZ scale write. KSA's separate `ScaleFactors(double3)` collapses module rescaling to the largest axis; Garry's Torch does not claim anisotropic mass/module physics. |
 | 15 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:157,201` | `Part.SubParts` — `public ReadOnlySpan<Part> SubParts`; `PartTree.Parts` — `public ReadOnlySpan<Part> Parts` | `KSA/Part.cs:1079`; `KSA/PartTree.cs:95` | Yes | Same (OLD `Part.cs:1052`; `PartTree.cs:95`) | Part-tree walk for scaling + target-part list. |
 | 16 | Direct typed API | `garrys-torch.lib/GarrysTorchSubmod.cs:190,198` | `Part.Template` (`public PartTemplate Template`) -> `PartTemplate.Id` (`public string Id`, inherited `SerializedId.Id`); `Part.Id` (`public string Id { get; init; }`) | `KSA/Part.cs:576`,`698`; `KSA/SerializedId.cs:13` | Yes | Same (OLD `Part.cs:568`,`690`) | Target-part combo labels. |
 | 17 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Universe.GetJobSimStep(double dtPlayer)` -> `SimStep.NextTime` (`UniverseTime`, renamed from `SimTime` @5261) | `KSA/Universe.cs:2322`; `KSA/SimStep.cs:7` | Yes | Same (OLD `Universe.cs:2264`) | Tick-end time for the new orbit's state time (avoids SnapToLeader mismatch). |
 | 18 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:119` | `Program.GetPlayerDeltaTime()` — `public static double` | `KSA/Program.cs:5077` | Yes | Same (OLD `Program.cs:4899`) | Fed into `GetJobSimStep`. |
 | 19 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:121` | `Orbit.CreateFromStateCci(IParentBody parent, UniverseTime stateTime, double3 positionCci, double3 velocityCci, byte4 orbitLineColor)` — `public static Orbit` | `KSA/Orbit.cs:1563` | Yes | Same (OLD `Orbit.cs:1563`) | 5-arg factory; arg order/types unchanged since the 5261 `SimTime`→`UniverseTime` rename. |
 | 20 | Direct typed API | `garrys-torch.lib/WeldEngine.cs:126` | `Orbit.OrbitLineColor` — `public byte4 OrbitLineColor` (field) | `KSA/Orbit.cs:1138` | Yes | Same (OLD `Orbit.cs:1138`) | — |
-| 21 | Reflection (type-name) | `garrys-torch.lib/WeldEngine.cs:161` | `vehicle.GetType().Name == "KittenEva"` — `public class KittenEva : Vehicle` | `KSA/KittenEva.cs:13` | Yes | Same (OLD `KittenEva.cs:13`) | String type-name compare; breaks silently if the class is renamed. |
-| 22 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:165` (via `ReflectionHelpers.GetFieldValue`) | `KittenEva._renderable` — `private KittenRenderable _renderable` | `KSA/KittenEva.cs:15` | Yes | Same (OLD `KittenEva.cs:15`) | **String field name, not compile-checked.** |
-| 23 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs:168` | `KittenRenderable._characterAvatar` — `private CharacterAvatar _characterAvatar` | `KSA/KittenRenderable.cs:12` | Yes | Same (OLD `KittenRenderable.cs:12`) | **String field name.** |
-| 24 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:172-173,182` | `CharacterAvatar.Core` — `public CharacterCore Core` (**struct** field) | `KSA/CharacterAvatar.cs:211` | Yes | Same (OLD `CharacterAvatar.cs:209`; shifted by the new `CharacterCore.HeadMeshIndices` list) | Mod uses `GetField("Core")` only (no property fallback) and writes the struct back via `SetValue` — correct **only while `Core` is a field of a value type**. If it becomes a property/ref type, scaling silently no-ops. |
-| 25 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs:176-188` | `CharacterCore.Scale` — `public float Scale = 0.01f` (field) | `KSA/CharacterAvatar.cs:34` | Yes | Same (OLD `CharacterAvatar.cs:34`) | Mod sets `factor * 0.01f`; field + property paths both handled. |
-| 26 | Direct typed API (UI color) | `garrys-torch.lib/GarrysTorchSubmod.cs:343-344` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey` — `static Color.Preset` | `KSA/KSAColor.cs:1561`,`837` | Yes | Same (file byte-identical) | Unweld-button styling only; failure is visual, not functional. |
-| 27 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` (called `GarrysTorchSubmod.cs:168,537`) | `Universe.CurrentSystem` / `CelestialSystem.All` / `LookupCollection.UnsafeAsList` / `Vehicle.Id` | `KSA/Universe.cs:94` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
-| 28 | Harmony + Reflection | `garrys-torch/Patcher.cs:16` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard. The **only** Harmony patch this mod registers. |
+| 21 | Direct typed API | `garrys-torch.lib/WeldEngine.cs` | `vehicle is KittenEva`; `KittenEva.Renderable : KittenRenderable` | `KSA/KittenEva.cs:13,59` | Yes | Same | Compile-checked replacement for the former type-name + `_renderable` reflection. |
+| 22 | Reflection (private field, string) | `garrys-torch.lib/WeldEngine.cs` | `KittenRenderable._characterAvatar` — `private CharacterAvatar _characterAvatar` | `KSA/KittenRenderable.cs:12` | Yes | Same | **String field name.** Entry to scalar X fallback. |
+| 23 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs` | `CharacterAvatar.Core` — `public CharacterCore Core` (**struct** field) | `KSA/CharacterAvatar.cs:211` | Yes | Same | Mod writes the boxed struct back via `SetValue`; requires `Core` to remain a value-type field. |
+| 24 | Reflection (public field, string) | `garrys-torch.lib/WeldEngine.cs` | `CharacterCore.Scale` — `public float Scale = 0.01f` (field) | `KSA/CharacterAvatar.cs:34` | Yes | Same | Stores `scale.X * 0.01f`; property fallback retained. |
+| 25 | **Harmony postfix + Reflection** | `garrys-torch.lib/KittenScalePatches.cs` | private `KittenRenderable.ModelToBodyMatrix() : float4x4` | `KSA/KittenRenderable.cs:106-109` | Yes | Same | Load-bearing for anisotropic KittenEva rendering. Postfix pre-multiplies `(1, Y/X, Z/X)` into the original matrix; weak-table lookup makes non-welded kittens a constant-time no-op. Loud `MissingMethodException` at patch apply if renamed. |
+| 26 | Direct typed API (UI color) | `garrys-torch.lib/GarrysTorchSubmod.cs` | `KSAColor.Xkcd.Scarlet`, `KSAColor.Xkcd.PaleGrey` — `static Color.Preset` | `KSA/KSAColor.cs:1561`,`837` | Yes | Same (file byte-identical) | Unweld-button styling only; failure is visual, not functional. |
+| 27 | Direct typed API | `ksa-abstractions.lib/VehicleProvider.cs:14` | `Universe.CurrentSystem` / `CelestialSystem.All` / `LookupCollection.UnsafeAsList` / `Vehicle.Id` | `KSA/Universe.cs:94` etc. | Yes | Same | Shared enumerator (see eternal-flame #12). |
+| 28 | Harmony + Reflection | `garrys-torch/Patcher.cs` -> `HotkeyGuard.cs:21` | `GameSettings.OnKeyAll(GlfwKeyEvent)` — `public static bool`, `nameof`-resolved | `KSA/GameSettings.cs:3301` | Yes | Same (file byte-identical) | Shared guard. |
 | 29 | Lifecycle | `garrys-torch/Mod.cs:19-80` | StarMap attrs (full set); weld physics in `OnAfterUi` after `JobSystems.VehicleSolver.Wait()` | (StarMap.API package) | Yes | **Renamed @5261** (was `VehicleSolvers`) | See *Update-risk findings (5117 → 5261)* |
 
 **Game assets referenced** — None (TOML preset file is mod-authored under `.unscience/`, not a game asset).
+
+**XYZ scale enhancement (2026-09-06)**
+
+- Weld state, live UI editing, presets, queued animation, and the public/RPC APIs now carry a
+  `float3` scale. Each axis is validated to `0.05..20`; animation lerps all three components.
+- Old TOML `scale = n` values and old HTTP numeric `scale` inputs are expanded to `(n,n,n)`.
+  Responses and newly saved presets use explicit XYZ values.
+- Ordinary parts use their existing compile-checked `Part.Scale : double3`. KittenEva requires the
+  new row #25 because its separate character render path exposes only one scalar. Live-test both a
+  normal multi-part vehicle and a kitten with visibly unequal axes, then unweld and confirm identity.
 
 **Update-risk findings (5117 → 5261)**
 
@@ -324,10 +337,9 @@ reload (`IFeelSeenSubmod.Dispose` -> `VehicleTracker.Clear`).
   - `GameSettings.OnKeyAll` (`KSA/GameSettings.cs:3301`) — shared `HotkeyGuard`, `nameof`-resolved.
 - **Embedded vs standalone Harmony:** when the unscience supermod is loaded it owns one
   `Harmony("MeowSci.Unscience")` that re-registers eternal-flame's solver prefix
-  (`unscience/Patcher.cs:144-178`) and i-feel-seen's render prefixes (`unscience/Patcher.cs:71`);
-  garrys-torch registers no game patch in either mode. Running a standalone mod *and* the supermod
-  simultaneously would double-patch `ExecuteNextVehicleSolvers` — not a game-version risk, but a
-  packaging note.
+  (`unscience/Patcher.cs:144-178`), garrys-torch's KittenEva matrix postfix, and i-feel-seen's render
+  prefixes. Running a standalone mod *and* the supermod simultaneously would double-patch these
+  targets — not a game-version risk, but a packaging note.
 - **Mutation vs read:** eternal-flame and garrys-torch **write** game state
   (`Battery.Refill`/`Part.Scale`/`Vehicle.Teleport`); i-feel-seen **replaces** render computation
   via skip-original prefixes. None of these were affected by the 4680->4750 signature surface;
@@ -402,10 +414,11 @@ the decomp diff. Solution builds clean against 5402.
 - ✅ **garrys-torch typed + reflected surface intact.** `JobSystems.VehicleSolver` (`JobSystems.cs:16`),
   `Vehicle.Teleport` (`Vehicle.cs:2209`, body identical bar a log line number) and `UpdatePerFrameData`
   (`:2613`, identical), `GetJobSimStep` (`Universe.cs:2322`), `Orbit.CreateFromStateCci` (`Orbit.cs:1563`)
-  and every `Part` accessor still resolve. The `KittenEva` → `_renderable` → `_characterAvatar` →
-  `CharacterAvatar.Core` → `CharacterCore.Scale` chain is intact and still **field-shaped**
-  (`KittenEva.cs:15`, `KittenRenderable.cs:12`, `CharacterAvatar.cs:211`, `:34`); `CharacterCore` only
-  gained a `HeadMeshIndices` list and `KittenRenderable` a `HideHead` flag.
+  and every `Part` accessor still resolve. `KittenEva.Renderable` is public; the remaining
+  `_characterAvatar` → `CharacterAvatar.Core` → `CharacterCore.Scale` chain is intact and
+  field-shaped, and private `KittenRenderable.ModelToBodyMatrix()` remains a unique no-arg method
+  (`KittenRenderable.cs:106-109`). `CharacterCore` only gained a `HeadMeshIndices` list and
+  `KittenRenderable` a `HideHead` flag.
 - ⚠️ **New parachute cloth scheduler runs concurrently with the frame.** `JobSystems.ClothSolvers`
   (`JobSystems.cs:18`) is kicked by `Universe.ExecuteNextClothSolvers` **before**
   `ExecuteNextVehicleSolvers` (`Program.cs:2144-2145`) and joined only at the next `PrepareFrame`

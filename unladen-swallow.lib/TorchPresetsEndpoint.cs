@@ -33,7 +33,7 @@ public static class TorchPresetsEndpoint
                                 return new TorchPresetInfo(name,
                                     new Vec3(p.Position.X, p.Position.Y, p.Position.Z),
                                     new Vec3(p.Rotation.X, p.Rotation.Y, p.Rotation.Z),
-                                    p.Scale, p.LockRotation);
+                                    new Vec3(p.Scale.X, p.Scale.Y, p.Scale.Z), p.LockRotation);
                             })
                             .ToArray();
                         return new TorchPresetListResult(presets);
@@ -59,11 +59,18 @@ public static class TorchPresetsEndpoint
                     var result = await GameThread.Scheduler.Schedule(() =>
                     {
                         var submod = GetSubmod();
+                        var scale = body.Data.Scale == null
+                            ? WeldScale.Identity
+                            : new float3(body.Data.Scale.X, body.Data.Scale.Y, body.Data.Scale.Z);
+                        if (!WeldScale.IsValid(scale))
+                            throw new ProviderException(ResponseStatus.BadRequest,
+                                $"Scale axes must each be between {WeldScale.Minimum} and {WeldScale.Maximum}.");
+
                         var preset = new WeldPreset
                         {
                             Position = new float3(body.Data.Position.X, body.Data.Position.Y, body.Data.Position.Z),
                             Rotation = new float3(body.Data.Rotation.X, body.Data.Rotation.Y, body.Data.Rotation.Z),
-                            Scale = body.Data.Scale,
+                            Scale = scale,
                             LockRotation = body.Data.LockRotation,
                         };
 
@@ -74,7 +81,7 @@ public static class TorchPresetsEndpoint
                         return new TorchPresetResult(new TorchPresetInfo(
                             body.Name,
                             body.Data.Position, body.Data.Rotation,
-                            body.Data.Scale, body.Data.LockRotation));
+                            new Vec3(scale.X, scale.Y, scale.Z), body.Data.LockRotation));
                     });
                     return (object)new ApiResponse<TorchPresetResult>("ok", result);
                 }

@@ -160,6 +160,9 @@ Stops any running animation and returns the previous state.
 
 Control the vehicle welding system from Garry's Torch remotely.
 
+Scale is returned as `{ "x", "y", "z" }`, with each axis constrained to 0.05–20.0.
+Requests should use that vector form; a legacy numeric value is still accepted and expanded uniformly.
+
 ### `GET /torch/welds`
 
 Returns all active welds.
@@ -174,7 +177,7 @@ Returns all active welds.
         "targetVehicleId": "station-core",
         "position": { "x": 0, "y": 0, "z": 2.5 },
         "rotation": { "x": 0, "y": 0, "z": 0 },
-        "scale": 1.0,
+        "scale": { "x": 1.0, "y": 0.75, "z": 1.25 },
         "lockRotation": true
       }
     ]
@@ -194,7 +197,7 @@ Create a new weld. Provide either `data` (inline config) or `presetName` (not bo
   "data": {
     "position": { "x": 0, "y": 0, "z": 2.5 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "scale": 1.0,
+    "scale": { "x": 1.0, "y": 0.75, "z": 1.25 },
     "lockRotation": true
   }
 }
@@ -225,7 +228,7 @@ Immediately modify an existing weld. Only provided fields are updated; omit fiel
 {
   "sourceVehicleId": "my-lander",
   "position": { "x": 0, "y": 0, "z": 5.0 },
-  "scale": 0.75
+  "scale": { "x": 0.75, "y": 1.0, "z": 1.5 }
 }
 ```
 
@@ -240,7 +243,7 @@ Smoothly interpolate a weld to a new state over a specified duration. Animations
   "data": {
     "position": { "x": 0, "y": 0, "z": 5.0 },
     "rotation": { "x": 0, "y": 180, "z": 0 },
-    "scale": 0.5,
+    "scale": { "x": 0.5, "y": 0.75, "z": 1.0 },
     "lockRotation": true
   },
   "easing": {
@@ -267,7 +270,7 @@ Save or update a named preset.
   "data": {
     "position": { "x": 0, "y": 0, "z": 2.5 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "scale": 1.0,
+    "scale": { "x": 1.0, "y": 1.0, "z": 1.0 },
     "lockRotation": true
   }
 }

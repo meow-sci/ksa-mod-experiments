@@ -80,6 +80,10 @@ All responses use:
 
 ### Garry's Torch Welds
 
+Weld create/modify/animate/preset payloads support independent X/Y/Z scale factors. Responses
+always emit an XYZ object; legacy numeric request values remain accepted as uniform scale for
+backwards compatibility.
+
 - `GET /torch/welds`
 - `POST /torch/welds`
 - `DELETE /torch/welds`

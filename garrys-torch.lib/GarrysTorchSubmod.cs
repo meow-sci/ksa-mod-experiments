@@ -12,7 +12,7 @@ namespace MeowSci.GarrysTorchLib;
 public sealed class GarrysTorchSubmod : ISubmod
 {
     public string Name => "Garry's Torch - Vehicle Welding";
-    public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and scale.";
+    public string Tooltip => "Welds vehicle parts together with adjustable position, rotation, and XYZ scale.";
 
     public static GarrysTorchSubmod? Instance { get; private set; }
 
@@ -29,7 +29,7 @@ public sealed class GarrysTorchSubmod : ISubmod
     private int _selectedPresetIndex = -1;
     private float3 _pendingPosition = new float3(0f, 0f, 0f);
     private float3 _pendingRotation = new float3(0f, 0f, 0f);
-    private float _pendingScale = 1f;
+    private float3 _pendingScale = WeldScale.Identity;
     private bool _pendingLockRotation = true;
     private string? _weldError;
 
@@ -151,7 +151,7 @@ public sealed class GarrysTorchSubmod : ISubmod
     {
         _animationManager.Clear();
         foreach (var weld in _welds)
-            WeldEngine.ApplyVehicleScale(weld.Source, 1.0f);
+            WeldEngine.ApplyVehicleScale(weld.Source, WeldScale.Identity);
         _welds.Clear();
         Instance = null;
     }
@@ -316,10 +316,10 @@ public sealed class GarrysTorchSubmod : ISubmod
             : $"{weld.Source.Id}  →  {weld.Target.Id}  (vehicle body frame)";
         ImGui.Text(anchorDesc);
 
-        float prevScale = weld.Scale;
+        float3 prevScale = weld.Scale;
         RenderDataFields($"##gt_w{index}", ref weld.Position, ref weld.Rotation,
             ref weld.Scale, ref weld.LockRotation);
-        if (weld.Scale != prevScale)
+        if (!WeldScale.Equals(weld.Scale, prevScale))
             WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
 
         ImGui.Spacing();
@@ -354,7 +354,7 @@ public sealed class GarrysTorchSubmod : ISubmod
     // ---- Shared Data Fields ----
 
     private void RenderDataFields(string idPrefix, ref float3 position, ref float3 rotation,
-        ref float scale, ref bool lockRotation)
+        ref float3 scale, ref bool lockRotation)
     {
         ImGui.Text("Position (x, y, z) in meters");
         ImGui.SetNextItemWidth(-1f);
@@ -374,9 +374,10 @@ public sealed class GarrysTorchSubmod : ISubmod
             ImGui.TableSetupColumn("##s_val", ImGuiTableColumnFlags.WidthStretch, 3f);
 
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Scale");
+            ImGui.TableNextColumn(); ImGui.AlignTextToFramePadding(); ImGui.Text("Scale XYZ");
             ImGui.TableNextColumn(); ImGui.SetNextItemWidth(-1f);
-            ImGui.DragFloat($"{idPrefix}_scaleval", ref scale, 0.001f, 0.05f, 20f);
+            ImGui.DragFloat3($"{idPrefix}_scaleval", ref scale, 0.001f,
+                WeldScale.Minimum, WeldScale.Maximum);
 
             ImGui.EndTable();
         }
@@ -528,9 +529,12 @@ public sealed class GarrysTorchSubmod : ISubmod
     /// <summary>Creates a weld between two vehicles by their IDs.</summary>
     public (WeldEntry? Weld, string? Error) CreateWeld(
         string sourceVehicleId, string targetVehicleId,
-        float3 position, float3 rotation, float scale, bool lockRotation,
+        float3 position, float3 rotation, float3 scale, bool lockRotation,
         Part? targetPart = null)
     {
+        if (!WeldScale.IsValid(scale))
+            return (null, $"Scale axes must each be between {WeldScale.Minimum} and {WeldScale.Maximum}.");
+
         if (sourceVehicleId == targetVehicleId)
             return (null, "Source and target must be different vehicles.");
 
@@ -561,13 +565,21 @@ public sealed class GarrysTorchSubmod : ISubmod
         };
         _welds.Add(entry);
 
-        if (scale != 1f)
+        if (!WeldScale.Equals(scale, WeldScale.Identity))
             WeldEngine.ApplyVehicleScale(source, scale);
 
         SortWelds();
         Console.WriteLine($"garrys-torch: Welded {source.Id} to {target.Id}");
         return (entry, null);
     }
+
+    /// <summary>Backwards-compatible overload for callers that create a uniformly scaled weld.</summary>
+    public (WeldEntry? Weld, string? Error) CreateWeld(
+        string sourceVehicleId, string targetVehicleId,
+        float3 position, float3 rotation, float scale, bool lockRotation,
+        Part? targetPart = null) =>
+        CreateWeld(sourceVehicleId, targetVehicleId, position, rotation,
+            WeldScale.Uniform(scale), lockRotation, targetPart);
 
     /// <summary>Finds a weld by its source vehicle ID.</summary>
     public WeldEntry? FindWeld(string sourceVehicleId)
@@ -580,17 +592,20 @@ public sealed class GarrysTorchSubmod : ISubmod
 
     /// <summary>Modifies an existing weld. Only non-null fields are updated.</summary>
     public (WeldEntry? Weld, string? Error) ModifyWeld(
-        string sourceVehicleId, float3? position, float3? rotation, float? scale, bool? lockRotation)
+        string sourceVehicleId, float3? position, float3? rotation, float3? scale, bool? lockRotation)
     {
         var weld = FindWeld(sourceVehicleId);
         if (weld == null)
             return (null, $"No weld found with source vehicle '{sourceVehicleId}'.");
 
+        if (scale.HasValue && !WeldScale.IsValid(scale.Value))
+            return (null, $"Scale axes must each be between {WeldScale.Minimum} and {WeldScale.Maximum}.");
+
         if (position.HasValue) weld.Position = position.Value;
         if (rotation.HasValue) weld.Rotation = rotation.Value;
         if (lockRotation.HasValue) weld.LockRotation = lockRotation.Value;
 
-        if (scale.HasValue && scale.Value != weld.Scale)
+        if (scale.HasValue && !WeldScale.Equals(scale.Value, weld.Scale))
         {
             weld.Scale = scale.Value;
             WeldEngine.ApplyVehicleScale(weld.Source, weld.Scale);
@@ -598,6 +613,12 @@ public sealed class GarrysTorchSubmod : ISubmod
 
         return (weld, null);
     }
+
+    /// <summary>Backwards-compatible overload for uniformly scaled partial updates.</summary>
+    public (WeldEntry? Weld, string? Error) ModifyWeld(
+        string sourceVehicleId, float3? position, float3? rotation, float? scale, bool? lockRotation) =>
+        ModifyWeld(sourceVehicleId, position, rotation,
+            scale.HasValue ? WeldScale.Uniform(scale.Value) : null, lockRotation);
 
     /// <summary>Removes a weld by its source vehicle ID.</summary>
     public bool RemoveWeld(string sourceVehicleId)
@@ -619,7 +640,7 @@ public sealed class GarrysTorchSubmod : ISubmod
     /// <summary>Starts or queues an animated transition of a weld's position, rotation, and scale.</summary>
     public string? AnimateWeld(
         string sourceVehicleId,
-        float3 targetPosition, float3 targetRotation, float targetScale,
+        float3 targetPosition, float3 targetRotation, float3 targetScale,
         double durationSeconds, WeldEasingType easing,
         double easingPowerStart = 3.0, double easingPowerEnd = 3.0)
     {
@@ -630,6 +651,9 @@ public sealed class GarrysTorchSubmod : ISubmod
         if (durationSeconds <= 0)
             return "Duration must be greater than 0";
 
+        if (!WeldScale.IsValid(targetScale))
+            return $"Scale axes must each be between {WeldScale.Minimum} and {WeldScale.Maximum}.";
+
         var animation = new WeldAnimation(
             weld.Position, weld.Rotation, weld.Scale,
             targetPosition, targetRotation, targetScale,
@@ -639,10 +663,20 @@ public sealed class GarrysTorchSubmod : ISubmod
         return null;
     }
 
+    /// <summary>Backwards-compatible overload for animations targeting a uniform scale.</summary>
+    public string? AnimateWeld(
+        string sourceVehicleId,
+        float3 targetPosition, float3 targetRotation, float targetScale,
+        double durationSeconds, WeldEasingType easing,
+        double easingPowerStart = 3.0, double easingPowerEnd = 3.0) =>
+        AnimateWeld(sourceVehicleId, targetPosition, targetRotation,
+            WeldScale.Uniform(targetScale), durationSeconds, easing,
+            easingPowerStart, easingPowerEnd);
+
     // ---- Weld Logic (Internal) ----
 
     private void InitiateWeld(Vehicle source, Vehicle target, Part targetPart, float3 position, float3 rotation,
-        float scale, bool lockRotation)
+        float3 scale, bool lockRotation)
     {
         var (_, error) = CreateWeld(source.Id, target.Id, position, rotation, scale, lockRotation, targetPart);
         if (error != null)
@@ -654,14 +688,14 @@ public sealed class GarrysTorchSubmod : ISubmod
         _weldError = null;
         _pendingPosition = new float3(0f, 0f, 0f);
         _pendingRotation = new float3(0f, 0f, 0f);
-        _pendingScale = 1f;
+        _pendingScale = WeldScale.Identity;
         _pendingLockRotation = true;
     }
 
     private void RemoveWeld(WeldEntry entry)
     {
         _animationManager.CancelAll(entry);
-        WeldEngine.ApplyVehicleScale(entry.Source, 1.0f);
+        WeldEngine.ApplyVehicleScale(entry.Source, WeldScale.Identity);
         Console.WriteLine($"garrys-torch: Unwelded {entry.Source.Id} from {entry.Target.Id}");
         _welds.Remove(entry);
     }

@@ -37,18 +37,18 @@ Infinite fuel and electricity hack. Monitors selected vehicles and periodically 
 - F11 window toggle
 
 ### [garrys-torch](garrys-torch) / [garrys-torch.lib](garrys-torch.lib)
-Vehicle welding system. Attaches one vehicle to another with support for position offsets, rotation, and uniform scaling. Welds persist per-frame.
+Vehicle welding system. Attaches one vehicle to another with support for position offsets, rotation, and independent X/Y/Z scaling. Welds persist per-frame.
 - Vehicle-to-vehicle welding anchored to a **specific part** on the target vehicle (CoM-drift-proof; tracks robotics-moved parts)
 - Position and rotation offsets expressed relative to the target part's local frame
 - Per-weld rotation offset (pitch/yaw/roll)
-- Uniform vehicle scaling with KittenEva avatar support
+- Independent per-axis vehicle scaling with a KittenEva model-transform correction
 - Rotation lock toggle and auto-unweld on parent mismatch
 - Weld updates run from `Mod.OnAfterUi` (and unscience's `OnAfterUi`); `GarrysTorchSubmod.UpdateWelds(dt)` calls `KSA.JobSystems.VehicleSolvers.Wait()` before any `Vehicle.Teleport` to drain worker threads — required to avoid `Collection was modified` (from `_vehicleStates.Remove` racing worker iteration) and `SnapToLeader body/origin time mismatch` errors
 - Multiple simultaneous welds with topological sort for correct ordering
 - User-defined presets persisted to TOML (`~/.unscience/garrys-torch-presets.toml`)
 - Save weld settings as named presets, load presets into create form
 - ImGui control panel with filterable combos (vehicle → part → preset) and bordered weld sections
-- **Animation system**: Smooth interpolation of weld position/rotation/scale with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
+- **Animation system**: Smooth interpolation of weld position/rotation and each XYZ scale axis with configurable easing (Linear, EaseIn, EaseOut, EaseInOut) and per-power control. Queued animations per weld.
 - **Public API**: `GarrysTorchSubmod.Instance` singleton, `CreateWeld`, `ModifyWeld`, `RemoveWeld`, `AnimateWeld`, `FindWeld`, preset pass-throughs — exposed for use by `unladen-swallow.lib` RPC endpoints
 - **Safe update API**: `GarrysTorchSubmod.UpdateBeforeVehicleSolvers(dt)` performs animation and weld teleports; ordinary `ISubmod.Update(dt)` is intentionally non-mutating for weld physics
 

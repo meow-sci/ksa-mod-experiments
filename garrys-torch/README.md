@@ -1,6 +1,6 @@
 # Garry's Torch - Vehicle Welding System
 
-A vehicle docking/attached system that welds one vehicle to another with full support for position offsets, rotation alignment, and uniform scaling. Welds are persistent per-frame—children move relative to their parent vehicle.
+A vehicle docking/attached system that welds one vehicle to another with full support for position offsets, rotation alignment, and independent X/Y/Z scaling. Welds are persistent per-frame—children move relative to their parent vehicle.
 
 ## Overview
 
@@ -9,7 +9,7 @@ Garry's Torch allows you to:
 - **Anchor to a specific part** - Pick any part on the target vehicle as the anchor point; offsets are relative to that part, not the vehicle CoM
 - **Configure relative position** - Separate the vehicles on XYZ axes in the target part's local frame
 - **Rotate freely** - Apply pitch/yaw/roll rotations relative to the target part's orientation
-- **Scale uniformly** - Resize the source vehicle (supports avatar scaling)
+- **Scale each axis independently** - Resize or stretch the source vehicle on local X/Y/Z axes (including avatars)
 - **Manage multiple welds** - A vehicle can have multiple welds simultaneously
 - **Use presets** - Built-in configurations for common docking scenarios
 
@@ -48,7 +48,7 @@ Stateless computation engine for vehicle welding. Contains all physics/math logi
 **Key Methods**:
 - `UpdateWeld(WeldEntry weld)` - Teleports source vehicle to maintain relative position/rotation to target, then refreshes per-frame vehicle caches
 - `EulerDegreesToQuat(float pitch, float yaw, float roll)` - Converts Euler angles to quaternion with ZYX intrinsic convention
-- `ApplyVehicleScale(Vehicle vehicle, float scale)` - Applies uniform scale to all parts
+- `ApplyVehicleScale(Vehicle vehicle, float3 scale)` - Applies independent X/Y/Z scale to all parts
 
 **Key Logic**:
 - Uses quaternion multiplication: `worldRotation = targetRotation * relativeRotation`
@@ -66,13 +66,13 @@ public class WeldEntry
     public Part? TargetPart { get; set; }         // Anchor part on target (null = vehicle CoM fallback)
     public float3 RelativePosition { get; set; }  // Offset relative to anchor (part frame or body frame)
     public float3 RelativeRotation { get; set; }  // Pitch/Yaw/Roll relative to anchor orientation (degrees)
-    public float UniformScale { get; set; }       // Scaling factor (0.05 to 20.0)
+    public float3 Scale { get; set; }             // XYZ factors (0.05 to 20.0 per axis)
     public bool LockRotation { get; set; }        // Prevent relative rotation
 }
 ```
 
 #### WeldPreset
-Data container for preset weld configuration (position, rotation, scale, lock rotation).
+Data container for preset weld configuration (position, rotation, XYZ scale, lock rotation).
 
 #### PresetManager
 Manages named presets persisted to a TOML file at `My Games/Kitten Space Agency/.unscience/garrys-torch-presets.toml`.
@@ -89,7 +89,7 @@ ImGui window with:
 - **Preset system** - Filterable preset combo with delete button and confirmation modal
 - **Position Controls** - Full-width 3-axis drag float inputs for body-frame offset
 - **Rotation Controls** - Full-width 3-axis drag float inputs for pitch/yaw/roll
-- **Scale + Lock Rotation** - Table row with scale slider and rotation lock checkbox
+- **XYZ Scale + Lock Rotation** - Three-axis scale editor and rotation lock checkbox
 - **Active Welds list** - Bordered child windows per weld with live-edit controls
 - **Save as preset** - Modal popup to save active weld settings as a named preset
 - **Weld Management** - Create/unweld with validation and error messages
@@ -128,7 +128,9 @@ Welds automatically break if:
 This prevents welds from stretching across planetary bodies.
 
 ### Scaling
-Scales affect part size by multiplying part templates' visual and physical properties. KittenEva avatar scaling is handled specially to maintain proper proportions.
+Each scale component is written to `Part.Scale` in the part's local X/Y/Z axes. KittenEva bypasses the ordinary part render transform, so Garry's Torch patches its private model-to-body matrix and applies the missing Y/X and Z/X corrections after retaining X in the game's scalar `CharacterCore.Scale` field.
+
+The game exposes only a scalar `ScaleFactors` value to rescalable modules (derived from the largest axis). Garry's Torch therefore provides a true anisotropic part/model transform, but it does not invent anisotropic mass or module physics that KSA itself does not expose.
 
 ## Configuration Options
 
@@ -142,7 +144,7 @@ All weld parameters are configured through the ImGui window:
 | Pitch | -180 to +180° | Rotation around forward axis |
 | Yaw | -180 to +180° | Rotation around up axis |
 | Roll | -180 to +180° | Rotation around right axis |
-| Scale | 0.05 to 20.0x | Uniform scaling |
+| Scale X/Y/Z | 0.05 to 20.0x each | Independent local-axis scaling |
 | Lock Rotation | true/false | Freeze relative orientation |
 
 ## Usage Example
@@ -153,9 +155,9 @@ var weld = new WeldEntry
 {
     Source = sourceVehicle,
     Target = targetVehicle,
-    RelativePosition = new float3(0, 0, 5),  // 5m above target
-    RelativeRotation = new float3(0, 0, 0),   // No rotation offset
-    UniformScale = 1.0f,
+    Position = new float3(0, 0, 5),  // 5m above target
+    Rotation = new float3(0, 0, 0),  // No rotation offset
+    Scale = new float3(1.0f, 0.75f, 1.25f),
     LockRotation = false
 };
 
@@ -208,7 +210,7 @@ POST /torch/welds
   "data": {
     "position": { "x": 0, "y": 0, "z": 2.5 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "scale": 1.0,
+    "scale": { "x": 1.0, "y": 0.75, "z": 1.25 },
     "lockRotation": true
   }
 }
@@ -226,7 +228,7 @@ POST /torch/welds/animate
   "data": {
     "position": { "x": 0, "y": 0, "z": 5.0 },
     "rotation": { "x": 0, "y": 45, "z": 0 },
-    "scale": 0.5,
+    "scale": { "x": 0.5, "y": 0.75, "z": 1.0 },
     "lockRotation": true
   },
   "easing": {
@@ -239,7 +241,7 @@ POST /torch/welds/animate
 
 ### Animation System
 
-The animation system (`WeldAnimation`, `WeldAnimationManager`) enables smooth interpolation of all weld parameters:
+The animation system (`WeldAnimation`, `WeldAnimationManager`) enables smooth interpolation of all weld parameters, including each scale axis independently:
 
 - **Easing types**: Linear, EaseIn, EaseOut, EaseInOut
 - **Configurable power**: `easingPowerStart` and `easingPowerEnd` control the sharpness of the ease function

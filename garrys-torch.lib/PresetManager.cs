@@ -61,7 +61,7 @@ public sealed class PresetManager
 
     public bool SavePreset(string name, WeldPreset preset)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(name) || !WeldScale.IsValid(preset.Scale))
             return false;
 
         _presets[name] = preset;
@@ -112,7 +112,7 @@ public sealed class PresetManager
                             GetFloat(entry, "rotation_x"),
                             GetFloat(entry, "rotation_y"),
                             GetFloat(entry, "rotation_z")),
-                        Scale = GetFloat(entry, "scale", 1f),
+                        Scale = ReadScale(entry),
                         LockRotation = entry.TryGetValue("lock_rotation", out var lr) && lr is bool b ? b : true,
                     };
                 }
@@ -143,7 +143,9 @@ public sealed class PresetManager
                     ["rotation_x"] = (double)preset.Rotation.X,
                     ["rotation_y"] = (double)preset.Rotation.Y,
                     ["rotation_z"] = (double)preset.Rotation.Z,
-                    ["scale"] = (double)preset.Scale,
+                    ["scale_x"] = (double)preset.Scale.X,
+                    ["scale_y"] = (double)preset.Scale.Y,
+                    ["scale_z"] = (double)preset.Scale.Z,
                     ["lock_rotation"] = preset.LockRotation,
                 };
             }
@@ -163,5 +165,16 @@ public sealed class PresetManager
         if (table.TryGetValue(key, out var v) && v is double d)
             return (float)d;
         return defaultValue;
+    }
+
+    private static float3 ReadScale(TomlTable table)
+    {
+        // Presets written before XYZ scaling used one scalar. Treat it as a uniform
+        // value so existing user presets migrate without a manual edit.
+        float legacyScale = GetFloat(table, "scale", 1f);
+        return new float3(
+            GetFloat(table, "scale_x", legacyScale),
+            GetFloat(table, "scale_y", legacyScale),
+            GetFloat(table, "scale_z", legacyScale));
     }
 }

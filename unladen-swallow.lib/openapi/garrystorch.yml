@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Unladen Swallow — Garry's Torch API
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Vehicle welding (Garry's Torch) endpoints for the Unladen Swallow RPC server.
     Allows creating, modifying, animating, and removing welds between vehicles,
@@ -57,7 +57,10 @@ paths:
                       x: 0.0
                       y: 0.0
                       z: 0.0
-                    scale: 1.0
+                    scale:
+                      x: 1.0
+                      y: 0.75
+                      z: 1.25
                     lockRotation: true
               withPreset:
                 summary: Create weld from a saved preset
@@ -128,7 +131,10 @@ paths:
                     x: 0.0
                     y: 3.0
                     z: 0.5
-                  scale: 1.5
+                  scale:
+                    x: 1.5
+                    y: 1.0
+                    z: 0.8
       responses:
         '200':
           description: The updated weld state.
@@ -173,7 +179,10 @@ paths:
                       x: 0.0
                       y: 45.0
                       z: 0.0
-                    scale: 1.2
+                    scale:
+                      x: 1.2
+                      y: 0.8
+                      z: 1.0
                     lockRotation: true
                   easing:
                     easing: easeInOut
@@ -284,6 +293,44 @@ components:
         - y
         - z
 
+    ScaleVector:
+      type: object
+      description: Independent scale factors in the source part's local X/Y/Z axes.
+      properties:
+        x:
+          type: number
+          format: float
+          minimum: 0.05
+          maximum: 20.0
+          default: 1.0
+        y:
+          type: number
+          format: float
+          minimum: 0.05
+          maximum: 20.0
+          default: 1.0
+        z:
+          type: number
+          format: float
+          minimum: 0.05
+          maximum: 20.0
+          default: 1.0
+      required:
+        - x
+        - y
+        - z
+
+    ScaleInput:
+      description: >
+        Preferred form is an XYZ object. A number is also accepted for backwards
+        compatibility and is expanded to the same value on all three axes.
+      oneOf:
+        - $ref: '#/components/schemas/ScaleVector'
+        - type: number
+          format: float
+          minimum: 0.05
+          maximum: 20.0
+
     TorchEasingType:
       type: string
       description: Easing curve to use for weld animations.
@@ -324,13 +371,7 @@ components:
         rotation:
           $ref: '#/components/schemas/Vec3'
         scale:
-          type: number
-          format: float
-          description: Uniform scale factor. Valid range 0.05 – 20.0.
-          default: 1.0
-          minimum: 0.05
-          maximum: 20.0
-          example: 1.0
+          $ref: '#/components/schemas/ScaleInput'
         lockRotation:
           type: boolean
           description: Whether the weld locks the relative rotation between vehicles.
@@ -357,9 +398,7 @@ components:
         rotation:
           $ref: '#/components/schemas/Vec3'
         scale:
-          type: number
-          format: float
-          example: 1.0
+          $ref: '#/components/schemas/ScaleVector'
         lockRotation:
           type: boolean
           example: true
@@ -384,9 +423,7 @@ components:
         rotation:
           $ref: '#/components/schemas/Vec3'
         scale:
-          type: number
-          format: float
-          example: 1.0
+          $ref: '#/components/schemas/ScaleVector'
         lockRotation:
           type: boolean
           example: true
@@ -451,12 +488,7 @@ components:
         rotation:
           $ref: '#/components/schemas/Vec3'
         scale:
-          type: number
-          format: float
-          description: New scale value. Omit to leave unchanged.
-          minimum: 0.05
-          maximum: 20.0
-          example: 1.5
+          $ref: '#/components/schemas/ScaleInput'
         lockRotation:
           type: boolean
           description: New lockRotation value. Omit to leave unchanged.

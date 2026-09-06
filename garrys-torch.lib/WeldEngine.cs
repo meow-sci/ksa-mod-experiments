@@ -162,19 +162,21 @@ public static class WeldEngine
         return doubleQuat.Concatenate(doubleQuat.Concatenate(qYaw, qPitch), qRoll);
     }
 
-    /// <summary>Applies a uniform scale to all parts of a vehicle, with special handling for KittenEva.</summary>
-    public static void ApplyVehicleScale(Vehicle vehicle, float factor)
+    /// <summary>Applies independent X/Y/Z scale factors to all parts of a vehicle.</summary>
+    public static void ApplyVehicleScale(Vehicle vehicle, float3 scale)
     {
         foreach (var part in vehicle.Parts.Parts)
-            SetPartScaleRecursive(part, factor);
+            SetPartScaleRecursive(part, scale);
 
-        // KittenEva renders via CharacterAvatar.Core.Scale (Core.Scale 0.01 = 1:1)
-        if (vehicle.GetType().Name == "KittenEva")
+        // KittenEva's character model bypasses Part.Scale and renders via the scalar
+        // CharacterAvatar.Core.Scale (0.01 = 1:1). Keep X in that field as a safe
+        // uniform fallback, then let KittenScalePatches apply Y/X and Z/X to the
+        // private ModelToBodyMatrix result for a true anisotropic model transform.
+        if (vehicle is KittenEva kitten)
         {
             try
             {
-                var renderable = ReflectionHelpers.GetFieldValue(vehicle, "_renderable");
-                if (renderable == null) return;
+                var renderable = kitten.Renderable;
 
                 var avatar = ReflectionHelpers.GetFieldValue(renderable, "_characterAvatar");
                 if (avatar == null) return;
@@ -189,14 +191,16 @@ public static class WeldEngine
 
                 if (scaleField != null && scaleField.FieldType == typeof(float))
                 {
-                    scaleField.SetValue(core, factor * 0.01f);
+                    scaleField.SetValue(core, scale.X * 0.01f);
                     coreField!.SetValue(avatar, core);
                 }
                 else if (scaleProp != null && scaleProp.PropertyType == typeof(float))
                 {
-                    scaleProp.SetValue(core, factor * 0.01f);
+                    scaleProp.SetValue(core, scale.X * 0.01f);
                     coreField!.SetValue(avatar, core);
                 }
+
+                KittenScalePatches.SetScale(renderable, scale);
             }
             catch (Exception ex)
             {
@@ -205,13 +209,21 @@ public static class WeldEngine
         }
     }
 
-    /// <summary>Recursively sets uniform scale on a part and all its sub-parts.</summary>
-    public static void SetPartScaleRecursive(Part part, float factor)
+    /// <summary>Backwards-compatible uniform-scale overload.</summary>
+    public static void ApplyVehicleScale(Vehicle vehicle, float factor) =>
+        ApplyVehicleScale(vehicle, WeldScale.Uniform(factor));
+
+    /// <summary>Recursively sets XYZ scale on a part and all its sub-parts.</summary>
+    public static void SetPartScaleRecursive(Part part, float3 scale)
     {
-        part.Scale = new double3(factor, factor, factor);
+        part.Scale = new double3(scale.X, scale.Y, scale.Z);
         foreach (var sub in part.SubParts)
-            SetPartScaleRecursive(sub, factor);
+            SetPartScaleRecursive(sub, scale);
     }
+
+    /// <summary>Backwards-compatible uniform-scale overload.</summary>
+    public static void SetPartScaleRecursive(Part part, float factor) =>
+        SetPartScaleRecursive(part, WeldScale.Uniform(factor));
 
     /// <summary>
     /// Returns welds sorted so that a target is always processed before its source.

@@ -67,10 +67,9 @@ internal static class Patcher
         });
         TryApply("eternal-flame", () => EternalFlamePatches.Apply(_harmony!));
         TryApply("kiwis-marbles", () => KiwisMarblesPatches.Apply(_harmony!));
-        // garrys-torch no longer registers a Harmony patch — its weld physics
-        // runs from unscience/Mod.cs OnAfterUi via GarrysTorchSubmod.UpdateWelds,
-        // which internally calls JobSystems.VehicleSolvers.Wait() to avoid the
-        // worker-thread races that any other timing produces.
+        // Weld physics still runs from OnAfterUi; this patch only extends the
+        // scalar KittenEva character render transform to support XYZ weld scale.
+        TryApply("garrys-torch kitten scale", () => KittenScalePatches.Apply(_harmony!));
         TryApply("glass", () => GlassPatches.Apply(_harmony!));
         TryApply("i-feel-seen", () => IFeelSeenPatches.Apply(_harmony!, IFeelSeenTracker!));
         TryApply("vehicle-paint", () => VehiclePaintPatches.Apply(_harmony!));
@@ -113,6 +112,7 @@ internal static class Patcher
                 TryRemove("camera-controller-override", () => CameraControllerOverridePatches.Remove(_harmony!));
                 TryRemove("eternal-flame", () => EternalFlamePatches.Remove(_harmony!));
                 TryRemove("kiwis-marbles", () => KiwisMarblesPatches.Remove(_harmony!));
+                TryRemove("garrys-torch kitten scale", () => KittenScalePatches.Remove(_harmony!));
                 TryRemove("glass", () => GlassPatches.Remove(_harmony!));
                 TryRemove("i-feel-seen", () => IFeelSeenPatches.Remove(_harmony!));
                 TryRemove("engine-emissive", () => EngineEmissivePatches.Remove(_harmony!));

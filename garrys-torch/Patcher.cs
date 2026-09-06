@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using MeowSci.GarrysTorchLib;
 using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GarrysTorch;
@@ -14,6 +15,7 @@ internal static class Patcher
         {
             _harmony ??= new Harmony("garrys-torch");
             HotkeyGuard.Patch(_harmony);
+            KittenScalePatches.Apply(_harmony);
         }
         catch (Exception ex)
         {
@@ -25,7 +27,11 @@ internal static class Patcher
     {
         try
         {
-            if (_harmony != null) HotkeyGuard.Unpatch(_harmony);
+            if (_harmony != null)
+            {
+                KittenScalePatches.Remove(_harmony);
+                HotkeyGuard.Unpatch(_harmony);
+            }
             _harmony?.UnpatchAll("garrys-torch");
             _harmony = null;
         }

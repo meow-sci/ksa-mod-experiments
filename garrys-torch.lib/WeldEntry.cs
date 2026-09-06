@@ -18,8 +18,8 @@ public class WeldEntry
     public float3 Position;
     /// <summary>Euler pitch/yaw/roll relative to the anchor orientation (degrees).</summary>
     public float3 Rotation;
-    /// <summary>Uniform scale factor applied to all source parts.</summary>
-    public float Scale = 1f;
+    /// <summary>Independent X/Y/Z scale factors applied to all source parts.</summary>
+    public float3 Scale = WeldScale.Identity;
     /// <summary>When false, only position is locked; source can rotate freely.</summary>
     public bool LockRotation = true;
     /// <summary>When false, the weld is suspended (no physics applied) but kept in the list.</summary>
