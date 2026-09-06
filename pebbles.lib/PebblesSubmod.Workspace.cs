@@ -15,22 +15,17 @@ public sealed partial class PebblesSubmod
     private DraftBindings BindDraft()
     {
         var draft = new DraftBindings();
+        draft.Value("replacement", () => _replacement, v => _replacement = v, validate: RecipeValidation.Object);
+        draft.Value("targetTypes", () => _targetTypes, v => _targetTypes = v, target: true,
+            validate: v => { if (v == null || v.Count > 128 || v.Exists(string.IsNullOrWhiteSpace)) throw new InvalidOperationException("Invalid clutter target selection."); });
+        draft.Value("allTypes", () => _allTypes, v => _allTypes = v, target: true);
+        draft.Value("recipeBody", () => _recipeBody, v => _recipeBody = v, target: true);
         _glbBrowser.Bind(draft);
         draft.Text("glbPath", _glbPath);
         draft.Value("glbSelection", () => _glbSelected, v => { _glbSelected = v; _glbOptions = []; _glbStatus = "Load file to browse its meshes, or explicitly preview/apply its saved selection."; },
             validate: v => { if (v.Length > 0) _ = GlbIdentity.Parse(v); });
         draft.Value("body", () => _bodyId, v => _bodyId = v, target: true);
-        draft.Value("ecotype", () => _ecotypeName, v => _ecotypeName = v, target: true);
-        draft.Value("object", () => _objectId, v => _objectId = v, target: true);
-        draft.Value("recipe", () => _recipe, v => _recipe = v, validate: RecipeValidation.Validate);
-        draft.Value("lod", () => _lod, v => _lod = v, validate: v => { if (v is < 0 or > 4) throw new InvalidOperationException("Invalid LOD."); });
-        draft.Value("bulkScope", () => _bulkScope, v => _bulkScope = v, validate: v => { if (v is < 0 or > 2) throw new InvalidOperationException("Invalid bulk scope."); });
-        draft.Value("bulkMaterial", () => _bulkMaterial, v => _bulkMaterial = v, validate: RecipeValidation.Material);
-        draft.Value("bulkMesh", () => _bulkMesh, v => _bulkMesh = v);
-        draft.Value("bulkTexture", () => _bulkTexture, v => _bulkTexture = v);
-        draft.Value("workshopBody", () => _workshopBody, v => _workshopBody = v, target: true);
-        draft.Value("workshopEcotype", () => _workshopEcotype, v => _workshopEcotype = v, target: true);
-        draft.Value("workshopObject", () => _workshopObject, v => _workshopObject = v, target: true);
+        draft.Value("targetRecipe", () => _recipe, v => _recipe = v, target: true, validate: RecipeValidation.Validate);
         draft.Value("workshop", () => _workshop.State, v => _workshop.State = v, validate: WorkshopValidation.Validate);
         draft.Text("assetFilter", _assetFilter);
         return draft;
@@ -50,7 +45,7 @@ public sealed partial class PebblesSubmod
                 ImGui.TextDisabled($"{live.EcotypeCount} ecotypes · {live.VertexCount:N0} private vertices · {live.MaterialCount} material slots");
                 foreach (var ecotype in live.Recipe.Ecotypes)
                     if (ImGui.Button($"Restore ecotype: {ecotype.Name}")) Try(() => _controller.RestoreEcotype(live.BodyId, ecotype.Name));
-                if (ImGui.Button("Copy applied recipe to workspace")) { _bodyId = live.BodyId; _recipe = RecipeCopy.Clone(live.Recipe); }
+                if (ImGui.Button("Select this planet in authoring form")) { _bodyId = live.BodyId; _recipeBody = live.BodyId; _recipe = RecipeCopy.Clone(live.Recipe); _targetTypes.Clear(); _allTypes = false; }
                 if (ImGui.Button("Restore original clutter")) Try(() => _controller.QueueRestore(live.BodyId));
             });
     }

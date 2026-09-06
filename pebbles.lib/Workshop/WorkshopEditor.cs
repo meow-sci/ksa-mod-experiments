@@ -46,6 +46,7 @@ public sealed partial class WorkshopEditor : IDisposable
     {
         CancelGesture();
         _state.Object = RecipeCopy.Clone(recipe); _state.IsOpen = true;
+        _state.PreviewLod = 0;
         _state.SelectedColliderId = recipe.Colliders.FirstOrDefault()?.Id ?? "";
         _history.Clear(); _done = done; _refreshRequested = true; _stale = true; _frameAfterRefresh = true;
         _message = ""; _nameId = "";
@@ -136,9 +137,6 @@ public sealed partial class WorkshopEditor : IDisposable
         ImGui.EndDisabled(); ImGui.SameLine(0, 8); ImGui.BeginDisabled(!_history.CanRedo);
         if (ImGui.Button(" Redo "u8)) { CancelGesture(); _state.Object = _history.Redo(_state.Object); _refreshRequested = true; _nameId = ""; }
         ImGui.EndDisabled();
-        int lod = _state.PreviewLod; ImGui.SameLine(0, 8); ImGui.SetNextItemWidth(100);
-        if (ImGui.Combo("##preview-lod"u8, ref lod, new[] { "LOD 0", "LOD 1", "LOD 2", "LOD 3", "LOD 4" }))
-        { _state.PreviewLod = lod; _refreshRequested = true; _stale = true; }
     }
 
     private void Footer()

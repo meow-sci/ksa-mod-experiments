@@ -17,6 +17,8 @@ public sealed class GlbMaterials : IDisposable
     private readonly Dictionary<string, GlbPixels> _pixels = new(StringComparer.Ordinal);
     private readonly Dictionary<string, GlbTexture> _textures = new(StringComparer.Ordinal);
     private long _pixelBytes;
+    private readonly HashSet<string> _warnings = new(StringComparer.Ordinal);
+    public IReadOnlyList<string> Warnings => _warnings.Order(StringComparer.Ordinal).ToArray();
     public IReadOnlyList<string> TextureIds => _pixels.Keys.ToArray();
 
     public GlbMaterials(GlbDocument document, string sourceKey) { _document = document; _sourceKey = sourceKey; }
@@ -26,11 +28,7 @@ public sealed class GlbMaterials : IDisposable
         if (index < -1) throw new InvalidOperationException("Invalid GLB default material index.");
         if (_materials.TryGetValue(index, out var existing)) return RecipeCopy.Clone(existing);
         var material = index < 0 ? default : At(_document.Root, "materials", index);
-        RejectExtensions(material);
-        if (material.ValueKind == JsonValueKind.Object && material.TryGetProperty("emissiveTexture", out _))
-            throw new NotSupportedException("GLB emissive textures are not supported by ground clutter. Remove the emissive channel before import.");
-        var emissive = Vector(material, "emissiveFactor", [0, 0, 0]);
-        if (emissive.Any(x => x != 0)) throw new NotSupportedException("GLB emissive materials are not supported by ground clutter.");
+        var warnings = GlbCompatibility.MaterialWarnings(material);
         string alpha = Text(material, "alphaMode", "OPAQUE");
         if (alpha != "OPAQUE" && alpha != "MASK") throw new NotSupportedException("GLB alpha blending is not supported by ground clutter. Use opaque or alpha-mask materials.");
         var pbr = Property(material, "pbrMetallicRoughness");
@@ -60,6 +58,7 @@ public sealed class GlbMaterials : IDisposable
         foreach (var (id, pixels) in generated) _pixels.Add(id, pixels);
         _pixelBytes += generatedBytes;
         _materials.Add(index, recipe);
+        foreach (var warning in warnings) _warnings.Add(warning);
         return RecipeCopy.Clone(recipe);
     }
 
@@ -135,9 +134,7 @@ public sealed class GlbMaterials : IDisposable
     }
     private static void RejectExtensions(JsonElement item)
     {
-        var extensions = Property(item, "extensions");
-        if (extensions.ValueKind == JsonValueKind.Object && extensions.EnumerateObject().Any())
-            throw new NotSupportedException("GLB material/texture extensions are unsupported; export core metallic/roughness materials without extensions.");
+        GlbCompatibility.RejectExtensions(item);
     }
 
     /// <summary>

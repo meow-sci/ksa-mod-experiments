@@ -30,7 +30,7 @@ for project in projects:
     readme = project.parent / 'README.md'
     if not readme.is_file():
         errors.append(f'{project.relative_to(root)}: missing README.md')
-    if str(readme.relative_to(root)) not in index:
+    if readme.relative_to(root).as_posix() not in index:
         errors.append(f'{project.relative_to(root)}: not indexed')
 
 files = set(root.glob('*.md')) | set(root.glob('*.lib/README.md'))

@@ -105,5 +105,6 @@ internal sealed class GlbImportLibrary : IDisposable
         return mesh.PrimitiveMaterialIds.Distinct().Order().Select(source.Materials.GetMaterial).Select(RecipeCopy.Clone).ToList();
     }
     public TextureReference ResolveTexture(string id) => ResolveSource(id).Materials.ResolveTexture(id);
+    public IReadOnlyList<string> WarningsFor(string id) => ResolveSource(id).Materials.Warnings;
     public void Dispose() { foreach (var source in _sources.Values) source.Dispose(); _sources.Clear(); }
 }

@@ -57,8 +57,7 @@ public sealed partial class GlbDocument : IDisposable
             if (buffers.GetArrayLength() != 1 || buffers[0].TryGetProperty("uri", out _) || Required(buffers[0], "byteLength").GetInt64() > binary.Length || Required(buffers[0], "byteLength").GetInt64() < binary.Length - 3)
                 throw new InvalidDataException("Use a self-contained GLB with one embedded binary buffer.");
             if (Required(root, "meshes").GetArrayLength() is < 1 or > 512) throw new InvalidDataException("GLB needs 1–512 meshes.");
-            if (root.TryGetProperty("extensionsRequired", out var required) && required.GetArrayLength() != 0)
-                throw new InvalidDataException("This GLB requires extensions. Export standard, uncompressed glTF 2.0 geometry/materials.");
+            GlbCompatibility.RequiredExtensions(root);
             return new(json, binary, Convert.ToHexString(SHA256.HashData(bytes)));
         }
         catch { json?.Dispose(); throw; }

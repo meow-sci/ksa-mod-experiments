@@ -13,6 +13,7 @@ internal static class GlbChecks
     public static void Run()
     {
         GlbPixelChecks.Run();
+        CompatibilityChecks();
         foreach (int component in new[] { 5121, 5123, 5125 })
         {
             using var document = GlbDocument.Parse(Fixture(component: component));
@@ -91,6 +92,28 @@ internal static class GlbChecks
             Check(slots.Slot(mesh.Id, material) == reverse.Slot(mesh.Id, material), "Slot ordering independent of import order");
         Console.WriteLine("PASS: GLB bounded parsing, indices/UVs/normals, scene transforms/instances, malformed input rejection and exact detached source identities.");
     }
+    private static void CompatibilityChecks()
+    {
+        using var document = GlbDocument.Parse(Fixture(j =>
+        {
+            j["extensionsRequired"] = new JsonArray("KHR_materials_specular", "KHR_materials_ior", "KHR_materials_unlit");
+            j["materials"] = JsonNode.Parse("""[{"name":"Existing Blender material","pbrMetallicRoughness":{"baseColorTexture":{"index":3},"baseColorFactor":[0.2,0.4,0.6,1]},"extensions":{"KHR_materials_specular":{"specularFactor":0.3},"KHR_materials_ior":{"ior":1.7},"KHR_materials_unlit":{}},"emissiveFactor":[1,0,0]}]""");
+        }));
+        var material = document.Root.GetProperty("materials")[0];
+        string original = material.GetRawText();
+        var warnings = GlbCompatibility.MaterialWarnings(material);
+        Check(warnings.Count == 4 && warnings.Any(w => w.Contains("KHR_materials_specular")) && warnings.Any(w => w.Contains("emissive")), "Known material extensions import with explicit appearance warnings, even when marked required.");
+        Check(material.GetRawText() == original && material.GetProperty("pbrMetallicRoughness").GetProperty("baseColorTexture").GetProperty("index").GetInt32() == 3, "Fallback policy never changes the source base-color texture or factors.");
+        using var unknown = JsonDocument.Parse("""{"extensions":{"EXT_unknown_material":{}}}""");
+        Reject(() => GlbCompatibility.MaterialWarnings(unknown.RootElement));
+        using var mapping = JsonDocument.Parse("""{"extensions":{"KHR_texture_transform":{"offset":[1,0]}}}""");
+        try { GlbCompatibility.RejectExtensions(mapping.RootElement); throw new Exception("Texture mapping must not be silently lost."); }
+        catch (InvalidDataException ex) { Check(ex.Message.Contains("KHR_texture_transform") && ex.Message.Contains("Bake"), "Mapping error gives the exact extension and recovery path."); }
+        RejectJson(j => j["extensionsRequired"] = new JsonArray("EXT_unknown_material"));
+        RejectJson(j => j["extensionsRequired"] = new JsonArray("KHR_texture_transform"));
+        Console.WriteLine("PASS: GLB known appearance fallbacks, source texture preservation and actionable unsupported-extension errors.");
+    }
+
     private static byte[] Fixture(Action<JsonObject>? edit = null, int component = 5123, Action<byte[]>? binaryEdit = null)
     {
         int width = component == 5121 ? 1 : component == 5123 ? 2 : 4;

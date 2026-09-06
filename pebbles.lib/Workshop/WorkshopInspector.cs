@@ -21,15 +21,18 @@ public sealed partial class WorkshopEditor
             bool mesh = _state.ShowMesh, colliders = _state.ShowColliders;
             if (ImGui.Checkbox("Show mesh"u8, ref mesh)) _state.ShowMesh = mesh;
             ImGui.SameLine(0, 8); if (ImGui.Checkbox("Show colliders"u8, ref colliders)) _state.ShowColliders = colliders;
-            AssetEditor();
-            if (Header("Mesh transform"))
+            ImGui.SeparatorText("Mesh scale"u8);
             {
                 var before = RecipeCopy.Clone(_state.Object);
                 var transform = _state.Object.Transform;
-                bool changed = VectorInput("Position (m)", transform.Position, v => transform.Position = v, .01f);
-                changed |= VectorInput("Rotation (degrees)", transform.RotationDegrees, v => transform.RotationDegrees = v, .5f);
-                changed |= VectorInput("Scale", transform.Scale, v => transform.Scale = v, .01f, .001f, 10000);
-                if (changed) NumericChanged(before, true);
+                float scale = transform.Scale.X;
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.DragFloat("##mesh-scale"u8, ref scale, .01f, .001f, 10000))
+                {
+                    try { ClutterAuthoring.SetScale(_state.Object, scale); NumericChanged(before, true); }
+                    catch (Exception ex) { _message = ex.Message; }
+                }
+                ImGui.TextWrapped("Scale resizes the mesh and all colliders together.");
                 ImGui.BeginDisabled(_stale || !_preview.IsReady);
                 if (ImGui.Button(" Ground mesh and colliders "u8, new float2(-1, 0)))
                 {
@@ -43,10 +46,9 @@ public sealed partial class WorkshopEditor
                 ImGui.EndDisabled();
             }
             ImGui.Spacing(); ImGui.SeparatorText("Collision geometry"u8);
-            int policy = (int)_state.Object.Collision;
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.Combo("##collision-policy"u8, ref policy, new[] { "Keep original collision", "No collision", "Custom colliders" }))
-                Edit(() => _state.Object.Collision = (CollisionPolicy)policy);
+            bool useColliders = _state.Object.Collision == CollisionPolicy.Custom;
+            if (ImGui.Checkbox("Use colliders"u8, ref useColliders))
+                Edit(() => _state.Object.Collision = useColliders ? CollisionPolicy.Custom : CollisionPolicy.None);
             int newKind = _state.NewColliderKind;
             ImGui.SetNextItemWidth(-1); if (ImGui.Combo("##new-shape"u8, ref newKind, PrimitiveNames)) _state.NewColliderKind = newKind;
             ImGui.BeginDisabled(_stale || !_preview.IsReady);

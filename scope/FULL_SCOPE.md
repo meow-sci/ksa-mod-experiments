@@ -16,7 +16,7 @@ Current runtime changes: all 26 features expose explicit release; initialization
 
 Current creative-tool additions: Zippo Disco uses per-instance LightModule templates and shared assembly actuator ownership; Humble Arteest adds rendered-mesh cursor picking and mesh paint scopes; Graffiti adds held-input spray cadence. See the area pages and master surface for exact members. No new Harmony targets or GPU layouts; managed checks do not establish native acceptance.
 
-Pebbles adds per-celestial ground clutter overrides and an independent mesh/collider Workshop. Its runtime GLB importer, new runtime hooks, private GPU resources and physics invalidation require native acceptance; see [ground clutter](ground-clutter.md).
+Pebbles provides mesh/import, linked scale/collider setup and selected/all clutter-type replacement with automatic GLB material assignment and warned fallbacks for common Blender appearance extensions. Its simplified authoring retains the existing per-celestial override and preview integration inventory. Its runtime GLB importer, new runtime hooks, private GPU resources and physics invalidation require native acceptance; see [ground clutter](ground-clutter.md).
 
 ## Integration model
 

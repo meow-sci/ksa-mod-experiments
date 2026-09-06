@@ -16,6 +16,7 @@ public sealed class ClutterAssets : IDisposable
     public IReadOnlyList<GlbMeshOption> ImportGlb(string path) { var options = _external.Import(path); RefreshIds(); return options; }
     public IReadOnlyList<GlbMeshOption> GlbOptions(string id) => _external.OptionsFor(id);
     public List<MaterialRecipe> GlbMaterials(string id) { var result = _external.MaterialsFor(id); RefreshIds(); return result; }
+    public IReadOnlyList<string> GlbWarnings(string id) => _external.WarningsFor(id);
     /// <summary>Call before GUI or on unload, after retiring all live and preview borrowers.</summary>
     public void ReleaseGlbImports() { _external.Dispose(); RefreshIds(); }
     private readonly Dictionary<string, MeshReference> _meshes = new(StringComparer.Ordinal);
