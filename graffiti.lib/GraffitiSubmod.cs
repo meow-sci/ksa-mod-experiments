@@ -8,7 +8,7 @@ namespace MeowSci.GraffitiLib;
 
 /// <summary>
 /// Graffiti — click-to-place PNG decals. Pick a PNG from the decal library (imported through a
-/// file browser or dropped into <c>.unscience/decals</c> by hand), arm placement, click anywhere
+/// file browser or dropped into <c>.unscience/pngs</c> by hand), arm placement, click anywhere
 /// in the 3D world, and a projected decal is painted onto the vehicle, parachute, or terrain under the
 /// cursor. This file holds state, lifecycle, the per-frame driver and the public API; the ImGui
 /// panels live in the partial files.
@@ -41,7 +41,7 @@ public sealed partial class GraffitiSubmod : ISubmod
     public void Initialize()
     {
         Instance = this;
-        DecalLibrary.EnsureDir();
+        PngLibrary.EnsureDir();
         RefreshLibrary();
     }
 
@@ -129,7 +129,7 @@ public sealed partial class GraffitiSubmod : ISubmod
     /// Raycasts from the mouse cursor into the world and places a decal on the nearest vehicle,
     /// deployed parachute, or terrain hit within <paramref name="range"/> metres.
     /// </summary>
-    /// <param name="imageName">A decal library file name (see <see cref="DecalLibrary"/>).</param>
+    /// <param name="imageName">A shared PNG-library file name (see <see cref="PngLibrary"/>).</param>
     /// <param name="range">Maximum hit distance, metres.</param>
     /// <param name="width">Decal width, metres.</param>
     /// <param name="height">Decal height, metres.</param>
@@ -224,9 +224,16 @@ public sealed partial class GraffitiSubmod : ISubmod
     /// </summary>
     public void RefreshLibrary()
     {
-        _libraryNames = DecalLibrary.Scan();
-        if (_selectedLibraryIndex >= _libraryNames.Length)
-            _selectedLibraryIndex = _libraryNames.Length > 0 ? 0 : -1;
+        var selectedName = _selectedLibraryIndex >= 0 && _selectedLibraryIndex < _libraryNames.Length
+            ? _libraryNames[_selectedLibraryIndex]
+            : null;
+        _libraryNames = PngLibrary.Scan();
+        _selectedLibraryIndex = selectedName == null
+            ? (_libraryNames.Length > 0 ? 0 : -1)
+            : Array.FindIndex(_libraryNames,
+                name => string.Equals(name, selectedName, StringComparison.OrdinalIgnoreCase));
+        if (_selectedLibraryIndex < 0 && _libraryNames.Length > 0)
+            _selectedLibraryIndex = 0;
         foreach (var entry in _decals)
         {
             entry.TextureHandle = _textures.Resolve(entry.ImageName, out var state) ?? -1;

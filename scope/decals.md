@@ -89,9 +89,11 @@ against that build.
    ride a MaxFramesInFlight+1 retire queue; teardown drains
    `Program.GetRenderer().GraphicsAndCompute.WaitIdle()` first.
 
-**Persistence** — none for placed decals (session-scoped). The decal **library** is plain PNGs at
-`<MyDocuments>/My Games/Kitten Space Agency/.unscience/decals/`
-(dir from `ksa-abstractions.lib/KsaPaths.cs:9`). Mod-authored files, not game assets.
+**Persistence** — none for placed decals (session-scoped). The shared PNG library is plain files at
+`<MyDocuments>/My Games/Kitten Space Agency/.unscience/pngs/`, owned by
+`ksa-abstractions.lib/PngLibrary.cs` and also consumed by free-fallin. Imports always copy into that
+folder. It is scanned at startup and on demand via the Rescan button; there is no background watcher
+or polling loop. These are mod-authored files, not game assets.
 
 ## Touchpoints
 

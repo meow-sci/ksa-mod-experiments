@@ -5,12 +5,13 @@ using Brutal.TextureApi;
 using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
 using KSA;
+using MeowSci.KsaAbstractions;
 using RenderCore;
 
 namespace MeowSci.GraffitiLib;
 
 /// <summary>
-/// The image half of graffiti: decal file name → a graffiti-owned GPU image occupying one slot of
+/// The image half of graffiti: shared PNG file name → a graffiti-owned GPU image occupying one slot of
 /// KSA's bindless texture table, so the decal shader can address it with a single uint push
 /// constant. Game thread only.
 /// </summary>
@@ -50,7 +51,7 @@ internal sealed class DecalTextureCache
     /// </summary>
     internal int? Resolve(string name, out DecalTextureState state)
     {
-        var path = DecalLibrary.FullPath(name);
+        var path = PngLibrary.FullPath(name);
         if (!File.Exists(path))
         {
             state = DecalTextureState.Missing;

@@ -9,8 +9,7 @@ Reusable core for [`../free-fallin`](../free-fallin) and the unscience umbrella 
 | `CanopyProjectionShaders.cs` | Injects the material-gated Full Canopy varying/albedo projection into KSA's model PBR shaders in memory |
 | `CanopyMaterialController.cs` | Transcodes the stock BC7 KTX2 to RGBA8 when compositing a decal, then builds GPU albedo/PBR textures and `MaterialData` objects |
 | `CanopyMaterialSettings.cs` / `CanopyTextureMode.cs` | Public settings model and Stock/Replace/FullCanopy/CenterDecal modes |
-| `ParachuteTextureLibrary.cs` | Persistent imported-PNG library under `.unscience/parachutes` |
-| `PngFileBrowser.cs` | ImGui filesystem picker modeled after Graffiti's importer |
+| Shared PNG dependency | Uses `ksa-abstractions.lib`'s `.unscience/pngs` catalog and `PngFileBrowser` |
 
 The lib deliberately retains generated KSA texture/material asset registrations until renderer
 shutdown. This avoids invalidating handles referenced by frames in flight; one pair is allocated per

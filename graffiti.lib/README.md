@@ -12,7 +12,9 @@ avatars, and celestial terrain.
 - `DecalAnchors` recomposes part-local, cloth-barycentric, or geodetic anchors into ego-space
   projection boxes every frame.
 - `DecalRenderer` and `DecalShaders` implement the post-resolve projected-decal Vulkan pass.
-- `DecalTextures`, `DecalLibrary`, and `FileBrowser` manage imported PNGs and GPU residency.
+- `DecalTextures` manages Graffiti's GPU residency. PNG catalog/import behavior comes from the
+  shared `ksa-abstractions.lib` `PngLibrary` and `PngFileBrowser`: every import is copied into
+  `.unscience/pngs`, and the catalog is scanned at startup and via the Rescan button.
 - `GraffitiPatches` installs the `RenderTarget.ResolveAttachments` postfix used by both hosts.
 
 ## Parachute behavior

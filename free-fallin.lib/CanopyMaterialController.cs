@@ -6,6 +6,7 @@ using Brutal.TextureApi.Abstractions;
 using Brutal.VulkanApi;
 using Core;
 using KSA;
+using MeowSci.KsaAbstractions;
 using RenderCore;
 
 namespace MeowSci.FreeFallinLib;
@@ -93,7 +94,7 @@ internal static class CanopyMaterialController
         if (string.IsNullOrWhiteSpace(settings.TextureName))
             throw new InvalidOperationException("Choose a PNG before applying this texture mode.");
 
-        string path = ParachuteTextureLibrary.FullPath(settings.TextureName);
+        string path = PngLibrary.FullPath(settings.TextureName);
         if (!File.Exists(path)) throw new FileNotFoundException("The selected PNG no longer exists.", path);
         GenericTexture generated = settings.TextureMode is CanopyTextureMode.Replace or CanopyTextureMode.FullCanopy
             ? LoadReplacement(path)

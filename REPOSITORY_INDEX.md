@@ -18,6 +18,7 @@ Shared library with common abstractions used across multiple mods. Provides util
 - `ISubmod` — generic submod interface used by unscience supermod: `Name`, `Initialize()`, `Update(dt)`, `RenderContent()`, `Dispose()`
 - `HotkeyGuard` — mandatory Harmony prefix on `GameSettings.OnKeyAll` that swallows game hotkeys while an ImGui text input has focus
 - `HiddenUiFrameHook` — Harmony prefix on `Program.OnDrawUiConsole` that replays a host's registered `BeforeGui`/`AfterGui` per-frame work while the game HUD is hidden (F2), because StarMap's `[StarMapBeforeGui]`/`[StarMapAfterGui]` targets are skipped by the game in that state; used by unscience
+- `PngLibrary` / `PngFileBrowser` — shared `.unscience/pngs` catalog and reusable ImGui filesystem picker; every filesystem PNG import is copied into this one auto-uniquifying library, used by graffiti and free-fallin
 - `EasingType` enum + `EasingHelper.ApplyEasing()` — shared easing utility (Linear/EaseIn/EaseOut/EaseInOut with power params); used by zippo.lib, garrys-torch.lib, camera-controller-override.lib
 - `XkcdColorHelper` — cached reflection-based lookup of all ~950 `KSAColor.Xkcd` named colors; provides `GetAll()`, `FindByName()`, `GetNames()`; used by zippo.lib and doh.lib
 - `Directions` — named `double3` unit axes (`Up`/`Down`/`Left`/`Right`/`Forward`/`Backward`) in KSA's Y-up, -Z-forward convention; replaces `KSA.Double3Ex.{Up,Forward,…}`, removed by the game in build `2026.8.3.5117`. No current consumer (its only user, space-tape, was removed in `2026.8.22.5348`)
@@ -367,14 +368,14 @@ Part painting and visual customization mod. Three features: vehicle part paintin
 
 ### [graffiti](graffiti) / [graffiti.lib](graffiti.lib)
 Click-to-place **projected PNG decals** on vehicle hulls, deployed parachute canopies, and terrain. Pick a PNG from a decal library, press Place at Click..., click anywhere in the 3D world — the decal conforms to whatever surface is under the cursor and stays welded to it (part-local on vehicles, barycentric on live canopy cloth, geodetic lat/lon on terrain). A port of the gatOS sticker system with a point-and-click UX.
-- **Decal library** at `My Games/Kitten Space Agency/.unscience/decals/`: built-in ImGui **file browser** (quick links, drives, filter) copies imports in (auto-uniquified); hand-dropped PNGs picked up by Rescan (which also hot-swaps changed files)
+- **Shared PNG library** at `My Games/Kitten Space Agency/.unscience/pngs/`: uses `ksa-abstractions.lib`'s common ImGui browser; every import is copied in and auto-uniquified, the dropdown reads the shared catalog also used by free-fallin, and **Rescan PNGs** hot-swaps changed files without background polling
 - **One-shot click placement**: filterable decal dropdown → Place at Click... → cursor-following hint → click places via a `Cursor.GetEgoRay(viewport)` raycast (live cloth-triangle pick for deployed parachutes, mesh-precise `Part.RayCastEgo` on vehicles, bounding-sphere pick for KittenEva kittens, accurate CPU terrain march + bisection behind); Esc cancels; a miss keeps placement armed
 - **Unlimited decals** with a multi-select listbox (Ctrl/Cmd toggles, Shift range-selects), Delete Selected + Clear All; dormant (despawned-anchor) decals shown, never pruned
 - Placement settings: width/height, depth (0 = auto: half the larger side, floored at 0.3 m hull / 2 m terrain — a too-shallow box crops wide decals on curved hulls; terrain boxes also auto-deepen 1%-of-distance to survive terrain LOD at zoom), roll, range, alpha, brightness, configurable max draw distance (default 50 km), debug-checker toggle
 - **Render**: Harmony postfix on `RenderTarget.ResolveAttachments` (the GridPass post-resolve window, main viewport only, flight scene only) draws a unit cube per decal; the fragment shader reconstructs scene position from reverse-Z depth and projects the PNG onto it — decals wrap hull curvature and tessellated terrain. Textures via KSA's bindless table (`SimpleVkTexture`, 2048 cap, deferred destroy)
 - **No string reflection** — all-public API surface; game updates break loudly at compile time
-- **Public API**: `GraffitiSubmod.Instance`, `PlaceAtCursor`, `Arm`/`Disarm`, `RemoveDecals`, `ClearDecals`, `RefreshLibrary`, `Decals`, `DecalLibrary`
-- **graffiti.lib**: `GraffitiSubmod` (+ `.Ui`, `.Placement` partials), `DecalEntry`, `DecalPicker` (cursor raycast), `DecalAnchors` (per-frame decal-space composition), `DecalRenderer` + `DecalShaders` (projected-decal pass), `DecalTextures` (PNG decode/upload/bindless slots + retire queue), `DecalLibrary`, `FileBrowser`, `GraffitiPatches`, `GraffitiUi`
+- **Public API**: `GraffitiSubmod.Instance`, `PlaceAtCursor`, `Arm`/`Disarm`, `RemoveDecals`, `ClearDecals`, `RefreshLibrary`, `Decals`; shared catalog API is `PngLibrary`
+- **graffiti.lib**: `GraffitiSubmod` (+ `.Ui`, `.Placement` partials), `DecalEntry`, `DecalPicker` (cursor raycast), `DecalAnchors` (per-frame decal-space composition), `DecalRenderer` + `DecalShaders` (projected-decal pass), `DecalTextures` (PNG decode/upload/bindless slots + retire queue), `GraffitiPatches`, `GraffitiUi`; imports use shared `PngLibrary` / `PngFileBrowser`
 
 ### [free-fallin](free-fallin) / [free-fallin.lib](free-fallin.lib)
 Global parachute-canopy appearance customization. Unlike Graffiti, it needs no raycast: one material
@@ -383,7 +384,7 @@ is substituted on every canopy as it draws, so the image follows KSA's animated 
 - Imported PNG as a repeating authored-UV panel texture, a cohesive bind-pose projection across the
   complete canopy, or alpha-composited in the center of the stock albedo
 - Stock-map AO/roughness/metallic multipliers or uniform 0–1 PBR overrides
-- Built-in ImGui PNG browser; imports persist under `.unscience/parachutes`
+- Shared ImGui PNG browser and catalog with graffiti; imports persist under `.unscience/pngs`
 - Session-only active settings, global to existing and future parachutes, with Restore Stock
 - `free-fallin.lib`: `FreeFallinSubmod`, `CanopyMaterialController`, `CanopyProjectionShaders`,
   `FreeFallinPatches`, settings, image library/browser; `free-fallin`: standalone F11 StarMap host

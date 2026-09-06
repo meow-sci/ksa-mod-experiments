@@ -13,15 +13,16 @@ Two projects, following the repo's submod pattern:
 
 ## Using it
 
-**Decal library** — your PNGs live in
-`My Games/Kitten Space Agency/.unscience/decals/`:
+**PNG library** — Graffiti and other image-using mods share one managed folder:
+`My Games/Kitten Space Agency/.unscience/pngs/`:
 - **Import PNG...** opens a built-in ImGui file browser (quick links for Home / Desktop /
   Pictures / Downloads, Windows drive buttons, name filter; double-click folders to navigate,
-  double-click a PNG or press Import to pick it). The pick is **copied** into the decals folder
-  (auto-uniquified — `cat.png` → `cat (2).png` — never overwritten). ImGui has no native OS file
-  dialog, so the browser is the picker.
-- PNGs dropped into the folder by hand are picked up by **Rescan** (which also hot-swaps the
-  texture of any placed decal whose file changed on disk).
+  double-click a PNG or press Import to pick it). Every import is copied into the shared folder,
+  auto-uniquified (`cat.png` → `cat (2).png`), and never overwritten. The same shared browser and
+  catalog are used by Free Fallin.
+- The folder is created and scanned when the mod starts. Use **Rescan PNGs** after dropping
+  files into it by hand; Rescan also hot-swaps changed files on already placed decals. Graffiti
+  does not run a background filesystem watcher or polling loop.
 
 **Placing**
 1. Pick a **Decal** from the filterable dropdown.
@@ -50,7 +51,8 @@ Two projects, following the repo's submod pattern:
 - Rows show `[anchor gone]` when the target vehicle despawned (the decal is dormant, not deleted
   — it comes back if the vehicle does) and `[image unavailable]` when the PNG is missing/broken.
 
-Decals are session-scoped (not persisted across game restarts); the library folder of course is.
+Placed decals are session-scoped (not persisted across game restarts); imported PNGs remain in the
+shared library for later runs and for other mods.
 Decals render in the flight scene only (not in the VAB/editor).
 
 ## How it works
@@ -106,7 +108,8 @@ RPC; graffiti raycasts through the clicked cursor position via `Cursor.GetEgoRay
 - `PlaceAtCursor(imageName, range, width, height, rollDeg, alpha, brightness, depth?)` — raycast
   + place in one call; `Arm(name)` / `Disarm()` — the one-shot click mode the UI uses
 - `RemoveDecals(entries)`, `ClearDecals()`, `RefreshLibrary()`, `DebugBox`
-- `DecalLibrary` — `DecalsDir`, `Scan()`, `Import(path, out error)`, `FullPath(name)`
+- Shared `PngLibrary` / `PngFileBrowser` from `ksa-abstractions.lib` provide `PngsDir`, `Scan()`,
+  `Import(path, out error)`, `FullPath(name)`, and the common filesystem picker.
 
 ## Game integration scope
 

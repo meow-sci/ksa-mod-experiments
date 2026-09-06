@@ -76,17 +76,17 @@ public sealed partial class GraffitiSubmod
         if (ImGui.Button(" Import PNG... ##graffiti_import"))
             _fileBrowser.Open();
         ImGui.SameLine(0, 8);
-        if (ImGui.Button(" Rescan ##graffiti_rescan"))
+        if (ImGui.Button(" Rescan PNGs ##graffiti_rescan"))
             RefreshLibrary();
         ImGui.SameLine(0, 12);
         ImGui.AlignTextToFramePadding();
-        ImGui.TextDisabled($"{_libraryNames.Length} decal(s) in library");
+        ImGui.TextDisabled($"{_libraryNames.Length} decal(s)");
 
         if (_libraryNames.Length == 0)
         {
             ImGui.Spacing();
-            ImGui.TextDisabled("No decals yet — import a PNG, or drop .png files into:");
-            ImGui.TextDisabled(DecalLibrary.DecalsDir);
+            ImGui.TextDisabled("No decals yet — import a PNG, or drop .png files into the shared library:");
+            ImGui.TextDisabled(PngLibrary.PngsDir);
         }
 
         ImGui.Spacing();

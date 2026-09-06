@@ -1,6 +1,6 @@
 # KSA Abstractions Library
 
-A foundational shared library providing common abstractions and utilities used across multiple KSA mods. This library contains no UI or mod-specific logic—it's purely headless functionality focused on reflection, part/vehicle access patterns, and simulation time utilities.
+A foundational shared library providing common abstractions and utilities used across multiple KSA mods. It contains game-access helpers plus small cross-mod UI and data utilities.
 
 ## Overview
 
@@ -9,6 +9,7 @@ A foundational shared library providing common abstractions and utilities used a
 - **Reflection-Based Field Access**: Safe access to private/internal KSA fields
 - **Vehicle Lookup**: Game state queries for vehicles and controlled vehicle
 - **Simulation Time**: Wrapper around KSA's universe time
+- **Shared PNG Catalog**: One `.unscience/pngs` directory and reusable ImGui filesystem importer
 
 ## Key Classes & Methods
 
@@ -64,6 +65,13 @@ Keeps per-frame mod work alive while the game HUD is hidden (**F2** / `InputActi
 - `HiddenUiFrameHook.IsUiHidden` — `!Program.DrawUI`
 
 ImGui *is* valid inside the callbacks, but hosts should keep window rendering out of them so mod windows honour the hidden HUD.
+
+### PngLibrary and PngFileBrowser
+
+`PngLibrary` owns the shared `KsaPaths.ModDataDir/pngs` catalog used by Graffiti and Free Fallin.
+`Import(path, out error)` always copies into the catalog and auto-uniquifies collisions; `Scan()`
+and `FullPath(name)` provide the common dropdown/file contract. `PngFileBrowser` is the reusable
+ImGui picker and performs that import before returning the catalog file name to its consumer.
 
 ```csharp
 // Mod.cs

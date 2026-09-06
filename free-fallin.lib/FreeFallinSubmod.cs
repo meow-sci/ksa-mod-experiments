@@ -10,7 +10,7 @@ public sealed class FreeFallinSubmod : ISubmod
     public string Name => "Free Fallin - Parachute Customizer";
     public string Tooltip => "Customize the texture, tint, roughness, metallicness, and AO of every parachute canopy.";
 
-    private readonly PngFileBrowser _browser = new();
+    private readonly PngFileBrowser _browser = new("free_fallin", "Import Parachute PNG");
     private string[] _textures = Array.Empty<string>();
     private int _selectedTexture = -1;
     private int _textureMode;
@@ -27,7 +27,7 @@ public sealed class FreeFallinSubmod : ISubmod
 
     public void Initialize()
     {
-        ParachuteTextureLibrary.EnsureDir();
+        PngLibrary.EnsureDir();
         Rescan();
     }
 
@@ -84,9 +84,9 @@ public sealed class FreeFallinSubmod : ISubmod
 
         if (ImGui.Button(" Import PNG... ##ff_browse")) _browser.Open();
         ImGui.SameLine(0f, 8f);
-        if (ImGui.Button(" Rescan ##ff_rescan")) Rescan();
+        if (ImGui.Button(" Rescan PNGs ##ff_rescan")) Rescan();
         ImGui.SameLine(0f, 10f);
-        ImGui.TextDisabled(_textures.Length == 1 ? "1 imported PNG" : $"{_textures.Length} imported PNGs");
+        ImGui.TextDisabled(_textures.Length == 1 ? "1 shared PNG" : $"{_textures.Length} shared PNGs");
 
         if (BeginForm("##ff_color"))
         {
@@ -192,20 +192,18 @@ public sealed class FreeFallinSubmod : ISubmod
         }
     }
 
-    private void Import(string path)
+    private void Import(string imported)
     {
-        string? imported = ParachuteTextureLibrary.Import(path, out string? error);
-        if (imported == null) throw new InvalidOperationException(error ?? "Import failed.");
         Rescan();
         _selectedTexture = Array.FindIndex(_textures, name => string.Equals(name, imported, StringComparison.OrdinalIgnoreCase));
-        _message = $"Imported {imported}.";
+        _message = $"Imported {imported} into the shared PNG library.";
         _messageIsError = false;
     }
 
     private void Rescan()
     {
         string? selected = _selectedTexture >= 0 && _selectedTexture < _textures.Length ? _textures[_selectedTexture] : null;
-        _textures = ParachuteTextureLibrary.Scan();
+        _textures = PngLibrary.Scan();
         _selectedTexture = selected == null ? (_textures.Length > 0 ? 0 : -1) : Array.FindIndex(_textures,
             name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase));
         if (_selectedTexture < 0 && _textures.Length > 0) _selectedTexture = 0;

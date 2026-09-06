@@ -27,8 +27,9 @@ standalone F11 mod and as the **Free Fallin - Parachute Customizer** section in 
 1. Press F11 (standalone) or expand Free Fallin in unscience.
 2. Choose Stock, Replace, Full canopy, or Center decal. Use **Replace** for a repeating panel pattern;
    use **Full canopy** for one image spanning the deployed parachute.
-3. For PNG modes, select **Import PNG...** and pick a file. Imports are copied to
-   `My Games/Kitten Space Agency/.unscience/parachutes/` and can also be dropped there manually.
+3. For PNG modes, select **Import PNG...** and pick a file. Imports are copied to the shared
+   `My Games/Kitten Space Agency/.unscience/pngs/` catalog used by Graffiti and can also be dropped
+   there manually. Use **Rescan PNGs** after adding or changing files by hand.
 4. Tune tint and PBR values, then press **Apply to All Parachutes**.
 5. Deploy a parachute to preview the result. Press **Restore Stock** to undo it.
 
@@ -37,7 +38,7 @@ The setting is session-only; imported PNG files remain in the library for later 
 ## Projects
 
 - `free-fallin/` — StarMap host, F11 window, Harmony and HotkeyGuard lifecycle.
-- `free-fallin.lib/` — reusable `ISubmod`, PNG browser/library, CPU decal compositor, runtime
+- `free-fallin.lib/` — reusable `ISubmod`, shared PNG-browser consumer, CPU decal compositor, runtime
   material builder, canopy projection shader patch, and canopy draw patch.
 
 ## Compatibility

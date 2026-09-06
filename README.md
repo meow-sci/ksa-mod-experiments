@@ -10,7 +10,8 @@ one of KSA's stock secondary viewports, then tune its part-local pose, FOV, and 
 The parachute experiments include `free-fallin`: globally tint the stock canopy, tile a PNG through
 its panel UVs or project one cohesive image across the full canopy, composite a centered decal, and
 tune its PBR response. `graffiti` can also raycast deployed canopy cloth and attach projected decals
-that follow its inflation and motion.
+that follow its inflation and motion. Graffiti and Free Fallin share one imported-image catalog at
+`.unscience/pngs` and the same ImGui filesystem browser.
 
 `pebbles` adds per-planet ground clutter replacement with built-in meshes or imported GLBs,
 uniform scaling, and a textured collider editor. Its apply/restore controls live in the existing

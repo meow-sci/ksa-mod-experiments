@@ -45,10 +45,11 @@ The material is built through KSA's public GPU systems:
   R/G/B = AO/roughness/metallic channels through `RoughnessMetalScale`, or upload a 1×1 uniform PBR
   texture for direct 0–1 values.
 
-Settings are session-only. Imported files persist under `.unscience/parachutes`. Generated KSA
-assets are intentionally retained until renderer shutdown so frames in flight never reference a
-freed material or bindless handle. Restore/unload rewrites every weakly tracked renderable to the
-stock material handle.
+Settings are session-only. Imported files persist in the shared `.unscience/pngs` catalog owned by
+`ksa-abstractions.lib/PngLibrary.cs` and also consumed by graffiti. Generated KSA assets are
+intentionally retained until renderer shutdown so frames in flight never reference a freed material
+or bindless handle. Restore/unload rewrites every weakly tracked renderable to the stock material
+handle.
 
 ## Touchpoints
 

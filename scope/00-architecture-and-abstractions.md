@@ -345,7 +345,13 @@ Update-risk findings (4680→4750):
 
 | # | Kind | Mod code | Game target | In NEW? | Δ vs OLD | Risk/notes |
 |---|---|---|---|---|---|---|
-| 1 | OS path | `KsaPaths.cs:9` | **none** — `MyDocuments\My Games\Kitten Space Agency` | n/a | n/a | No game API. Breaks only if the game changes its user-data folder name. |
+| 1 | OS path | `KsaPaths.cs:9,15` | **none** — `MyDocuments\My Games\Kitten Space Agency` plus shared `.unscience` mod-data root | n/a | n/a | No game API. Breaks only if the game changes its user-data folder name. |
+
+`KsaPaths.ModDataDir` centralizes the suite's `.unscience` custom-data root. `PngLibrary` owns the
+shared `ModDataDir/pngs` catalog, and `PngFileBrowser` provides the common ImGui import UI used by
+graffiti and free-fallin. Imports always copy and auto-uniquify; scanning is startup/on-demand only,
+with no filesystem watcher or polling thread. This is mod-authored data/UI, not a KSA integration
+surface.
 
 Update-risk findings (4680→4750): **No breaking deltas detected.**
 

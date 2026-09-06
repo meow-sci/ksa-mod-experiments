@@ -2,6 +2,7 @@ using System;
 using Brutal.Numerics;
 using Brutal.ImGuiApi;
 using KSA;
+using MeowSci.KsaAbstractions;
 
 namespace MeowSci.GraffitiLib;
 
@@ -12,7 +13,7 @@ namespace MeowSci.GraffitiLib;
 /// </summary>
 public sealed partial class GraffitiSubmod
 {
-    private readonly FileBrowser _fileBrowser = new();
+    private readonly PngFileBrowser _fileBrowser = new("graffiti", "Import Graffiti PNG");
 
     private bool _armed;
     private string _armedDecalName = "";
@@ -87,20 +88,12 @@ public sealed partial class GraffitiSubmod
         dl.AddText(pos, ImColor8.White, hint);
     }
 
-    /// <summary>File-browser pick: copy into the library, rescan, and select the import.</summary>
-    private void OnImportPicked(string fullPath)
+    /// <summary>Shared file-browser import: refresh the catalog and select the copied PNG.</summary>
+    private void OnImportPicked(string name)
     {
-        var name = DecalLibrary.Import(fullPath, out var error);
-        if (name == null)
-        {
-            _placeStatus = error;
-            _placeStatusIsError = true;
-            return;
-        }
-
         RefreshLibrary();
         _selectedLibraryIndex = Array.IndexOf(_libraryNames, name);
-        _placeStatus = $"Imported '{name}'.";
+        _placeStatus = $"Imported '{name}' into the shared PNG library.";
         _placeStatusIsError = false;
     }
 }

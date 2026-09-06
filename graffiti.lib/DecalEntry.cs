@@ -40,7 +40,7 @@ public sealed class DecalEntry
 
     public int Id { get; } = _nextId++;
 
-    /// <summary>The decal library file name (e.g. <c>cat.png</c>) this decal draws.</summary>
+    /// <summary>The shared PNG-library file name this decal draws.</summary>
     public string ImageName = "";
 
     /// <summary>Which frame <see cref="Position"/>/<see cref="Normal"/> are expressed in.</summary>
